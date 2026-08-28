@@ -131,7 +131,9 @@ jobs:
       - name: Restaurar estado remoto
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python estado_remoto.py restaurar --obrigatorio
+        # A instalação nova não possui artefato na primeira rodada. A restauração
+        # sem obrigatoriedade inicializa um estado vazio e a etapa final o salva.
+        run: python estado_remoto.py restaurar
 
       - name: Procurar e postar ofertas
         if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true
