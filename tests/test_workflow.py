@@ -5,7 +5,9 @@ from pathlib import Path
 class WorkflowTest(unittest.TestCase):
     def test_estado_remoto_substitui_commits_do_banco(self):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
-        self.assertIn("python estado_remoto.py restaurar --obrigatorio", workflow)
+        # A primeira execução de uma instalação nova ainda não tem artefato.
+        self.assertIn("python estado_remoto.py restaurar", workflow)
+        self.assertNotIn("python estado_remoto.py restaurar --obrigatorio", workflow)
         self.assertIn("actions/upload-artifact@v7", workflow)
         self.assertIn("python estado_remoto.py preparar", workflow)
         self.assertIn("path: postadas.db.enc", workflow)
