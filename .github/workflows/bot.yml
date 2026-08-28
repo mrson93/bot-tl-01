@@ -1,0 +1,166 @@
+name: Bot de Ofertas
+
+on:
+  # O controlador Cloudflare dispara esta rotina no momento sorteado. Assim
+  # evitamos a grade fixa do GitHub (mínimo de 5 minutos) e execuções vazias.
+  workflow_dispatch:
+    inputs:
+      executar_bot:
+        description: "Executar o bot agora"
+        required: false
+        default: false
+        type: boolean
+      somente_relatorio:
+        description: "Enviar agora apenas o relatorio privado"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:                  # evita duas rodadas ao mesmo tempo
+  group: bot-ofertas
+  cancel-in-progress: false
+
+jobs:
+  postar:
+    # Apenas o painel e o controlador Cloudflare podem iniciar uma rodada.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.executar_bot == true || inputs.somente_relatorio == true)
+    runs-on: ubuntu-latest
+    # Até três posts com intervalo de três minutos precisam de margem além da busca.
+    timeout-minutes: 15
+    env:
+      TZ: America/Sao_Paulo
+      BOT_MODE: ${{ vars.BOT_MODE || 'economico' }}
+      BOT_STATE_KEY: ${{ secrets.BOT_STATE_KEY }}
+      # --- segredos (configurados em Settings > Secrets > Actions) ---
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+      ALIEXPRESS_APP_KEY: ${{ secrets.ALIEXPRESS_APP_KEY }}
+      ALIEXPRESS_APP_SECRET: ${{ secrets.ALIEXPRESS_APP_SECRET }}
+      SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
+      SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
+      BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+      AMAZON_CREDENTIAL_ID: ${{ secrets.AMAZON_CREDENTIAL_ID }}
+      AMAZON_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREDENTIAL_SECRET }}
+      # --- configuracoes normais (pode editar aqui mesmo) ---
+      TELEGRAM_CHANNEL: "@CanalTaBarato"
+      BLUESKY_HANDLE: "canaltabarato.bsky.social"
+      ALIEXPRESS_TRACKING_ID: default
+      # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
+      # pra saber qual canal vende mais. Vazio = usa o "default" acima.
+      TELEGRAM_TRACKING_ID: "telegram"
+      BLUESKY_TRACKING_ID: "bsky"
+      AMAZON_ASSOCIATE_TAG: "canaltabarato-20"
+      AMAZON_MARKETPLACE: "www.amazon.com.br"
+      AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
+      PESO_AMAZON: ${{ vars.PESO_AMAZON || '1' }}
+      AMAZON_PAGES: ${{ vars.AMAZON_PAGES || '3' }}
+      # 6 paginas por loja: com 3 o AliExpress chegava a ZERO ofertas ineditas
+      # e o bot caia na repescagem. Nao suba muito: a busca ja leva ~28s e o
+      # Actions cobra por minuto comecado.
+      ALIEXPRESS_ATIVA: ${{ vars.ALIEXPRESS_ATIVA || 'true' }}
+      PESO_ALIEXPRESS: ${{ vars.PESO_ALIEXPRESS || '1' }}
+      ALIEXPRESS_PAGES: ${{ vars.ALIEXPRESS_PAGES || '6' }}
+      # a Shopee busca DUAS listas (padrao + mais vendidos), entao 3 paginas de
+      # cada da o mesmo numero de chamadas que 6 de uma so
+      SHOPEE_ATIVA: ${{ vars.SHOPEE_ATIVA || 'true' }}
+      PESO_SHOPEE: ${{ vars.PESO_SHOPEE || '1' }}
+      SHOPEE_PAGES: ${{ vars.SHOPEE_PAGES || '3' }}
+      SHOPEE_LIST_TYPES: "0,2"
+      # dias que uma oferta fica de molho antes de poder repetir
+      DIAS_ANTES_DE_REPETIR: ${{ vars.DIAS_ANTES_DE_REPETIR || '7' }}
+      QUEDA_PRECO_REPOST_PERCENT: ${{ vars.QUEDA_PRECO_REPOST_PERCENT || '15' }}
+      # peso da comissao na escolha da oferta. 0 = so desconto (como era antes);
+      # 1 = comissao de 40% multiplica a nota da oferta por 1.4.
+      PESO_COMISSAO: ${{ vars.PESO_COMISSAO || '1' }}
+      DESEMPENHO_MAX_DIAS: ${{ vars.DESEMPENHO_MAX_DIAS || '14' }}
+      DIVERSIDADE_JANELA_POSTS: ${{ vars.DIVERSIDADE_JANELA_POSTS || '3' }}
+      SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.55' }}
+      AB_TEST_ATIVO: ${{ vars.AB_TEST_ATIVO || 'true' }}
+      AB_TEST_NOME: "chamada_humana_v1"
+      ALIEXPRESS_FETCH_LIMIT: "50"
+      MIN_DISCOUNT: ${{ vars.MIN_DISCOUNT || '15' }}
+      MIN_RATING: ${{ vars.MIN_RATING || '4' }}
+      MIN_SALES: ${{ vars.MIN_SALES || '100' }}
+      MIN_PRICE: ${{ vars.MIN_PRICE || '15' }}
+      # ganho minimo de comissao por venda: descarta a promocao de 80% num
+      # produto de R$ 18, que rende R$ 2 e ocupa o mesmo espaco no canal
+      MIN_GANHO: ${{ vars.MIN_GANHO || '3' }}
+      # horas de maior compra no Brasil; cada faixa tem seu próprio intervalo
+      HORAS_PICO: ${{ vars.HORAS_PICO || '12,13,18,19,20,21,22' }}
+      # Em repositório privado, uma única oferta por execução evita multiplicar
+      # minutos faturáveis. Em repositório público, vale o painel do Telegram.
+      MAX_POSTS_PER_RUN: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN || '1' }}
+      MAX_POSTS_PER_RUN_FORA_PICO: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN_FORA_PICO || '1' }}
+      INTERVALO_ENTRE_POSTS_MINUTOS: ${{ vars.INTERVALO_ENTRE_POSTS_MINUTOS || '3' }}
+      # As lojas são buscadas em paralelo e as ofertas entram numa fila única.
+      # Qualidade, comissão e conversão histórica decidem qual será publicada.
+      # Na nuvem, a grade selecionada pelo Telegram e a unica trava de ritmo.
+      # Isso evita reservar uma execucao que depois seria bloqueada internamente.
+      MIN_MINUTOS_ENTRE_POSTS: "0"
+      MAX_MINUTOS_ENTRE_POSTS: "0"
+      MIN_MINUTOS_FORA_PICO: "0"
+      MAX_MINUTOS_FORA_PICO: "0"
+      HTTP_MAX_TENTATIVAS: "3"
+      RELATORIO_HORA: ${{ vars.RELATORIO_HORA || '11' }}
+      RELATORIO_MINUTO: ${{ vars.RELATORIO_MINUTO || '30' }}
+      RELATORIO_ALERTA_MIN_POSTS: ${{ vars.RELATORIO_ALERTA_MIN_POSTS || '10' }}
+      FALHAS_CONSECUTIVAS_ALERTA: ${{ vars.FALHAS_CONSECUTIVAS_ALERTA || '3' }}
+      RELATORIO_AUTOMATICO_NA_EXECUCAO: "false"
+      # janela que atravessa a meia-noite: 06:00 ate 00:59 do dia seguinte.
+      # Entre 01:00 e 05:59 o bot nao posta -- mas quem economiza minutos do
+      # Actions e o proprio cron-job.org nao chamar nessas horas.
+      HORA_INICIO: ${{ vars.HORA_INICIO || '6' }}
+      HORA_FIM: ${{ vars.HORA_FIM || '0' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip          # economiza segundos e ajuda a caber em 1 minuto
+
+      - run: pip install -r requirements.txt
+
+      - name: Restaurar estado remoto
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python estado_remoto.py restaurar --obrigatorio
+
+      - name: Procurar e postar ofertas
+        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true
+        run: python main.py --once
+
+      - name: Enviar somente o relatorio privado
+        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio == true
+        run: python main.py --relatorio
+
+      - name: Verificar alteração do estado
+        if: always()
+        id: estado
+        run: python estado_remoto.py alterado
+
+      - name: Salvar estado remoto
+        if: always() && steps.estado.outputs.changed == 'true'
+        id: proteger_estado
+        run: python estado_remoto.py preparar
+
+      - name: Enviar estado remoto protegido
+        if: always() && steps.proteger_estado.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bot-state
+          path: postadas.db.enc
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+
+      - name: Alertar falha da execução
+        if: failure()
+        run: python monitor.py --workflow-failure

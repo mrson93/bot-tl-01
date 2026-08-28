@@ -1,0 +1,30 @@
+name: Monitor do Bot
+
+on:
+  schedule:
+    # Economia temporaria: uma verificacao diaria, as 10:40 em Brasilia.
+    - cron: "40 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  monitorar:
+    # Quando o administrador pausa o bot, o monitor tambem para sem reservar runner.
+    if: github.event_name == 'workflow_dispatch' || vars.BOT_MODE != 'pausado'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python monitor.py

@@ -1,0 +1,24 @@
+# Segredos - NUNCA versionar
+.env
+
+# Banco de ofertas ja postadas
+*.db
+postadas.db
+postadas.db.enc
+
+# Python
+__pycache__/
+.worktrees/
+.private-backups/
+.claude/
+*.pyc
+.venv/
+venv/
+
+# Configuração local do redirecionador (IDs e rotas da conta Cloudflare)
+redirector/wrangler.toml
+
+# Configuração e segredos locais do painel privado do Telegram
+telegram-control/wrangler.toml
+telegram-control/.dev.vars
+telegram-control/node_modules/

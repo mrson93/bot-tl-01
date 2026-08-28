@@ -1,0 +1,16 @@
+name = "deal-signal-links"
+main = "src/index.js"
+compatibility_date = "2026-08-21"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "deal-signal-links"
+database_id = "PREENCHA_O_ID_DO_D1"
+
+[vars]
+PUBLIC_BASE_URL = "https://oferta.seudominio.com.br"
+ALLOWED_DESTINATION_HOSTS = "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br"
+
+[[routes]]
+pattern = "oferta.seudominio.com.br"
+custom_domain = true

@@ -1,0 +1,62 @@
+import os
+import unittest
+from datetime import datetime, timezone
+from unittest.mock import Mock, patch
+
+import monitor
+
+
+class MonitorTest(unittest.TestCase):
+    def test_rejeita_repositorio_invalido(self):
+        with patch.dict("os.environ", {
+            "GITHUB_REPOSITORY": "dono/repositorio/outro",
+            "GH_TOKEN": "token",
+        }, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "invalido"):
+                monitor.verificar_execucoes()
+
+    def test_alerta_quando_execucao_fica_atrasada(self):
+        resposta = Mock()
+        resposta.json.return_value = {"workflow_runs": [{
+            "created_at": "2026-08-22T10:00:00Z",
+            "status": "completed", "conclusion": "success",
+        }]}
+        resposta.raise_for_status.return_value = None
+        sessao = Mock(get=Mock(return_value=resposta))
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "dono/repo",
+                                     "GH_TOKEN": "segredo"}):
+            alerta = monitor.verificar_execucoes(
+                datetime(2026, 8, 22, 10, 30, tzinfo=timezone.utc), sessao, 20
+            )
+        self.assertIn("30 minutos", alerta)
+        self.assertNotIn("segredo", alerta)
+
+    def test_execucao_recente_e_bem_sucedida_nao_alerta(self):
+        resposta = Mock()
+        resposta.json.return_value = {"workflow_runs": [{
+            "created_at": "2026-08-22T10:15:00Z",
+            "status": "completed", "conclusion": "success",
+        }]}
+        resposta.raise_for_status.return_value = None
+        sessao = Mock(get=Mock(return_value=resposta))
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "dono/repo",
+                                     "GH_TOKEN": "segredo"}):
+            self.assertEqual("", monitor.verificar_execucoes(
+                datetime(2026, 8, 22, 10, 20, tzinfo=timezone.utc), sessao, 20
+            ))
+
+    def test_ignora_chamada_antiga_do_cron_marcada_como_skipped(self):
+        resposta = Mock()
+        resposta.json.return_value = {"workflow_runs": [
+            {"created_at": "2026-08-22T10:19:00Z", "status": "completed",
+             "conclusion": "skipped"},
+            {"created_at": "2026-08-22T10:15:00Z", "status": "completed",
+             "conclusion": "success"},
+        ]}
+        resposta.raise_for_status.return_value = None
+        sessao = Mock(get=Mock(return_value=resposta))
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "dono/repo",
+                                     "GH_TOKEN": "segredo"}):
+            self.assertEqual("", monitor.verificar_execucoes(
+                datetime(2026, 8, 22, 10, 20, tzinfo=timezone.utc), sessao, 20
+            ))

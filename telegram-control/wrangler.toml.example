@@ -1,0 +1,22 @@
+name = "deal-signal-control"
+main = "src/index.js"
+compatibility_date = "2026-08-24"
+workers_dev = true
+preview_urls = false
+
+[triggers]
+# O controlador verifica o relógio a cada minuto, mas só inicia uma Action no
+# momento sorteado para a próxima rodada. O relatório continua sendo enviado
+# no horário configurado no painel.
+crons = ["* * * * *"]
+
+[vars]
+GITHUB_OWNER = "SEU_USUARIO_GITHUB"
+GITHUB_REPO = "SEU_REPOSITORIO"
+GITHUB_DEFAULT_BRANCH = "main"
+
+# Configure exclusivamente com `wrangler secret put`:
+# TELEGRAM_BOT_TOKEN
+# TELEGRAM_ADMIN_ID
+# TELEGRAM_WEBHOOK_SECRET
+# GITHUB_TOKEN
