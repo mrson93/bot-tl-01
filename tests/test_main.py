@@ -275,6 +275,33 @@ class MainTest(unittest.TestCase):
 
         esperar.assert_called_once_with(180)
 
+    def test_rodada_prioriza_categoria_diferente_apos_primeira_oferta(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        fila = [
+            {"_fonte_obj": fonte, "oferta_id": "kit-a",
+             "productName": "Kit organizador de maquiagem 10 peças",
+             "categoria": "casa"},
+            {"_fonte_obj": fonte, "oferta_id": "kit-b",
+             "productName": "Kit organizador para maquiagem 8 peças",
+             "categoria": "casa"},
+            {"_fonte_obj": fonte, "oferta_id": "garrafa",
+             "productName": "Garrafa térmica inox 1 litro",
+             "categoria": "casa"},
+            {"_fonte_obj": fonte, "oferta_id": "fone",
+             "productName": "Fone Bluetooth sem fio",
+             "categoria": "eletronicos"},
+        ]
+        with patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main.config, "DELAY_BETWEEN_POSTS_SECONDS", 0), \
+             patch.object(main.time, "sleep"):
+            self.assertEqual(2, main._publicar_fila(fila, 2))
+
+        self.assertEqual(
+            ["kit-a", "fone"],
+            [call.args[1]["oferta_id"] for call in publicar.call_args_list],
+        )
+
     def test_limite_de_posts_fora_do_pico_pode_ser_menor(self):
         with patch.object(main.config, "HORAS_PICO", [12, 13]), \
              patch.object(main.config, "MAX_POSTS_PER_RUN", 2), \

@@ -370,12 +370,33 @@ def _ordenar_candidatos(candidatos):
     return sorted(candidatos, key=chave, reverse=True)
 
 
+def _oferta_diversa_da_rodada(oferta, selecionadas):
+    """Evita repetir o mesmo tipo de produto na mesma rodada quando há opção."""
+    categoria = str(oferta.get("categoria") or "outros")
+    for selecionada in selecionadas:
+        if desempenho.produtos_semelhantes(
+            oferta, selecionada.get("productName"), config.SIMILARIDADE_MAXIMA
+        ):
+            return False
+        # Categoria conhecida é uma proteção extra para títulos de kit muito
+        # genéricos, que podem não compartilhar palavras suficientes.
+        if categoria != "outros" and categoria == selecionada.get("categoria"):
+            return False
+    return True
+
+
 def _publicar_fila(fila, limite):
-    """Publica a fila global já comparada e devolve a quantidade aceita."""
+    """Publica a fila global, priorizando variedade dentro da própria rodada."""
     postadas = 0
-    for oferta in fila:
-        if postadas >= limite:
-            break
+    pendentes = list(fila)
+    selecionadas = []
+    while pendentes and postadas < limite:
+        indice = next(
+            (i for i, oferta in enumerate(pendentes)
+             if _oferta_diversa_da_rodada(oferta, selecionadas)),
+            0,
+        )
+        oferta = pendentes.pop(indice)
         fonte = oferta["_fonte_obj"]
         oid = oferta["oferta_id"]
 
@@ -387,6 +408,7 @@ def _publicar_fila(fila, limite):
             experimento=oferta.get("experimento"), variante=oferta.get("variante")
         )
         postadas += 1
+        selecionadas.append(oferta)
         nome = (oferta.get("productName") or "")[:50]
         print(f"   ✅ Postado ({fonte.NOME}): {nome}...")
 
