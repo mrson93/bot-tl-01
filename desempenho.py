@@ -63,7 +63,7 @@ _REGRAS = (
      "Pra deixar cada espaço um pouco mais útil 🏠",
      "Uma ajuda simples para uma casa mais funcional 🏠",
     ),
-     ("organizador", "prateleira", "luminaria", "lampada", "cortina",
+     ("organizador", "prateleira", "luminaria", "lampada", "lustre", "cortina",
       "tapete", "almofada", "aspirador", "limpeza", "cama", "banho")),
     ("eletronicos", (
      "Tecnologia útil sem precisar pagar caro ⚡",
@@ -166,6 +166,15 @@ _REGRAS = (
       "bolsa", "sandalia", "sapato", "moda")),
 )
 
+# Termos que aparecem em títulos de outra categoria e não podem, sozinhos,
+# gerar uma chamada humana errada. Ex.: "lustre para cozinha" é decoração,
+# não utensílio; "Casa Limpa Coala" é limpeza, não cosmético.
+_EXCLUSOES = {
+    "cozinha": ("lustre", "luminaria", "lampada", "plafon", "pendente led"),
+    "beleza": ("casa limpa", "produto de limpeza", "limpador", "detergente",
+               "amaciante", "desinfetante"),
+}
+
 
 def _normalizar(texto) -> str:
     base = unicodedata.normalize("NFKD", str(texto or ""))
@@ -180,17 +189,42 @@ def _contem_termo(texto: str, termo: str) -> bool:
     return re.search(padrao, texto) is not None
 
 
-def categoria_produto(produto) -> str:
-    """Classifica por titulo; recebe um texto ou o dicionario da oferta."""
+def classificar_produto(produto) -> tuple:
+    """Devolve ``(categoria, confianca)`` sem forçar associação ambígua."""
     if isinstance(produto, dict):
-        texto = produto.get("categoria") or produto.get("productName")
+        categoria_pronta = str(produto.get("categoria") or "")
+        if categoria_pronta in {regra[0] for regra in _REGRAS}:
+            return categoria_pronta, 1.0
+        texto = produto.get("productName")
     else:
         texto = produto
     normalizado = _normalizar(texto)
+    candidatas = []
     for categoria, _, palavras in _REGRAS:
-        if any(_contem_termo(normalizado, palavra) for palavra in palavras):
-            return categoria
-    return "outros"
+        if any(_contem_termo(normalizado, termo)
+               for termo in _EXCLUSOES.get(categoria, ())):
+            continue
+        encontradas = [p for p in palavras if _contem_termo(normalizado, p)]
+        if encontradas:
+            # Expressões específicas e mais de um indício aumentam a certeza.
+            melhor = max(len(_normalizar(p).split()) for p in encontradas)
+            confianca = min(0.98, 0.62 + 0.12 * (len(encontradas) - 1)
+                            + 0.08 * (melhor - 1))
+            candidatas.append((confianca, len(encontradas), categoria))
+    if not candidatas:
+        return "outros", 0.0
+    candidatas.sort(reverse=True)
+    melhor = candidatas[0]
+    # Empate entre duas categorias é um sinal de ambiguidade: melhor ficar sem
+    # chamada humana do que inventar contexto.
+    if len(candidatas) > 1 and melhor[:2] == candidatas[1][:2]:
+        return "outros", 0.0
+    return melhor[2], melhor[0]
+
+
+def categoria_produto(produto) -> str:
+    """Classifica por título; recebe texto ou dicionário da oferta."""
+    return classificar_produto(produto)[0]
 
 
 def chamadas_categoria(categoria: str) -> tuple:
@@ -202,7 +236,9 @@ def chamadas_categoria(categoria: str) -> tuple:
 
 
 def chamada_humana(oferta: dict) -> str:
-    categoria = categoria_produto(oferta)
+    categoria, confianca = classificar_produto(oferta)
+    if confianca < 0.60:
+        return ""
     frases = chamadas_categoria(categoria)
     if not frases:
         return ""

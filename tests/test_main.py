@@ -327,6 +327,59 @@ class MainTest(unittest.TestCase):
             fila = main._ordenar_candidatos(candidatos)
         self.assertEqual("fone2", fila[0]["oferta_id"])
 
+    def test_bloqueia_mesmo_produto_com_outro_identificador(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        candidato = {"_fonte_obj": fonte, "_motivo": "inedita",
+                     "fonte": "Shopee", "oferta_id": "novo-id",
+                     "productName": "Liquidificador Mondial L-99 Turbo 550W",
+                     "price": 100, "priceDiscountRate": 40,
+                     "categoria": "cozinha"}
+        historico = [{"oferta_id": "id-antigo",
+                      "titulo": "Liquidificador Mondial L-99 Turbo 550W",
+                      "preco": 109.99}]
+        with patch.object(main.store, "ofertas_recentes", return_value=[]), \
+             patch.object(main.store, "ofertas_desde", return_value=historico), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "multiplicadores_desempenho", return_value={}):
+            self.assertEqual([], main._ordenar_candidatos([candidato]))
+
+    def test_queda_real_libera_produto_semelhante(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        candidato = {"_fonte_obj": fonte, "_motivo": "inedita",
+                     "fonte": "Shopee", "oferta_id": "novo-id",
+                     "productName": "Liquidificador Mondial L-99 Turbo 550W",
+                     "price": 84.99, "priceDiscountRate": 45,
+                     "categoria": "cozinha"}
+        historico = [{"oferta_id": "id-antigo",
+                      "titulo": "Liquidificador Mondial L-99 Turbo 550W",
+                      "preco": 100}]
+        with patch.object(main.store, "ofertas_recentes", return_value=[]), \
+             patch.object(main.store, "ofertas_desde", return_value=historico), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "multiplicadores_desempenho", return_value={}):
+            self.assertEqual("novo-id", main._ordenar_candidatos([candidato])[0]["oferta_id"])
+
+    def test_limite_diario_evitar_busca_desnecessaria(self):
+        with patch.object(main.store, "posts_hoje", return_value=50), \
+             patch.object(main.config, "MAX_POSTS_POR_DIA", 50), \
+             patch.object(main, "fontes_ativas") as fontes:
+            self.assertEqual(0, main.rodar_uma_vez())
+            fontes.assert_not_called()
+
+    def test_desconto_baixo_exige_prova_comercial_forte(self):
+        fraca = {"price": 50, "priceDiscountRate": 20, "ratingStar": 4.7,
+                 "sales": 200, "comissao": 0.1}
+        forte = dict(fraca, ratingStar=4.9, sales=5000)
+        with patch.object(main.config, "MIN_DISCOUNT", 15), \
+             patch.object(main.config, "DESCONTO_PREFERIDO", 30), \
+             patch.object(main.config, "VENDAS_EXCECAO_DESCONTO", 1000), \
+             patch.object(main.config, "MIN_RATING", 4), \
+             patch.object(main.config, "MIN_SALES", 50), \
+             patch.object(main.config, "MIN_PRICE", 10), \
+             patch.object(main.config, "MIN_GANHO", 3):
+            self.assertFalse(main.passa_no_filtro(fraca))
+            self.assertTrue(main.passa_no_filtro(forte))
+
 
 if __name__ == "__main__":
     unittest.main()

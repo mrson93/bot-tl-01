@@ -61,6 +61,23 @@ class FormatacaoTest(unittest.TestCase):
         titulo = "Conjunto completo de acessórios: Teclado, mouse e headset gamer"
         self.assertEqual(titulo, telegram.limpar_titulo(titulo))
 
+    def test_titulo_remove_etiqueta_promocional_e_respeita_limite(self):
+        titulo = "【Novo 2025】Ventilador portátil " + "muito potente " * 20
+        with patch.object(telegram.config, "TITULO_MAX_CARACTERES", 90):
+            limpo = telegram.limpar_titulo(titulo)
+        self.assertNotIn("Novo 2025", limpo)
+        self.assertLessEqual(len(limpo), 90)
+        self.assertTrue(limpo.endswith("…"))
+
+    def test_amazon_usa_mesmo_formato_e_moeda_brasileira(self):
+        oferta = {"fonte": "Amazon", "productName": "Pipoqueira elétrica",
+                  "price": 109.23, "precoOriginal": 190,
+                  "priceDiscountRate": 42, "variante": "B"}
+        legenda = telegram.montar_legenda(oferta, "https://amazon.test/x")
+        self.assertIn("R$ 109,23", legenda)
+        self.assertIn("COMPRAR NA AMAZON", legenda)
+        self.assertNotIn("OFERTA", legenda)
+
     def test_bluesky_tambem_nao_inventa_preco_original(self):
         texto, _ = bluesky.montar_texto({"fonte": "Shopee", "productName": "Produto",
             "price": 50, "priceDiscountRate": 50}, "https://x.test")

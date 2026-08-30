@@ -91,6 +91,8 @@ jobs:
       # ganho minimo de comissao por venda: descarta a promocao de 80% num
       # produto de R$ 18, que rende R$ 2 e ocupa o mesmo espaco no canal
       MIN_GANHO: ${{ vars.MIN_GANHO || '3' }}
+      DESCONTO_PREFERIDO: ${{ vars.DESCONTO_PREFERIDO || '30' }}
+      VENDAS_EXCECAO_DESCONTO: ${{ vars.VENDAS_EXCECAO_DESCONTO || '1000' }}
       # horas de maior compra no Brasil; cada faixa tem seu próprio intervalo
       HORAS_PICO: ${{ vars.HORAS_PICO || '12,13,18,19,20,21,22' }}
       # Em repositório privado, uma única oferta por execução evita multiplicar
@@ -98,6 +100,10 @@ jobs:
       MAX_POSTS_PER_RUN: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN || '1' }}
       MAX_POSTS_PER_RUN_FORA_PICO: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN_FORA_PICO || '1' }}
       INTERVALO_ENTRE_POSTS_MINUTOS: ${{ vars.INTERVALO_ENTRE_POSTS_MINUTOS || '3' }}
+      MAX_POSTS_POR_DIA: ${{ vars.MAX_POSTS_POR_DIA || '50' }}
+      MAX_POSTS_POR_LOJA_DIA: ${{ vars.MAX_POSTS_POR_LOJA_DIA || '3' }}
+      DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: ${{ vars.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE || '7' }}
+      TITULO_MAX_CARACTERES: ${{ vars.TITULO_MAX_CARACTERES || '90' }}
       # As lojas são buscadas em paralelo e as ofertas entram numa fila única.
       # Qualidade, comissão e conversão histórica decidem qual será publicada.
       # Na nuvem, a grade selecionada pelo Telegram e a unica trava de ritmo.

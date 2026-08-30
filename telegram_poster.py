@@ -1,5 +1,6 @@
 """Publica uma oferta, ja formatada, no seu canal do Telegram."""
 import html
+import re
 import time
 
 import requests
@@ -63,6 +64,14 @@ def limpar_titulo(titulo: str, limite: int = None) -> str:
     ("Ampoule 30ml pdrn rosa creme 30ml").
     """
     texto = " ".join((titulo or "Oferta").split())
+    # Remove etiquetas promocionais que não identificam o produto.
+    texto = re.sub(
+        r"^\s*(?:[\[\{【](?:novo\s*\d{0,4}|original|promo(?:cao|ção)?)[\]\}】]\s*)+",
+        "", texto, flags=re.IGNORECASE,
+    )
+    texto = re.sub(r"\b(super\s+promo(?:cao|ção)|promo(?:cao|ção))\b",
+                   "", texto, flags=re.IGNORECASE)
+    texto = " ".join(texto.split()).strip(" ,;:-–—|/")
 
     # Tira so repeticao COLADA ("Fone Fone Bluetooth"). Tirar toda palavra
     # repetida estraga o sentido: em "fio de solda ... rolo de fio de solda",
@@ -78,7 +87,9 @@ def limpar_titulo(titulo: str, limite: int = None) -> str:
     if texto and texto[0].islower():
         texto = texto[0].upper() + texto[1:]
 
-    # 4) so encurta se quem chamou exigir (o Bluesky tem limite de caracteres)
+    # 4) aplica o limite editorial comum aos dois canais.
+    if limite is None:
+        limite = config.TITULO_MAX_CARACTERES
     if limite and len(texto) > limite:
         texto = texto[:limite].rsplit(" ", 1)[0].rstrip(" ,-–|/") + "…"
     return texto or "Oferta"
@@ -99,7 +110,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     )
     link_html = html.escape(link_afiliado, quote=True)
     # A legenda de foto do Telegram tem limite menor que uma mensagem comum.
-    titulo = html.escape(limpar_titulo(oferta.get("productName", "Oferta"), 260))
+    titulo = html.escape(limpar_titulo(
+        oferta.get("productName", "Oferta"), config.TITULO_MAX_CARACTERES
+    ))
     fonte = str(oferta.get("fonte") or "loja")
     fonte_html = html.escape(fonte.upper())
     preco = oferta.get("price") or oferta.get("priceMin")

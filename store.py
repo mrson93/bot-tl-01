@@ -16,7 +16,8 @@ def _conn():
     existentes = {r[1] for r in con.execute("PRAGMA table_info(postadas)")}
     for nome, tipo in (("preco", "REAL"), ("desconto", "REAL"), ("fonte", "TEXT"),
                        ("titulo", "TEXT"), ("categoria", "TEXT"),
-                       ("experimento", "TEXT"), ("variante", "TEXT")):
+                       ("experimento", "TEXT"), ("variante", "TEXT"),
+                       ("loja", "TEXT")):
         if nome not in existentes:
             con.execute(f"ALTER TABLE postadas ADD COLUMN {nome} {tipo}")
     con.execute("CREATE TABLE IF NOT EXISTS entregas (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, preco REAL, fonte TEXT, tentativas INTEGER NOT NULL DEFAULT 1, erro TEXT, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
@@ -84,11 +85,12 @@ def avaliar_elegibilidade(oferta_id, preco, dias, queda_percent, agora=None):
 
 
 def marcar_postada(oferta_id, preco=None, desconto=None, fonte=None, agora=None,
-                   titulo=None, categoria=None, experimento=None, variante=None):
+                   titulo=None, categoria=None, experimento=None, variante=None,
+                   loja=None):
     with _conn() as con:
-        con.execute("INSERT INTO postadas(id,postada_em,preco,desconto,fonte,titulo,categoria,experimento,variante) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET postada_em=excluded.postada_em,preco=excluded.preco,desconto=excluded.desconto,fonte=excluded.fonte,titulo=COALESCE(excluded.titulo,postadas.titulo),categoria=COALESCE(excluded.categoria,postadas.categoria),experimento=COALESCE(excluded.experimento,postadas.experimento),variante=COALESCE(excluded.variante,postadas.variante)",
+        con.execute("INSERT INTO postadas(id,postada_em,preco,desconto,fonte,titulo,categoria,experimento,variante,loja) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET postada_em=excluded.postada_em,preco=excluded.preco,desconto=excluded.desconto,fonte=excluded.fonte,titulo=COALESCE(excluded.titulo,postadas.titulo),categoria=COALESCE(excluded.categoria,postadas.categoria),experimento=COALESCE(excluded.experimento,postadas.experimento),variante=COALESCE(excluded.variante,postadas.variante),loja=COALESCE(excluded.loja,postadas.loja)",
                     (str(oferta_id), int(agora or time.time()), preco, desconto,
-                     fonte, titulo, categoria, experimento, variante))
+                     fonte, titulo, categoria, experimento, variante, loja))
 
 
 def registrar_entrega(oferta_id, canal, sucesso, preco=None, fonte=None, erro=None, agora=None):
@@ -250,6 +252,38 @@ def ofertas_recentes(limite=3):
         ).fetchall()
     return [{"oferta_id": r[0], "fonte": r[1], "titulo": r[2],
              "categoria": r[3], "postada_em": r[4]} for r in linhas]
+
+
+def ofertas_desde(dias=7, agora=None):
+    """Histórico editorial para bloquear o mesmo produto com outro itemId."""
+    limite = int(agora or time.time()) - max(0, int(dias)) * 86400
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT id,fonte,titulo,categoria,postada_em,preco,loja "
+            "FROM postadas WHERE titulo IS NOT NULL AND postada_em>=? "
+            "ORDER BY postada_em DESC", (limite,)
+        ).fetchall()
+    campos = ("oferta_id", "fonte", "titulo", "categoria", "postada_em",
+              "preco", "loja")
+    return [dict(zip(campos, linha)) for linha in linhas]
+
+
+def posts_hoje(agora=None):
+    with _conn() as con:
+        return int(con.execute(
+            "SELECT COUNT(*) FROM postadas WHERE postada_em>=?",
+            (_inicio_do_dia(agora),),
+        ).fetchone()[0])
+
+
+def posts_por_loja_hoje(agora=None):
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT loja,COUNT(*) FROM postadas WHERE postada_em>=? "
+            "AND loja IS NOT NULL AND TRIM(loja)<>'' GROUP BY loja",
+            (_inicio_do_dia(agora),),
+        ).fetchall()
+    return {str(loja).casefold(): int(total) for loja, total in linhas}
 
 
 def falhas_consecutivas(canal, limite=20):

@@ -162,7 +162,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
                   " · ".join(itens_reputacao)]
         return "\n\n".join(bloco for bloco in blocos if bloco)
 
-    titulo = fmt.limpar_titulo(oferta.get("productName", "Oferta"), 260)
+    titulo = fmt.limpar_titulo(
+        oferta.get("productName", "Oferta"), config.TITULO_MAX_CARACTERES
+    )
     texto = montar(titulo)
     if len(texto) > 300 and humana:
         humana = ""

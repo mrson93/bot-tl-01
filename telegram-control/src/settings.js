@@ -66,6 +66,14 @@ export const SETTINGS = Object.freeze({
     category: "filtros", label: "Comissão mínima (R$)", type: "float", default: "3", min: 0, max: 1000,
     hint: "Estimativa mínima de comissão por venda.",
   },
+  DESCONTO_PREFERIDO: {
+    category: "filtros", label: "Desconto preferido (%)", type: "float", default: "30", min: 0, max: 90,
+    hint: "Abaixo deste valor, só entram produtos com forte prova comercial, comissão ou cupom.",
+  },
+  VENDAS_EXCECAO_DESCONTO: {
+    category: "filtros", label: "Vendas para exceção", type: "integer", default: "1000", min: 0, max: 1000000,
+    hint: "Vendas mínimas para aceitar um desconto abaixo do preferido, com nota alta.",
+  },
 
   HORA_INICIO: {
     category: "horarios", label: "Começar a publicar", type: "startHour", default: "6",
@@ -91,6 +99,10 @@ export const SETTINGS = Object.freeze({
     category: "horarios", label: "Intervalo entre posts (min)", type: "integer", default: "3", min: 1, max: 3,
     hint: "Só vale quando a rodada tiver mais de uma oferta. Três minutos deixam o canal mais natural.",
   },
+  MAX_POSTS_POR_DIA: {
+    category: "horarios", label: "Limite diário de ofertas", type: "integer", default: "50", min: 0, max: 150,
+    hint: "Zero desliga o limite. O recomendado é de 40 a 60 ofertas por dia.",
+  },
 
   DIAS_ANTES_DE_REPETIR: {
     category: "variedade", label: "Dias antes de repetir", type: "integer", default: "7", min: 1, max: 30,
@@ -107,6 +119,14 @@ export const SETTINGS = Object.freeze({
   SIMILARIDADE_MAXIMA: {
     category: "variedade", label: "Similaridade máxima", type: "float", default: "0.55", min: 0.2, max: 0.95,
     hint: "Quanto menor, mais rígida é a proteção contra produtos semelhantes.",
+  },
+  DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: {
+    category: "variedade", label: "Bloqueio de produto semelhante", type: "integer", default: "7", min: 1, max: 30,
+    hint: "Impede que o mesmo produto volte com outro anúncio, vendedor ou identificador.",
+  },
+  MAX_POSTS_POR_LOJA_DIA: {
+    category: "variedade", label: "Máximo por loja ao dia", type: "integer", default: "3", min: 0, max: 20,
+    hint: "Zero desliga o limite. Evita que um único vendedor domine o canal.",
   },
 
   RELATORIO_HORA: {
@@ -154,6 +174,10 @@ export const SETTINGS = Object.freeze({
   AB_TEST_ATIVO: {
     category: "selecao", label: "Teste A/B de chamada", type: "boolean", default: "true",
     hint: "Compara chamadas humanas com aberturas objetivas.",
+  },
+  TITULO_MAX_CARACTERES: {
+    category: "selecao", label: "Tamanho máximo do título", type: "integer", default: "90", min: 45, max: 140,
+    hint: "Remove excesso de palavras sem esconder preço, link ou reputação.",
   },
 });
 

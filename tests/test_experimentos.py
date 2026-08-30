@@ -19,3 +19,9 @@ class ExperimentosTest(unittest.TestCase):
             self.assertFalse(experimentos.usa_chamada_humana({"variante": "B"}))
             self.assertTrue(experimentos.usa_chamada_humana({"variante": "A"}))
 
+    def test_categoria_incerta_nao_entra_no_teste_ab(self):
+        oferta = {"oferta_id": "produto-123", "categoria": "outros"}
+        with patch.object(experimentos.config, "AB_TEST_ATIVO", True):
+            resultado = experimentos.aplicar(oferta)
+        self.assertEqual(resultado["variante"], "controle")
+        self.assertIsNone(resultado["experimento"])

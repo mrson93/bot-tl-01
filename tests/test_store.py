@@ -30,7 +30,7 @@ class StoreTest(unittest.TestCase):
         con = sqlite3.connect(self.db)
         colunas = {linha[1] for linha in con.execute("PRAGMA table_info(postadas)")}
         con.close()
-        self.assertTrue({"preco", "desconto", "fonte", "titulo", "categoria"}
+        self.assertTrue({"preco", "desconto", "fonte", "titulo", "categoria", "loja"}
                         .issubset(colunas))
 
     def test_queda_de_15_por_cento_libera_apenas_em_outro_dia(self):
@@ -118,6 +118,16 @@ class StoreTest(unittest.TestCase):
         self.assertEqual("Panela", store.metadados_ofertas(["a"])["a"]["titulo"])
         self.assertEqual([("b", "AliExpress", "Fone")],
                          store.ofertas_sem_conversao(90, {"a"}))
+
+    def test_conta_limites_editoriais_por_dia_e_loja(self):
+        agora = int(datetime.now().timestamp())
+        store.marcar_postada("a", 40, 30, "Shopee", agora=agora,
+                             titulo="Panela", loja="Loja Boa")
+        store.marcar_postada("b", 50, 40, "Shopee", agora=agora,
+                             titulo="Fone", loja="Loja Boa")
+        self.assertEqual(2, store.posts_hoje(agora))
+        self.assertEqual(2, store.posts_por_loja_hoje(agora)["loja boa"])
+        self.assertEqual(2, len(store.ofertas_desde(7, agora)))
 
     def test_series_diarias_e_experimentos_ficam_agregados(self):
         store.marcar_postada("a", 40, 30, "Shopee", agora=100,

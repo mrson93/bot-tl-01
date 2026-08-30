@@ -125,6 +125,19 @@ DESEMPENHO_MAX_DIAS = _int("DESEMPENHO_MAX_DIAS", 14)
 # Quantas publicações recentes entram na proteção de variedade.
 DIVERSIDADE_JANELA_POSTS = _int("DIVERSIDADE_JANELA_POSTS", 3)
 SIMILARIDADE_MAXIMA = _float("SIMILARIDADE_MAXIMA", 0.55)
+# Protecao adicional contra o mesmo produto reaparecer com outro itemId, URL
+# ou vendedor. A comparacao respeita a excecao de queda real de preco.
+DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(
+    "DIAS_BLOQUEIO_PRODUTO_SEMELHANTE", 7
+)
+# Limites editoriais. Zero desliga o respectivo limite.
+MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 50))
+MAX_POSTS_POR_LOJA_DIA = max(0, _int("MAX_POSTS_POR_LOJA_DIA", 3))
+# Abaixo deste desconto, a oferta so entra se tiver um sinal comercial forte.
+DESCONTO_PREFERIDO = _float("DESCONTO_PREFERIDO", 30)
+VENDAS_EXCECAO_DESCONTO = max(0, _int("VENDAS_EXCECAO_DESCONTO", 1000))
+# Titulos longos perdem legibilidade no Telegram e no Bluesky.
+TITULO_MAX_CARACTERES = max(45, min(140, _int("TITULO_MAX_CARACTERES", 90)))
 
 # Experimento simples e rastreável: A usa chamada humana; B começa objetiva.
 AB_TEST_ATIVO = _bool("AB_TEST_ATIVO", True)

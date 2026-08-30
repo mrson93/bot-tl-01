@@ -45,6 +45,18 @@ class DesempenhoTest(unittest.TestCase):
         self.assertEqual("outros", desempenho.categoria_produto(oferta))
         self.assertEqual("", desempenho.chamada_humana(oferta))
 
+    def test_lustre_para_cozinha_continua_sendo_item_de_casa(self):
+        oferta = {"productName": "Lustre LED para sala e cozinha no teto"}
+        self.assertEqual("casa", desempenho.categoria_produto(oferta))
+        self.assertIn(desempenho.chamada_humana(oferta),
+                      desempenho.chamadas_categoria("casa"))
+
+    def test_produto_casa_limpa_nao_recebe_chamada_de_beleza(self):
+        oferta = {"productName": "Kit Casa Limpa Coala perfumes para limpeza"}
+        self.assertNotEqual("beleza", desempenho.categoria_produto(oferta))
+        self.assertNotIn(desempenho.chamada_humana(oferta),
+                         desempenho.chamadas_categoria("beleza"))
+
     def test_faixas_comerciais(self):
         self.assertEqual("ate R$ 50", desempenho.faixa_preco(49.99))
         self.assertEqual("R$ 50 a R$ 150", desempenho.faixa_preco(50))

@@ -10,6 +10,7 @@ import random
 import sys
 import time
 import hashlib
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -216,10 +217,26 @@ def passa_no_filtro(oferta: dict) -> bool:
     vendas = oferta.get("sales")
     preco = float(oferta.get("price") or 0)
 
+    # Quando a loja informa preço cheio e preço atual, o cálculo verificável
+    # prevalece sobre um percentual promocional possivelmente inflado.
+    original = float(oferta.get("precoOriginal") or 0)
+    if original > preco > 0:
+        desconto_real = max(0.0, (1 - preco / original) * 100)
+        desconto = min(desconto, desconto_real) if desconto else desconto_real
+        oferta["priceDiscountRate"] = round(desconto, 2)
+
     if preco < config.MIN_PRICE:
         return False
     if desconto < config.MIN_DISCOUNT:
         return False
+    if desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom"):
+        vendas_fortes = (vendas is not None
+                          and int(vendas) >= config.VENDAS_EXCECAO_DESCONTO
+                          and (not rating or rating >= max(config.MIN_RATING, 4.8)))
+        ganho_forte = (config.MIN_GANHO > 0
+                       and ganho_por_venda(oferta) >= config.MIN_GANHO * 2)
+        if not (vendas_fortes or ganho_forte):
+            return False
     # so exige nota se o produto tiver nota (produtos novos podem nao ter)
     if rating and rating < config.MIN_RATING:
         return False
@@ -266,6 +283,15 @@ def pontuacao(oferta: dict) -> float:
     if multiplicador is None:
         multiplicador = store.multiplicador_desempenho(oferta)
     nota = base * float(multiplicador) * config.peso_loja(oferta.get("fonte"))
+    # Avaliação, prova social e ganho estimado deixam de ser meros dados
+    # decorativos e ajudam a escolher entre descontos parecidos.
+    rating = float(oferta.get("ratingStar") or 0)
+    vendas = max(0, int(oferta.get("sales") or 0))
+    if rating:
+        nota += max(0, rating - 4.0) * 8
+    if vendas:
+        nota += min(18, math.log10(vendas + 1) * 4)
+    nota += min(12, ganho_por_venda(oferta) / 4)
     # Cupons retornados oficialmente pelas plataformas são escassos e podem
     # acabar antes da próxima rodada; entram no topo sem ignorar filtros.
     if str(oferta.get("cupom") or "").strip():
@@ -335,7 +361,10 @@ def buscar_candidatos(fonte) -> list:
 def _ordenar_candidatos(candidatos):
     candidatos = list(candidatos)
     recentes = store.ofertas_recentes(config.DIVERSIDADE_JANELA_POSTS)
+    historico = store.ofertas_desde(config.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE)
+    lojas_hoje = store.posts_por_loja_hoje()
     multiplicadores = store.multiplicadores_desempenho(candidatos)
+    elegiveis = []
     for oferta in candidatos:
         chave_historico = (str(oferta.get("fonte") or ""),
                            str(oferta.get("oferta_id") or ""))
@@ -352,6 +381,31 @@ def _ordenar_candidatos(candidatos):
             0 if oferta["_semelhante_recente"] else
             1 if oferta.get("categoria") in categorias_recentes else 2
         )
+        loja = str(oferta.get("shopName") or "").strip().casefold()
+        if (config.MAX_POSTS_POR_LOJA_DIA and loja
+                and lojas_hoje.get(loja, 0) >= config.MAX_POSTS_POR_LOJA_DIA):
+            continue
+        bloqueada = False
+        for anterior in historico:
+            if str(anterior.get("oferta_id")) == str(oferta.get("oferta_id")):
+                continue
+            if not desempenho.produtos_semelhantes(
+                oferta, anterior.get("titulo"), config.SIMILARIDADE_MAXIMA
+            ):
+                continue
+            preco_anterior = float(anterior.get("preco") or 0)
+            preco_atual = float(oferta.get("price") or 0)
+            queda_suficiente = (
+                preco_anterior > 0 and preco_atual > 0
+                and preco_atual <= preco_anterior *
+                (1 - config.QUEDA_PRECO_REPOST_PERCENT / 100)
+            )
+            if not queda_suficiente:
+                bloqueada = True
+                break
+        if not bloqueada:
+            elegiveis.append(oferta)
+    candidatos = elegiveis
     prioridade = {"canal_pendente": 4, "queda_preco": 3,
                   "inedita": 2, "repescagem": 1}
 
@@ -361,11 +415,10 @@ def _ordenar_candidatos(candidatos):
             comercial = -store.quando_postada(oferta["oferta_id"])
         else:
             comercial = pontuacao(oferta)
-        # Desconto e o criterio principal: uma oferta menos descontada so entra
-        # quando nao houver outra elegivel com desconto maior. Comissao,
-        # desempenho e variedade continuam apenas como desempate comercial.
         desconto = float(oferta.get("priceDiscountRate") or 0)
-        return prioridade.get(motivo, 0), desconto, oferta.get("_diversidade", 2), comercial
+        cupom = bool(str(oferta.get("cupom") or "").strip())
+        return (prioridade.get(motivo, 0), cupom, comercial,
+                oferta.get("_diversidade", 2), desconto)
 
     return sorted(candidatos, key=chave, reverse=True)
 
@@ -390,12 +443,19 @@ def _publicar_fila(fila, limite):
     postadas = 0
     pendentes = list(fila)
     selecionadas = []
+    lojas_hoje = store.posts_por_loja_hoje()
     while pendentes and postadas < limite:
         indice = next(
             (i for i, oferta in enumerate(pendentes)
-             if _oferta_diversa_da_rodada(oferta, selecionadas)),
-            0,
+             if _oferta_diversa_da_rodada(oferta, selecionadas)
+             and (not config.MAX_POSTS_POR_LOJA_DIA
+                  or not str(oferta.get("shopName") or "").strip()
+                  or lojas_hoje.get(str(oferta.get("shopName") or "").strip().casefold(), 0)
+                  < config.MAX_POSTS_POR_LOJA_DIA)),
+            None,
         )
+        if indice is None:
+            break
         oferta = pendentes.pop(indice)
         fonte = oferta["_fonte_obj"]
         oid = oferta["oferta_id"]
@@ -405,10 +465,14 @@ def _publicar_fila(fila, limite):
         store.marcar_postada(
             oid, oferta.get("price"), oferta.get("priceDiscountRate"), fonte.NOME,
             titulo=oferta.get("productName"), categoria=oferta.get("categoria"),
-            experimento=oferta.get("experimento"), variante=oferta.get("variante")
+            experimento=oferta.get("experimento"), variante=oferta.get("variante"),
+            loja=oferta.get("shopName")
         )
         postadas += 1
         selecionadas.append(oferta)
+        loja = str(oferta.get("shopName") or "").strip().casefold()
+        if loja:
+            lojas_hoje[loja] = lojas_hoje.get(loja, 0) + 1
         nome = (oferta.get("productName") or "")[:50]
         print(f"   ✅ Postado ({fonte.NOME}): {nome}...")
 
@@ -425,6 +489,12 @@ def rodar_loja(fonte, limite: int) -> int:
 def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
     limite = config.limite_posts_por_rodada()
+    if config.MAX_POSTS_POR_DIA:
+        restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
+        if restantes <= 0:
+            print(f"🛑 Limite diário de {config.MAX_POSTS_POR_DIA} ofertas atingido.")
+            return 0
+        limite = min(limite, restantes)
     lojas = fontes_ativas()
     candidatos = []
     if lojas:
