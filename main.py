@@ -210,8 +210,8 @@ def enviar_resumo_cupons_se_preciso(agora=None) -> bool:
         return False
 
 
-def passa_no_filtro(oferta: dict) -> bool:
-    """Diz se a oferta e boa o bastante para postar, segundo os filtros do .env."""
+def motivo_rejeicao_filtro(oferta: dict):
+    """Retorna a primeira regra comercial que rejeitou a oferta."""
     desconto = float(oferta.get("priceDiscountRate") or 0)
     rating = float(oferta.get("ratingStar") or 0)
     vendas = oferta.get("sales")
@@ -226,9 +226,9 @@ def passa_no_filtro(oferta: dict) -> bool:
         oferta["priceDiscountRate"] = round(desconto, 2)
 
     if preco < config.MIN_PRICE:
-        return False
+        return "preco"
     if desconto < config.MIN_DISCOUNT:
-        return False
+        return "desconto"
     if desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom"):
         vendas_fortes = (vendas is not None
                           and int(vendas) >= config.VENDAS_EXCECAO_DESCONTO
@@ -236,18 +236,23 @@ def passa_no_filtro(oferta: dict) -> bool:
         ganho_forte = (config.MIN_GANHO > 0
                        and ganho_por_venda(oferta) >= config.MIN_GANHO * 2)
         if not (vendas_fortes or ganho_forte):
-            return False
+            return "desconto_preferido"
     # so exige nota se o produto tiver nota (produtos novos podem nao ter)
     if rating and rating < config.MIN_RATING:
-        return False
+        return "avaliacao"
     # loja que nao informa numero de vendas (ex: Amazon) fica fora desse filtro
     if vendas is not None and int(vendas) < config.MIN_SALES:
-        return False
+        return "vendas"
     # promocao de 80% num produto de R$ 18 rende R$ 2: ocupa o mesmo espaco no
     # canal que uma que rende R$ 40, entao exigimos um minimo por venda
     if config.MIN_GANHO and ganho_por_venda(oferta) < config.MIN_GANHO:
-        return False
-    return True
+        return "comissao"
+    return None
+
+
+def passa_no_filtro(oferta: dict) -> bool:
+    """Diz se a oferta e boa o bastante para postar, segundo os filtros do .env."""
+    return motivo_rejeicao_filtro(oferta) is None
 
 
 def ganho_por_venda(oferta: dict) -> float:
@@ -339,13 +344,23 @@ def buscar_candidatos(fonte) -> list:
 
     nomes_canais = [c.NOME for c in canais_ativos()]
     candidatos = []
+    rejeicoes = {
+        "sem_id": 0, "preco": 0, "desconto": 0,
+        "desconto_preferido": 0, "avaliacao": 0, "vendas": 0,
+        "comissao": 0, "repetida": 0,
+    }
     for oferta in ofertas:
         oferta["fonte"] = oferta.get("fonte") or fonte.NOME
         oferta["categoria"] = (oferta.get("categoria")
                                or desempenho.categoria_produto(oferta))
         oferta["_fonte_obj"] = fonte
         experimentos.aplicar(oferta)
-        if not oferta.get("oferta_id") or not passa_no_filtro(oferta):
+        if not oferta.get("oferta_id"):
+            rejeicoes["sem_id"] += 1
+            continue
+        motivo_filtro = motivo_rejeicao_filtro(oferta)
+        if motivo_filtro:
+            rejeicoes[motivo_filtro] += 1
             continue
         oid = oferta["oferta_id"]
         preco = float(oferta.get("price") or 0)
@@ -355,6 +370,12 @@ def buscar_candidatos(fonte) -> list:
         if motivo or store.ha_canal_pendente(oid, nomes_canais, preco):
             oferta["_motivo"] = motivo or "canal_pendente"
             candidatos.append(oferta)
+        else:
+            rejeicoes["repetida"] += 1
+    detalhes = ", ".join(
+        f"{nome}={total}" for nome, total in rejeicoes.items() if total
+    ) or "nenhuma rejeicao"
+    print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}.")
     return candidatos
 
 
@@ -365,6 +386,8 @@ def _ordenar_candidatos(candidatos):
     lojas_hoje = store.posts_por_loja_hoje()
     multiplicadores = store.multiplicadores_desempenho(candidatos)
     elegiveis = []
+    bloqueadas_loja = 0
+    bloqueadas_semelhanca = 0
     for oferta in candidatos:
         chave_historico = (str(oferta.get("fonte") or ""),
                            str(oferta.get("oferta_id") or ""))
@@ -384,6 +407,7 @@ def _ordenar_candidatos(candidatos):
         loja = str(oferta.get("shopName") or "").strip().casefold()
         if (config.MAX_POSTS_POR_LOJA_DIA and loja
                 and lojas_hoje.get(loja, 0) >= config.MAX_POSTS_POR_LOJA_DIA):
+            bloqueadas_loja += 1
             continue
         bloqueada = False
         for anterior in historico:
@@ -405,6 +429,13 @@ def _ordenar_candidatos(candidatos):
                 break
         if not bloqueada:
             elegiveis.append(oferta)
+        else:
+            bloqueadas_semelhanca += 1
+    print(
+        "   Diagnostico de variedade: "
+        f"entrada={len(candidatos)}, aptas={len(elegiveis)}, "
+        f"limite_loja={bloqueadas_loja}, semelhantes={bloqueadas_semelhanca}."
+    )
     candidatos = elegiveis
     prioridade = {"canal_pendente": 4, "queda_preco": 3,
                   "inedita": 2, "repescagem": 1}

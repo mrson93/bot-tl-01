@@ -380,6 +380,12 @@ class MainTest(unittest.TestCase):
             self.assertFalse(main.passa_no_filtro(fraca))
             self.assertTrue(main.passa_no_filtro(forte))
 
+    def test_diagnostico_identifica_regra_comercial_que_rejeitou(self):
+        oferta = {"price": 5, "priceDiscountRate": 80,
+                  "ratingStar": 5, "sales": 1000, "comissao": 1}
+        with patch.object(main.config, "MIN_PRICE", 10):
+            self.assertEqual("preco", main.motivo_rejeicao_filtro(oferta))
+
 
 if __name__ == "__main__":
     unittest.main()

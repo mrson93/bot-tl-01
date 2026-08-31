@@ -124,11 +124,11 @@ PESO_COMISSAO = _float("PESO_COMISSAO", 1.0)
 DESEMPENHO_MAX_DIAS = _int("DESEMPENHO_MAX_DIAS", 14)
 # Quantas publicações recentes entram na proteção de variedade.
 DIVERSIDADE_JANELA_POSTS = _int("DIVERSIDADE_JANELA_POSTS", 3)
-SIMILARIDADE_MAXIMA = _float("SIMILARIDADE_MAXIMA", 0.55)
+SIMILARIDADE_MAXIMA = _float("SIMILARIDADE_MAXIMA", 0.68)
 # Protecao adicional contra o mesmo produto reaparecer com outro itemId, URL
 # ou vendedor. A comparacao respeita a excecao de queda real de preco.
 DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(
-    "DIAS_BLOQUEIO_PRODUTO_SEMELHANTE", 7
+    "DIAS_BLOQUEIO_PRODUTO_SEMELHANTE", 3
 )
 # Limites editoriais. Zero desliga o respectivo limite.
 MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 50))

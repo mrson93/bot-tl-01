@@ -117,11 +117,11 @@ export const SETTINGS = Object.freeze({
     hint: "Quantidade de publicações recentes usada para evitar produtos parecidos.",
   },
   SIMILARIDADE_MAXIMA: {
-    category: "variedade", label: "Similaridade máxima", type: "float", default: "0.55", min: 0.2, max: 0.95,
+    category: "variedade", label: "Similaridade máxima", type: "float", default: "0.68", min: 0.2, max: 0.95,
     hint: "Quanto menor, mais rígida é a proteção contra produtos semelhantes.",
   },
   DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: {
-    category: "variedade", label: "Bloqueio de produto semelhante", type: "integer", default: "7", min: 1, max: 30,
+    category: "variedade", label: "Bloqueio de produto semelhante", type: "integer", default: "3", min: 1, max: 30,
     hint: "Impede que o mesmo produto volte com outro anúncio, vendedor ou identificador.",
   },
   MAX_POSTS_POR_LOJA_DIA: {

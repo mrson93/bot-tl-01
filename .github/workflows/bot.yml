@@ -80,7 +80,7 @@ jobs:
       PESO_COMISSAO: ${{ vars.PESO_COMISSAO || '1' }}
       DESEMPENHO_MAX_DIAS: ${{ vars.DESEMPENHO_MAX_DIAS || '14' }}
       DIVERSIDADE_JANELA_POSTS: ${{ vars.DIVERSIDADE_JANELA_POSTS || '3' }}
-      SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.55' }}
+      SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.68' }}
       AB_TEST_ATIVO: ${{ vars.AB_TEST_ATIVO || 'true' }}
       AB_TEST_NOME: "chamada_humana_v1"
       ALIEXPRESS_FETCH_LIMIT: "50"
@@ -102,7 +102,7 @@ jobs:
       INTERVALO_ENTRE_POSTS_MINUTOS: ${{ vars.INTERVALO_ENTRE_POSTS_MINUTOS || '3' }}
       MAX_POSTS_POR_DIA: ${{ vars.MAX_POSTS_POR_DIA || '50' }}
       MAX_POSTS_POR_LOJA_DIA: ${{ vars.MAX_POSTS_POR_LOJA_DIA || '3' }}
-      DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: ${{ vars.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE || '7' }}
+      DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: ${{ vars.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE || '3' }}
       TITULO_MAX_CARACTERES: ${{ vars.TITULO_MAX_CARACTERES || '90' }}
       # As lojas são buscadas em paralelo e as ofertas entram numa fila única.
       # Qualidade, comissão e conversão histórica decidem qual será publicada.
