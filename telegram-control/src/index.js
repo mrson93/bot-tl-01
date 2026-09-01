@@ -92,7 +92,10 @@ function panelKeyboard() {
         { text: "📄 Relatório", callback_data: "action:relatorio" },
       ],
       [{ text: "▶️ Executar agora", callback_data: "action:executar:ask" }],
-      [{ text: "⚙️ Configurações", callback_data: "menu:root" }],
+      [
+        { text: "⚙️ Configurações", callback_data: "menu:root" },
+        { text: "❓ Ajuda", callback_data: "help:root" },
+      ],
     ],
   };
 }
@@ -112,13 +115,44 @@ function settingsRootKeyboard() {
         { text: CATEGORIES.relatorio.label, callback_data: "menu:relatorio" },
         { text: CATEGORIES.selecao.label, callback_data: "menu:selecao" },
       ],
+      [{ text: CATEGORIES.cupons.label, callback_data: "menu:cupons" }],
       [
         { text: "🕘 Histórico", callback_data: "action:audit" },
         { text: "↩️ Restaurar padrões", callback_data: "defaults:ask" },
       ],
       [{ text: "⬅️ Painel principal", callback_data: "menu:panel" }],
+      [{ text: "❓ Entenda as configurações", callback_data: "help:settings" }],
     ],
   };
+}
+
+function helpKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "🎛 Painel e comandos", callback_data: "help:actions" },
+        { text: "⏱ Modos de ritmo", callback_data: "help:modes" },
+      ],
+      [
+        { text: CATEGORIES.lojas.label, callback_data: "help:lojas" },
+        { text: CATEGORIES.filtros.label, callback_data: "help:filtros" },
+      ],
+      [
+        { text: CATEGORIES.horarios.label, callback_data: "help:horarios" },
+        { text: CATEGORIES.variedade.label, callback_data: "help:variedade" },
+      ],
+      [
+        { text: CATEGORIES.relatorio.label, callback_data: "help:relatorio" },
+        { text: CATEGORIES.cupons.label, callback_data: "help:cupons" },
+      ],
+      [{ text: CATEGORIES.selecao.label, callback_data: "help:selecao" }],
+      [{ text: "⬅️ Painel principal", callback_data: "menu:panel" }],
+    ],
+  };
+}
+
+function helpBackKeyboard() {
+  return { inline_keyboard: [[{ text: "⬅️ Índice da ajuda", callback_data: "help:root" }]] };
 }
 
 async function telegramRequest(env, method, body, fetchImpl) {
@@ -587,22 +621,69 @@ async function chooseMode(env, chatId, mode, callbackId, fetchImpl) {
   );
 }
 
-function helpText() {
+export function helpText() {
+  return [
+    "❓ Ajuda do bot de ofertas",
+    "",
+    "Este painel controla quando o bot consulta as plataformas, quais ofertas podem passar e como ele escolhe o que publicar.",
+    "",
+    "Escolha abaixo o assunto que deseja entender. Cada configuração é explicada com seu efeito prático.",
+    "",
+    "Somente o administrador autorizado pode usar estes controles.",
+  ].join("\n");
+}
+
+function panelText() {
   return [
     "🔐 Painel privado do bot de ofertas",
     "",
-    "/status — configuração e última execução",
-    "/ritmo economico — menor consumo até a renovação",
-    "/ritmo normal — 15 min no pico e 30 min fora",
-    "/ritmo rapido — 10 min no pico e 20 min fora",
-    "/pausar — interrompe as consultas automáticas",
-    "/retomar — volta no modo econômico",
-    "/executar — solicita uma rodada de ofertas agora",
-    "/relatorio — solicita o relatório privado agora",
-    "/config — abre todas as configurações operacionais",
-    "/historico — mostra as últimas alterações",
+    "Escolha um modo, consulte o status, execute uma rodada ou abra as configurações.",
+    "Use Ajuda para entender o efeito de cada função antes de alterar.",
+  ].join("\n");
+}
+
+export function helpActionsText() {
+  return [
+    "🎛 Painel e comandos",
     "",
-    "Somente o administrador autorizado pode usar estes controles.",
+    "📊 Status (/status): mostra o modo atual e a última execução bem-sucedida. Não publica nada.",
+    "📄 Relatório (/relatorio): pede ao GitHub o relatório privado imediatamente. É uma execução separada da busca de ofertas.",
+    "▶️ Executar agora (/executar): inicia uma rodada extra. Ela pode publicar, mas continua respeitando horário, filtros, repetição e limite diário.",
+    "⚙️ Configurações (/config): abre os controles operacionais. A mudança é validada, pede confirmação, fica registrada e vale na próxima execução.",
+    "🕘 Histórico (/historico): mostra as alterações recentes feitas por este painel.",
+    "⏸ Pausar (/pausar): interrompe somente as rodadas automáticas. Configurações, histórico e relatório continuam disponíveis.",
+    "▶️ Retomar (/retomar): reativa no modo Econômico; depois você pode escolher outro ritmo.",
+    "↩️ Restaurar padrões: volta as configurações operacionais aos valores seguros, sem apagar credenciais nem trocar o modo.",
+    "",
+    "Também é possível usar /definir NOME VALOR, mas os botões são mais seguros porque mostram a confirmação.",
+  ].join("\n");
+}
+
+export function helpModesText() {
+  return [
+    "⏱ Modos de ritmo",
+    "",
+    `💚 ${modeText("economico")} Bom para reduzir o consumo do GitHub.`,
+    `⚡ ${modeText("normal")} Equilibra frequência e quantidade de Actions.`,
+    `🚀 ${modeText("rapido")} Procura com mais frequência; não garante publicação se nenhuma oferta passar nos filtros.`,
+    `⏸ ${modeText("pausado")} Use em manutenção ou quando não quiser novas ofertas.`,
+    "",
+    "O ritmo define quando consultar. O número de publicações continua limitado por Ofertas por rodada e Limite diário.",
+  ].join("\n");
+}
+
+export function helpCategoryText(category) {
+  const metadata = CATEGORIES[category];
+  if (!metadata) return helpText();
+  const explanations = settingsForCategory(category).map(([, setting]) =>
+    `• ${setting.label}: ${setting.hint}`);
+  return [
+    `${metadata.label} — como funciona`,
+    metadata.description,
+    "",
+    ...explanations,
+    "",
+    "Para alterar, abra Configurações no painel. O novo valor passa a valer na próxima execução.",
   ].join("\n");
 }
 
@@ -644,11 +725,28 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   }
   if (callbackData === "menu:panel") {
     await answerCallback(env, callback.id, "Painel principal", fetchImpl);
-    return sendMessage(env, chatId, helpText(), fetchImpl);
+    return sendMessage(env, chatId, panelText(), fetchImpl);
   }
   if (callbackData === "menu:root") {
     await answerCallback(env, callback.id, "Configurações", fetchImpl);
     return showConfigurationRoot(env, chatId, fetchImpl);
+  }
+  if (callbackData === "help:root" || callbackData === "help:settings") {
+    await answerCallback(env, callback.id, "Ajuda", fetchImpl);
+    return sendMessage(env, chatId, helpText(), fetchImpl, helpKeyboard());
+  }
+  if (callbackData === "help:actions") {
+    await answerCallback(env, callback.id, "Painel e comandos", fetchImpl);
+    return sendMessage(env, chatId, helpActionsText(), fetchImpl, helpBackKeyboard());
+  }
+  if (callbackData === "help:modes") {
+    await answerCallback(env, callback.id, "Modos de ritmo", fetchImpl);
+    return sendMessage(env, chatId, helpModesText(), fetchImpl, helpBackKeyboard());
+  }
+  if (callbackData.startsWith("help:")) {
+    const category = callbackData.slice(5);
+    await answerCallback(env, callback.id, "Explicação", fetchImpl);
+    return sendMessage(env, chatId, helpCategoryText(category), fetchImpl, helpBackKeyboard());
   }
   if (callbackData.startsWith("menu:")) {
     const category = callbackData.slice(5);
@@ -702,8 +800,11 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   }
 
   const { name, args } = parseCommand(update.message?.text);
-  if (["start", "painel", "ajuda", "help"].includes(name)) {
-    return sendMessage(env, chatId, helpText(), fetchImpl);
+  if (["ajuda", "help"].includes(name)) {
+    return sendMessage(env, chatId, helpText(), fetchImpl, helpKeyboard());
+  }
+  if (["start", "painel"].includes(name)) {
+    return sendMessage(env, chatId, panelText(), fetchImpl);
   }
   if (name === "status") return showStatus(env, chatId, fetchImpl);
   if (["config", "configuracoes", "configurações"].includes(name)) {

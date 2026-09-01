@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import worker, {
-  authorizedUpdate, parseCommand, runScheduledAutomation, runScheduledReport, selectFetch,
+  authorizedUpdate, helpActionsText, helpCategoryText, helpModesText, helpText,
+  parseCommand, runScheduledAutomation, runScheduledReport, selectFetch,
 } from "../src/index.js";
-import { SETTINGS, validateSetting } from "../src/settings.js";
+import { CATEGORIES, SETTINGS, settingsForCategory, validateSetting } from "../src/settings.js";
 
 
 const env = {
@@ -221,6 +222,36 @@ test("todas as configuracoes expostas possuem padrao e validacao", () => {
   assert.equal(validateSetting("MIN_RATING", "5.1").ok, false);
   assert.equal(validateSetting("HORAS_PICO", "1,12,18").ok, false);
   assert.equal(validateSetting("RELATORIO_MINUTO", "17").ok, false);
+});
+
+test("ajuda explica comandos modos e todas as configuracoes", () => {
+  assert.match(helpText(), /efeito prático/);
+  assert.match(helpActionsText(), /Executar agora/);
+  assert.match(helpActionsText(), /continua respeitando horário, filtros, repetição e limite diário/);
+  assert.match(helpModesText(), /não garante publicação/);
+  for (const category of Object.keys(CATEGORIES)) {
+    const text = helpCategoryText(category);
+    for (const [, setting] of settingsForCategory(category)) {
+      assert.ok(text.includes(setting.label));
+      assert.ok(text.includes(setting.hint));
+    }
+    assert.ok(text.length < 4096, category);
+  }
+});
+
+test("comando ajuda abre indice interativo com todas as categorias", async () => {
+  const calls = [];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return Response.json({ ok: true });
+  };
+  await worker.fetch(request(update("/ajuda")), env, fakeFetch);
+  const telegram = calls.find((call) => call.url.includes("api.telegram.org"));
+  const body = JSON.parse(telegram.options.body);
+  assert.match(body.text, /Ajuda do bot/);
+  for (const category of Object.keys(CATEGORIES)) {
+    assert.match(JSON.stringify(body.reply_markup), new RegExp(`help:${category}`));
+  }
 });
 
 test("painel de configuracoes mostra valores efetivos sem expor segredos", async () => {
