@@ -15,6 +15,7 @@ class RelatorioTest(unittest.TestCase):
             ("tendencias_diarias", {}),
             ("resumo_experimentos", []),
             ("falhas_consecutivas", 0),
+            ("resumo_eventos", {}),
         ):
             remendo = patch.object(getattr(relatorio, "store"), nome,
                                    return_value=retorno)
@@ -79,6 +80,21 @@ class RelatorioTest(unittest.TestCase):
         self.assertIn("Por canal: bsky: 1 · telegram: 2", texto)
         self.assertIn("Comissão: US$ 6,75", texto)
         self.assertIn("Comissão telegram: US$ 4,50", texto)
+
+    def test_texto_resume_filtros_fallbacks_e_falhas(self):
+        eventos = {
+            "por_tipo": {"ofertas_recebidas": 100, "ofertas_elegiveis": 8,
+                         "ofertas_rejeitadas": 92},
+            "rejeicoes": {"desconto": 70, "vendas": 22},
+            "fallbacks": {"bluesky_imagem_download": 3},
+            "falhas_por_canal": {"Telegram": 1},
+        }
+        texto = relatorio._texto([], "20/08/2026", eventos=eventos)
+        self.assertIn("🧭 DIAGNÓSTICO", texto)
+        self.assertIn("100 recebidas · 8 elegíveis · 92 rejeitadas", texto)
+        self.assertIn("desconto 70", texto)
+        self.assertIn("Bluesky", texto)
+        self.assertIn("Telegram 1", texto)
 
     def test_texto_inclui_conversoes_e_comissoes_shopee(self):
         conversoes = {

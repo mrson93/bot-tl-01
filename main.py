@@ -34,6 +34,7 @@ import bluesky
 import relatorio
 import seguranca
 import shortlinks
+import observabilidade
 
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon]
@@ -107,10 +108,15 @@ def publicar(fonte, oferta: dict) -> int:
                           f"{seguranca.redigir_segredos(erro_link)}")
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
+            observabilidade.evento("publicacao_sucesso", oferta_id=oid,
+                                    canal=canal.NOME, fonte=fonte.NOME)
             ok += 1
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, canal.NOME, False, preco, fonte.NOME, erro)
+            observabilidade.evento("publicacao_falha", oferta_id=oid,
+                                    canal=canal.NOME, fonte=fonte.NOME,
+                                    motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
     return ok
 
@@ -341,6 +347,8 @@ def buscar_candidatos(fonte) -> list:
         return []
 
     print(f"   {len(ofertas)} ofertas recebidas. Aplicando filtros...")
+    observabilidade.evento("ofertas_recebidas", fonte=fonte.NOME,
+                            quantidade=len(ofertas))
 
     nomes_canais = [c.NOME for c in canais_ativos()]
     candidatos = []
@@ -376,6 +384,12 @@ def buscar_candidatos(fonte) -> list:
         f"{nome}={total}" for nome, total in rejeicoes.items() if total
     ) or "nenhuma rejeicao"
     print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}.")
+    observabilidade.evento("ofertas_elegiveis", fonte=fonte.NOME,
+                            quantidade=len(candidatos))
+    for motivo, total in rejeicoes.items():
+        if total:
+            observabilidade.evento("ofertas_rejeitadas", fonte=fonte.NOME,
+                                    motivo=motivo, quantidade=total)
     return candidatos
 
 
@@ -436,6 +450,12 @@ def _ordenar_candidatos(candidatos):
         f"entrada={len(candidatos)}, aptas={len(elegiveis)}, "
         f"limite_loja={bloqueadas_loja}, semelhantes={bloqueadas_semelhanca}."
     )
+    if bloqueadas_loja:
+        observabilidade.evento("ofertas_rejeitadas", motivo="limite_loja",
+                                quantidade=bloqueadas_loja)
+    if bloqueadas_semelhanca:
+        observabilidade.evento("ofertas_rejeitadas", motivo="semelhante",
+                                quantidade=bloqueadas_semelhanca)
     candidatos = elegiveis
     prioridade = {"canal_pendente": 4, "queda_preco": 3,
                   "inedita": 2, "repescagem": 1}
@@ -519,11 +539,13 @@ def rodar_loja(fonte, limite: int) -> int:
 
 def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
+    observabilidade.evento("execucao_iniciada")
     limite = config.limite_posts_por_rodada()
     if config.MAX_POSTS_POR_DIA:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
         if restantes <= 0:
             print(f"🛑 Limite diário de {config.MAX_POSTS_POR_DIA} ofertas atingido.")
+            observabilidade.evento("execucao_concluida", motivo="limite_diario")
             return 0
         limite = min(limite, restantes)
     lojas = fontes_ativas()
@@ -543,6 +565,7 @@ def rodar_uma_vez() -> int:
         _ordenar_candidatos(candidatos), limite
     )
     print(f"🏁 Rodada concluida. {total} oferta(s) e {alertas_cupom} alerta(s) de cupom.")
+    observabilidade.evento("execucao_concluida", quantidade=total + alertas_cupom)
     return total + alertas_cupom
 
 

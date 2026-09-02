@@ -206,7 +206,7 @@ def _destaques(resumo, fonte):
 
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
-           testes_ab=None):
+           testes_ab=None, eventos=None):
     """Relatório curto, em blocos estáveis, para leitura rápida no Telegram."""
     sucessos = sum(qtd for _, ok, _, qtd in linhas if ok)
     falhas = sum(qtd for _, ok, _, qtd in linhas if not ok)
@@ -222,6 +222,40 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
         blocos.append("Canais: " + " · ".join(f"{nome} {qtd}" for nome, qtd in sorted(por_canal.items())))
     if por_loja:
         blocos.append("Lojas: " + " · ".join(f"{nome} {qtd}" for nome, qtd in sorted(por_loja.items())))
+    eventos = eventos or {}
+    tipos = eventos.get("por_tipo") or {}
+    rejeicoes = eventos.get("rejeicoes") or {}
+    fallbacks = eventos.get("fallbacks") or {}
+    if tipos or rejeicoes or fallbacks:
+        blocos.extend(["", "🧭 DIAGNÓSTICO"])
+        if tipos.get("ofertas_recebidas") is not None:
+            blocos.append(
+                f"Ofertas: {tipos.get('ofertas_recebidas', 0)} recebidas · "
+                f"{tipos.get('ofertas_elegiveis', 0)} elegíveis · "
+                f"{tipos.get('ofertas_rejeitadas', 0)} rejeitadas"
+            )
+        if rejeicoes:
+            blocos.append("Filtros: " + " · ".join(
+                f"{motivo.replace('_', ' ')} {qtd}"
+                for motivo, qtd in sorted(rejeicoes.items(), key=lambda item: (-item[1], item[0]))[:5]
+            ))
+        if fallbacks:
+            rotulos_fallback = {
+                "telegram_foto_para_texto": "Telegram foto→texto",
+                "bluesky_imagem_ausente": "Bluesky sem imagem",
+                "bluesky_imagem_seguranca": "Bluesky imagem bloqueada",
+                "bluesky_imagem_download": "Bluesky falha na imagem",
+                "bluesky_imagem_indisponivel": "Bluesky imagem indisponível",
+            }
+            blocos.append("Alternativas usadas: " + " · ".join(
+                f"{rotulos_fallback.get(motivo, motivo.replace('_', ' '))} {qtd}"
+                for motivo, qtd in sorted(fallbacks.items())
+            ))
+        falhas_canal = eventos.get("falhas_por_canal") or {}
+        if falhas_canal:
+            blocos.append("Falhas: " + " · ".join(
+                f"{canal} {qtd}" for canal, qtd in sorted(falhas_canal.items())
+            ))
 
     blocos.extend(["", "💰 RESULTADO · ÚLTIMOS 7 DIAS"])
     if conversoes_shopee:
@@ -374,6 +408,11 @@ def enviar_se_devido(agora=None, forcar=False):
         for fonte, qtd in sorted(publicacoes.items())
         if qtd >= config.RELATORIO_ALERTA_MIN_POSTS and not validas.get(fonte, 0)
     ]
+    eventos = store.resumo_eventos(inicio, fim)
+    if eventos.get("imagens_omitidas", 0) >= 3:
+        alertas.append(
+            f"Bluesky: {eventos['imagens_omitidas']} posts saíram sem imagem"
+        )
     for canal in ("Telegram", "Bluesky"):
         falhas = store.falhas_consecutivas(canal)
         if falhas >= config.FALHAS_CONSECUTIVAS_ALERTA:
@@ -427,7 +466,8 @@ def enviar_se_devido(agora=None, forcar=False):
     resposta = requests.post(url, json={"chat_id": config.TELEGRAM_ADMIN_ID,
         "text": _texto(store.resumo_periodo(inicio, fim), ontem.strftime("%d/%m/%Y"),
                        conversoes, conversoes_shopee, alertas,
-                       sem_conversao, cliques, tendencias, testes_ab)}, timeout=30)
+                       sem_conversao, cliques, tendencias, testes_ab,
+                       eventos)}, timeout=30)
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(f"Telegram recusou o relatório: {corpo}")

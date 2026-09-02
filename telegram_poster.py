@@ -9,6 +9,7 @@ import config
 import desempenho
 import experimentos
 import seguranca
+import observabilidade
 
 API = "https://api.telegram.org/bot{token}/{metodo}"
 
@@ -225,6 +226,10 @@ def postar(oferta: dict, link_afiliado: str) -> None:
             f"Telegram recusou foto e texto: {ultimo}; {corpo}"
         )
         raise RuntimeError(erro)
+    observabilidade.evento(
+        "fallback", oferta_id=oferta.get("oferta_id"), canal=NOME,
+        fonte=oferta.get("fonte"), motivo="telegram_foto_para_texto",
+    )
 
 
 def postar_bom_dia(mensagem: str) -> None:

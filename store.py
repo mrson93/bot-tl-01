@@ -31,6 +31,8 @@ def _conn():
     # Nao guardamos usuarios, pedidos ou qualquer dado de comprador.
     con.execute("CREATE TABLE IF NOT EXISTS cupons_ativos (id TEXT PRIMARY KEY, fonte TEXT NOT NULL, codigo TEXT NOT NULL, condicao TEXT, destino TEXT NOT NULL, ativo_em INTEGER, expira_em INTEGER, visto_em INTEGER NOT NULL)")
     con.execute("CREATE TABLE IF NOT EXISTS entregas_cupom (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
+    con.execute("CREATE TABLE IF NOT EXISTS eventos (id INTEGER PRIMARY KEY AUTOINCREMENT, ocorrido_em INTEGER NOT NULL, execucao_id TEXT NOT NULL, tipo TEXT NOT NULL, oferta_id TEXT, canal TEXT, fonte TEXT, motivo TEXT, quantidade INTEGER NOT NULL DEFAULT 1)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_eventos_periodo ON eventos(ocorrido_em,tipo)")
     con.commit()
     try:
         yield con
@@ -99,6 +101,46 @@ def registrar_entrega(oferta_id, canal, sucesso, preco=None, fonte=None, erro=No
         dados = (str(oferta_id), canal, int(bool(sucesso)), preco, fonte, erro, momento)
         con.execute("INSERT INTO entregas(id,canal,sucesso,preco,fonte,tentativas,erro,entregue_em) VALUES(?,?,?,?,?,1,?,?) ON CONFLICT(id,canal) DO UPDATE SET sucesso=excluded.sucesso,preco=excluded.preco,fonte=excluded.fonte,tentativas=entregas.tentativas+1,erro=excluded.erro,entregue_em=excluded.entregue_em", dados)
         con.execute("INSERT INTO entregas_log(id,canal,sucesso,preco,fonte,erro,entregue_em) VALUES(?,?,?,?,?,?,?)", dados)
+
+
+def registrar_evento(tipo, execucao_id, quantidade=1, oferta_id=None,
+                     canal=None, fonte=None, motivo=None, agora=None):
+    """Persiste telemetria técnica sem conteúdo, links ou dados pessoais."""
+    momento = int(agora or time.time())
+    with _conn() as con:
+        con.execute(
+            "INSERT INTO eventos(ocorrido_em,execucao_id,tipo,oferta_id,canal,fonte,motivo,quantidade) VALUES(?,?,?,?,?,?,?,?)",
+            (momento, str(execucao_id)[:64], str(tipo)[:48],
+             str(oferta_id)[:100] if oferta_id else None,
+             str(canal)[:30] if canal else None,
+             str(fonte)[:30] if fonte else None,
+             str(motivo)[:64] if motivo else None,
+             max(0, int(quantidade or 0))),
+        )
+        con.execute("DELETE FROM eventos WHERE ocorrido_em<?", (momento - 90 * 86400,))
+
+
+def resumo_eventos(inicio, fim):
+    """Resumo agregado para o relatório privado do Telegram."""
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT tipo,COALESCE(motivo,''),COALESCE(canal,''),SUM(quantidade) FROM eventos WHERE ocorrido_em>=? AND ocorrido_em<? GROUP BY tipo,motivo,canal",
+            (int(inicio), int(fim)),
+        ).fetchall()
+    resultado = {"por_tipo": {}, "rejeicoes": {}, "fallbacks": {},
+                 "falhas_por_canal": {}, "imagens_omitidas": 0}
+    for tipo, motivo, canal, total in linhas:
+        total = int(total or 0)
+        resultado["por_tipo"][tipo] = resultado["por_tipo"].get(tipo, 0) + total
+        if tipo == "ofertas_rejeitadas":
+            resultado["rejeicoes"][motivo] = resultado["rejeicoes"].get(motivo, 0) + total
+        elif tipo == "fallback":
+            resultado["fallbacks"][motivo] = resultado["fallbacks"].get(motivo, 0) + total
+            if motivo.startswith("bluesky_imagem_"):
+                resultado["imagens_omitidas"] += total
+        elif tipo == "publicacao_falha":
+            resultado["falhas_por_canal"][canal or "desconhecido"] = total
+    return resultado
 
 
 def canal_pendente(oferta_id, canal, preco=None):

@@ -46,6 +46,22 @@ class StoreTest(unittest.TestCase):
         self.assertFalse(store.canal_pendente("x", "Telegram", 50))
         self.assertTrue(store.canal_pendente("x", "Bluesky", 50))
 
+    def test_eventos_operacionais_sao_agregados_sem_dados_sensiveis(self):
+        store.registrar_evento("ofertas_rejeitadas", "run-1", 4,
+                               fonte="Shopee", motivo="desconto", agora=100)
+        store.registrar_evento("fallback", "run-1", 1, oferta_id="abc",
+                               canal="Bluesky", fonte="Shopee",
+                               motivo="bluesky_imagem_download", agora=110)
+        resumo = store.resumo_eventos(90, 120)
+        self.assertEqual(4, resumo["rejeicoes"]["desconto"])
+        self.assertEqual(1, resumo["imagens_omitidas"])
+        con = sqlite3.connect(self.db)
+        colunas = {linha[1] for linha in con.execute("PRAGMA table_info(eventos)")}
+        con.close()
+        self.assertNotIn("url", colunas)
+        self.assertNotIn("token", colunas)
+        self.assertNotIn("resposta", colunas)
+
     def test_conta_falhas_consecutivas_ate_o_ultimo_sucesso(self):
         store.registrar_entrega("a", "Telegram", True, agora=100)
         store.registrar_entrega("b", "Telegram", False, agora=110)

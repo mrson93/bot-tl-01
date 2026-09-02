@@ -11,15 +11,21 @@ import config
 import desempenho
 import experimentos
 import seguranca
+import observabilidade
 
 NOME = "Bluesky"
 TRACKING_ID = config.BLUESKY_TRACKING_ID  # vazio = usa o padrao da loja
 MAX_IMAGEM_BYTES = 1_000_000
 
 
-def _imagem_omitida(motivo: str):
+def _imagem_omitida(motivo: str, codigo="indisponivel", oferta=None):
     """Registra o fallback sem expor URL, conteúdo remoto ou credenciais."""
     print(f"   ⚠️  Bluesky publicado sem imagem: {motivo}.")
+    oferta = oferta or {}
+    observabilidade.evento(
+        "fallback", oferta_id=oferta.get("oferta_id"), canal=NOME,
+        fonte=oferta.get("fonte"), motivo=f"bluesky_imagem_{codigo}",
+    )
     return None
 
 
@@ -57,23 +63,23 @@ def _sessao() -> dict:
     return r.json()  # tem accessJwt e did
 
 
-def _upload_imagem(jwt: str, url_imagem: str):
+def _upload_imagem(jwt: str, url_imagem: str, oferta=None):
     """Baixa a imagem do produto e envia pro Bluesky. Retorna o 'blob' ou None."""
     if not url_imagem:
-        return _imagem_omitida("imagem ausente na oferta")
+        return _imagem_omitida("imagem ausente na oferta", "ausente", oferta)
     try:
         url_imagem = seguranca.validar_url_https_publica(
             url_imagem, "URL da imagem", resolver=True
         )
     except ValueError:
-        return _imagem_omitida("URL da imagem rejeitada pela segurança")
+        return _imagem_omitida("URL da imagem rejeitada pela segurança", "seguranca", oferta)
     pds = _pds()
     try:
         img = requests.get(
             url_imagem, timeout=30, stream=True, allow_redirects=False
         )
     except requests.RequestException:
-        return _imagem_omitida("falha ao baixar a imagem")
+        return _imagem_omitida("falha ao baixar a imagem", "download", oferta)
     try:
         if not 200 <= img.status_code < 300:
             if 300 <= img.status_code < 400:
@@ -244,7 +250,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         }],
     }
 
-    blob = _upload_imagem(jwt, oferta.get("imageUrl"))
+    blob = _upload_imagem(jwt, oferta.get("imageUrl"), oferta)
     if blob:
         record["embed"] = {
             "$type": "app.bsky.embed.images",
