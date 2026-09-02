@@ -1,4 +1,6 @@
+import io
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 import telegram_poster
@@ -117,10 +119,14 @@ class PublicacaoTest(unittest.TestCase):
 
     def test_bluesky_recusa_imagem_grande_antes_de_baixar_o_corpo(self):
         endereco_publico = [(2, 1, 6, "", ("93.184.216.34", 443))]
-        with patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
+        saida = io.StringIO()
+        with redirect_stdout(saida), \
+             patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
              patch.object(bluesky.requests, "get", return_value=ImagemGrande()) as baixar:
             self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
             self.assertTrue(baixar.call_args.kwargs["stream"])
+        self.assertIn("imagem original maior que 1 MB", saida.getvalue())
+        self.assertNotIn("imagem.test", saida.getvalue())
 
     def test_bluesky_limita_imagem_mesmo_sem_content_length(self):
         imagem = ImagemEmPartes()
@@ -141,12 +147,16 @@ class PublicacaoTest(unittest.TestCase):
 
     def test_bluesky_nao_segue_redirecionamento_de_imagem(self):
         endereco_publico = [(2, 1, 6, "", ("93.184.216.34", 443))]
-        with patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
+        saida = io.StringIO()
+        with redirect_stdout(saida), \
+             patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
              patch.object(bluesky.requests, "get", return_value=Redirecionamento()) as baixar, \
              patch.object(bluesky.requests, "post") as postar:
             self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
         self.assertFalse(baixar.call_args.kwargs["allow_redirects"])
         postar.assert_not_called()
+        self.assertIn("redirecionamento não permitido", saida.getvalue())
+        self.assertNotIn("127.0.0.1", saida.getvalue())
 
     def test_bluesky_nao_envia_senha_para_pds_inseguro(self):
         with patch.object(bluesky.config, "BLUESKY_PDS", "http://127.0.0.1"), \

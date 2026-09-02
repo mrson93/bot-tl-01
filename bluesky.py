@@ -17,6 +17,12 @@ TRACKING_ID = config.BLUESKY_TRACKING_ID  # vazio = usa o padrao da loja
 MAX_IMAGEM_BYTES = 1_000_000
 
 
+def _imagem_omitida(motivo: str):
+    """Registra o fallback sem expor URL, conteúdo remoto ou credenciais."""
+    print(f"   ⚠️  Bluesky publicado sem imagem: {motivo}.")
+    return None
+
+
 def esta_configurada() -> bool:
     return bool(config.BLUESKY_HANDLE and config.BLUESKY_APP_PASSWORD)
 
@@ -54,30 +60,35 @@ def _sessao() -> dict:
 def _upload_imagem(jwt: str, url_imagem: str):
     """Baixa a imagem do produto e envia pro Bluesky. Retorna o 'blob' ou None."""
     if not url_imagem:
-        return None
+        return _imagem_omitida("imagem ausente na oferta")
     try:
         url_imagem = seguranca.validar_url_https_publica(
             url_imagem, "URL da imagem", resolver=True
         )
     except ValueError:
-        return None
+        return _imagem_omitida("URL da imagem rejeitada pela segurança")
     pds = _pds()
-    img = requests.get(
-        url_imagem, timeout=30, stream=True, allow_redirects=False
-    )
+    try:
+        img = requests.get(
+            url_imagem, timeout=30, stream=True, allow_redirects=False
+        )
+    except requests.RequestException:
+        return _imagem_omitida("falha ao baixar a imagem")
     try:
         if not 200 <= img.status_code < 300:
-            return None
+            if 300 <= img.status_code < 400:
+                return _imagem_omitida("redirecionamento não permitido")
+            return _imagem_omitida(f"download recusado (HTTP {img.status_code})")
         img.raise_for_status()
         tipo = img.headers.get("Content-Type", "").split(";", 1)[0].strip()
         if tipo and not tipo.lower().startswith("image/"):
-            return None
+            return _imagem_omitida("conteúdo recebido não é uma imagem")
         try:
             tamanho = int(img.headers.get("Content-Length", 0))
         except (TypeError, ValueError):
             tamanho = 0
         if tamanho > MAX_IMAGEM_BYTES:
-            return None
+            return _imagem_omitida("imagem original maior que 1 MB")
 
         dados = bytearray()
         for pedaco in img.iter_content(chunk_size=64 * 1024):
@@ -85,24 +96,30 @@ def _upload_imagem(jwt: str, url_imagem: str):
                 continue
             dados.extend(pedaco)
             if len(dados) > MAX_IMAGEM_BYTES:
-                return None
+                return _imagem_omitida("imagem baixada ultrapassou 1 MB")
     finally:
         img.close()
 
-    r = requests.post(
-        f"{pds}/xrpc/com.atproto.repo.uploadBlob",
-        data=bytes(dados),
-        headers={
-            "Authorization": f"Bearer {jwt}",
-            "Content-Type": img.headers.get("Content-Type", "image/jpeg"),
-        },
-        timeout=30,
-        allow_redirects=False,
-    )
+    try:
+        r = requests.post(
+            f"{pds}/xrpc/com.atproto.repo.uploadBlob",
+            data=bytes(dados),
+            headers={
+                "Authorization": f"Bearer {jwt}",
+                "Content-Type": img.headers.get("Content-Type", "image/jpeg"),
+            },
+            timeout=30,
+            allow_redirects=False,
+        )
+    except requests.RequestException:
+        return _imagem_omitida("falha ao enviar a imagem ao Bluesky")
     if not 200 <= r.status_code < 300:
-        return None
+        return _imagem_omitida(f"upload recusado pelo Bluesky (HTTP {r.status_code})")
     r.raise_for_status()
-    return r.json().get("blob")
+    blob = r.json().get("blob")
+    if not blob:
+        return _imagem_omitida("Bluesky não retornou o identificador da imagem")
+    return blob
 
 
 def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
