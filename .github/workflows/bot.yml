@@ -72,6 +72,8 @@ jobs:
       PESO_SHOPEE: ${{ vars.PESO_SHOPEE || '1' }}
       SHOPEE_PAGES: ${{ vars.SHOPEE_PAGES || '3' }}
       SHOPEE_LIST_TYPES: "0,2"
+      PICO_PRIORIZA_MAIS_VENDIDOS: ${{ vars.PICO_PRIORIZA_MAIS_VENDIDOS || 'true' }}
+      PICO_JANELA_VENDAS_DIAS: ${{ vars.PICO_JANELA_VENDAS_DIAS || '7' }}
       # dias que uma oferta fica de molho antes de poder repetir
       DIAS_ANTES_DE_REPETIR: ${{ vars.DIAS_ANTES_DE_REPETIR || '7' }}
       QUEDA_PRECO_REPOST_PERCENT: ${{ vars.QUEDA_PRECO_REPOST_PERCENT || '15' }}

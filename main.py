@@ -347,6 +347,11 @@ def buscar_candidatos(fonte) -> list:
         return []
 
     print(f"   {len(ofertas)} ofertas recebidas. Aplicando filtros...")
+    for oferta in ofertas:
+        oferta["fonte"] = oferta.get("fonte") or fonte.NOME
+    velocidades = store.registrar_vendas_produtos(
+        ofertas, janela_dias=config.PICO_JANELA_VENDAS_DIAS
+    )
     observabilidade.evento("ofertas_recebidas", fonte=fonte.NOME,
                             quantidade=len(ofertas))
 
@@ -358,10 +363,15 @@ def buscar_candidatos(fonte) -> list:
         "comissao": 0, "repetida": 0,
     }
     for oferta in ofertas:
-        oferta["fonte"] = oferta.get("fonte") or fonte.NOME
         oferta["categoria"] = (oferta.get("categoria")
                                or desempenho.categoria_produto(oferta))
         oferta["_fonte_obj"] = fonte
+        chave_velocidade = (
+            oferta["fonte"], str(oferta.get("oferta_id") or "")
+        )
+        velocidade = velocidades.get(chave_velocidade, {})
+        oferta["_vendas_24h"] = velocidade.get("24h")
+        oferta["_vendas_janela"] = velocidade.get("janela")
         experimentos.aplicar(oferta)
         if not oferta.get("oferta_id"):
             rejeicoes["sem_id"] += 1
@@ -489,6 +499,41 @@ def _oferta_diversa_da_rodada(oferta, selecionadas):
     return True
 
 
+def _priorizar_campeao_no_pico(fila, agora=None):
+    """Reserva somente a primeira vaga do pico para o melhor campeão Shopee."""
+    fila = list(fila)
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    if (not config.PICO_PRIORIZA_MAIS_VENDIDOS
+            or agora.hour not in config.HORAS_PICO):
+        return fila
+    campeoes = [(i, oferta) for i, oferta in enumerate(fila)
+                if oferta.get("fonte") == "Shopee"
+                and oferta.get("_shopee_campeao")]
+    if not campeoes:
+        return fila
+
+    def chave(par):
+        _, oferta = par
+        # Deltas observados vencem o total acumulado. Enquanto não há histórico,
+        # o total é um fallback seguro e a pontuação comercial desempata.
+        semanal = oferta.get("_vendas_janela")
+        diario = oferta.get("_vendas_24h")
+        tem_historico = semanal is not None or diario is not None
+        return (
+            int(tem_historico), int(semanal or 0), int(diario or 0),
+            int(oferta.get("sales") or 0), pontuacao(oferta),
+        )
+
+    indice, campeao = max(campeoes, key=chave)
+    if indice:
+        fila.pop(indice)
+        fila.insert(0, campeao)
+    print("🏆 Pico: primeira vaga reservada para campeão de vendas da Shopee "
+          f"(24h={campeao.get('_vendas_24h')}, "
+          f"{config.PICO_JANELA_VENDAS_DIAS}d={campeao.get('_vendas_janela')}).")
+    return fila
+
+
 def _publicar_fila(fila, limite):
     """Publica a fila global, priorizando variedade dentro da própria rodada."""
     postadas = 0
@@ -561,9 +606,8 @@ def rodar_uma_vez() -> int:
                     print(f"   ❌ Falha inesperada em {fonte.NOME}: "
                           f"{seguranca.redigir_segredos(erro)}")
     alertas_cupom = publicar_cupons(cupons_oficiais(candidatos))
-    total = _publicar_fila(
-        _ordenar_candidatos(candidatos), limite
-    )
+    fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
+    total = _publicar_fila(fila, limite)
     print(f"🏁 Rodada concluida. {total} oferta(s) e {alertas_cupom} alerta(s) de cupom.")
     observabilidade.evento("execucao_concluida", quantidade=total + alertas_cupom)
     return total + alertas_cupom

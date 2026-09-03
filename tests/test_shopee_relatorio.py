@@ -11,6 +11,16 @@ class ShopeeRelatorioTest(unittest.TestCase):
         self.inicio = datetime(2026, 8, 14, 9)
         self.fim = datetime(2026, 8, 21, 9)
 
+    def test_preserva_marca_de_campeao_quando_item_aparece_nas_duas_listas(self):
+        produto = {"shopId": 1, "itemId": 2, "productName": "Panela",
+                   "productLink": "https://shopee.test/item", "commissionRate": "0.1"}
+        with patch.object(shopee.config, "SHOPEE_LIST_TYPES", [0, 2]), \
+             patch.object(shopee.config, "SHOPEE_PAGES", 1), \
+             patch.object(shopee, "_buscar_pagina", side_effect=[[dict(produto)], [dict(produto)]]):
+            ofertas = shopee.buscar_ofertas()
+        self.assertEqual(1, len(ofertas))
+        self.assertTrue(ofertas[0]["_shopee_campeao"])
+
     def test_resultado_vazio(self):
         resposta = {
             "conversionReport": {

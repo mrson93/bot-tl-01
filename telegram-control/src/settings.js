@@ -37,6 +37,14 @@ export const SETTINGS = Object.freeze({
     category: "lojas", label: "Páginas Shopee", type: "integer", default: "3", min: 1, max: 5,
     hint: "Mais páginas encontram mais produtos, mas aumentam o tempo da consulta.",
   },
+  PICO_PRIORIZA_MAIS_VENDIDOS: {
+    category: "selecao", label: "Campeões Shopee no pico", type: "boolean", default: "true",
+    hint: "Reserva a primeira vaga do horário de pico para um campeão de vendas que passe em todos os filtros.",
+  },
+  PICO_JANELA_VENDAS_DIAS: {
+    category: "selecao", label: "Janela de vendas Shopee", type: "integer", default: "7", min: 1, max: 30,
+    hint: "Dias usados para estimar o crescimento das vendas com base no histórico observado pelo bot.",
+  },
   ALIEXPRESS_PAGES: {
     category: "lojas", label: "Páginas AliExpress", type: "integer", default: "6", min: 1, max: 8,
     hint: "O valor atual foi aumentado para reduzir rodadas sem ofertas inéditas.",

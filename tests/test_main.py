@@ -30,6 +30,32 @@ class MainTest(unittest.TestCase):
             ordenadas = main._ordenar_candidatos([baixa, alta])
         self.assertEqual("alta", ordenadas[0]["oferta_id"])
 
+    def test_pico_reserva_primeira_vaga_para_campeao_shopee(self):
+        comum = {"oferta_id": "comum", "fonte": "Shopee", "sales": 50000,
+                 "priceDiscountRate": 80, "comissao": 0}
+        campeao = {"oferta_id": "campeao", "fonte": "Shopee", "sales": 1000,
+                   "priceDiscountRate": 35, "comissao": 0,
+                   "_shopee_campeao": True, "_vendas_24h": 40,
+                   "_vendas_janela": 180}
+        with patch.object(main.config, "PICO_PRIORIZA_MAIS_VENDIDOS", True), \
+             patch.object(main.config, "HORAS_PICO", [12]):
+            fila = main._priorizar_campeao_no_pico(
+                [comum, campeao], datetime(2026, 9, 3, 12)
+            )
+        self.assertEqual(["campeao", "comum"], [o["oferta_id"] for o in fila])
+
+    def test_fora_do_pico_preserva_ordenacao_normal(self):
+        fila_original = [
+            {"oferta_id": "comum", "fonte": "AliExpress"},
+            {"oferta_id": "campeao", "fonte": "Shopee", "_shopee_campeao": True},
+        ]
+        with patch.object(main.config, "PICO_PRIORIZA_MAIS_VENDIDOS", True), \
+             patch.object(main.config, "HORAS_PICO", [12]):
+            fila = main._priorizar_campeao_no_pico(
+                fila_original, datetime(2026, 9, 3, 10)
+            )
+        self.assertEqual(fila_original, fila)
+
     def test_falha_de_publicacao_nao_grava_token_no_historico(self):
         class Fonte:
             NOME = "Shopee"

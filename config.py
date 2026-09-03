@@ -79,6 +79,10 @@ SHOPEE_KEYWORD = _get("SHOPEE_KEYWORD")
 SHOPEE_FETCH_LIMIT = _int("SHOPEE_FETCH_LIMIT", 50)
 # quantas paginas buscar por rodada (mais paginas = mais ofertas ineditas)
 SHOPEE_PAGES = _int("SHOPEE_PAGES", 3)
+# No pico, reserva a primeira vaga da rodada para um item da lista oficial de
+# campeões. O histórico local estima a aceleração de vendas em 1 e 7 dias.
+PICO_PRIORIZA_MAIS_VENDIDOS = _bool("PICO_PRIORIZA_MAIS_VENDIDOS", True)
+PICO_JANELA_VENDAS_DIAS = max(1, min(30, _int("PICO_JANELA_VENDAS_DIAS", 7)))
 
 # --- AliExpress (API de afiliado) ---
 ALIEXPRESS_APP_KEY = _get("ALIEXPRESS_APP_KEY")

@@ -33,6 +33,8 @@ def _conn():
     con.execute("CREATE TABLE IF NOT EXISTS entregas_cupom (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
     con.execute("CREATE TABLE IF NOT EXISTS eventos (id INTEGER PRIMARY KEY AUTOINCREMENT, ocorrido_em INTEGER NOT NULL, execucao_id TEXT NOT NULL, tipo TEXT NOT NULL, oferta_id TEXT, canal TEXT, fonte TEXT, motivo TEXT, quantidade INTEGER NOT NULL DEFAULT 1)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_eventos_periodo ON eventos(ocorrido_em,tipo)")
+    con.execute("CREATE TABLE IF NOT EXISTS vendas_produto_diarias (data TEXT NOT NULL, fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, vendas INTEGER NOT NULL, observado_em INTEGER NOT NULL, PRIMARY KEY(data,fonte,oferta_id))")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_vendas_produto_historico ON vendas_produto_diarias(fonte,oferta_id,data)")
     con.commit()
     try:
         yield con
@@ -326,6 +328,52 @@ def posts_por_loja_hoje(agora=None):
             (_inicio_do_dia(agora),),
         ).fetchall()
     return {str(loja).casefold(): int(total) for loja, total in linhas}
+
+
+def registrar_vendas_produtos(ofertas, agora=None, janela_dias=7):
+    """Guarda um retrato diário e devolve crescimento observado em 1 e N dias.
+
+    `sales` não informa um período na API. Por isso os deltas só são calculados
+    contra retratos realmente observados, nunca apresentados como dado oficial.
+    """
+    momento = int(agora or time.time())
+    data = datetime.datetime.fromtimestamp(momento).date().isoformat()
+    janela_dias = max(1, int(janela_dias))
+    resultado = {}
+    with _conn() as con:
+        for oferta in ofertas or []:
+            fonte = str(oferta.get("fonte") or "")
+            oferta_id = str(oferta.get("oferta_id") or "")
+            vendas = oferta.get("sales")
+            if not (fonte and oferta_id) or vendas is None:
+                continue
+            try:
+                vendas = max(0, int(vendas))
+            except (TypeError, ValueError):
+                continue
+            deltas = {}
+            for nome, dias in (("24h", 1), ("janela", janela_dias)):
+                alvo = (datetime.datetime.fromtimestamp(momento).date()
+                        - datetime.timedelta(days=dias)).isoformat()
+                linha = con.execute(
+                    "SELECT vendas FROM vendas_produto_diarias WHERE fonte=? "
+                    "AND oferta_id=? AND data<=? ORDER BY data DESC LIMIT 1",
+                    (fonte, oferta_id, alvo),
+                ).fetchone()
+                deltas[nome] = max(0, vendas - int(linha[0])) if linha else None
+            resultado[(fonte, oferta_id)] = deltas
+            con.execute(
+                "INSERT INTO vendas_produto_diarias(data,fonte,oferta_id,vendas,observado_em) "
+                "VALUES(?,?,?,?,?) ON CONFLICT(data,fonte,oferta_id) DO UPDATE SET "
+                "vendas=MAX(vendas,excluded.vendas),observado_em=excluded.observado_em",
+                (data, fonte, oferta_id, vendas, momento),
+            )
+        con.execute(
+            "DELETE FROM vendas_produto_diarias WHERE data<?",
+            ((datetime.datetime.fromtimestamp(momento).date()
+              - datetime.timedelta(days=45)).isoformat(),),
+        )
+    return resultado
 
 
 def falhas_consecutivas(canal, limite=20):

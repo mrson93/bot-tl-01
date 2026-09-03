@@ -95,14 +95,18 @@ def _buscar_pagina(pagina: int, list_type: int) -> list:
 
 def buscar_ofertas() -> list:
     """Busca ofertas na Shopee em todas as listas configuradas e padroniza."""
-    nodes, vistos = [], set()
+    nodes, vistos = [], {}
     for list_type in config.SHOPEE_LIST_TYPES:
         for pagina in range(1, config.SHOPEE_PAGES + 1):
             for n in _buscar_pagina(pagina, list_type):
                 chave = (n.get("shopId"), n.get("itemId"))
                 if chave in vistos:
+                    # O mesmo item pode aparecer primeiro na lista comum. Não
+                    # perca a informação de que ele também é um campeão.
+                    vistos[chave]["_shopee_campeao"] |= list_type == 2
                     continue
-                vistos.add(chave)
+                vistos[chave] = n
+                n["_shopee_campeao"] = list_type == 2
                 n["fonte"] = NOME
                 n["oferta_id"] = f"shopee_{n.get('shopId')}_{n.get('itemId')}"
                 n["productUrl"] = n.get("productLink") or n.get("offerLink")

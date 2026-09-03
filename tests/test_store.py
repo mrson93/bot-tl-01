@@ -145,6 +145,26 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(2, store.posts_por_loja_hoje(agora)["loja boa"])
         self.assertEqual(2, len(store.ofertas_desde(7, agora)))
 
+    def test_calcula_crescimento_observado_em_um_e_sete_dias(self):
+        oferta = {"fonte": "Shopee", "oferta_id": "shopee_1_2", "sales": 100}
+        base = int(datetime(2026, 8, 1, 12).timestamp())
+        primeiro = store.registrar_vendas_produtos([oferta], agora=base, janela_dias=7)
+        self.assertEqual({"24h": None, "janela": None},
+                         primeiro[("Shopee", "shopee_1_2")])
+
+        oferta["sales"] = 125
+        segundo = store.registrar_vendas_produtos(
+            [oferta], agora=base + 86400, janela_dias=7
+        )
+        self.assertEqual(25, segundo[("Shopee", "shopee_1_2")]["24h"])
+        self.assertIsNone(segundo[("Shopee", "shopee_1_2")]["janela"])
+
+        oferta["sales"] = 190
+        semana = store.registrar_vendas_produtos(
+            [oferta], agora=base + 7 * 86400, janela_dias=7
+        )
+        self.assertEqual(90, semana[("Shopee", "shopee_1_2")]["janela"])
+
     def test_series_diarias_e_experimentos_ficam_agregados(self):
         store.marcar_postada("a", 40, 30, "Shopee", agora=100,
                              titulo="Panela", categoria="cozinha",
