@@ -10,6 +10,18 @@ _PALAVRAS_FRACAS = {
 
 
 _REGRAS = (
+    ("livros", (
+     "Uma leitura para entrar na sua lista 📚",
+     "Mais uma opção para sua próxima leitura 📚",
+     "Pra reservar um tempo para ler 📚",
+     "Um achado para quem gosta de livros 📚",
+     "Uma opção para renovar a lista de leitura 📚",
+     "Pra quem está escolhendo o próximo livro 📚",
+     "Uma leitura que pode ganhar espaço na estante 📚",
+     "Um convite para uma pausa com um livro 📚",
+     "Para os leitores de plantão 📚",
+     "Mais um título para conhecer 📚",
+    ), ("livro", "livros", "brochura", "capa dura")),
     ("hidratacao", (
      "Pra bebida continuar na temperatura certa por mais tempo 💧",
      "Uma companhia prática para a rotina de hidratação 💧",
@@ -49,7 +61,9 @@ _REGRAS = (
      "Pra facilitar manutenção, montagem e pequenos consertos 🔧",
      "Uma boa escolha para a gaveta de ferramentas 🔧",
     ),
-     ("ferramenta", "furadeira", "parafusadeira", "chave", "alicate",
+     ("ferramenta", "furadeira", "parafusadeira", "chave de fenda",
+      "chave philips", "chave phillips", "chave allen", "chave inglesa",
+      "chave de boca", "chave catraca", "alicate",
       "serra", "broca", "multimetro", "solda")),
     ("casa", (
      "Pra deixar a casa mais prática e organizada 🏠",
@@ -191,6 +205,19 @@ def _contem_termo(texto: str, termo: str) -> bool:
 
 def classificar_produto(produto) -> tuple:
     """Devolve ``(categoria, confianca)`` sem forçar associação ambígua."""
+    titulo = (produto.get("productName") or produto.get("titulo")
+              if isinstance(produto, dict) else produto)
+    normalizado = _normalizar(titulo)
+    # O assunto do livro não define o tipo de produto. Acessórios para livros
+    # não entram nessa prioridade e seguem a classificação normal.
+    acessorio = any(_contem_termo(normalizado, termo) for termo in (
+        "suporte", "estante", "prateleira", "marcador", "capa para",
+        "organizador", "luminaria",
+    ))
+    if not acessorio and any(_contem_termo(normalizado, termo) for termo in (
+        "livro", "livros", "brochura", "capa dura",
+    )):
+        return "livros", 0.98
     if isinstance(produto, dict):
         categoria_pronta = str(produto.get("categoria") or "")
         if categoria_pronta in {regra[0] for regra in _REGRAS}:
@@ -201,6 +228,8 @@ def classificar_produto(produto) -> tuple:
     normalizado = _normalizar(texto)
     candidatas = []
     for categoria, _, palavras in _REGRAS:
+        if categoria == "livros":
+            continue  # Identificação editorial já validada acima.
         if any(_contem_termo(normalizado, termo)
                for termo in _EXCLUSOES.get(categoria, ())):
             continue

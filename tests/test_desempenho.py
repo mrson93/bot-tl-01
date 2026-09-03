@@ -4,6 +4,21 @@ import desempenho
 
 
 class DesempenhoTest(unittest.TestCase):
+    def test_chave_metaforica_nao_e_ferramenta(self):
+        oferta = {"productName": "O Poder do Autocontrole: A Chave para a Grandeza Pessoal"}
+        self.assertEqual("outros", desempenho.categoria_produto(oferta))
+        self.assertEqual("", desempenho.chamada_humana(oferta))
+        self.assertEqual("ferramentas", desempenho.categoria_produto("Chave de fenda"))
+
+    def test_livro_tem_prioridade_sobre_assunto_e_categoria_anterior(self):
+        for titulo in ("Livro Construção da Casa", "Livro Cozinha e Panela",
+                       "Livro Ferramentas da Mente", "Autocontrole capa dura"):
+            oferta = {"productName": titulo, "categoria": "casa"}
+            self.assertEqual("livros", desempenho.categoria_produto(oferta))
+            self.assertIn(desempenho.chamada_humana(oferta),
+                          desempenho.chamadas_categoria("livros"))
+        self.assertNotEqual("livros", desempenho.categoria_produto("Prateleira para livros"))
+
     def test_garrafa_termica_recebe_chamada_especifica(self):
         oferta = {"productName": "Garrafa Térmica Inox 1 litro"}
         self.assertEqual("hidratacao", desempenho.categoria_produto(oferta))
