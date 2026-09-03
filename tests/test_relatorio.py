@@ -37,6 +37,29 @@ class RelatorioTest(unittest.TestCase):
         with patch.object(relatorio.config, "TELEGRAM_ADMIN_ID", ""):
             self.assertFalse(relatorio.enviar_se_devido(datetime(2026, 8, 17, 10)))
 
+    def test_resultados_de_ontem_abrem_relatorio_sem_somar_canceladas(self):
+        texto = relatorio._texto(
+            [], "02/09/2026", cliques={"total": 999},
+            diario_ali={"pagos": 2, "confirmados": 1, "invalidos": 20},
+            diario_shopee={"pendentes": 4, "concluidas": 2, "canceladas": 30},
+            cliques_dia={"total": 42},
+        )
+        inicio = texto.split("📮 OPERAÇÃO DE ONTEM")[0]
+        self.assertIn("🔗 Cliques: 42", inicio)
+        self.assertIn("🛒 Vendas: 9", inicio)
+        self.assertIn("AliExpress: 3 · Shopee: 6", inicio)
+        self.assertNotIn("999", inicio)
+
+    def test_resultado_diario_indisponivel_nao_vira_zero(self):
+        texto = relatorio._texto([], "02/09/2026")
+        self.assertIn("Cliques: indisponível", texto)
+        self.assertIn("Vendas: indisponível", texto)
+        parcial = relatorio._texto([], "02/09/2026", diario_shopee={
+            "pendentes": 0, "concluidas": 0,
+        }, cliques_dia={"total": 0})
+        self.assertIn("Cliques: 0", parcial)
+        self.assertIn("Vendas: 0 (parcial)", parcial)
+
     def test_desativado_sem_token_do_telegram(self):
         with patch.object(relatorio.config, "TELEGRAM_ADMIN_ID", "123"), \
              patch.object(relatorio.config, "TELEGRAM_BOT_TOKEN", ""):

@@ -206,7 +206,8 @@ def _destaques(resumo, fonte):
 
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
-           testes_ab=None, eventos=None):
+           testes_ab=None, eventos=None, diario_ali=None, diario_shopee=None,
+           cliques_dia=None):
     """Relatório curto, em blocos estáveis, para leitura rápida no Telegram."""
     sucessos = sum(qtd for _, ok, _, qtd in linhas if ok)
     falhas = sum(qtd for _, ok, _, qtd in linhas if not ok)
@@ -216,7 +217,25 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
             por_loja[fonte or "Desconhecida"] = por_loja.get(fonte or "Desconhecida", 0) + qtd
             por_canal[canal] = por_canal.get(canal, 0) + qtd
 
-    blocos = [f"📊 RELATÓRIO DIÁRIO · {data}", "━━━━━━━━━━━━━━", "📮 OPERAÇÃO DE ONTEM",
+    vendas_dia = {}
+    for fonte, resumo, campos in (
+        ("AliExpress", diario_ali, ("pagos", "confirmados")),
+        ("Shopee", diario_shopee, ("pendentes", "concluidas")),
+    ):
+        vendas_dia[fonte] = (sum(int(resumo.get(campo, 0)) for campo in campos)
+                             if resumo is not None else None)
+    disponiveis = [v for v in vendas_dia.values() if v is not None]
+    total_vendas = (str(sum(disponiveis)) if disponiveis else "indisponível")
+    if disponiveis and len(disponiveis) < len(vendas_dia):
+        total_vendas += " (parcial)"
+    total_cliques = str(cliques_dia["total"]) if cliques_dia is not None else "indisponível"
+    blocos = [f"📊 RELATÓRIO DIÁRIO · {data}", "━━━━━━━━━━━━━━",
+              "📈 RESULTADOS DE ONTEM · 00h–23h59",
+              f"🔗 Cliques: {total_cliques}", f"🛒 Vendas: {total_vendas}",
+              " · ".join(f"{fonte}: {valor if valor is not None else 'indisponível'}"
+                         for fonte, valor in vendas_dia.items()),
+              "Vendas = conversões válidas; inclui pendentes, exclui canceladas.",
+              "", "📮 OPERAÇÃO DE ONTEM",
               f"✅ {sucessos} entregas · ⚠️ {falhas} falhas"]
     if por_canal:
         blocos.append("Canais: " + " · ".join(f"{nome} {qtd}" for nome, qtd in sorted(por_canal.items())))
@@ -426,7 +445,15 @@ def enviar_se_devido(agora=None, forcar=False):
         inicio_7d.timestamp(), ids_convertidos
     )
     cliques = None
+    cliques_dia = None
     if shortlinks.esta_configurado():
+        try:
+            cliques_dia = shortlinks.resumo_cliques(
+                datetime.fromtimestamp(inicio), datetime.fromtimestamp(fim)
+            )
+        except Exception as erro:
+            print("⚠️ Cliques de ontem indisponiveis: "
+                  f"{seguranca.redigir_segredos(erro)}")
         try:
             cliques = shortlinks.resumo_cliques(inicio_7d, agora)
             metas_cliques = store.metadados_ofertas(cliques["por_oferta"])
@@ -467,7 +494,9 @@ def enviar_se_devido(agora=None, forcar=False):
         "text": _texto(store.resumo_periodo(inicio, fim), ontem.strftime("%d/%m/%Y"),
                        conversoes, conversoes_shopee, alertas,
                        sem_conversao, cliques, tendencias, testes_ab,
-                       eventos)}, timeout=30)
+                       eventos, diario_ali=diario_ali,
+                       diario_shopee=diario_shopee,
+                       cliques_dia=cliques_dia)}, timeout=30)
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(f"Telegram recusou o relatório: {corpo}")
