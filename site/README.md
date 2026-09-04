@@ -5,6 +5,11 @@ enviadas pelo bot para `POST /api/publish`, protegidas pelo segredo `PUBLISH_TOK
 Os botões passam por `/go/:id`, que registra o clique e encaminha ao link oficial
 de afiliado.
 
+O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria,
+faixa de preço, nota e loja. A ordenação pode priorizar ofertas recentes, maior
+desconto, preço, avaliação ou volume de vendas. Categorias e lojas são extraídas
+automaticamente das ofertas recebidas.
+
 ## Implantação
 
 1. Criar um projeto Pages chamado `canaltabarato`.

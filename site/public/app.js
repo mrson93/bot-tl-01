@@ -2,6 +2,14 @@ const grid = document.querySelector('#offers');
 const featuredRoot = document.querySelector('#featured');
 const empty = document.querySelector('#empty');
 const search = document.querySelector('#search');
+const category = document.querySelector('#category');
+const minPrice = document.querySelector('#min-price');
+const maxPrice = document.querySelector('#max-price');
+const minRating = document.querySelector('#min-rating');
+const shop = document.querySelector('#shop');
+const sort = document.querySelector('#sort');
+const resultCount = document.querySelector('#result-count');
+const clearFilters = document.querySelector('#clear-filters');
 let allOffers = [];
 let source = '';
 const previewOffers = [
@@ -19,6 +27,26 @@ const sales = offer => offer.sales ? ` · ${Number(offer.sales).toLocaleString('
 
 function offerMeta(offer) { return `${rating(offer)}${sales(offer)}` || 'Oferta verificada recentemente'; }
 function buyUrl(offer) { return `/go/${encodeURIComponent(offer.id)}`; }
+function normalized(value='') { return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'); }
+function label(value='') {
+  const names={eletronicos:'Eletrônicos',hidratacao:'Hidratação',automotivo:'Automotivo',infantil:'Infantil',ferramentas:'Ferramentas'};
+  const text=String(value).replace(/[_-]+/g,' ');
+  return names[normalized(text)]||text.replace(/(^|\s)(\p{L})/gu,(_,space,letter)=>space+letter.toLocaleUpperCase('pt-BR'));
+}
+function numberOrNull(value) { const parsed=Number(value); return value !== '' && Number.isFinite(parsed) ? parsed : null; }
+
+function populateSelect(select, values, firstLabel) {
+  const selected=select.value;
+  const options=[...new Set(values.filter(Boolean).map(value=>String(value).trim()))]
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  select.innerHTML=`<option value="">${esc(firstLabel)}</option>${options.map(value=>`<option value="${esc(value)}">${esc(label(value))}</option>`).join('')}`;
+  if(options.includes(selected)) select.value=selected;
+}
+
+function updateFilterOptions() {
+  populateSelect(category,allOffers.map(offer=>offer.category),'Todas');
+  populateSelect(shop,allOffers.map(offer=>offer.shop),'Todas');
+}
 
 function featuredCard(offer) {
   return `<article class="featured">
@@ -36,28 +64,61 @@ function card(offer) {
 }
 
 function render() {
-  const term = search.value.trim().toLocaleLowerCase('pt-BR');
-  const offers = allOffers.filter(o => (!source || o.source === source) && (!term || o.title.toLocaleLowerCase('pt-BR').includes(term)));
+  const term=normalized(search.value.trim());
+  const floor=numberOrNull(minPrice.value);
+  const ceiling=numberOrNull(maxPrice.value);
+  const minimumRating=numberOrNull(minRating.value);
+  const offers=allOffers.filter(offer => {
+    const price=Number(offer.price)||0;
+    const offerRating=Number(offer.rating)||0;
+    return (!source || offer.source===source)
+      && (!term || normalized(offer.title).includes(term))
+      && (!category.value || offer.category===category.value)
+      && (!shop.value || offer.shop===shop.value)
+      && (floor===null || price>=floor)
+      && (ceiling===null || price<=ceiling)
+      && (minimumRating===null || offerRating>=minimumRating);
+  });
+  const sorters={
+    recent:(a,b)=>(Number(b.published_at)||0)-(Number(a.published_at)||0),
+    discount:(a,b)=>(Number(b.discount)||0)-(Number(a.discount)||0),
+    'price-asc':(a,b)=>(Number(a.price)||0)-(Number(b.price)||0),
+    'price-desc':(a,b)=>(Number(b.price)||0)-(Number(a.price)||0),
+    rating:(a,b)=>(Number(b.rating)||0)-(Number(a.rating)||0),
+    sales:(a,b)=>(Number(b.sales)||0)-(Number(a.sales)||0),
+  };
+  offers.sort(sorters[sort.value]||sorters.recent);
   const featured = offers[0];
   featuredRoot.innerHTML = featured ? featuredCard(featured) : '';
   grid.innerHTML = offers.slice(1).map(card).join('');
   empty.hidden = offers.length > 0;
+  resultCount.textContent = `${offers.length} ${offers.length===1?'oferta encontrada':'ofertas encontradas'}`;
+  clearFilters.disabled=!source&&!term&&!category.value&&!shop.value&&floor===null&&ceiling===null&&minimumRating===null&&sort.value==='recent';
 }
 
 document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
   document.querySelector('.filter.active')?.classList.remove('active'); button.classList.add('active'); source = button.dataset.source; render();
 }));
-search.addEventListener('input', render);
+[search,minPrice,maxPrice].forEach(control=>control.addEventListener('input',render));
+[category,minRating,shop,sort].forEach(control=>control.addEventListener('change',render));
+clearFilters.addEventListener('click',()=>{
+  search.value=''; category.value=''; minPrice.value=''; maxPrice.value=''; minRating.value=''; shop.value=''; sort.value='recent'; source='';
+  document.querySelector('.filter.active')?.classList.remove('active');
+  document.querySelector('.filter[data-source=""]')?.classList.add('active');
+  render(); search.focus();
+});
 document.querySelector('#year').textContent = new Date().getFullYear();
 featuredRoot.innerHTML = '<div class="skeleton" aria-label="Carregando ofertas"></div>';
 
 fetch('/api/offers').then(r => { if (!r.ok) throw new Error('API'); return r.json(); }).then(data => {
   allOffers = Array.isArray(data.offers) ? data.offers : [];
+  updateFilterOptions();
   document.querySelector('#offer-count').textContent = allOffers.length;
   document.querySelector('#best-discount').textContent = allOffers.length ? `${Math.max(...allOffers.map(o=>Number(o.discount)||0))}%` : '—';
   render();
 }).catch(() => {
   allOffers = ['localhost','127.0.0.1'].includes(location.hostname) ? previewOffers : [];
+  updateFilterOptions();
   document.querySelector('#offer-count').textContent=allOffers.length;
   document.querySelector('#best-discount').textContent=allOffers.length ? `${Math.max(...allOffers.map(o=>Number(o.discount)||0))}%` : '—';
   render();
