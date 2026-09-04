@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Ofertas verificadas da Shopee, AliExpress e Amazon, reunidas em um só lugar.">
+  <meta name="theme-color" content="#ff5a1f">
+  <title>Tá Barato — descontos reais, sem enrolação</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Tá Barato — início">
+      <span class="brand-mark" aria-hidden="true">↓</span>
+      <span>TÁ <strong>BARATO</strong></span>
+    </a>
+    <a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Canal no Telegram <span>↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">GARIMPO AUTOMÁTICO, ESCOLHA CRITERIOSA</p>
+        <h1>Descontos reais.<br><em>Sem enrolação.</em></h1>
+        <p class="hero-text">Comparamos preço, avaliação e histórico de vendas para mostrar só o que merece seu clique.</p>
+      </div>
+      <aside class="live-card" aria-label="Resumo das ofertas">
+        <span class="live"><i></i> ATUALIZADO AGORA</span>
+        <div><strong id="offer-count">—</strong><small>ofertas recentes</small></div>
+        <div><strong id="best-discount">—</strong><small>maior desconto</small></div>
+      </aside>
+    </section>
+
+    <section class="trustbar" aria-label="Como selecionamos">
+      <span><b>01</b> Ofertas filtradas</span>
+      <span><b>02</b> Lojas avaliadas</span>
+      <span><b>03</b> Compra no site oficial</span>
+    </section>
+
+    <section class="catalog" aria-labelledby="catalog-title">
+      <div class="section-head">
+        <div><p class="eyebrow">SELEÇÃO RECENTE</p><h2 id="catalog-title">Achados que valem a pena</h2></div>
+        <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Buscar produto" autocomplete="off"></label>
+      </div>
+      <div class="filters" id="source-filters" aria-label="Filtrar por loja">
+        <button class="filter active" data-source="">Todas</button>
+        <button class="filter" data-source="Shopee">Shopee</button>
+        <button class="filter" data-source="AliExpress">AliExpress</button>
+        <button class="filter" data-source="Amazon">Amazon</button>
+      </div>
+      <div id="featured"></div>
+      <div class="offer-grid" id="offers" aria-live="polite"></div>
+      <div class="empty" id="empty" hidden>
+        <span>⌕</span><h3>Nenhuma oferta encontrada</h3><p>Tente outro termo ou volte em alguns minutos.</p>
+      </div>
+    </section>
+
+    <section class="telegram-cta">
+      <div><p class="eyebrow">NÃO PERCA AS MELHORES</p><h2>A oferta chega primeiro no Telegram.</h2></div>
+      <a href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Entrar no canal <span>↗</span></a>
+    </section>
+  </main>
+
+  <footer>
+    <div class="brand footer-brand"><span class="brand-mark">↓</span><span>TÁ <strong>BARATO</strong></span></div>
+    <p>Os preços podem mudar sem aviso. Ao comprar pelos links, o canal pode receber uma comissão, sem custo adicional para você.</p>
+    <small>© <span id="year"></span> Tá Barato</small>
+  </footer>
+</body>
+</html>

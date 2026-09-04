@@ -8,6 +8,7 @@ import config
 import seguranca
 import shopee
 import shortlinks
+import site_publisher
 import store
 import desempenho
 
@@ -18,6 +19,16 @@ def _numero(valor):
 
 def _top(contadores, limite=3):
     return sorted((contadores or {}).items(), key=lambda item: (-item[1], item[0]))[:limite]
+
+
+def _somar_cliques(resumos):
+    total = {"total": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}}
+    for resumo in resumos:
+        total["total"] += int(resumo.get("total") or 0)
+        for campo in ("por_canal", "por_fonte", "por_oferta"):
+            for chave, valor in (resumo.get(campo) or {}).items():
+                total[campo][chave] = total[campo].get(chave, 0) + int(valor or 0)
+    return total
 
 
 def _detalhes(blocos, conversoes):
@@ -444,18 +455,30 @@ def enviar_se_devido(agora=None, forcar=False):
     sem_conversao = store.ofertas_sem_conversao(
         inicio_7d.timestamp(), ids_convertidos
     )
-    cliques = None
-    cliques_dia = None
+    cliques_resumos, cliques_dia_resumos = [], []
+    provedores_cliques = []
     if shortlinks.esta_configurado():
+        provedores_cliques.append(("links próprios", shortlinks))
+    if site_publisher.esta_configurado():
+        provedores_cliques.append(("site", site_publisher))
+    for nome_provedor, provedor in provedores_cliques:
         try:
-            cliques_dia = shortlinks.resumo_cliques(
+            cliques_dia_resumos.append(provedor.resumo_cliques(
                 datetime.fromtimestamp(inicio), datetime.fromtimestamp(fim)
-            )
+            ))
         except Exception as erro:
-            print("⚠️ Cliques de ontem indisponiveis: "
+            print(f"⚠️ Cliques de ontem ({nome_provedor}) indisponiveis: "
                   f"{seguranca.redigir_segredos(erro)}")
         try:
-            cliques = shortlinks.resumo_cliques(inicio_7d, agora)
+            cliques_resumos.append(provedor.resumo_cliques(inicio_7d, agora))
+        except Exception as erro:
+            print(f"⚠️ Cliques ({nome_provedor}) indisponiveis: "
+                  f"{seguranca.redigir_segredos(erro)}")
+    cliques = _somar_cliques(cliques_resumos) if cliques_resumos else None
+    cliques_dia = (_somar_cliques(cliques_dia_resumos)
+                   if cliques_dia_resumos else None)
+    if cliques is not None:
+        try:
             metas_cliques = store.metadados_ofertas(cliques["por_oferta"])
             cliques["por_produto"] = {
                 (metas_cliques.get(oid, {}).get("titulo") or oid): qtd
@@ -467,8 +490,8 @@ def enviar_se_devido(agora=None, forcar=False):
                 if oid not in ids_convertidos
             ), key=lambda item: (-item[1], item[0]))
         except Exception as erro:
-            print("⚠️ Cliques indisponiveis: "
-                      f"{seguranca.redigir_segredos(erro)}")
+            print("⚠️ Detalhes dos cliques indisponiveis: "
+                  f"{seguranca.redigir_segredos(erro)}")
 
     publicacoes_dia = store.publicacoes_por_fonte(inicio, fim)
     publicacoes_dia_canal = store.publicacoes_por_fonte_canal(inicio, fim)

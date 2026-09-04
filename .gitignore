@@ -22,3 +22,6 @@ redirector/wrangler.toml
 telegram-control/wrangler.toml
 telegram-control/.dev.vars
 telegram-control/node_modules/
+site/wrangler.toml
+site/.dev.vars
+site/node_modules/

@@ -45,11 +45,15 @@ jobs:
       SHOPEE_APP_ID: ${{ secrets.SHOPEE_APP_ID }}
       SHOPEE_SECRET: ${{ secrets.SHOPEE_SECRET }}
       BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+      SITE_API_TOKEN: ${{ secrets.SITE_API_TOKEN }}
       AMAZON_CREDENTIAL_ID: ${{ secrets.AMAZON_CREDENTIAL_ID }}
       AMAZON_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREDENTIAL_SECRET }}
       # --- configuracoes normais (pode editar aqui mesmo) ---
       TELEGRAM_CHANNEL: "@CanalTaBarato"
       BLUESKY_HANDLE: "canaltabarato.bsky.social"
+      SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
+      SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.pages.dev/api/publish' }}
+      SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}
       ALIEXPRESS_TRACKING_ID: default
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
       # pra saber qual canal vende mais. Vazio = usa o "default" acima.

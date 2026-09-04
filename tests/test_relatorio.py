@@ -6,6 +6,18 @@ import relatorio
 
 
 class RelatorioTest(unittest.TestCase):
+    def test_soma_cliques_de_links_e_site(self):
+        total = relatorio._somar_cliques([
+            {"total": 2, "por_canal": {"telegram": 2},
+             "por_fonte": {"Shopee": 2}, "por_oferta": {"a": 2}},
+            {"total": 3, "por_canal": {"site": 3},
+             "por_fonte": {"Shopee": 1, "Amazon": 2},
+             "por_oferta": {"a": 1, "b": 2}},
+        ])
+        self.assertEqual(5, total["total"])
+        self.assertEqual(3, total["por_oferta"]["a"])
+        self.assertEqual(3, total["por_fonte"]["Shopee"])
+
     def setUp(self):
         for nome, retorno in (
             ("metadados_ofertas", {}),

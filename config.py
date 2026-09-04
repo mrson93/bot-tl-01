@@ -194,6 +194,12 @@ SHORTLINK_API_URL = _get("SHORTLINK_API_URL")
 SHORTLINK_BASE_URL = _get("SHORTLINK_BASE_URL")
 SHORTLINK_API_TOKEN = _get("SHORTLINK_API_TOKEN")
 
+# Vitrine pública opcional. O token é secreto e nunca deve ir para o código.
+SITE_ATIVO = _bool("SITE_ATIVO", False)
+SITE_API_URL = _get("SITE_API_URL")
+SITE_API_TOKEN = _get("SITE_API_TOKEN")
+SITE_TRACKING_ID = _get("SITE_TRACKING_ID") or "site"
+
 # Compatibilidade com instalações antigas. Posts de oferta não usam mais esse
 # link; o convite deve ficar em mensagem institucional ou post fixado.
 LINK_COMPARTILHAR = _get("LINK_COMPARTILHAR")

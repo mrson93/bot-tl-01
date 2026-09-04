@@ -27,6 +27,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("python -m unittest discover -v", workflow)
         self.assertIn("node --test telegram-control/test/*.test.mjs", workflow)
+        self.assertIn("node --check", workflow)
 
     def test_monitor_roda_somente_uma_vez_por_dia(self):
         workflow = Path(".github/workflows/monitor.yml").read_text(encoding="utf-8")

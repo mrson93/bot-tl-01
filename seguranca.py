@@ -74,6 +74,7 @@ def redigir_segredos(valor) -> str:
         "ALIEXPRESS_APP_SECRET",
         "AMAZON_CREDENTIAL_ID",
         "AMAZON_CREDENTIAL_SECRET",
+        "SITE_API_TOKEN",
     )
     for nome in nomes:
         segredo = getattr(config, nome, "")

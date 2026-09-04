@@ -34,6 +34,7 @@ import bluesky
 import relatorio
 import seguranca
 import shortlinks
+import site_publisher
 import observabilidade
 
 # Lojas de onde vem as ofertas.
@@ -118,6 +119,19 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
+    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco):
+        try:
+            site_publisher.publicar(fonte, oferta)
+            store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
+            observabilidade.evento("publicacao_sucesso", oferta_id=oid,
+                                    canal="Site", fonte=fonte.NOME)
+        except Exception as e:
+            erro = seguranca.redigir_segredos(e)[:500]
+            store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)
+            observabilidade.evento("publicacao_falha", oferta_id=oid,
+                                    canal="Site", fonte=fonte.NOME,
+                                    motivo="erro_site")
+            print(f"   ⚠️  Site recusou: {erro}")
     return ok
 
 
@@ -356,6 +370,8 @@ def buscar_candidatos(fonte) -> list:
                             quantidade=len(ofertas))
 
     nomes_canais = [c.NOME for c in canais_ativos()]
+    if site_publisher.esta_configurado():
+        nomes_canais.append("Site")
     candidatos = []
     rejeicoes = {
         "sem_id": 0, "preco": 0, "desconto": 0,
