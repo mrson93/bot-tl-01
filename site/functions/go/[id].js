@@ -1,4 +1,4 @@
-import {safeUrl} from '../../_lib.js';
+import {safeUrl} from '../_lib.js';
 export async function onRequestGet({params,env,waitUntil}) {
   const id=String(params.id||'');
   const row=await env.DB.prepare('SELECT destination FROM offers WHERE id=?').bind(id).first();
