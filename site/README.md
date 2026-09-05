@@ -9,6 +9,8 @@ O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria
 faixa de preço, nota e loja. A ordenação pode priorizar ofertas recentes, maior
 desconto, preço, avaliação ou volume de vendas. Categorias e lojas são extraídas
 automaticamente das ofertas recebidas.
+Os botões de plataforma também são criados a partir do catálogo: uma loja só
+aparece como filtro depois que sua primeira oferta é publicada.
 
 ## Implantação
 

@@ -10,13 +10,14 @@ const shop = document.querySelector('#shop');
 const sort = document.querySelector('#sort');
 const resultCount = document.querySelector('#result-count');
 const clearFilters = document.querySelector('#clear-filters');
+const sourceFilters = document.querySelector('#source-filters');
 let allOffers = [];
 let source = '';
 const previewOffers = [
   {id:'demo-1',title:'Fone Bluetooth com cancelamento de ruído',price:79.90,original_price:159.90,discount:50,rating:4.8,sales:2350,shop:'Loja Oficial',image_url:'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80',source:'Shopee',category:'eletronicos'},
   {id:'demo-2',title:'Jogo de panelas antiaderente 5 peças',price:129.90,original_price:249.90,discount:48,rating:4.9,sales:5180,shop:'Casa Prática',image_url:'https://images.unsplash.com/photo-1584990347449-a1846f1a2616?auto=format&fit=crop&w=900&q=80',source:'AliExpress',category:'cozinha'},
-  {id:'demo-3',title:'Garrafa térmica inox 1 litro',price:49.90,original_price:89.90,discount:44,rating:4.8,sales:3240,shop:'Loja Boa',image_url:'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=900&q=80',source:'Amazon',category:'hidratacao'},
-  {id:'demo-4',title:'Echo Dot com Alexa e som potente',price:299.00,original_price:429.00,discount:30,rating:4.9,sales:9010,shop:'Amazon',image_url:'https://images.unsplash.com/photo-1543512214-318c7553f230?auto=format&fit=crop&w=900&q=80',source:'Amazon',category:'eletronicos'}
+  {id:'demo-3',title:'Garrafa térmica inox 1 litro',price:49.90,original_price:89.90,discount:44,rating:4.8,sales:3240,shop:'Loja Boa',image_url:'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=900&q=80',source:'Shopee',category:'hidratacao'},
+  {id:'demo-4',title:'Caixa de som inteligente com assistente de voz',price:299.00,original_price:429.00,discount:30,rating:4.9,sales:9010,shop:'Tech Global',image_url:'https://images.unsplash.com/photo-1543512214-318c7553f230?auto=format&fit=crop&w=900&q=80',source:'AliExpress',category:'eletronicos'}
 ];
 
 const money = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
@@ -46,6 +47,15 @@ function populateSelect(select, values, firstLabel) {
 function updateFilterOptions() {
   populateSelect(category,allOffers.map(offer=>offer.category),'Todas');
   populateSelect(shop,allOffers.map(offer=>offer.shop),'Todas');
+}
+
+function updateSourceFilters() {
+  const sources=[...new Set(allOffers.map(offer=>String(offer.source||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if(source && !sources.includes(source)) source='';
+  sourceFilters.innerHTML=[{value:'',text:'Todas as plataformas'},...sources.map(value=>({value,text:value}))]
+    .map(item=>`<button class="filter${item.value===source?' active':''}" data-source="${esc(item.value)}">${esc(item.text)}</button>`).join('');
+  sourceFilters.hidden=sources.length===0;
 }
 
 function featuredCard(offer) {
@@ -96,15 +106,17 @@ function render() {
   clearFilters.disabled=!source&&!term&&!category.value&&!shop.value&&floor===null&&ceiling===null&&minimumRating===null&&sort.value==='recent';
 }
 
-document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
-  document.querySelector('.filter.active')?.classList.remove('active'); button.classList.add('active'); source = button.dataset.source; render();
-}));
+sourceFilters.addEventListener('click',event=>{
+  const button=event.target.closest('.filter');
+  if(!button) return;
+  sourceFilters.querySelector('.filter.active')?.classList.remove('active');
+  button.classList.add('active'); source=button.dataset.source||''; render();
+});
 [search,minPrice,maxPrice].forEach(control=>control.addEventListener('input',render));
 [category,minRating,shop,sort].forEach(control=>control.addEventListener('change',render));
 clearFilters.addEventListener('click',()=>{
   search.value=''; category.value=''; minPrice.value=''; maxPrice.value=''; minRating.value=''; shop.value=''; sort.value='recent'; source='';
-  document.querySelector('.filter.active')?.classList.remove('active');
-  document.querySelector('.filter[data-source=""]')?.classList.add('active');
+  updateSourceFilters();
   render(); search.focus();
 });
 document.querySelector('#year').textContent = new Date().getFullYear();
@@ -112,12 +124,14 @@ featuredRoot.innerHTML = '<div class="skeleton" aria-label="Carregando ofertas">
 
 fetch('/api/offers').then(r => { if (!r.ok) throw new Error('API'); return r.json(); }).then(data => {
   allOffers = Array.isArray(data.offers) ? data.offers : [];
+  updateSourceFilters();
   updateFilterOptions();
   document.querySelector('#offer-count').textContent = allOffers.length;
   document.querySelector('#best-discount').textContent = allOffers.length ? `${Math.max(...allOffers.map(o=>Number(o.discount)||0))}%` : '—';
   render();
 }).catch(() => {
   allOffers = ['localhost','127.0.0.1'].includes(location.hostname) ? previewOffers : [];
+  updateSourceFilters();
   updateFilterOptions();
   document.querySelector('#offer-count').textContent=allOffers.length;
   document.querySelector('#best-discount').textContent=allOffers.length ? `${Math.max(...allOffers.map(o=>Number(o.discount)||0))}%` : '—';
