@@ -9,7 +9,10 @@ Idioma: português do Brasil (pt-BR)
 
 - Ofertas recentes da Shopee, AliExpress e de outras plataformas quando disponíveis.
 - Páginas individuais com título, preço anunciado, desconto, avaliação, volume de vendas e loja.
+- Página de cupons oficiais ativos, com condições, validade e link para resgate.
+- Páginas permanentes de categorias e lojas geradas conforme o catálogo publicado.
 - Filtros por plataforma, categoria, loja, preço e avaliação.
+- Modos de navegação: em alta, recentes, maior desconto, mais vendidos e menor preço.
 - Canal no Telegram: https://t.me/CanalTaBarato
 - Perfil no Bluesky: https://bsky.app/profile/canaltabarato.bsky.social
 

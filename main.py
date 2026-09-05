@@ -177,11 +177,28 @@ def cupons_oficiais(ofertas):
 
 def publicar_cupons(cupons) -> int:
     """Registra e alerta uma vez por canal sobre cupons oficiais novos."""
-    if not config.CUPOM_ALERTA_SEPARADO:
+    site_ativo = site_publisher.esta_configurado()
+    if not config.CUPOM_ALERTA_SEPARADO and not site_ativo:
         return 0
     publicados = 0
-    for cupom in list(cupons)[:config.CUPOM_ALERTAS_POR_RODADA]:
+    limite_site = config.CUPOM_RESUMO_MAX_ITENS if site_ativo else 0
+    limite = max(config.CUPOM_ALERTAS_POR_RODADA, limite_site)
+    for indice, cupom in enumerate(list(cupons)[:limite]):
         store.salvar_cupom(cupom)
+        if site_ativo and store.cupom_pendente(cupom["id"], "Site"):
+            try:
+                link_site = cupom["_fonte_obj"].gerar_link(
+                    cupom["destino"], config.SITE_TRACKING_ID,
+                    ["site", "cupom", "resgate"],
+                )
+                site_publisher.publicar_cupom(cupom, link_site)
+                store.registrar_entrega_cupom(cupom["id"], "Site", True)
+            except Exception as erro:
+                store.registrar_entrega_cupom(cupom["id"], "Site", False)
+                print("   ⚠️  Cupom recusado pelo Site: "
+                      f"{seguranca.redigir_segredos(erro)}")
+        if not config.CUPOM_ALERTA_SEPARADO or indice >= config.CUPOM_ALERTAS_POR_RODADA:
+            continue
         for canal in canais_ativos():
             if not hasattr(canal, "postar_cupom") or not store.cupom_pendente(cupom["id"], canal.NOME):
                 continue

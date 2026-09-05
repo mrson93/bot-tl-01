@@ -57,9 +57,21 @@ class SiteSeoTest(unittest.TestCase):
         app = (PUBLIC / "app.js").read_text()
         detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
         sitemap = (ROOT / "site" / "functions" / "sitemap.xml.js").read_text()
-        self.assertIn("/oferta/${encodeURIComponent(offer.id)}", app)
+        self.assertIn("/oferta/${slugify(offer.title)}--${encodeURIComponent(offer.id)}", app)
         self.assertIn("'@type':'Product'", detail)
         self.assertIn("<urlset", sitemap)
+
+    def test_catalogo_tem_paginas_dinamicas_e_cupons(self):
+        index = (PUBLIC / "index.html").read_text()
+        coupons = (ROOT / "site" / "functions" / "cupons.js").read_text()
+        categories = (ROOT / "site" / "functions" / "categorias" / "[slug].js").read_text()
+        shops = (ROOT / "site" / "functions" / "lojas" / "[slug].js").read_text()
+        migration = (ROOT / "site" / "migrations" / "0002_catalogo_e_cupons.sql").read_text()
+        self.assertIn('data-sort="trending"', index)
+        self.assertIn("Cupons ativos", coupons)
+        self.assertIn("collectionPage(env,'category'", categories)
+        self.assertIn("collectionPage(env,'shop'", shops)
+        self.assertIn("CREATE TABLE IF NOT EXISTS coupons", migration)
 
     def test_llms_descreve_site_sem_promessas_enganosas(self):
         text = (PUBLIC / "llms.txt").read_text()
@@ -68,10 +80,11 @@ class SiteSeoTest(unittest.TestCase):
 
     def test_publicacao_avisa_indexnow_sem_bloquear_resposta(self):
         publish = (ROOT / "site" / "functions" / "api" / "publish.js").read_text()
+        helper = (ROOT / "site" / "functions" / "_indexnow.js").read_text()
         key = "6b821dc1235f4fd38d7b9b203617c731"
         self.assertEqual(key, (PUBLIC / f"{key}.txt").read_text().strip())
-        self.assertIn("https://api.indexnow.org/indexnow", publish)
-        self.assertIn("waitUntil(notifyIndexNow(id))", publish)
+        self.assertIn("https://api.indexnow.org/indexnow", helper)
+        self.assertIn("context.waitUntil(notifyIndexNow(", publish)
 
 
 if __name__ == "__main__":

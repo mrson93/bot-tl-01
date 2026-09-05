@@ -55,7 +55,8 @@
       <img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt="" aria-hidden="true">
       <span>TÁ <strong>BARATO</strong></span>
     </a>
-    <a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Canal no Telegram <span>↗</span></a>
+    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/cupons">Cupons</a></nav>
+    <a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Telegram <span>↗</span></a>
   </header>
 
   <main>
@@ -72,16 +73,18 @@
       </aside>
     </section>
 
-    <section class="trustbar" aria-label="Como selecionamos">
-      <span><b>01</b> Ofertas filtradas</span>
-      <span><b>02</b> Lojas avaliadas</span>
-      <span><b>03</b> Compra no site oficial</span>
-    </section>
-
     <section class="catalog" aria-labelledby="catalog-title">
       <div class="section-head">
         <div><p class="eyebrow">SELEÇÃO RECENTE</p><h2 id="catalog-title">Achados que valem a pena</h2></div>
       </div>
+      <nav class="browse-modes" aria-label="Explorar ofertas">
+        <button class="browse-mode active" type="button" data-sort="trending">🔥 Em alta</button>
+        <button class="browse-mode" type="button" data-sort="recent">Recentes</button>
+        <button class="browse-mode" type="button" data-sort="discount">Maior desconto</button>
+        <button class="browse-mode" type="button" data-sort="sales">Mais vendidos</button>
+        <button class="browse-mode" type="button" data-sort="price-asc">Menor preço</button>
+      </nav>
+      <nav class="category-links" id="category-links" aria-label="Categorias disponíveis"></nav>
       <div class="filters" id="source-filters" aria-label="Filtrar por plataforma"></div>
       <div class="filter-panel" aria-label="Filtros das ofertas">
         <label class="search-field"><span>Buscar produto</span><div class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Digite o nome do produto" autocomplete="off"></div></label>
@@ -90,7 +93,7 @@
         <label><span>Preço mínimo</span><div class="money-input"><b>R$</b><input id="min-price" type="number" min="0" step="10" inputmode="decimal" placeholder="0"></div></label>
         <label><span>Preço máximo</span><div class="money-input"><b>R$</b><input id="max-price" type="number" min="0" step="10" inputmode="decimal" placeholder="Sem limite"></div></label>
         <label><span>Nota mínima</span><select id="min-rating"><option value="">Qualquer nota</option><option value="4">4,0 ou mais</option><option value="4.5">4,5 ou mais</option><option value="4.8">4,8 ou mais</option></select></label>
-        <label><span>Ordenar por</span><select id="sort"><option value="recent">Mais recentes</option><option value="discount">Maior desconto</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="rating">Melhor avaliação</option><option value="sales">Mais vendidos</option></select></label>
+        <label><span>Ordenar por</span><select id="sort"><option value="trending">Em alta</option><option value="recent">Mais recentes</option><option value="discount">Maior desconto</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="rating">Melhor avaliação</option><option value="sales">Mais vendidos</option></select></label>
       </div>
       <div class="filter-status"><p id="result-count" aria-live="polite">Carregando ofertas…</p><button id="clear-filters" type="button">Limpar filtros</button></div>
       <div id="featured"></div>
@@ -98,6 +101,12 @@
       <div class="empty" id="empty" hidden>
         <span>⌕</span><h3>Nenhuma oferta encontrada</h3><p>Tente outro termo ou volte em alguns minutos.</p>
       </div>
+    </section>
+
+    <section class="trustbar" aria-label="Como selecionamos">
+      <span><b>01</b> Preço e desconto comparados</span>
+      <span><b>02</b> Avaliação e vendas verificadas</span>
+      <span><b>03</b> Compra no site oficial</span>
     </section>
 
     <section class="telegram-cta">

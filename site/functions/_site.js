@@ -1,0 +1,108 @@
+export const SITE='https://canaltabarato.pages.dev';
+
+export function html(value='') {
+  return String(value).replace(/[&<>'\"]/g,char=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
+  }[char]));
+}
+
+export function xml(value='') {
+  return String(value).replace(/[<>&'\"]/g,char=>({
+    '<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'
+  }[char]));
+}
+
+export function money(value) {
+  return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0);
+}
+
+export function compact(value) {
+  return new Intl.NumberFormat('pt-BR',{notation:'compact',maximumFractionDigits:1}).format(Number(value)||0);
+}
+
+export function shorten(value,limit) {
+  const text=String(value||'').replace(/\s+/g,' ').trim();
+  if(text.length<=limit) return text;
+  const cut=text.slice(0,limit-1);
+  return `${cut.slice(0,Math.max(cut.lastIndexOf(' '),limit-18)).trim()}…`;
+}
+
+export function slugify(value) {
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80)||'oferta';
+}
+
+export function label(value='') {
+  const known={eletronicos:'Eletrônicos',hidratacao:'Hidratação',automotivo:'Automotivo',
+    infantil:'Infantil',ferramentas:'Ferramentas',outros:'Outros'};
+  const key=slugify(value);
+  if(known[key]) return known[key];
+  return String(value).replace(/[_-]+/g,' ').replace(/(^|\s)(\p{L})/gu,
+    (_,space,letter)=>space+letter.toLocaleUpperCase('pt-BR'));
+}
+
+export function offerPath(offer) {
+  return `/oferta/${slugify(offer.title)}--${encodeURIComponent(offer.id)}`;
+}
+
+export function offerIdFromPath(value='') {
+  const raw=String(value);
+  const separator=raw.lastIndexOf('--');
+  const id=separator>=0?raw.slice(separator+2):raw;
+  try{return decodeURIComponent(id);}catch{return id;}
+}
+
+export function ageLabel(timestamp,now=Math.floor(Date.now()/1000)) {
+  const seconds=Math.max(0,now-Number(timestamp||now));
+  if(seconds<3600) return `há ${Math.max(1,Math.floor(seconds/60))} min`;
+  if(seconds<86400) return `há ${Math.floor(seconds/3600)} h`;
+  const days=Math.floor(seconds/86400);
+  return `há ${days} ${days===1?'dia':'dias'}`;
+}
+
+export function couponActive(offer,now=Math.floor(Date.now()/1000)) {
+  return Boolean(offer.coupon_code)&&(!offer.coupon_expires_at||Number(offer.coupon_expires_at)>now);
+}
+
+export function responseHtml(body,status=200,cache='public, max-age=300, stale-while-revalidate=1800') {
+  return new Response(body,{status,headers:{
+    'Content-Type':'text/html; charset=utf-8',
+    'Cache-Control':status===200?cache:'no-store',
+    'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
+    'Referrer-Policy':'strict-origin-when-cross-origin',
+    'X-Content-Type-Options':'nosniff',
+    'X-Robots-Tag':status===200?'index, follow, max-image-preview:large':'noindex, nofollow'
+  }});
+}
+
+export function head({title,description,canonical,structured=''}) {
+  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${html(title)}</title><meta name="description" content="${html(description)}">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+  <link rel="canonical" href="${html(canonical)}"><meta name="theme-color" content="#ff5a1f">
+  <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
+  <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">
+  <meta name="twitter:card" content="summary"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">
+  <link rel="stylesheet" href="/styles.css">${structured?`<script type="application/ld+json">${structured}</script>`:''}`;
+}
+
+export function header(active='offers') {
+  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal"><a href="/"${active==='offers'?' aria-current="page"':''}>Ofertas</a><a href="/cupons"${active==='coupons'?' aria-current="page"':''}>Cupons</a></nav><a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Telegram <span>↗</span></a></header>`;
+}
+
+export function footer() {
+  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
+}
+
+export function offerCard(offer) {
+  const discount=Number(offer.discount)||0;
+  const rating=offer.rating?`⭐ ${Number(offer.rating).toFixed(1)}`:'';
+  const sales=offer.sales?`${rating?' · ':''}${compact(offer.sales)} vendidos`:'';
+  const store=offer.shop?`<a class="store-link" href="/lojas/${slugify(offer.shop)}">${html(offer.shop)}</a>`:html(offer.source);
+  const flags=[offer.payment_label,couponActive(offer)?`Cupom ${offer.coupon_code}`:''].filter(Boolean);
+  return `<article class="offer-card"><div class="offer-media">${discount?`<span class="discount">−${Math.round(discount)}%</span>`:''}<a class="offer-detail-link" href="${offerPath(offer)}"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"></a></div><div class="offer-body"><div class="card-kicker"><span class="source">${html(offer.source)}</span><time>${html(ageLabel(offer.published_at))}</time></div><h3><a class="title-link" href="${offerPath(offer)}">${html(offer.title)}</a></h3>${flags.length?`<div class="offer-flags">${flags.map(flag=>`<span>${html(flag)}</span>`).join('')}</div>`:''}<div class="card-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div><p class="meta">${rating}${sales}</p><p class="card-store">${store}</p><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
+}
+
+export function notFound(title='Página não encontrada') {
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${html(title)} | Tá Barato</title><link rel="stylesheet" href="/styles.css"></head><body>${header()}<main class="not-found"><p class="eyebrow">TÁ BARATO</p><h1>${html(title)}</h1><p>Este conteúdo pode ter saído do catálogo ou o endereço está incorreto.</p><a class="buy" href="/">Ver ofertas recentes</a></main>${footer()}</body></html>`,404);
+}

@@ -29,7 +29,25 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual("Bearer segredo", post.call_args.kwargs["headers"]["Authorization"])
         self.assertEqual("https://s.shopee.com.br/afiliado",
                          post.call_args.kwargs["json"]["destination"])
+        self.assertIn("coupon_code", post.call_args.kwargs["json"])
+        self.assertIn("payment_label", post.call_args.kwargs["json"])
         self.assertNotIn("segredo", str(post.call_args.kwargs["json"]))
+
+    def test_publica_cupom_em_endpoint_separado(self):
+        resposta = type("Resposta", (), {"status_code": 201})()
+        cupom = {"id": "cupom_1", "fonte": "AliExpress", "codigo": "APP20",
+                 "condicao": "R$ 20 acima de R$ 100", "ativo_em": 10,
+                 "expira_em": 20}
+        with patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.publicar_cupom(cupom, "https://s.click.aliexpress.com/e/x")
+        self.assertEqual("https://canaltabarato.pages.dev/api/coupons",
+                         post.call_args.args[0])
+        self.assertEqual("APP20", post.call_args.kwargs["json"]["code"])
+        self.assertEqual("Bearer segredo",
+                         post.call_args.kwargs["headers"]["Authorization"])
 
     def test_erro_nao_expoe_token(self):
         class Fonte:

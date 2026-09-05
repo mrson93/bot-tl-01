@@ -6,17 +6,23 @@ Os botões passam por `/go/:id`, que registra o clique e encaminha ao link ofici
 de afiliado.
 
 O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria,
-faixa de preço, nota e loja. A ordenação pode priorizar ofertas recentes, maior
-desconto, preço, avaliação ou volume de vendas. Categorias e lojas são extraídas
-automaticamente das ofertas recebidas.
+faixa de preço, nota e loja. Os atalhos destacam ofertas em alta, recentes, com
+maior desconto, mais vendidas ou mais baratas. O modo “Em alta” pondera cliques
+recentes, vendas, desconto, avaliação e recência. Categorias e lojas são extraídas
+automaticamente das ofertas recebidas e ganham páginas permanentes.
 Os botões de plataforma também são criados a partir do catálogo: uma loja só
 aparece como filtro depois que sua primeira oferta é publicada.
+
+Cupons oficiais ficam em `/cupons`, com código, condição, validade e link rastreado
+para resgate. Eles são publicados pelo bot assim que forem encontrados nas páginas
+oficiais das plataformas e deixam de aparecer automaticamente após o vencimento.
 
 ## Descoberta e indexação
 
 O site publica metadados canônicos, Open Graph, dados estruturados Schema.org,
 `robots.txt`, `llms.txt` e um `sitemap.xml` atualizado diretamente do banco. Cada
-oferta dos últimos 30 dias possui uma página HTML própria em `/oferta/:id`, que
+oferta dos últimos 30 dias possui uma página HTML própria em
+`/oferta/:titulo--:id`, mantendo compatibilidade com os endereços antigos, que
 pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
 adicionar uma etapa à conversão.
@@ -26,7 +32,8 @@ nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenc
 ## Implantação
 
 1. Criar um projeto Pages chamado `canaltabarato`.
-2. Criar um banco D1 chamado `canaltabarato-ofertas` e executar `schema.sql`.
+2. Criar um banco D1 chamado `canaltabarato-ofertas` e executar `schema.sql`. Em
+   instalações já existentes, executar em ordem os arquivos de `migrations/`.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` como segredo e `ALLOWED_DESTINATION_HOSTS` como variável.
 5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
