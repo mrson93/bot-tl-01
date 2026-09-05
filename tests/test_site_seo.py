@@ -66,6 +66,13 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("Catálogo brasileiro de ofertas", text)
         self.assertIn("preços e a disponibilidade podem mudar", text)
 
+    def test_publicacao_avisa_indexnow_sem_bloquear_resposta(self):
+        publish = (ROOT / "site" / "functions" / "api" / "publish.js").read_text()
+        key = "6b821dc1235f4fd38d7b9b203617c731"
+        self.assertEqual(key, (PUBLIC / f"{key}.txt").read_text().strip())
+        self.assertIn("https://api.indexnow.org/indexnow", publish)
+        self.assertIn("waitUntil(notifyIndexNow(id))", publish)
+
 
 if __name__ == "__main__":
     unittest.main()

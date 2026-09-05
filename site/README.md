@@ -20,6 +20,8 @@ oferta dos últimos 30 dias possui uma página HTML própria em `/oferta/:id`, q
 pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
 adicionar uma etapa à conversão.
+Ao receber uma oferta, a API também avisa o IndexNow em segundo plano. Uma falha
+nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenciais.
 
 ## Implantação
 

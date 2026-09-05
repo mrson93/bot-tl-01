@@ -1,4 +1,25 @@
 import {authorized,json,safeUrl} from '../_lib.js';
+const SITE='https://canaltabarato.pages.dev';
+const INDEXNOW_KEY='6b821dc1235f4fd38d7b9b203617c731';
+
+async function notifyIndexNow(id) {
+  try {
+    const response=await fetch('https://api.indexnow.org/indexnow',{
+      method:'POST',
+      headers:{'Content-Type':'application/json; charset=utf-8'},
+      body:JSON.stringify({
+        host:'canaltabarato.pages.dev',
+        key:INDEXNOW_KEY,
+        keyLocation:`${SITE}/${INDEXNOW_KEY}.txt`,
+        urlList:[`${SITE}/oferta/${encodeURIComponent(id)}`]
+      })
+    });
+    if(!response.ok&&response.status!==202) console.warn('IndexNow recusou a oferta',{status:response.status});
+  } catch(error) {
+    console.warn('IndexNow indisponível',{error:String(error&&error.name||'erro')});
+  }
+}
+
 export async function onRequestPost({request,env,waitUntil}) {
   if(!await authorized(request,env.PUBLISH_TOKEN)) return json({error:'unauthorized'},401);
   if(Number(request.headers.get('Content-Length')||0)>32768) return json({error:'too_large'},413);
@@ -11,5 +32,6 @@ export async function onRequestPost({request,env,waitUntil}) {
   const now=Math.floor(Date.now()/1000);
   await env.DB.prepare(`INSERT INTO offers(id,title,price,original_price,discount,rating,sales,shop,image_url,destination,source,category,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,price=excluded.price,original_price=excluded.original_price,discount=excluded.discount,rating=excluded.rating,sales=excluded.sales,shop=excluded.shop,image_url=excluded.image_url,destination=excluded.destination,source=excluded.source,category=excluded.category,published_at=excluded.published_at`).bind(id,title,price,Number(body.original_price)||null,discount,Number(body.rating)||null,Number(body.sales)||null,String(body.shop||'').slice(0,100),image,destination,String(body.source||'').slice(0,30),String(body.category||'outros').slice(0,50),now).run();
   waitUntil(env.DB.prepare('DELETE FROM offers WHERE published_at<?').bind(now-30*86400).run());
+  waitUntil(notifyIndexNow(id));
   return json({ok:true},201);
 }
