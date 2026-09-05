@@ -28,6 +28,7 @@ const sales = offer => offer.sales ? ` · ${Number(offer.sales).toLocaleString('
 
 function offerMeta(offer) { return `${rating(offer)}${sales(offer)}` || 'Oferta verificada recentemente'; }
 function buyUrl(offer) { return `/go/${encodeURIComponent(offer.id)}`; }
+function detailUrl(offer) { return `/oferta/${encodeURIComponent(offer.id)}`; }
 function normalized(value='') { return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'); }
 function label(value='') {
   const names={eletronicos:'Eletrônicos',hidratacao:'Hidratação',automotivo:'Automotivo',infantil:'Infantil',ferramentas:'Ferramentas'};
@@ -60,16 +61,16 @@ function updateSourceFilters() {
 
 function featuredCard(offer) {
   return `<article class="featured">
-    <div class="featured-media"><span class="discount">−${Math.round(offer.discount)}%</span><img src="${image(offer)}" alt="${esc(offer.title)}" loading="eager"></div>
-    <div class="featured-body"><span class="source">DESTAQUE · ${esc(offer.source)}</span><h3>${esc(offer.title)}</h3>
+    <div class="featured-media"><span class="discount">−${Math.round(offer.discount)}%</span><a class="offer-detail-link" href="${detailUrl(offer)}" aria-label="Ver detalhes de ${esc(offer.title)}"><img src="${image(offer)}" alt="${esc(offer.title)}" loading="eager"></a></div>
+    <div class="featured-body"><span class="source">DESTAQUE · ${esc(offer.source)}</span><h3><a class="title-link" href="${detailUrl(offer)}">${esc(offer.title)}</a></h3>
       <div><span class="price">${money.format(offer.price)}</span>${offer.original_price ? `<span class="was">${money.format(offer.original_price)}</span>` : ''}</div>
       <p class="meta">${esc(offerMeta(offer))}</p><a class="buy" href="${buyUrl(offer)}" rel="nofollow sponsored">Ver oferta ↗</a>
     </div></article>`;
 }
 
 function card(offer) {
-  return `<article class="offer-card"><div class="offer-media"><span class="discount">−${Math.round(offer.discount)}%</span><img src="${image(offer)}" alt="${esc(offer.title)}" loading="lazy"></div>
-    <div class="offer-body"><span class="source">${esc(offer.source)}</span><h3>${esc(offer.title)}</h3><span class="price">${money.format(offer.price)}</span>
+  return `<article class="offer-card"><div class="offer-media"><span class="discount">−${Math.round(offer.discount)}%</span><a class="offer-detail-link" href="${detailUrl(offer)}" aria-label="Ver detalhes de ${esc(offer.title)}"><img src="${image(offer)}" alt="${esc(offer.title)}" loading="lazy"></a></div>
+    <div class="offer-body"><span class="source">${esc(offer.source)}</span><h3><a class="title-link" href="${detailUrl(offer)}">${esc(offer.title)}</a></h3><span class="price">${money.format(offer.price)}</span>
     <p class="meta">${esc(offerMeta(offer))}</p><a class="buy" href="${buyUrl(offer)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
 }
 

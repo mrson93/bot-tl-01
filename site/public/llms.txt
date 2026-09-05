@@ -1,0 +1,22 @@
+# Tá Barato
+
+> Catálogo brasileiro de ofertas selecionadas por preço, desconto, avaliação e histórico de vendas.
+
+Endereço oficial: https://canaltabarato.pages.dev/
+Idioma: português do Brasil (pt-BR)
+
+## Conteúdo
+
+- Ofertas recentes da Shopee, AliExpress e de outras plataformas quando disponíveis.
+- Páginas individuais com título, preço anunciado, desconto, avaliação, volume de vendas e loja.
+- Filtros por plataforma, categoria, loja, preço e avaliação.
+- Canal no Telegram: https://t.me/CanalTaBarato
+- Perfil no Bluesky: https://bsky.app/profile/canaltabarato.bsky.social
+
+## Observações
+
+Os preços e a disponibilidade podem mudar sem aviso. Os links de compra podem ser de afiliado; isso não aumenta o preço para o visitante. Consulte a página da oferta e confirme as condições no site oficial da loja.
+
+## Descoberta
+
+Sitemap: https://canaltabarato.pages.dev/sitemap.xml

@@ -12,6 +12,15 @@ automaticamente das ofertas recebidas.
 Os botões de plataforma também são criados a partir do catálogo: uma loja só
 aparece como filtro depois que sua primeira oferta é publicada.
 
+## Descoberta e indexação
+
+O site publica metadados canônicos, Open Graph, dados estruturados Schema.org,
+`robots.txt`, `llms.txt` e um `sitemap.xml` atualizado diretamente do banco. Cada
+oferta dos últimos 30 dias possui uma página HTML própria em `/oferta/:id`, que
+pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
+Os botões de compra continuam apontando diretamente para `/go/:id` para não
+adicionar uma etapa à conversão.
+
 ## Implantação
 
 1. Criar um projeto Pages chamado `canaltabarato`.
