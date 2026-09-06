@@ -19,9 +19,13 @@ relatório agregado por plataforma.
 
 Cupons e vouchers oficiais ficam em `/cupons`, com código quando existir,
 condição, validade e link rastreado. A coleta acontece no bot pelas APIs das
-plataformas e não depende de raspar outro site nem do domínio `pages.dev`.
-para resgate. Eles são publicados pelo bot assim que forem encontrados nas páginas
-oficiais das plataformas e deixam de aparecer automaticamente após o vencimento.
+plataformas e não depende de raspar páginas. Eles são publicados pelo bot assim
+que forem encontrados e deixam de aparecer automaticamente após o vencimento.
+Como complemento, a página consulta a API pública do CupomDesconto com cache de
+uma hora. Só aceita códigos verificados, atualizados nos últimos três dias, sem
+indicação de outro país e de lojas que já possuem nosso link afiliado. O link de
+afiliado da fonte externa nunca é usado; a atribuição exigida aparece no cartão.
+Clicar no código copia o texto e abre nosso redirecionamento para a loja em nova aba.
 
 ## Descoberta e indexação
 

@@ -75,6 +75,12 @@ class SiteSeoTest(unittest.TestCase):
         vouchers = (ROOT / "site" / "migrations" / "0003_vouchers_sem_codigo.sql").read_text()
         self.assertIn("ADD COLUMN kind", vouchers)
         self.assertIn("Ativar voucher", coupons)
+        self.assertIn("api/public/coupons?active=true", coupons)
+        self.assertIn("FOREIGN_REGION", coupons)
+        self.assertIn("EXTERNAL_MAX_AGE_MS", coupons)
+        self.assertIn("CupomDesconto", coupons)
+        self.assertIn('target="_blank"', coupons)
+        self.assertIn("coupon-redeem", (PUBLIC / "coupons.js").read_text())
 
     def test_llms_descreve_site_sem_promessas_enganosas(self):
         text = (PUBLIC / "llms.txt").read_text()
@@ -100,6 +106,7 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("ALLOWED_DESTINATION_HOSTS", stores)
         self.assertIn("store:${slug}", redirect)
         self.assertIn("CREATE TABLE IF NOT EXISTS store_links", migration)
+        self.assertIn('target="_blank"', app)
 
 
 if __name__ == "__main__":

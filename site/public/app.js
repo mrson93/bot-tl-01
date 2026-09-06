@@ -115,7 +115,7 @@ function renderStoreShortcuts(stores) {
   const available=Array.isArray(stores)?stores.filter(store=>store&&store.slug&&store.name):[];
   storeLinks.innerHTML=available.map(store=>{
     const slug=String(store.slug).replace(/[^a-z0-9-]/g,'');
-    return `<a class="store-button store-${esc(slug)}" href="/loja/${encodeURIComponent(slug)}" rel="nofollow sponsored"><span>${esc(store.name)}</span><b aria-hidden="true">↗</b></a>`;
+    return `<a class="store-button store-${esc(slug)}" href="/loja/${encodeURIComponent(slug)}" target="_blank" rel="nofollow sponsored noopener"><span>${esc(store.name)}</span><b aria-hidden="true">↗</b></a>`;
   }).join('');
   storeShortcuts.hidden=available.length===0;
 }
