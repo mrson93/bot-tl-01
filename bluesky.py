@@ -298,8 +298,10 @@ def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
     fonte = str(cupom.get("fonte") or "Loja")
     codigo = str(cupom.get("codigo") or "").strip()
+    titulo = str(cupom.get("titulo") or "Voucher disponível").strip()
     condicao = str(cupom.get("condicao") or "").strip()
-    texto = f"🚨 CUPOM LIBERADO · {fonte}\n\n🎟 {codigo}"
+    rotulo = "CUPOM LIBERADO" if codigo else "VOUCHER LIBERADO"
+    texto = f"🚨 {rotulo} · {fonte}\n\n🎟 {codigo or titulo}"
     if condicao:
         espaco = 300 - len(texto) - len("\nℹ️ \n\nResgate agora: ") - len(link_afiliado)
         texto += "\nℹ️ " + condicao[:max(0, espaco)].rstrip()

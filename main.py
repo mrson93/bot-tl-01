@@ -167,12 +167,38 @@ def cupons_oficiais(ofertas):
         vistos.add(identificador)
         resultado.append({
             "id": identificador, "fonte": oferta.get("fonte"), "codigo": codigo,
+            "titulo": str(oferta.get("cupomCondicao") or codigo), "tipo": "codigo",
             "condicao": oferta.get("cupomCondicao"), "destino": destino,
             "ativo_em": _timestamp_cupom(oferta.get("cupomAtivoEm")),
             "expira_em": _timestamp_cupom(oferta.get("cupomExpiraEm")),
             "_fonte_obj": oferta["_fonte_obj"],
         })
     return resultado
+
+
+def cupons_das_plataformas(lojas):
+    """Consulta feeds oficiais de campanhas sem depender de páginas externas."""
+    resultado = []
+    for fonte in lojas:
+        buscar = getattr(fonte, "buscar_cupons", None)
+        if not callable(buscar):
+            continue
+        try:
+            encontrados = buscar()
+            resultado.extend(encontrados)
+            print(f"🎟 {fonte.NOME}: {len(encontrados)} campanha(s) de cupom ativa(s).")
+        except Exception as erro:
+            print(f"   ⚠️  Campanhas de {fonte.NOME} indisponíveis: "
+                  f"{seguranca.redigir_segredos(erro)}")
+    return resultado
+
+
+def _deduplicar_cupons(cupons):
+    unicos = {}
+    for cupom in cupons:
+        if cupom.get("id"):
+            unicos[str(cupom["id"])] = cupom
+    return list(unicos.values())
 
 
 def publicar_cupons(cupons) -> int:
@@ -182,10 +208,12 @@ def publicar_cupons(cupons) -> int:
         return 0
     publicados = 0
     limite_site = config.CUPOM_RESUMO_MAX_ITENS if site_ativo else 0
-    limite = max(config.CUPOM_ALERTAS_POR_RODADA, limite_site)
-    for indice, cupom in enumerate(list(cupons)[:limite]):
+    publicados_site = 0
+    alertas_iniciados = 0
+    for cupom in cupons:
         store.salvar_cupom(cupom)
-        if site_ativo and store.cupom_pendente(cupom["id"], "Site"):
+        if (site_ativo and publicados_site < limite_site
+                and store.cupom_pendente(cupom["id"], "Site")):
             try:
                 link_site = cupom["_fonte_obj"].gerar_link(
                     cupom["destino"], config.SITE_TRACKING_ID,
@@ -193,15 +221,21 @@ def publicar_cupons(cupons) -> int:
                 )
                 site_publisher.publicar_cupom(cupom, link_site)
                 store.registrar_entrega_cupom(cupom["id"], "Site", True)
+                publicados_site += 1
             except Exception as erro:
                 store.registrar_entrega_cupom(cupom["id"], "Site", False)
                 print("   ⚠️  Cupom recusado pelo Site: "
                       f"{seguranca.redigir_segredos(erro)}")
-        if not config.CUPOM_ALERTA_SEPARADO or indice >= config.CUPOM_ALERTAS_POR_RODADA:
+        if (not config.CUPOM_ALERTA_SEPARADO
+                or alertas_iniciados >= config.CUPOM_ALERTAS_POR_RODADA):
             continue
-        for canal in canais_ativos():
-            if not hasattr(canal, "postar_cupom") or not store.cupom_pendente(cupom["id"], canal.NOME):
-                continue
+        pendentes = [canal for canal in canais_ativos()
+                     if hasattr(canal, "postar_cupom")
+                     and store.cupom_pendente(cupom["id"], canal.NOME)]
+        if not pendentes:
+            continue
+        alertas_iniciados += 1
+        for canal in pendentes:
             try:
                 link = cupom["_fonte_obj"].gerar_link(
                     cupom["destino"], getattr(canal, "TRACKING_ID", "") or None,
@@ -638,7 +672,8 @@ def rodar_uma_vez() -> int:
                     fonte = futuros[futuro]
                     print(f"   ❌ Falha inesperada em {fonte.NOME}: "
                           f"{seguranca.redigir_segredos(erro)}")
-    alertas_cupom = publicar_cupons(cupons_oficiais(candidatos))
+    cupons = cupons_oficiais(candidatos) + cupons_das_plataformas(lojas)
+    alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)
     print(f"🏁 Rodada concluida. {total} oferta(s) e {alertas_cupom} alerta(s) de cupom.")

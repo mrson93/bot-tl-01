@@ -30,6 +30,11 @@ def _conn():
     # Apenas metadados publicos de campanhas recebidos das APIs afiliadas.
     # Nao guardamos usuarios, pedidos ou qualquer dado de comprador.
     con.execute("CREATE TABLE IF NOT EXISTS cupons_ativos (id TEXT PRIMARY KEY, fonte TEXT NOT NULL, codigo TEXT NOT NULL, condicao TEXT, destino TEXT NOT NULL, ativo_em INTEGER, expira_em INTEGER, visto_em INTEGER NOT NULL)")
+    colunas_cupom = {r[1] for r in con.execute("PRAGMA table_info(cupons_ativos)")}
+    if "titulo" not in colunas_cupom:
+        con.execute("ALTER TABLE cupons_ativos ADD COLUMN titulo TEXT")
+    if "tipo" not in colunas_cupom:
+        con.execute("ALTER TABLE cupons_ativos ADD COLUMN tipo TEXT NOT NULL DEFAULT 'codigo'")
     con.execute("CREATE TABLE IF NOT EXISTS entregas_cupom (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
     con.execute("CREATE TABLE IF NOT EXISTS eventos (id INTEGER PRIMARY KEY AUTOINCREMENT, ocorrido_em INTEGER NOT NULL, execucao_id TEXT NOT NULL, tipo TEXT NOT NULL, oferta_id TEXT, canal TEXT, fonte TEXT, motivo TEXT, quantidade INTEGER NOT NULL DEFAULT 1)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_eventos_periodo ON eventos(ocorrido_em,tipo)")
@@ -189,11 +194,13 @@ def salvar_cupom(cupom: dict, agora=None):
     momento = int(agora or time.time())
     with _conn() as con:
         con.execute(
-            "INSERT INTO cupons_ativos(id,fonte,codigo,condicao,destino,ativo_em,expira_em,visto_em) "
-            "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
-            "condicao=excluded.condicao,destino=excluded.destino,ativo_em=excluded.ativo_em,"
+            "INSERT INTO cupons_ativos(id,fonte,codigo,titulo,tipo,condicao,destino,ativo_em,expira_em,visto_em) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+            "titulo=excluded.titulo,tipo=excluded.tipo,condicao=excluded.condicao,destino=excluded.destino,ativo_em=excluded.ativo_em,"
             "expira_em=excluded.expira_em,visto_em=excluded.visto_em",
-            (str(cupom["id"]), str(cupom["fonte"]), str(cupom["codigo"]),
+            (str(cupom["id"]), str(cupom["fonte"]), str(cupom.get("codigo") or ""),
+             str(cupom.get("titulo") or cupom.get("codigo") or "Voucher"),
+             str(cupom.get("tipo") or ("codigo" if cupom.get("codigo") else "voucher")),
              str(cupom.get("condicao") or ""), str(cupom["destino"]),
              cupom.get("ativo_em"), cupom.get("expira_em"), momento),
         )
@@ -221,12 +228,12 @@ def cupons_ativos(limite=5, agora=None):
     momento = int(agora or time.time())
     with _conn() as con:
         linhas = con.execute(
-            "SELECT id,fonte,codigo,condicao,destino,ativo_em,expira_em FROM cupons_ativos "
+            "SELECT id,fonte,codigo,titulo,tipo,condicao,destino,ativo_em,expira_em FROM cupons_ativos "
             "WHERE expira_em IS NULL OR expira_em>? ORDER BY "
             "CASE WHEN expira_em IS NULL THEN 1 ELSE 0 END, expira_em ASC, visto_em DESC LIMIT ?",
             (momento, int(limite)),
         ).fetchall()
-    campos = ("id", "fonte", "codigo", "condicao", "destino", "ativo_em", "expira_em")
+    campos = ("id", "fonte", "codigo", "titulo", "tipo", "condicao", "destino", "ativo_em", "expira_em")
     return [dict(zip(campos, linha)) for linha in linhas]
 
 

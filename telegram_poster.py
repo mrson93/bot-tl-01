@@ -260,9 +260,14 @@ def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
     fonte = html.escape(str(cupom.get("fonte") or "loja"))
     codigo = html.escape(str(cupom.get("codigo") or "").strip())
+    titulo = html.escape(str(cupom.get("titulo") or "Voucher disponível").strip()[:180])
     condicao = html.escape(str(cupom.get("condicao") or "").strip()[:180])
-    linhas = [f"🚨 <b>CUPOM LIBERADO · {fonte.upper()}</b>", "",
-              f"🎟 <code>{codigo}</code>"]
+    rotulo = "CUPOM LIBERADO" if codigo else "VOUCHER LIBERADO"
+    linhas = [f"🚨 <b>{rotulo} · {fonte.upper()}</b>", ""]
+    if codigo:
+        linhas.append(f"🎟 <code>{codigo}</code>")
+    else:
+        linhas.append(f"🎟 <b>{titulo}</b>")
     if condicao:
         linhas.append("ℹ️ " + condicao)
     linhas.extend(["📱 Resgate agora no aplicativo antes de finalizar.", "",
@@ -271,7 +276,8 @@ def postar_cupom(cupom: dict, link_afiliado: str) -> None:
         "chat_id": config.TELEGRAM_CHANNEL, "text": "\n".join(linhas),
         "parse_mode": "HTML",
         "reply_markup": {"inline_keyboard": [[{
-            "text": "🎟 Resgatar cupom", "url": link_afiliado
+            "text": "🎟 Resgatar cupom" if codigo else "🎟 Ativar voucher",
+            "url": link_afiliado
         }]]},
     }
     resposta = requests.post(API.format(token=config.TELEGRAM_BOT_TOKEN,
@@ -285,10 +291,12 @@ def postar_resumo_cupons(cupons: list, links: dict) -> None:
     """Resumo curto; cada item aponta para a mesma pagina oficial de resgate."""
     linhas = ["🎟 <b>CUPONS ATIVOS</b>", ""]
     for cupom in cupons:
-        codigo = html.escape(str(cupom["codigo"]))
+        codigo = html.escape(str(cupom.get("codigo") or ""))
+        titulo = html.escape(str(cupom.get("titulo") or "Voucher disponível")[:90])
         fonte = html.escape(str(cupom["fonte"]))
         condicao = html.escape(str(cupom.get("condicao") or "")[:90])
-        linha = f"• <b>{fonte}</b>: <code>{codigo}</code>"
+        item = f"<code>{codigo}</code>" if codigo else f"<b>{titulo}</b>"
+        linha = f"• <b>{fonte}</b>: {item}"
         if condicao:
             linha += " — " + condicao
         linhas.append(linha)

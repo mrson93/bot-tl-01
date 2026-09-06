@@ -13,7 +13,9 @@ automaticamente das ofertas recebidas e ganham páginas permanentes.
 Os botões de plataforma também são criados a partir do catálogo: uma loja só
 aparece como filtro depois que sua primeira oferta é publicada.
 
-Cupons oficiais ficam em `/cupons`, com código, condição, validade e link rastreado
+Cupons e vouchers oficiais ficam em `/cupons`, com código quando existir,
+condição, validade e link rastreado. A coleta acontece no bot pelas APIs das
+plataformas e não depende de raspar outro site nem do domínio `pages.dev`.
 para resgate. Eles são publicados pelo bot assim que forem encontrados nas páginas
 oficiais das plataformas e deixam de aparecer automaticamente após o vencimento.
 

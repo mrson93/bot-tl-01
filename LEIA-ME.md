@@ -75,6 +75,7 @@ Novas variáveis:
 | `SHORTLINK_BASE_URL` | vazio | Domínio público aprovado dos links curtos |
 | `SHORTLINK_API_TOKEN` | vazio | Token administrativo do redirecionador |
 | `CUPOM_ALERTA_SEPARADO` | `true` | Publica alerta exclusivo para cupom retornado oficialmente pela API |
+| `SHOPEE_CAMPANHAS_CUPOM` | `true` | Busca cupons e vouchers nas campanhas da API afiliada da Shopee |
 | `CUPOM_ALERTAS_POR_RODADA` | `1` | Máximo de alertas exclusivos de cupom por execução |
 | `CUPOM_RESUMO_HORAS` | `12,20` | Horas de Brasília para o resumão de cupons ativos |
 | `CUPOM_RESUMO_MAX_ITENS` | `5` | Máximo de cupons listados em cada resumo |

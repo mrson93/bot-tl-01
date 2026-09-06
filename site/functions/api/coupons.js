@@ -3,7 +3,7 @@ import {notifyIndexNow} from '../_indexnow.js';
 
 export async function onRequestGet({env}) {
   const now=Math.floor(Date.now()/1000);
-  const result=await env.DB.prepare(`SELECT id,source,code,condition,active_at,
+  const result=await env.DB.prepare(`SELECT id,source,code,title,kind,condition,active_at,
     expires_at,published_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
     ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END,expires_at ASC,published_at DESC LIMIT 100`
   ).bind(now).all();
@@ -19,18 +19,20 @@ export async function onRequestPost(context) {
   const id=String(body.id||'').slice(0,100);
   const source=String(body.source||'').trim().slice(0,30);
   const code=String(body.code||'').trim().slice(0,60);
+  const title=String(body.title||'').trim().slice(0,180);
+  const kind=code?'code':String(body.kind||'voucher').trim().slice(0,20);
   const condition=String(body.condition||'').trim().slice(0,220)||null;
   const activeAt=Number(body.active_at)||null;
   const expiresAt=Number(body.expires_at)||null;
-  if(!id||!source||!code||!destination) return json({error:'invalid_coupon'},400);
+  if(!id||!source||(!code&&!title)||!destination||!['code','voucher'].includes(kind)) return json({error:'invalid_coupon'},400);
   const now=Math.floor(Date.now()/1000);
   if(expiresAt&&expiresAt<=now) return json({error:'expired_coupon'},409);
-  await env.DB.prepare(`INSERT INTO coupons(id,source,code,condition,destination,
-    active_at,expires_at,published_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id)
-    DO UPDATE SET source=excluded.source,code=excluded.code,condition=excluded.condition,
+  await env.DB.prepare(`INSERT INTO coupons(id,source,code,title,kind,condition,destination,
+    active_at,expires_at,published_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id)
+    DO UPDATE SET source=excluded.source,code=excluded.code,title=excluded.title,kind=excluded.kind,condition=excluded.condition,
     destination=excluded.destination,active_at=excluded.active_at,
     expires_at=excluded.expires_at,published_at=excluded.published_at`
-  ).bind(id,source,code,condition,destination,activeAt,expiresAt,now).run();
+  ).bind(id,source,code,title||code,kind,condition,destination,activeAt,expiresAt,now).run();
   context.waitUntil(env.DB.prepare('DELETE FROM coupons WHERE expires_at IS NOT NULL AND expires_at<?').bind(now-86400).run());
   context.waitUntil(notifyIndexNow(['/cupons']));
   return json({ok:true},201);

@@ -46,8 +46,23 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual("https://canaltabarato.pages.dev/api/coupons",
                          post.call_args.args[0])
         self.assertEqual("APP20", post.call_args.kwargs["json"]["code"])
+        self.assertIn("title", post.call_args.kwargs["json"])
+        self.assertIn("kind", post.call_args.kwargs["json"])
         self.assertEqual("Bearer segredo",
                          post.call_args.kwargs["headers"]["Authorization"])
+
+    def test_publica_voucher_sem_codigo(self):
+        resposta = type("Resposta", (), {"status_code": 201})()
+        cupom = {"id": "voucher_1", "fonte": "Shopee", "codigo": "",
+                 "titulo": "Frete grátis no app", "tipo": "voucher"}
+        with patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.publicar_cupom(cupom, "https://s.shopee.com.br/x")
+        self.assertEqual("", post.call_args.kwargs["json"]["code"])
+        self.assertEqual("Frete grátis no app", post.call_args.kwargs["json"]["title"])
+        self.assertEqual("voucher", post.call_args.kwargs["json"]["kind"])
 
     def test_erro_nao_expoe_token(self):
         class Fonte:

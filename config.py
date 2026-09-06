@@ -214,6 +214,9 @@ CUPOM_PRIORIDADE_BONUS = _float("CUPOM_PRIORIDADE_BONUS", 1000)
 # copiados, vencidos ou sem destino verificavel.
 CUPOM_ALERTA_SEPARADO = _bool("CUPOM_ALERTA_SEPARADO", True)
 CUPOM_ALERTAS_POR_RODADA = max(0, _int("CUPOM_ALERTAS_POR_RODADA", 1))
+# Consulta campanhas oficiais da API afiliada da Shopee. Não usa scraping e
+# continua funcionando independentemente do domínio público da vitrine.
+SHOPEE_CAMPANHAS_CUPOM = _bool("SHOPEE_CAMPANHAS_CUPOM", True)
 # Horas (Brasilia) em que a proxima execucao publica um resumao dos cupons
 # ainda ativos que o bot encontrou. Vazio desliga o resumo.
 CUPOM_RESUMO_HORAS = [int(x) for x in (_get("CUPOM_RESUMO_HORAS") or "12,20").split(",")

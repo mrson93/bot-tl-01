@@ -19,6 +19,27 @@ class MainTest(unittest.TestCase):
         self.assertEqual(1, len(cupons))
         self.assertEqual("APP20", cupons[0]["codigo"])
         self.assertEqual(2_000_000_000, cupons[0]["expira_em"])
+        self.assertEqual("codigo", cupons[0]["tipo"])
+
+    def test_reune_campanhas_oficiais_sem_interromper_outras_fontes(self):
+        class FonteOk:
+            NOME = "Shopee"
+
+            @staticmethod
+            def buscar_cupons():
+                return [{"id": "voucher_1", "codigo": ""}]
+
+        class FonteFalha:
+            NOME = "Outra"
+
+            @staticmethod
+            def buscar_cupons():
+                raise RuntimeError("indisponível")
+
+        self.assertEqual(
+            [{"id": "voucher_1", "codigo": ""}],
+            main.cupons_das_plataformas([FonteOk, FonteFalha]),
+        )
 
     def test_desconto_maior_vence_variedade_quando_ambas_sao_inéditas(self):
         alta = {"oferta_id": "alta", "fonte": "Shopee", "price": 50,

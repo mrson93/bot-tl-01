@@ -158,6 +158,10 @@ export const SETTINGS = Object.freeze({
     category: "cupons", label: "Alerta separado de cupom", type: "boolean", default: "true",
     hint: "Só publica quando a API afiliada informar código e página oficial de resgate.",
   },
+  SHOPEE_CAMPANHAS_CUPOM: {
+    category: "cupons", label: "Vouchers oficiais da Shopee", type: "boolean", default: "true",
+    hint: "Consulta campanhas pela API afiliada oficial. Não lê páginas externas e não depende do domínio do site.",
+  },
   CUPOM_ALERTAS_POR_RODADA: {
     category: "cupons", label: "Alertas de cupom por rodada", type: "integer", default: "1", min: 0, max: 2,
     hint: "Zero pausa alertas separados; o cupom continua aparecendo na oferta quando disponível.",

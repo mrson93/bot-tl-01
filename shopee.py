@@ -119,6 +119,80 @@ def buscar_ofertas() -> list:
     return nodes
 
 
+_TERMOS_CAMPANHA = re.compile(
+    r"\b(cupom|cupons|voucher|frete\s+gr[aá]tis|cashback|desconto)\b",
+    re.IGNORECASE,
+)
+
+
+def buscar_cupons() -> list:
+    """Busca campanhas oficiais da Shopee que funcionam como voucher.
+
+    A API de afiliados não fornece necessariamente um código copiável. Nesses
+    casos publicamos a campanha como voucher com link oficial para ativação.
+    """
+    if not config.SHOPEE_CAMPANHAS_CUPOM:
+        return []
+    query = """
+    {
+      shopeeOfferV2(limit: 100, page: 1, sortType: 1) {
+        nodes {
+          offerName
+          offerType
+          imageUrl
+          offerLink
+          originalLink
+          periodStartTime
+          periodEndTime
+        }
+      }
+    }
+    """
+    nodes = ((_executar(query).get("shopeeOfferV2") or {}).get("nodes") or [])
+    agora = int(time.time())
+    resultado, vistos = [], set()
+    for node in nodes:
+        titulo = " ".join(str(node.get("offerName") or "").split())
+        if not titulo or not _TERMOS_CAMPANHA.search(titulo):
+            continue
+        ativo_em = _timestamp_api(node.get("periodStartTime"))
+        expira_em = _timestamp_api(node.get("periodEndTime"))
+        if (ativo_em and ativo_em > agora) or (expira_em and expira_em <= agora):
+            continue
+        destino = str(node.get("originalLink") or node.get("offerLink") or "").strip()
+        if not destino.startswith("https://"):
+            continue
+        bruto = "|".join((titulo, destino, str(expira_em or "")))
+        identificador = "cupom_" + hashlib.sha256(
+            bruto.encode("utf-8")
+        ).hexdigest()[:24]
+        if identificador in vistos:
+            continue
+        vistos.add(identificador)
+        resultado.append({
+            "id": identificador,
+            "fonte": NOME,
+            "codigo": "",
+            "titulo": titulo,
+            "tipo": "voucher",
+            "condicao": "Ative na página oficial e confira as regras no aplicativo.",
+            "destino": destino,
+            "ativo_em": ativo_em,
+            "expira_em": expira_em,
+            "_fonte_obj": __import__(__name__),
+        })
+    return resultado
+
+
+def _timestamp_api(valor):
+    """Normaliza timestamps da Shopee expressos em segundos ou milissegundos."""
+    try:
+        numero = int(float(valor))
+    except (TypeError, ValueError):
+        return None
+    return int(numero / 1000) if numero > 10_000_000_000 else numero
+
+
 def _decimal(valor) -> Decimal:
     """Converte valores monetarios da API sem perder centavos."""
     try:

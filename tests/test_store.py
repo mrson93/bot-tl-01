@@ -90,6 +90,19 @@ class StoreTest(unittest.TestCase):
         self.assertFalse(store.cupom_pendente("cupom_x", "Telegram"))
         self.assertTrue(store.cupom_pendente("cupom_x", "Bluesky"))
 
+    def test_salva_voucher_sem_codigo(self):
+        store.salvar_cupom({
+            "id": "voucher_x", "fonte": "Shopee", "codigo": "",
+            "titulo": "Frete grátis", "tipo": "voucher",
+            "condicao": "Ative no app", "destino": "https://shopee.com.br/m/x",
+            "expira_em": 9999999999,
+        }, agora=100)
+        voucher = next(c for c in store.cupons_ativos(20, agora=101)
+                       if c["id"] == "voucher_x")
+        self.assertEqual("", voucher["codigo"])
+        self.assertEqual("Frete grátis", voucher["titulo"])
+        self.assertEqual("voucher", voucher["tipo"])
+
     def test_desempenho_agregado_aumenta_pontuacao_sem_expor_pedido(self):
         agora = int(datetime.now().timestamp())
         store.registrar_entrega("post", "Telegram", True, 50, "Shopee", agora=agora)

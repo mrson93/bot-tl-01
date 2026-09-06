@@ -54,6 +54,11 @@ jobs:
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
       SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.pages.dev/api/publish' }}
       SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}
+      CUPOM_ALERTA_SEPARADO: ${{ vars.CUPOM_ALERTA_SEPARADO || 'true' }}
+      CUPOM_ALERTAS_POR_RODADA: ${{ vars.CUPOM_ALERTAS_POR_RODADA || '1' }}
+      CUPOM_RESUMO_HORAS: ${{ vars.CUPOM_RESUMO_HORAS || '12,20' }}
+      CUPOM_RESUMO_MAX_ITENS: ${{ vars.CUPOM_RESUMO_MAX_ITENS || '5' }}
+      SHOPEE_CAMPANHAS_CUPOM: ${{ vars.SHOPEE_CAMPANHAS_CUPOM || 'true' }}
       ALIEXPRESS_TRACKING_ID: default
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
       # pra saber qual canal vende mais. Vazio = usa o "default" acima.

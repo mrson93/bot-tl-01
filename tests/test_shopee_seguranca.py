@@ -1,4 +1,5 @@
 import json
+import time
 import unittest
 from unittest.mock import patch
 
@@ -6,6 +7,35 @@ import shopee
 
 
 class ShopeeSegurancaTest(unittest.TestCase):
+    def test_busca_somente_campanhas_ativas_relacionadas_a_cupom(self):
+        agora = int(time.time())
+        nodes = [
+            {"offerName": "Cupom de R$ 20 no app", "offerType": 1,
+             "originalLink": "https://shopee.com.br/m/cupom",
+             "periodStartTime": agora - 60, "periodEndTime": agora + 3600},
+            {"offerName": "Festival de moda", "offerType": 1,
+             "originalLink": "https://shopee.com.br/m/moda",
+             "periodStartTime": agora - 60, "periodEndTime": agora + 3600},
+            {"offerName": "Voucher expirado", "offerType": 1,
+             "originalLink": "https://shopee.com.br/m/antigo",
+             "periodEndTime": agora - 1},
+        ]
+        with patch.object(shopee.config, "SHOPEE_CAMPANHAS_CUPOM", True), \
+             patch.object(shopee, "_executar", return_value={
+                 "shopeeOfferV2": {"nodes": nodes}
+             }):
+            cupons = shopee.buscar_cupons()
+        self.assertEqual(1, len(cupons))
+        self.assertEqual("voucher", cupons[0]["tipo"])
+        self.assertEqual("", cupons[0]["codigo"])
+        self.assertIn("Cupom de R$ 20", cupons[0]["titulo"])
+
+    def test_busca_de_campanhas_pode_ser_desligada(self):
+        with patch.object(shopee.config, "SHOPEE_CAMPANHAS_CUPOM", False), \
+             patch.object(shopee, "_executar") as executar:
+            self.assertEqual([], shopee.buscar_cupons())
+        executar.assert_not_called()
+
     def test_keyword_e_codificada_como_string_graphql(self):
         keyword = 'fone" } mutation { apagarTudo } #'
         with patch.object(shopee.config, "SHOPEE_KEYWORD", keyword), \

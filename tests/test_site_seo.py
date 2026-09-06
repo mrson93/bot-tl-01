@@ -72,6 +72,9 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("collectionPage(env,'category'", categories)
         self.assertIn("collectionPage(env,'shop'", shops)
         self.assertIn("CREATE TABLE IF NOT EXISTS coupons", migration)
+        vouchers = (ROOT / "site" / "migrations" / "0003_vouchers_sem_codigo.sql").read_text()
+        self.assertIn("ADD COLUMN kind", vouchers)
+        self.assertIn("Ativar voucher", coupons)
 
     def test_llms_descreve_site_sem_promessas_enganosas(self):
         text = (PUBLIC / "llms.txt").read_text()

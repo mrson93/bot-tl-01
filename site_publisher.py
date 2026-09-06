@@ -63,7 +63,8 @@ def publicar_cupom(cupom, link_afiliado):
         headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
         json={
             "id": str(cupom["id"]), "source": cupom.get("fonte"),
-            "code": cupom.get("codigo"), "condition": cupom.get("condicao"),
+            "code": cupom.get("codigo"), "title": cupom.get("titulo"),
+            "kind": cupom.get("tipo"), "condition": cupom.get("condicao"),
             "destination": destino, "active_at": cupom.get("ativo_em"),
             "expires_at": cupom.get("expira_em"),
         }, timeout=15, allow_redirects=False,

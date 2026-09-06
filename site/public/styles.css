@@ -132,8 +132,10 @@ footer small{color:var(--muted);font-size:13px}
 .coupon-card-head>span{font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--orange)}
 .coupon-card-head small{font-size:12px;color:var(--muted);text-align:right}
 .coupon-code{display:block;font-size:28px;letter-spacing:.03em;margin:24px 0 10px;border:2px dashed var(--line);padding:13px;text-align:center;background:var(--paper)}
+.coupon-title{font-size:19px;letter-spacing:0;line-height:1.35}
 .coupon-card>p{font-size:14px;line-height:1.5;color:var(--muted);min-height:42px}
 .coupon-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px}
+.coupon-actions-single{grid-template-columns:1fr}
 .copy-coupon{border:1px solid var(--ink);background:white;color:var(--ink);font:inherit;font-size:13px;font-weight:850;cursor:pointer;padding:12px}
 .coupon-actions .buy{font-size:13px;padding:12px}
 .not-found{max-width:660px;padding:100px 24px;text-align:center}
