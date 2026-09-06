@@ -53,9 +53,9 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("vars.INTERVALO_ENTRE_POSTS_MINUTOS", workflow)
         self.assertIn("github.event.repository.visibility == 'private'", workflow)
         self.assertIn("timeout-minutes: 15", workflow)
-        wrangler = Path("telegram-control/wrangler.toml.example").read_text(
+        scheduler = Path("telegram-control/scheduler/wrangler.jsonc").read_text(
             encoding="utf-8")
-        self.assertIn('crons = ["* * * * *"]', wrangler)
+        self.assertIn('"crons": ["* * * * *"]', scheduler)
 
 
 if __name__ == "__main__":
