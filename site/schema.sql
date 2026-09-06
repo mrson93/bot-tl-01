@@ -6,3 +6,4 @@ CREATE TABLE IF NOT EXISTS clicks (offer_id TEXT NOT NULL,clicked_at INTEGER NOT
 CREATE INDEX IF NOT EXISTS idx_site_clicks_time ON clicks(clicked_at);
 CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY,source TEXT NOT NULL,code TEXT NOT NULL,title TEXT,kind TEXT NOT NULL DEFAULT 'code',condition TEXT,destination TEXT NOT NULL,active_at INTEGER,expires_at INTEGER,published_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_coupons_expires_published ON coupons(expires_at,published_at DESC);
+CREATE TABLE IF NOT EXISTS store_links (slug TEXT PRIMARY KEY,name TEXT NOT NULL,destination TEXT NOT NULL,updated_at INTEGER NOT NULL);

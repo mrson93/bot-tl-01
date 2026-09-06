@@ -62,6 +62,26 @@ def canais_ativos():
     return [c for c in CANAIS if c.esta_configurada()]
 
 
+def sincronizar_links_lojas_site(lojas, agora=None):
+    """Atualiza uma vez ao dia os atalhos afiliados exibidos na vitrine."""
+    if not site_publisher.esta_configurado():
+        return 0
+    data = (agora or datetime.now(FUSO_BRASILIA)).date().isoformat()
+    atualizados = 0
+    for fonte in lojas:
+        if store.link_loja_site_sincronizado(data, fonte.NOME):
+            continue
+        try:
+            site_publisher.publicar_loja(fonte)
+            store.marcar_link_loja_site_sincronizado(data, fonte.NOME)
+            atualizados += 1
+            print(f"🏬 Atalho afiliado de {fonte.NOME} atualizado no site.")
+        except Exception as erro:
+            print(f"   ⚠️  Atalho de {fonte.NOME} indisponível: "
+                  f"{seguranca.redigir_segredos(erro)}")
+    return atualizados
+
+
 def enviar_bom_dia_se_preciso(agora=None) -> bool:
     """Envia uma saudacao por dia, na primeira execucao da manha."""
     agora = agora or datetime.now(FUSO_BRASILIA)
@@ -661,6 +681,7 @@ def rodar_uma_vez() -> int:
             return 0
         limite = min(limite, restantes)
     lojas = fontes_ativas()
+    sincronizar_links_lojas_site(lojas)
     candidatos = []
     if lojas:
         with ThreadPoolExecutor(max_workers=len(lojas)) as executor:

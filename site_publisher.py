@@ -8,6 +8,12 @@ import seguranca
 
 NOME = "Site"
 
+PAGINAS_INICIAIS = {
+    "Shopee": "https://shopee.com.br/",
+    "AliExpress": "https://pt.aliexpress.com/",
+    "Amazon": "https://www.amazon.com.br/",
+}
+
 
 def esta_configurado():
     return bool(config.SITE_ATIVO and config.SITE_API_URL and config.SITE_API_TOKEN)
@@ -71,6 +77,23 @@ def publicar_cupom(cupom, link_afiliado):
     )
     if not 200 <= resposta.status_code < 300:
         raise RuntimeError(f"Site recusou o cupom ({resposta.status_code})")
+
+
+def publicar_loja(fonte):
+    """Gera e publica o atalho afiliado para a página principal da loja."""
+    pagina = PAGINAS_INICIAIS.get(fonte.NOME)
+    if not pagina:
+        raise RuntimeError(f"Loja sem página principal cadastrada: {fonte.NOME}")
+    destino = fonte.gerar_link(pagina, config.SITE_TRACKING_ID,
+                               ["site", "loja", fonte.NOME.lower()])
+    resposta = requests.post(
+        _api_path("/api/stores"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={"source": fonte.NOME, "destination": destino},
+        timeout=15, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou o atalho da loja ({resposta.status_code})")
 
 
 def resumo_cliques(inicio, fim):

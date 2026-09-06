@@ -6,6 +6,19 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_sincroniza_atalho_de_loja_uma_vez_por_dia(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        momento = datetime(2026, 9, 6, 10, 0, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.store, "link_loja_site_sincronizado",
+                          side_effect=[False, True]), \
+             patch.object(main.site_publisher, "publicar_loja") as publicar, \
+             patch.object(main.store, "marcar_link_loja_site_sincronizado") as marcar:
+            self.assertEqual(1, main.sincronizar_links_lojas_site([fonte], momento))
+            self.assertEqual(0, main.sincronizar_links_lojas_site([fonte], momento))
+        publicar.assert_called_once_with(fonte)
+        marcar.assert_called_once_with("2026-09-06", "Shopee")
+
     def test_extrai_apenas_cupom_com_resgate_oficial(self):
         fonte = object()
         ofertas = [

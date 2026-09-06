@@ -10,8 +10,12 @@ faixa de preço, nota e loja. Os atalhos destacam ofertas em alta, recentes, com
 maior desconto, mais vendidas ou mais baratas. O modo “Em alta” pondera cliques
 recentes, vendas, desconto, avaliação e recência. Categorias e lojas são extraídas
 automaticamente das ofertas recebidas e ganham páginas permanentes.
-Os botões de plataforma também são criados a partir do catálogo: uma loja só
-aparece como filtro depois que sua primeira oferta é publicada.
+Os filtros de plataforma são criados a partir do catálogo. Antes deles, a faixa
+“Ir para a loja” mostra somente plataformas ativas cujo link para a página
+principal foi convertido com sucesso pelo programa de afiliados. O bot renova
+esses atalhos diariamente; Amazon e futuras integrações não aparecem antes de
+estarem realmente configuradas. Os cliques passam por `/loja/:slug` e entram no
+relatório agregado por plataforma.
 
 Cupons e vouchers oficiais ficam em `/cupons`, com código quando existir,
 condição, validade e link rastreado. A coleta acontece no bot pelas APIs das

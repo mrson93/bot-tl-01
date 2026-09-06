@@ -189,6 +189,14 @@ def definir_proximo_post(timestamp):
     _definir_estado("next_post_at", int(timestamp))
 
 
+def link_loja_site_sincronizado(data, fonte):
+    return _estado(f"link_loja_site:{str(fonte).lower()}") == str(data)
+
+
+def marcar_link_loja_site_sincronizado(data, fonte):
+    _definir_estado(f"link_loja_site:{str(fonte).lower()}", str(data))
+
+
 def salvar_cupom(cupom: dict, agora=None):
     """Atualiza um cupom oficial visto na API e devolve seu identificador."""
     momento = int(agora or time.time())

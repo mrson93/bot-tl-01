@@ -89,6 +89,18 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("https://api.indexnow.org/indexnow", helper)
         self.assertIn("context.waitUntil(notifyIndexNow(", publish)
 
+    def test_atalhos_de_loja_sao_dinamicos_e_rastreados(self):
+        index = (PUBLIC / "index.html").read_text()
+        app = (PUBLIC / "app.js").read_text()
+        stores = (ROOT / "site" / "functions" / "api" / "stores.js").read_text()
+        redirect = (ROOT / "site" / "functions" / "loja" / "[slug].js").read_text()
+        migration = (ROOT / "site" / "migrations" / "0004_store_links.sql").read_text()
+        self.assertIn('id="store-shortcuts"', index)
+        self.assertIn("fetch('/api/stores')", app)
+        self.assertIn("ALLOWED_DESTINATION_HOSTS", stores)
+        self.assertIn("store:${slug}", redirect)
+        self.assertIn("CREATE TABLE IF NOT EXISTS store_links", migration)
+
 
 if __name__ == "__main__":
     unittest.main()

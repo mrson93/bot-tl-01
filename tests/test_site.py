@@ -64,6 +64,30 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual("Frete grátis no app", post.call_args.kwargs["json"]["title"])
         self.assertEqual("voucher", post.call_args.kwargs["json"]["kind"])
 
+    def test_publica_atalho_da_loja_com_link_afiliado(self):
+        class Fonte:
+            NOME = "Shopee"
+            chamada = None
+
+            @classmethod
+            def gerar_link(cls, url, tracking, etiquetas):
+                cls.chamada = (url, tracking, etiquetas)
+                return "https://s.shopee.com.br/pagina-inicial"
+
+        resposta = type("Resposta", (), {"status_code": 201})()
+        with patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.config, "SITE_TRACKING_ID", "site"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.publicar_loja(Fonte)
+        self.assertEqual("https://canaltabarato.pages.dev/api/stores",
+                         post.call_args.args[0])
+        self.assertEqual("Shopee", post.call_args.kwargs["json"]["source"])
+        self.assertEqual("https://s.shopee.com.br/pagina-inicial",
+                         post.call_args.kwargs["json"]["destination"])
+        self.assertEqual("https://shopee.com.br/", Fonte.chamada[0])
+
     def test_erro_nao_expoe_token(self):
         class Fonte:
             NOME = "Shopee"

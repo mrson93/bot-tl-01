@@ -13,6 +13,8 @@ const clearFilters=document.querySelector('#clear-filters');
 const sourceFilters=document.querySelector('#source-filters');
 const categoryLinks=document.querySelector('#category-links');
 const browseModes=document.querySelector('.browse-modes');
+const storeShortcuts=document.querySelector('#store-shortcuts');
+const storeLinks=document.querySelector('#store-links');
 let allOffers=[];
 let source='';
 const now=Math.floor(Date.now()/1000);
@@ -109,6 +111,15 @@ function updateSourceFilters() {
   sourceFilters.hidden=sources.length===0;
 }
 
+function renderStoreShortcuts(stores) {
+  const available=Array.isArray(stores)?stores.filter(store=>store&&store.slug&&store.name):[];
+  storeLinks.innerHTML=available.map(store=>{
+    const slug=String(store.slug).replace(/[^a-z0-9-]/g,'');
+    return `<a class="store-button store-${esc(slug)}" href="/loja/${encodeURIComponent(slug)}" rel="nofollow sponsored"><span>${esc(store.name)}</span><b aria-hidden="true">↗</b></a>`;
+  }).join('');
+  storeShortcuts.hidden=available.length===0;
+}
+
 function trendScore(offer) {
   const ageHours=Math.max(0,(Date.now()/1000-Number(offer.published_at||0))/3600);
   return Number(offer.clicks_24h||0)*20+Math.log10(Number(offer.sales||0)+1)*12+
@@ -171,6 +182,9 @@ clearFilters.addEventListener('click',()=>{
 });
 document.querySelector('#year').textContent=new Date().getFullYear();
 featuredRoot.innerHTML='<div class="skeleton" aria-label="Carregando ofertas"></div>';
+
+fetch('/api/stores').then(response=>{if(!response.ok) throw new Error('API');return response.json();})
+  .then(data=>renderStoreShortcuts(data.stores)).catch(()=>renderStoreShortcuts([]));
 
 fetch('/api/offers').then(response=>{if(!response.ok) throw new Error('API');return response.json();}).then(data=>{
   allOffers=Array.isArray(data.offers)?data.offers:[];

@@ -72,6 +72,12 @@ class StoreTest(unittest.TestCase):
         store.definir_proximo_post(1_800_000_000)
         self.assertEqual(1_800_000_000, store.proximo_post())
 
+    def test_sincronizacao_de_link_de_loja_e_independente_por_fonte(self):
+        self.assertFalse(store.link_loja_site_sincronizado("2026-09-06", "Shopee"))
+        store.marcar_link_loja_site_sincronizado("2026-09-06", "Shopee")
+        self.assertTrue(store.link_loja_site_sincronizado("2026-09-06", "Shopee"))
+        self.assertFalse(store.link_loja_site_sincronizado("2026-09-06", "AliExpress"))
+
     def test_bom_dia_fica_registrado_por_data(self):
         self.assertFalse(store.bom_dia_enviado("2026-08-19", "Telegram"))
         store.marcar_bom_dia_enviado("2026-08-19", "Telegram")
