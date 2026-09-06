@@ -1,4 +1,4 @@
-import {safeUrl} from '../../_lib.js';
+import {safeUrl} from '../_lib.js';
 
 export async function onRequestGet(context) {
   const {params,env}=context;
