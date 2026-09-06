@@ -1,14 +1,9 @@
 name = "deal-signal-control"
 main = "src/index.js"
-compatibility_date = "2026-08-24"
+compatibility_date = "2026-09-06"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = false
-
-[triggers]
-# O controlador verifica o relógio a cada minuto, mas só inicia uma Action no
-# momento sorteado para a próxima rodada. O relatório continua sendo enviado
-# no horário configurado no painel.
-crons = ["* * * * *"]
 
 [vars]
 GITHUB_OWNER = "SEU_USUARIO_GITHUB"
@@ -20,3 +15,4 @@ GITHUB_DEFAULT_BRANCH = "main"
 # TELEGRAM_ADMIN_ID
 # TELEGRAM_WEBHOOK_SECRET
 # GITHUB_TOKEN
+# SCHEDULER_SHARED_SECRET (mesmo valor secreto no Worker agendador)

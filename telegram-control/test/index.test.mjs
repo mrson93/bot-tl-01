@@ -12,6 +12,7 @@ const env = {
   TELEGRAM_BOT_TOKEN: "telegram-secret",
   TELEGRAM_ADMIN_ID: "123",
   TELEGRAM_WEBHOOK_SECRET: "webhook-secret",
+  SCHEDULER_SHARED_SECRET: "scheduler-secret",
   GITHUB_TOKEN: "github-secret",
   GITHUB_OWNER: "owner",
   GITHUB_REPO: "repo",
@@ -90,6 +91,29 @@ test("rejeita webhook sem segredo sem chamar servicos externos", async () => {
   });
   assert.equal(response.status, 404);
   assert.equal(calls, 0);
+});
+
+test("rota interna exige segredo e executa as tarefas pelo horario recebido", async () => {
+  let calls = 0;
+  const fakeFetch = async (url, options = {}) => {
+    calls += 1;
+    if (String(url).includes("/actions/variables?")) {
+      return Response.json({ variables: [{ name: "BOT_MODE", value: "pausado" }] });
+    }
+    return new Response(null, { status: options.method === "POST" ? 204 : 200 });
+  };
+  const baseRequest = (secret) => new Request("https://controller.example/internal/scheduled", {
+    method: "POST",
+    headers: {
+      "X-Internal-Scheduler-Secret": secret,
+      "X-Scheduled-Time": String(Date.parse("2026-09-06T14:00:00Z")),
+    },
+  });
+
+  assert.equal((await worker.fetch(baseRequest("errado"), env, fakeFetch)).status, 404);
+  assert.equal(calls, 0);
+  assert.equal((await worker.fetch(baseRequest("scheduler-secret"), env, fakeFetch)).status, 200);
+  assert.equal(calls, 2);
 });
 
 test("ignora silenciosamente usuario nao autorizado", async () => {

@@ -44,13 +44,14 @@ diferentes de `TELEGRAM_ADMIN_ID` são ignorados sem resposta.
 
 1. Copie `wrangler.toml.example` para `wrangler.toml`.
 2. Crie um token de acesso refinado no GitHub, limitado apenas ao repositório
-   `bot-ofertas`, com `Actions: read and write` e `Variables: read and write`.
-3. Configure estes quatro valores exclusivamente como secrets do Worker:
+   `bot-tl-01`, com `Actions: read and write` e `Variables: read and write`.
+3. Configure estes cinco valores exclusivamente como secrets do Worker:
 
    - `TELEGRAM_BOT_TOKEN`;
    - `TELEGRAM_ADMIN_ID`;
    - `TELEGRAM_WEBHOOK_SECRET` (valor aleatório, diferente de todos os tokens);
-   - `GITHUB_TOKEN`.
+   - `GITHUB_TOKEN`;
+   - `SCHEDULER_SHARED_SECRET` (usado somente entre os dois Workers).
 
 4. Publique o Worker e registre como webhook a URL
    `https://SEU-WORKER.workers.dev/telegram`, enviando o mesmo
@@ -61,8 +62,16 @@ Na instalação atual, o token temporário usado para publicar no Cloudflare foi
 revogado depois da configuração. O token refinado do GitHub expira em
 22/11/2026 e deve ser substituído no secret `GITHUB_TOKEN` antes dessa data.
 
-Nunca coloque os quatro secrets no `wrangler.toml`, em commits, prints ou
+Nunca coloque os cinco secrets no `wrangler.toml`, em commits, prints ou
 mensagens. O arquivo real `wrangler.toml` e `.dev.vars` são ignorados pelo Git.
+
+## Agendador isolado
+
+O Worker `bot-tl-01-scheduler` funciona como disparador separado, substituindo o
+cron que deixou de gerar eventos no controlador principal. Ele chama o controlador por um
+Service Binding privado e envia um segredo compartilhado. Não possui rota
+pública funcional, não recebe comandos e não conhece as credenciais do GitHub
+ou do Telegram. Sua configuração versionada fica em `scheduler/wrangler.jsonc`.
 
 ## Funcionamento dos modos
 
@@ -84,6 +93,6 @@ O painel grava somente variáveis permitidas. É possível controlar:
 - horário do relatório, alertas e falhas consecutivas;
 - peso da comissão, validade do histórico e teste A/B.
 
-O Worker verifica o relógio a cada minuto, mas inicia uma Action apenas quando
+O Worker agendador verifica o relógio a cada minuto, mas o controlador inicia uma Action apenas quando
 chega a hora sorteada da próxima rodada ou do relatório. O botão **Restaurar
 padrões** preserva credenciais e o modo de ritmo atual.

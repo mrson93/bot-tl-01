@@ -843,6 +843,26 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
   if (request.method === "GET" && url.pathname === "/health") {
     return textResponse("ok");
   }
+  if (request.method === "POST" && url.pathname === "/internal/scheduled") {
+    const expectedSecret = String(env.SCHEDULER_SHARED_SECRET || "");
+    const receivedSecret = request.headers.get("X-Internal-Scheduler-Secret");
+    if (!expectedSecret || !constantTimeEqual(receivedSecret, expectedSecret)) {
+      return textResponse("not found", 404);
+    }
+    const scheduledTime = Number(request.headers.get("X-Scheduled-Time") || Date.now());
+    if (!Number.isFinite(scheduledTime) || scheduledTime <= 0) {
+      return textResponse("bad request", 400);
+    }
+    try {
+      await runScheduledTasks({ scheduledTime }, env, fetchImpl);
+      console.log(JSON.stringify({ event: "fallback_schedule_processed", scheduledTime }));
+      return textResponse("ok");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "scheduled_task_error";
+      console.error(JSON.stringify({ event: "fallback_schedule_failed", reason }));
+      return textResponse("internal error", 500);
+    }
+  }
   if (request.method !== "POST" || url.pathname !== "/telegram") {
     return textResponse("not found", 404);
   }
@@ -888,17 +908,21 @@ export function selectFetch(candidate) {
   return typeof candidate === "function" ? candidate : fetch;
 }
 
+export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
+  await Promise.all([
+    runScheduledReport(controller, env, fetchImpl),
+    runScheduledAutomation(controller, env, fetchImpl),
+  ]);
+}
+
 export default {
   fetch(request, env, contextOrFetch) {
     return handleRequest(request, env, selectFetch(contextOrFetch));
   },
   async scheduled(controller, env, context) {
-    const task = Promise.all([
-      runScheduledReport(controller, env),
-      runScheduledAutomation(controller, env),
-    ]).catch((error) => {
-      const reason = error instanceof Error ? error.message : "scheduled_report_error";
-      console.error("scheduled_report_failed", reason);
+    const task = runScheduledTasks(controller, env).catch((error) => {
+      const reason = error instanceof Error ? error.message : "scheduled_task_error";
+      console.error(JSON.stringify({ event: "scheduled_task_failed", reason }));
     });
     if (context?.waitUntil) context.waitUntil(task);
     else await task;
