@@ -36,6 +36,13 @@ class ShopeeSegurancaTest(unittest.TestCase):
             self.assertEqual([], shopee.buscar_cupons())
         executar.assert_not_called()
 
+    def test_busca_respeita_limite_maximo_do_endpoint_de_campanhas(self):
+        with patch.object(shopee.config, "SHOPEE_CAMPANHAS_CUPOM", True), \
+             patch.object(shopee, "_executar", return_value={}) as executar:
+            shopee.buscar_cupons()
+        self.assertIn("shopeeOfferV2(limit: 50", executar.call_args.args[0])
+        self.assertNotIn("limit: 100", executar.call_args.args[0])
+
     def test_keyword_e_codificada_como_string_graphql(self):
         keyword = 'fone" } mutation { apagarTudo } #'
         with patch.object(shopee.config, "SHOPEE_KEYWORD", keyword), \

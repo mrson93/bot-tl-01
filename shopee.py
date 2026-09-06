@@ -135,7 +135,7 @@ def buscar_cupons() -> list:
         return []
     query = """
     {
-      shopeeOfferV2(limit: 100, page: 1, sortType: 1) {
+      shopeeOfferV2(limit: 50, page: 1, sortType: 1) {
         nodes {
           offerName
           offerType

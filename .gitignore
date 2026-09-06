@@ -22,6 +22,7 @@ redirector/wrangler.toml
 telegram-control/wrangler.toml
 telegram-control/.dev.vars
 telegram-control/node_modules/
+.pnpm-store/
 site/wrangler.toml
 site/.dev.vars
 site/node_modules/
