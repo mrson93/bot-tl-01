@@ -32,9 +32,18 @@ export function slugify(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80)||'oferta';
 }
 
+export function normalizeCategory(value='') {
+  const key=slugify(value);
+  if(/infantil|bebe|crianca|brinquedo/.test(key)) return 'infantil';
+  if(/livr/.test(key)) return 'livros'; if(/\bpet\b/.test(key)) return 'pet';
+  if(/cozinha/.test(key)) return 'cozinha'; if(/ferrament|industrial/.test(key)) return 'ferramentas';
+  if(/automot|carro/.test(key)) return 'automotivo'; if(/esport|fitness/.test(key)) return 'esportes';
+  if(/sapato|moda|roupa|vestuario/.test(key)) return 'moda'; if(/eletron|tecnolog|informat/.test(key)) return 'eletronicos';
+  if(/beleza|saude|cosmetic/.test(key)) return 'beleza'; if(/casa|decor|moveis/.test(key)) return 'casa'; return 'outros';
+}
+
 export function label(value='') {
-  const known={eletronicos:'Eletrônicos',hidratacao:'Hidratação',automotivo:'Automotivo',
-    infantil:'Infantil',ferramentas:'Ferramentas',outros:'Outros'};
+  const known={eletronicos:'Eletrônicos',automotivo:'Automotivo',infantil:'Infantil',ferramentas:'Ferramentas',esportes:'Esportes',cozinha:'Cozinha',casa:'Casa',moda:'Moda',beleza:'Beleza e saúde',livros:'Livros',pet:'Pet',outros:'Outros'};
   const key=slugify(value);
   if(known[key]) return known[key];
   return String(value).replace(/[_-]+/g,' ').replace(/(^|\s)(\p{L})/gu,
@@ -75,14 +84,14 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
   }});
 }
 
-export function head({title,description,canonical,structured=''}) {
+export function head({title,description,canonical,structured='',image=''}) {
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${html(title)}</title><meta name="description" content="${html(description)}">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
   <link rel="canonical" href="${html(canonical)}"><meta name="theme-color" content="#ff5a1f">
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
-  <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">
-  <meta name="twitter:card" content="summary"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">
+  <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
+  <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
   <link rel="stylesheet" href="/styles.css">${structured?`<script type="application/ld+json">${structured}</script>`:''}`;
 }
 
@@ -91,7 +100,12 @@ export function header(active='offers') {
 }
 
 export function footer() {
-  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
+  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><nav class="footer-links"><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/contato">Contato</a></nav><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
+}
+
+export function infoPage({slug,title,eyebrow,description,content,structured=''}) {
+  const canonical=`${SITE}/${slug}`;
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title:`${title} | Tá Barato`,description,canonical,structured})}</head><body>${header()}<main class="info-page"><p class="eyebrow">${html(eyebrow)}</p><h1>${html(title)}</h1><div class="info-content">${content}</div></main>${footer()}</body></html>`,200,'public, max-age=3600, stale-while-revalidate=86400');
 }
 
 export function offerCard(offer) {

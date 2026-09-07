@@ -6,7 +6,9 @@ Os botões passam por `/go/:id`, que registra o clique e encaminha ao link ofici
 de afiliado.
 
 O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria,
-faixa de preço, nota e loja. Os atalhos destacam ofertas em alta, recentes, com
+faixa de preço, nota, loja, período e presença de cupom. A API usa paginação e
+informa o total real de resultados; a vitrine carrega 24 itens por vez. Os
+atalhos destacam ofertas em alta, recentes, com
 maior desconto, mais vendidas ou mais baratas. O modo “Em alta” pondera cliques
 recentes, vendas, desconto, avaliação e recência. Categorias e lojas são extraídas
 automaticamente das ofertas recebidas e ganham páginas permanentes.
@@ -36,6 +38,11 @@ oferta dos últimos 30 dias possui uma página HTML própria em
 pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
 adicionar uma etapa à conversão.
+As páginas de produto exibem histórico dos preços observados, ofertas relacionadas,
+favoritos locais, compartilhamento e um aviso de preço alterado. Cinco relatos
+retiram o item da vitrine; o formulário aceita apenas requisições do próprio site
+e o navegador impede relatos repetidos comuns. O site não exige cadastro nem envia
+os favoritos ao servidor.
 Ao receber uma oferta, a API também avisa o IndexNow em segundo plano. Uma falha
 nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenciais.
 

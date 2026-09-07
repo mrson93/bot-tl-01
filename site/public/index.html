@@ -67,11 +67,13 @@
         <p class="hero-text">Comparamos preço, avaliação e histórico de vendas para mostrar só o que merece seu clique.</p>
       </div>
       <aside class="live-card" aria-label="Resumo das ofertas">
-        <span class="live"><i></i> ATUALIZADO AGORA</span>
+        <span class="live"><i></i> <span id="updated-label">ATUALIZANDO…</span></span>
         <div><strong id="offer-count">—</strong><small>ofertas recentes</small></div>
         <div><strong id="best-discount">—</strong><small>maior desconto</small></div>
       </aside>
     </section>
+
+    <section class="coupon-strip" id="coupon-strip" hidden><div><p class="eyebrow">ECONOMIA EXTRA</p><strong id="coupon-strip-text"></strong></div><a href="/cupons">Ver cupons ativos →</a></section>
 
     <section class="store-shortcuts" id="store-shortcuts" aria-labelledby="store-shortcuts-title" hidden>
       <div class="store-shortcuts-head">
@@ -91,21 +93,25 @@
         <button class="browse-mode" type="button" data-sort="discount">Maior desconto</button>
         <button class="browse-mode" type="button" data-sort="sales">Mais vendidos</button>
         <button class="browse-mode" type="button" data-sort="price-asc">Menor preço</button>
+        <button class="browse-mode" type="button" data-favorites="1">♥ Favoritos</button>
       </nav>
       <nav class="category-links" id="category-links" aria-label="Categorias disponíveis"></nav>
       <div class="filters" id="source-filters" aria-label="Filtrar por plataforma"></div>
       <div class="filter-panel" aria-label="Filtros das ofertas">
         <label class="search-field"><span>Buscar produto</span><div class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Digite o nome do produto" autocomplete="off"></div></label>
         <label><span>Categoria</span><select id="category"><option value="">Todas</option></select></label>
-        <label><span>Loja</span><select id="shop"><option value="">Todas</option></select></label>
+        <label><span>Loja</span><input id="shop" list="shop-options" placeholder="Todas as lojas" autocomplete="off"><datalist id="shop-options"></datalist></label>
         <label><span>Preço mínimo</span><div class="money-input"><b>R$</b><input id="min-price" type="number" min="0" step="10" inputmode="decimal" placeholder="0"></div></label>
         <label><span>Preço máximo</span><div class="money-input"><b>R$</b><input id="max-price" type="number" min="0" step="10" inputmode="decimal" placeholder="Sem limite"></div></label>
         <label><span>Nota mínima</span><select id="min-rating"><option value="">Qualquer nota</option><option value="4">4,0 ou mais</option><option value="4.5">4,5 ou mais</option><option value="4.8">4,8 ou mais</option></select></label>
+        <label><span>Publicada</span><select id="hours"><option value="">Nos últimos 7 dias</option><option value="6">Nas últimas 6 horas</option><option value="12">Nas últimas 12 horas</option><option value="24">Nas últimas 24 horas</option><option value="72">Nos últimos 3 dias</option></select></label>
+        <label class="check-filter"><input id="coupon-only" type="checkbox"><span>Somente com cupom</span></label>
         <label><span>Ordenar por</span><select id="sort"><option value="trending">Em alta</option><option value="recent">Mais recentes</option><option value="discount">Maior desconto</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="rating">Melhor avaliação</option><option value="sales">Mais vendidos</option></select></label>
       </div>
       <div class="filter-status"><p id="result-count" aria-live="polite">Carregando ofertas…</p><button id="clear-filters" type="button">Limpar filtros</button></div>
       <div id="featured"></div>
       <div class="offer-grid" id="offers" aria-live="polite"></div>
+      <button class="load-more" id="load-more" type="button" hidden>Carregar mais ofertas</button>
       <div class="empty" id="empty" hidden>
         <span>⌕</span><h3>Nenhuma oferta encontrada</h3><p>Tente outro termo ou volte em alguns minutos.</p>
       </div>
@@ -126,7 +132,7 @@
   <footer>
     <div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div>
     <p>Os preços podem mudar sem aviso. Ao comprar pelos links, o canal pode receber uma comissão, sem custo adicional para você.</p>
-    <small>© <span id="year"></span> Tá Barato</small>
+    <nav class="footer-links"><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
   </footer>
 </body>
 </html>

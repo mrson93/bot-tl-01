@@ -57,8 +57,9 @@ class SiteSeoTest(unittest.TestCase):
         app = (PUBLIC / "app.js").read_text()
         detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
         sitemap = (ROOT / "site" / "functions" / "sitemap.xml.js").read_text()
-        self.assertIn("/oferta/${slugify(offer.title)}--${encodeURIComponent(offer.id)}", app)
+        self.assertIn("/oferta/${slug(o.title)}--${encodeURIComponent(o.id)}", app)
         self.assertIn("'@type':'Product'", detail)
+        self.assertIn("'@type':'BreadcrumbList'", detail)
         self.assertIn("<urlset", sitemap)
 
     def test_catalogo_tem_paginas_dinamicas_e_cupons(self):
@@ -107,6 +108,24 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("store:${slug}", redirect)
         self.assertIn("CREATE TABLE IF NOT EXISTS store_links", migration)
         self.assertIn('target="_blank"', app)
+
+    def test_catalogo_avancado_tem_total_real_historico_e_feedback(self):
+        api = (ROOT / "site" / "functions" / "api" / "offers.js").read_text()
+        app = (PUBLIC / "app.js").read_text()
+        detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
+        schema = (ROOT / "site" / "schema.sql").read_text()
+        self.assertIn("COUNT(*)total", api)
+        self.assertIn("has_more", api)
+        self.assertIn("Carregar mais ofertas", (PUBLIC / "index.html").read_text())
+        self.assertIn("offer_prices", detail)
+        self.assertIn("/api/feedback", (PUBLIC / "offer.js").read_text())
+        self.assertIn("CREATE TABLE IF NOT EXISTS offer_feedback", schema)
+        self.assertIn("data-favorite", app)
+
+    def test_paginas_de_confianca_foram_publicadas(self):
+        for name in ("como-escolhemos", "faq", "privacidade", "contato"):
+            self.assertTrue((ROOT / "site" / "functions" / f"{name}.js").exists())
+        self.assertIn("FAQPage", (ROOT / "site" / "functions" / "faq.js").read_text())
 
 
 if __name__ == "__main__":

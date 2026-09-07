@@ -7,3 +7,6 @@ CREATE INDEX IF NOT EXISTS idx_site_clicks_time ON clicks(clicked_at);
 CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY,source TEXT NOT NULL,code TEXT NOT NULL,title TEXT,kind TEXT NOT NULL DEFAULT 'code',condition TEXT,destination TEXT NOT NULL,active_at INTEGER,expires_at INTEGER,published_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_coupons_expires_published ON coupons(expires_at,published_at DESC);
 CREATE TABLE IF NOT EXISTS store_links (slug TEXT PRIMARY KEY,name TEXT NOT NULL,destination TEXT NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS offer_prices (offer_id TEXT NOT NULL,observed_on TEXT NOT NULL,price REAL NOT NULL,observed_at INTEGER NOT NULL,PRIMARY KEY (offer_id,observed_on));
+CREATE INDEX IF NOT EXISTS idx_offer_prices_offer_time ON offer_prices(offer_id,observed_at DESC);
+CREATE TABLE IF NOT EXISTS offer_feedback (offer_id TEXT NOT NULL,kind TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,PRIMARY KEY (offer_id,kind));

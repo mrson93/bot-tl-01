@@ -1,43 +1,25 @@
-import {SITE,compact,couponActive,footer,head,header,html,label,money,notFound,
-  offerIdFromPath,offerPath,responseHtml,shorten,slugify} from '../_site.js';
+import {SITE,compact,couponActive,footer,head,header,html,label,money,notFound,offerCard,offerIdFromPath,offerPath,responseHtml,shorten,slugify} from '../_site.js';
 
 export async function onRequestGet({params,env}) {
   const id=offerIdFromPath(params.id);
   if(!id||id.length>160) return notFound('Oferta não encontrada');
   const since=Math.floor(Date.now()/1000)-30*86400;
-  const offer=await env.DB.prepare(`SELECT id,title,price,original_price,discount,
-    rating,sales,shop,image_url,source,category,published_at,coupon_code,
-    coupon_condition,coupon_expires_at,payment_label
-    FROM offers WHERE id=? AND published_at>=?`).bind(id,since).first();
+  const offer=await env.DB.prepare('SELECT id,title,price,original_price,discount,rating,sales,shop,image_url,source,category,published_at,coupon_code,coupon_condition,coupon_expires_at,payment_label FROM offers WHERE id=? AND published_at>=?').bind(id,since).first();
   if(!offer) return notFound('Oferta não encontrada');
-
-  const canonical=`${SITE}${offerPath(offer)}`;
-  const productName=shorten(offer.title,180);
-  const sourceName=shorten(offer.source||'loja parceira',30);
-  const title=shorten(`${productName} por ${money(offer.price)} | Tá Barato`,65);
-  const description=shorten(`${productName} por ${money(offer.price)}${offer.discount?` com ${Math.round(offer.discount)}% de desconto`:''} na ${sourceName}. Confira preço e condições.`,155);
-  const published=new Date(Number(offer.published_at)*1000);
-  const publishedText=published.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'});
-  const product={
-    '@context':'https://schema.org','@type':'Product',name:productName,
-    image:[String(offer.image_url)],description,url:canonical,
-    offers:{'@type':'Offer',url:`${SITE}/go/${encodeURIComponent(offer.id)}`,
-      priceCurrency:'BRL',price:Number(offer.price),
-      seller:{'@type':'Organization',name:String(offer.shop||offer.source)}}
-  };
-  const structured=JSON.stringify(product).replace(/</g,'\\u003c');
-  const rating=offer.rating?`⭐ ${Number(offer.rating).toFixed(1)}`:'';
-  const sales=offer.sales?`${rating?' · ':''}${html(compact(offer.sales))} vendidos`:'';
-  const coupon=couponActive(offer)?`<section class="coupon-inline"><span>CUPOM DISPONÍVEL</span><strong>${html(offer.coupon_code)}</strong>${offer.coupon_condition?`<p>${html(offer.coupon_condition)}</p>`:''}</section>`:'';
-  const flags=[offer.payment_label].filter(Boolean).map(value=>`<span>${html(value)}</span>`).join('');
-
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical,structured})}</head><body>
-  ${header()}<main class="offer-page"><a class="offer-back" href="/">← Voltar para as ofertas</a>
-    <article class="offer-detail"><div class="offer-detail-media">${offer.discount?`<span class="discount">−${Math.round(Number(offer.discount))}%</span>`:''}<img src="${html(offer.image_url)}" alt="${html(offer.title)}"></div>
-      <div class="offer-detail-body"><span class="source">${html(offer.source)}${offer.category?` · <a href="/categorias/${slugify(offer.category)}">${html(label(offer.category))}</a>`:''}</span><h1>${html(offer.title)}</h1>${flags?`<div class="offer-flags">${flags}</div>`:''}
-        <div class="offer-detail-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div>
-        ${rating||sales?`<p class="meta">${rating}${sales}</p>`:''}${coupon}${offer.shop?`<p class="offer-shop">Loja: <a href="/lojas/${slugify(offer.shop)}"><strong>${html(offer.shop)}</strong></a></p>`:''}
-        <a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta no site oficial ↗</a>
-        <p class="offer-detail-note">O preço e a disponibilidade podem mudar sem aviso. Este pode ser um link de afiliado, sem custo adicional para você.</p><p class="offer-date">Oferta publicada em ${html(publishedText)}</p>
-      </div></article></main>${footer()}</body></html>`);
+  const relatedValues=[id,Math.floor(Date.now()/1000)-7*86400]; let relatedFilter='';
+  if(offer.category){relatedFilter=' AND category=?';relatedValues.push(offer.category);}
+  const [pricesResult,relatedResult,feedbackResult]=await env.DB.batch([
+    env.DB.prepare('SELECT price,observed_at FROM offer_prices WHERE offer_id=? ORDER BY observed_at ASC LIMIT 30').bind(id),
+    env.DB.prepare(`SELECT id,title,price,original_price,discount,rating,sales,shop,image_url,source,category,published_at,coupon_code,coupon_condition,coupon_expires_at,payment_label FROM offers WHERE id!=? AND published_at>=?${relatedFilter} ORDER BY discount DESC,published_at DESC LIMIT 3`).bind(...relatedValues),
+    env.DB.prepare("SELECT quantity FROM offer_feedback WHERE offer_id=? AND kind='expired'").bind(id),
+  ]);
+  const canonical=`${SITE}${offerPath(offer)}`,productName=shorten(offer.title,180),sourceName=shorten(offer.source||'loja parceira',30),title=shorten(`${productName} por ${money(offer.price)} | Tá Barato`,65),description=shorten(`${productName} por ${money(offer.price)}${offer.discount?` com ${Math.round(offer.discount)}% de desconto`:''} na ${sourceName}. Confira preço e condições.`,155);
+  const published=new Date(Number(offer.published_at)*1000),publishedText=published.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'});
+  const product={'@context':'https://schema.org','@graph':[{'@type':'Product',name:productName,image:[String(offer.image_url)],description,url:canonical,offers:{'@type':'Offer',url:`${SITE}/go/${encodeURIComponent(offer.id)}`,priceCurrency:'BRL',price:Number(offer.price),availability:'https://schema.org/InStock',seller:{'@type':'Organization',name:String(offer.shop||offer.source)}}},{'@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'Ofertas',item:`${SITE}/`},{'@type':'ListItem',position:2,name:label(offer.category||'outros'),item:`${SITE}/categorias/${slugify(offer.category||'outros')}`},{'@type':'ListItem',position:3,name:productName,item:canonical}]}]};
+  const structured=JSON.stringify(product).replace(/</g,'\\u003c'),rating=offer.rating?`⭐ ${Number(offer.rating).toFixed(1)}`:'',sales=offer.sales?`${rating?' · ':''}${html(compact(offer.sales))} vendidos`:'';
+  const coupon=couponActive(offer)?`<section class="coupon-inline"><span>CUPOM DISPONÍVEL</span><strong>${html(offer.coupon_code)}</strong>${offer.coupon_condition?`<p>${html(offer.coupon_condition)}</p>`:''}</section>`:'',flags=[offer.payment_label].filter(Boolean).map(value=>`<span>${html(value)}</span>`).join('');
+  const prices=pricesResult.results||[],values=prices.map(row=>Number(row.price)),minPrice=values.length?Math.min(...values):Number(offer.price),maxPrice=values.length?Math.max(...values):Number(offer.price),range=Math.max(.01,maxPrice-minPrice);
+  const history=prices.length?`<section class="price-history"><div class="subsection-head"><div><p class="eyebrow">HISTÓRICO</p><h2>Preço observado</h2></div><strong>Menor: ${html(money(minPrice))}</strong></div><div class="price-chart" aria-label="Histórico de preços">${prices.map(row=>{const height=28+((Number(row.price)-minPrice)/range)*72;return `<span style="height:${height}%" title="${html(money(row.price))} em ${new Date(Number(row.observed_at)*1000).toLocaleDateString('pt-BR')}"><i>${html(money(row.price))}</i></span>`;}).join('')}</div><p>Este histórico registra os preços vistos pelo Tá Barato. Ele não garante o menor preço de todo o mercado.</p></section>`:'',related=(relatedResult.results||[]).length?`<section class="related"><div class="subsection-head"><div><p class="eyebrow">VOCÊ TAMBÉM PODE GOSTAR</p><h2>Ofertas relacionadas</h2></div></div><div class="offer-grid">${relatedResult.results.map(offerCard).join('')}</div></section>`:'';
+  const reports=Number((feedbackResult.results||[])[0]?.quantity)||0,warning=reports>=3?'<p class="offer-warning">Esta oferta recebeu relatos de preço ou disponibilidade alterados. Confira antes de comprar.</p>':'';
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical,structured,image:offer.image_url})}<script src="/offer.js" defer></script></head><body>${header()}<main class="offer-page"><nav class="breadcrumbs" aria-label="Navegação"><a href="/">Ofertas</a><span>›</span><a href="/categorias/${slugify(offer.category||'outros')}">${html(label(offer.category||'outros'))}</a><span>›</span><span>Produto</span></nav><article class="offer-detail"><div class="offer-detail-media">${offer.discount?`<span class="discount">−${Math.round(Number(offer.discount))}%</span>`:''}<img src="${html(offer.image_url)}" alt="${html(offer.title)}"></div><div class="offer-detail-body"><span class="source">${html(offer.source)}${offer.category?` · <a href="/categorias/${slugify(offer.category)}">${html(label(offer.category))}</a>`:''}</span><h1>${html(offer.title)}</h1>${flags?`<div class="offer-flags">${flags}</div>`:''}<div class="offer-detail-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div>${rating||sales?`<p class="meta">${rating}${sales}</p>`:''}${coupon}${offer.shop?`<p class="offer-shop">Loja: <a href="/lojas/${slugify(offer.shop)}"><strong>${html(offer.shop)}</strong></a></p>`:''}${warning}<a class="buy detail-buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta no site oficial ↗</a><div class="detail-actions"><button data-favorite="${html(offer.id)}">♥ Salvar</button><button data-share data-title="${html(offer.title)}" data-price="${html(money(offer.price))}">Compartilhar</button></div><p class="offer-detail-note">O preço e a disponibilidade podem mudar sem aviso. Este pode ser um link de afiliado, sem custo adicional para você.</p><button class="report-expired" data-offer-id="${html(offer.id)}">Preço mudou ou oferta acabou?</button><p class="offer-date">Verificada em ${html(publishedText)}</p></div></article>${history}${related}</main>${footer()}</body></html>`);
 }

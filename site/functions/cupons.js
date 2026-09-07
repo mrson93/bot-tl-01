@@ -65,6 +65,11 @@ function couponCard(coupon) {
   return `<article class="coupon-card"><div class="coupon-card-head"><span>${html(coupon.source)}</span><small>${html(validity)}</small></div>${primaryAction}${coupon.condition?`<p>${html(coupon.condition)}</p>`:'<p>Confira as condições no aplicativo antes de finalizar.</p>'}${origin}${voucherAction}</article>`;
 }
 
+function storeShortcuts(stores) {
+  if(!stores.length) return '';
+  return `<section class="store-shortcuts coupon-stores"><div class="store-shortcuts-head"><div><p class="eyebrow">COMPRE DIRETO</p><h2>Ir para a loja</h2></div><p>Abra a página principal usando nosso link de afiliado.</p></div><nav class="store-links" aria-label="Lojas parceiras">${stores.map(store=>`<a class="store-button store-${html(store.slug)}" href="/loja/${encodeURIComponent(store.slug)}" target="_blank" rel="nofollow sponsored noopener"><span>${html(store.name)}</span><b>↗</b></a>`).join('')}</nav></section>`;
+}
+
 export async function onRequestGet({env}) {
   const now=Math.floor(Date.now()/1000);
   const [result,storeResult]=await Promise.all([
@@ -83,5 +88,5 @@ export async function onRequestGet({env}) {
   const title='Cupons de desconto ativos | Tá Barato';
   const description='Cupons encontrados em fontes oficiais e complementares, com condições e nosso link de afiliado para a loja.';
   const cards=coupons.map(couponCard).join('');
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.length} ${coupons.length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.length} ${coupons.length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${storeShortcuts(storeResult.results||[])}${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
 }
