@@ -6,7 +6,9 @@ import io
 import os
 import sqlite3
 import tempfile
+import time
 import zipfile
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,7 +21,13 @@ DB = Path(__file__).parent / "postadas.db"
 DB_CRIPTOGRAFADO = Path(__file__).parent / "postadas.db.enc"
 HASH_INICIAL = Path(__file__).parent / ".estado-inicial.sha256"
 SEM_REMOTO = Path(__file__).parent / ".estado-sem-remoto"
-MAX_DOWNLOAD = 2_000_000
+# O banco guarda histórico agregado e retratos diários de vendas. Dois megabytes
+# eram insuficientes para o volume normal e transformavam crescimento legítimo
+# em uma parada total. Os limites continuam explícitos para impedir downloads
+# descontrolados e arquivos-bomba.
+MAX_BANCO = 32 * 1024 * 1024
+MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
+MAX_ARTEFATOS_TENTADOS = 10
 MAGIA = b"DEAL-SIGNAL-STATE-1\x00"
 CONTEXTO = b"bot-state:v1"
 
@@ -43,6 +51,65 @@ def _validar_sqlite(caminho):
         resultado = con.execute("PRAGMA integrity_check").fetchone()
     if not resultado or resultado[0] != "ok":
         raise RuntimeError("O estado remoto falhou na verificacao de integridade")
+
+
+def _compactar_estado(caminho=DB, agora=None):
+    """Limita históricos técnicos e recupera espaço antes de salvar o estado."""
+    if not caminho.exists():
+        return
+    momento = int(agora or time.time())
+    dia_atual = date.fromtimestamp(momento)
+    cortes_epoch = {
+        "eventos": momento - 90 * 86400,
+        "entregas": momento - 180 * 86400,
+        "entregas_log": momento - 180 * 86400,
+        "entregas_cupom": momento - 180 * 86400,
+        "postadas": momento - 180 * 86400,
+        "desempenho": momento - 180 * 86400,
+    }
+    cortes_data = {
+        "vendas_produto_diarias": (dia_atual - timedelta(days=45)).isoformat(),
+        "metricas_diarias": (dia_atual - timedelta(days=400)).isoformat(),
+        "metricas_categoria_diarias": (dia_atual - timedelta(days=400)).isoformat(),
+        "experimentos_diarios": (dia_atual - timedelta(days=400)).isoformat(),
+    }
+    with sqlite3.connect(caminho, timeout=30) as con:
+        tabelas = {linha[0] for linha in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        colunas_epoch = {
+            "eventos": "ocorrido_em", "entregas": "entregue_em",
+            "entregas_log": "entregue_em", "entregas_cupom": "entregue_em",
+            "postadas": "postada_em", "desempenho": "atualizado_em",
+        }
+        for tabela, corte in cortes_epoch.items():
+            if tabela in tabelas:
+                con.execute(
+                    f"DELETE FROM {tabela} WHERE {colunas_epoch[tabela]}<?",
+                    (corte,),
+                )
+        for tabela, corte in cortes_data.items():
+            if tabela in tabelas:
+                con.execute(f"DELETE FROM {tabela} WHERE data<?", (corte,))
+        if "cupons_ativos" in tabelas:
+            con.execute(
+                "DELETE FROM cupons_ativos WHERE "
+                "(expira_em IS NOT NULL AND expira_em<?) OR visto_em<?",
+                (momento - 30 * 86400, momento - 180 * 86400),
+            )
+        if "estado" in tabelas:
+            corte_resumos = (dia_atual - timedelta(days=30)).isoformat()
+            con.execute(
+                "DELETE FROM estado WHERE chave LIKE 'resumo_cupons:%' "
+                "AND substr(chave,15,10)<?",
+                (corte_resumos,),
+            )
+        con.commit()
+        paginas_livres = int(con.execute("PRAGMA freelist_count").fetchone()[0])
+        paginas = int(con.execute("PRAGMA page_count").fetchone()[0])
+        if paginas_livres >= 128 and paginas_livres * 5 >= paginas:
+            con.execute("VACUUM")
+        con.execute("PRAGMA optimize")
 
 
 def _chave_estado():
@@ -76,7 +143,10 @@ def _descriptografar(dados):
 def preparar_upload():
     if not DB.exists():
         raise RuntimeError("Banco local nao encontrado para proteger")
+    _compactar_estado(DB)
     _validar_sqlite(DB)
+    if DB.stat().st_size > MAX_BANCO:
+        raise RuntimeError("Banco local excedeu o limite mesmo apos a compactacao")
     protegido = _criptografar(DB.read_bytes())
     with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
         temporario.write(protegido)
@@ -88,6 +158,51 @@ def preparar_upload():
         caminho_temporario.unlink(missing_ok=True)
     print("✅ Estado protegido e pronto para envio.")
     return True
+
+
+def _baixar_e_validar(artefato, sessao, token):
+    """Baixa um snapshot e devolve o SQLite autenticado, ainda em memória."""
+    url_arquivo = str(artefato.get("archive_download_url") or "")
+    origem = urlparse(url_arquivo)
+    if origem.scheme != "https" or origem.netloc.lower() != "api.github.com":
+        raise RuntimeError("GitHub devolveu uma origem inesperada para o estado")
+    primeira = sessao.get(url_arquivo, headers=_headers(token),
+                          timeout=30, allow_redirects=False)
+    if primeira.status_code not in {301, 302, 303, 307, 308}:
+        primeira.raise_for_status()
+        raise RuntimeError("GitHub nao forneceu o download seguro do estado")
+    destino = seguranca.validar_url_https_publica(
+        primeira.headers.get("Location"), "Download do estado"
+    )
+    download = sessao.get(destino, timeout=30, allow_redirects=False, stream=True)
+    download.raise_for_status()
+    tamanho_declarado = download.headers.get("Content-Length")
+    if isinstance(tamanho_declarado, str) and tamanho_declarado.isdigit():
+        if int(tamanho_declarado) > MAX_DOWNLOAD:
+            download.close()
+            raise RuntimeError("Estado remoto excedeu o limite de seguranca")
+    conteudo = bytearray()
+    try:
+        for pedaco in download.iter_content(chunk_size=64 * 1024):
+            conteudo.extend(pedaco)
+            if len(conteudo) > MAX_DOWNLOAD:
+                raise RuntimeError("Estado remoto excedeu o limite de seguranca")
+    finally:
+        download.close()
+    with zipfile.ZipFile(io.BytesIO(conteudo)) as arquivo:
+        membros = [m for m in arquivo.infolist() if not m.is_dir()]
+        if len(membros) != 1:
+            raise RuntimeError("Artefato de estado possui conteudo inesperado")
+        if membros[0].file_size > MAX_BANCO:
+            raise RuntimeError("Banco remoto excedeu o limite de seguranca")
+        nome = Path(membros[0].filename).name
+        dados_armazenados = arquivo.read(membros[0])
+    if nome != "postadas.db.enc":
+        raise RuntimeError("Artefato de estado nao esta criptografado")
+    dados = _descriptografar(dados_armazenados)
+    if len(dados) > MAX_BANCO:
+        raise RuntimeError("Banco remoto excedeu o limite de seguranca")
+    return dados
 
 
 def restaurar(obrigatorio=False, sessao=requests):
@@ -114,43 +229,21 @@ def restaurar(obrigatorio=False, sessao=requests):
         HASH_INICIAL.write_text(_hash(), encoding="ascii")
         return False
 
-    url_arquivo = str(artefatos[0].get("archive_download_url") or "")
-    origem = urlparse(url_arquivo)
-    if origem.scheme != "https" or origem.netloc.lower() != "api.github.com":
-        raise RuntimeError("GitHub devolveu uma origem inesperada para o estado")
-    primeira = sessao.get(url_arquivo,
-                          headers=_headers(token), timeout=30,
-                          allow_redirects=False)
-    if primeira.status_code not in {301, 302, 303, 307, 308}:
-        primeira.raise_for_status()
-        raise RuntimeError("GitHub nao forneceu o download seguro do estado")
-    destino = seguranca.validar_url_https_publica(
-        primeira.headers.get("Location"), "Download do estado"
-    )
-    download = sessao.get(destino, timeout=30, allow_redirects=False, stream=True)
-    download.raise_for_status()
-    conteudo = bytearray()
-    try:
-        for pedaco in download.iter_content(chunk_size=64 * 1024):
-            conteudo.extend(pedaco)
-            if len(conteudo) > MAX_DOWNLOAD:
-                raise RuntimeError("Estado remoto excedeu o limite de seguranca")
-    finally:
-        download.close()
-    with zipfile.ZipFile(io.BytesIO(conteudo)) as arquivo:
-        membros = [m for m in arquivo.infolist() if not m.is_dir()]
-        if len(membros) != 1:
-            raise RuntimeError("Artefato de estado possui conteudo inesperado")
-        if membros[0].file_size > MAX_DOWNLOAD:
-            raise RuntimeError("Banco remoto excedeu o limite de seguranca")
-        nome = Path(membros[0].filename).name
-        dados_armazenados = arquivo.read(membros[0])
-    if nome == "postadas.db.enc":
-        dados = _descriptografar(dados_armazenados)
-    else:
-        raise RuntimeError("Artefato de estado nao esta criptografado")
-    if len(dados) > MAX_DOWNLOAD:
-        raise RuntimeError("Banco remoto excedeu o limite de seguranca")
+    dados = None
+    ultimo_erro = None
+    for artefato in artefatos[:MAX_ARTEFATOS_TENTADOS]:
+        try:
+            dados = _baixar_e_validar(artefato, sessao, token)
+            break
+        except Exception as erro:
+            ultimo_erro = erro
+            print(f"⚠️ Snapshot {artefato.get('id', 'desconhecido')} ignorado: "
+                  f"{type(erro).__name__}")
+    if dados is None:
+        detalhe = str(ultimo_erro or "erro desconhecido")
+        raise RuntimeError(
+            f"Nenhum dos snapshots recentes pode ser restaurado: {detalhe}"
+        ) from ultimo_erro
     with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
         temporario.write(dados)
         caminho_temporario = Path(temporario.name)
