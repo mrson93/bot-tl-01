@@ -6,6 +6,31 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_historico_de_vendas_guarda_somente_ofertas_comerciais(self):
+        class Fonte:
+            NOME = "Shopee"
+
+            @staticmethod
+            def buscar_ofertas():
+                base = {"fonte": "Shopee", "priceDiscountRate": 40,
+                        "ratingStar": 4.8, "sales": 500, "comissao": 0.2,
+                        "productName": "Produto útil", "categoria": "outros"}
+                return [
+                    {**base, "oferta_id": "apta", "price": 100},
+                    {**base, "oferta_id": "barata", "price": 1},
+                ]
+
+        with patch.object(main, "canais_ativos", return_value=[]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.store, "registrar_vendas_produtos",
+                          return_value={}) as registrar, \
+             patch.object(main.store, "avaliar_elegibilidade",
+                          return_value="inedita"):
+            candidatas = main.buscar_candidatos(Fonte)
+        self.assertEqual(["apta"], [o["oferta_id"] for o in candidatas])
+        registradas = registrar.call_args.args[0]
+        self.assertEqual(["apta"], [o["oferta_id"] for o in registradas])
+
     def test_sincroniza_atalho_de_loja_uma_vez_por_dia(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         momento = datetime(2026, 9, 6, 10, 0, tzinfo=main.FUSO_BRASILIA)

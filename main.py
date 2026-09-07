@@ -434,9 +434,6 @@ def buscar_candidatos(fonte) -> list:
     print(f"   {len(ofertas)} ofertas recebidas. Aplicando filtros...")
     for oferta in ofertas:
         oferta["fonte"] = oferta.get("fonte") or fonte.NOME
-    velocidades = store.registrar_vendas_produtos(
-        ofertas, janela_dias=config.PICO_JANELA_VENDAS_DIAS
-    )
     observabilidade.evento("ofertas_recebidas", fonte=fonte.NOME,
                             quantidade=len(ofertas))
 
@@ -444,6 +441,7 @@ def buscar_candidatos(fonte) -> list:
     if site_publisher.esta_configurado():
         nomes_canais.append("Site")
     candidatos = []
+    comerciais = []
     rejeicoes = {
         "sem_id": 0, "preco": 0, "desconto": 0,
         "desconto_preferido": 0, "avaliacao": 0, "vendas": 0,
@@ -453,12 +451,6 @@ def buscar_candidatos(fonte) -> list:
         oferta["categoria"] = (oferta.get("categoria")
                                or desempenho.categoria_produto(oferta))
         oferta["_fonte_obj"] = fonte
-        chave_velocidade = (
-            oferta["fonte"], str(oferta.get("oferta_id") or "")
-        )
-        velocidade = velocidades.get(chave_velocidade, {})
-        oferta["_vendas_24h"] = velocidade.get("24h")
-        oferta["_vendas_janela"] = velocidade.get("janela")
         experimentos.aplicar(oferta)
         if not oferta.get("oferta_id"):
             rejeicoes["sem_id"] += 1
@@ -467,6 +459,21 @@ def buscar_candidatos(fonte) -> list:
         if motivo_filtro:
             rejeicoes[motivo_filtro] += 1
             continue
+        comerciais.append(oferta)
+
+    # O histórico de velocidade só precisa dos produtos aptos a concorrer por
+    # uma publicação. Guardar centenas de itens já rejeitados em toda rodada
+    # fazia o snapshot crescer continuamente sem melhorar a seleção comercial.
+    velocidades = store.registrar_vendas_produtos(
+        comerciais, janela_dias=config.PICO_JANELA_VENDAS_DIAS
+    )
+    for oferta in comerciais:
+        chave_velocidade = (
+            oferta["fonte"], str(oferta.get("oferta_id") or "")
+        )
+        velocidade = velocidades.get(chave_velocidade, {})
+        oferta["_vendas_24h"] = velocidade.get("24h")
+        oferta["_vendas_janela"] = velocidade.get("janela")
         oid = oferta["oferta_id"]
         preco = float(oferta.get("price") or 0)
         motivo = store.avaliar_elegibilidade(oid, preco,
