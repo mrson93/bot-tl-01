@@ -54,6 +54,7 @@ jobs:
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
       SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.pages.dev/api/publish' }}
       SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}
+      SITE_REFRESH_PER_RUN: ${{ vars.SITE_REFRESH_PER_RUN || '6' }}
       CUPOM_ALERTA_SEPARADO: ${{ vars.CUPOM_ALERTA_SEPARADO || 'true' }}
       CUPOM_ALERTAS_POR_RODADA: ${{ vars.CUPOM_ALERTAS_POR_RODADA || '1' }}
       CUPOM_RESUMO_HORAS: ${{ vars.CUPOM_RESUMO_HORAS || '12,20' }}

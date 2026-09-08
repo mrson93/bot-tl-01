@@ -42,6 +42,23 @@ class AliExpressOfertasTest(unittest.TestCase):
         self.assertFalse(oferta["precoNoApp"])
         self.assertIsNone(oferta["cupom"])
 
+    def test_atualiza_varios_produtos_em_uma_consulta_de_detalhe(self):
+        resposta = {"resp_result": {"result": {"products": {"product": [{
+            "product_id": 10, "product_title": "Fone atualizado",
+            "target_sale_price": "75", "target_original_price": "100",
+            "discount": "25%", "product_main_image_url": "https://img.test/10.jpg",
+            "product_detail_url": "https://aliexpress.com/item/10.html",
+        }]}}}}
+        with patch.object(aliexpress, "_chamar", return_value=resposta) as chamar:
+            produtos = aliexpress.consultar_produtos(
+                ["aliexpress_10", "aliexpress_20", "id_invalido"]
+            )
+        self.assertEqual(["aliexpress_10"], list(produtos))
+        self.assertEqual(75, produtos["aliexpress_10"]["price"])
+        self.assertEqual("10,20", chamar.call_args.args[1]["product_ids"])
+        self.assertEqual("aliexpress.affiliate.productdetail.get",
+                         chamar.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

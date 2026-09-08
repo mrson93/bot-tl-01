@@ -122,6 +122,18 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS offer_feedback", schema)
         self.assertIn("data-favorite", app)
 
+    def test_catalogo_persistente_atualiza_precos_sem_apagar_produtos_antigos(self):
+        root = ROOT / "site"
+        migration = (root / "migrations" / "0006_catalogo_persistente.sql").read_text()
+        publish = (root / "functions" / "api" / "publish.js").read_text()
+        refresh = (root / "functions" / "api" / "refresh.js").read_text()
+        offers = (root / "functions" / "api" / "offers.js").read_text()
+        self.assertIn("last_checked_at", migration)
+        self.assertIn("refresh_failures", migration)
+        self.assertNotIn("DELETE FROM offers", publish)
+        self.assertIn("refresh_failures+1>=3", refresh)
+        self.assertIn("availability!='unavailable'", offers)
+
     def test_paginas_de_confianca_foram_publicadas(self):
         for name in ("como-escolhemos", "faq", "privacidade", "contato"):
             self.assertTrue((ROOT / "site" / "functions" / f"{name}.js").exists())

@@ -93,6 +93,23 @@ def _buscar_pagina(pagina: int, list_type: int) -> list:
     return (data.get("productOfferV2") or {}).get("nodes") or []
 
 
+def _normalizar_produto(node: dict, campeao=False) -> dict:
+    """Converte tanto o feed geral quanto a consulta exata no mesmo formato."""
+    produto = dict(node)
+    produto["_shopee_campeao"] = bool(campeao)
+    produto["fonte"] = NOME
+    produto["oferta_id"] = f"shopee_{produto.get('shopId')}_{produto.get('itemId')}"
+    produto["productUrl"] = produto.get("productLink") or produto.get("offerLink")
+    try:
+        produto["comissao"] = float(produto.get("commissionRate") or 0)
+    except (TypeError, ValueError):
+        produto["comissao"] = 0.0
+    produto["categoria"] = desempenho.categoria_produto(
+        produto.get("productName") or ""
+    )
+    return produto
+
+
 def buscar_ofertas() -> list:
     """Busca ofertas na Shopee em todas as listas configuradas e padroniza."""
     nodes, vistos = [], {}
@@ -105,18 +122,38 @@ def buscar_ofertas() -> list:
                     # perca a informação de que ele também é um campeão.
                     vistos[chave]["_shopee_campeao"] |= list_type == 2
                     continue
-                vistos[chave] = n
-                n["_shopee_campeao"] = list_type == 2
-                n["fonte"] = NOME
-                n["oferta_id"] = f"shopee_{n.get('shopId')}_{n.get('itemId')}"
-                n["productUrl"] = n.get("productLink") or n.get("offerLink")
-                # ja vem como fracao ("0.48"), diferente do AliExpress
-                try:
-                    n["comissao"] = float(n.get("commissionRate") or 0)
-                except (TypeError, ValueError):
-                    n["comissao"] = 0.0
-                nodes.append(n)
+                produto = _normalizar_produto(n, list_type == 2)
+                vistos[chave] = produto
+                nodes.append(produto)
     return nodes
+
+
+def consultar_produtos(oferta_ids) -> dict:
+    """Consulta produtos específicos para atualizar a vitrine sem republicá-los."""
+    resultado = {}
+    for oferta_id in oferta_ids:
+        match = re.fullmatch(r"shopee_(\d+)_(\d+)", str(oferta_id))
+        if not match:
+            continue
+        shop_id, item_id = (int(valor) for valor in match.groups())
+        query = f"""
+        {{
+          productOfferV2(shopId: {shop_id}, itemId: {item_id}, limit: 1, page: 1) {{
+            nodes {{
+              itemId shopId productName priceMin priceMax price priceDiscountRate
+              ratingStar sales commissionRate imageUrl shopName productLink offerLink
+            }}
+          }}
+        }}
+        """
+        nodes = ((_executar(query).get("productOfferV2") or {}).get("nodes") or [])
+        esperado = str(oferta_id)
+        for node in nodes:
+            produto = _normalizar_produto(node)
+            if produto["oferta_id"] == esperado:
+                resultado[esperado] = produto
+                break
+    return resultado
 
 
 _TERMOS_CAMPANHA = re.compile(

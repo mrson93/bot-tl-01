@@ -119,6 +119,64 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual("https://canaltabarato.pages.dev/api/stats",
                          get.call_args.args[0])
 
+    def test_atualiza_catalogo_sem_republicar_nas_redes(self):
+        class Fonte:
+            NOME = "Shopee"
+
+            @staticmethod
+            def consultar_produtos(ids):
+                return {ids[0]: {
+                    "productName": "Panela atualizada", "price": 69.9,
+                    "precoOriginal": 99.9, "priceDiscountRate": 30,
+                    "ratingStar": 4.9, "sales": 700, "shopName": "Loja",
+                    "imageUrl": "https://img.test/panela.jpg", "categoria": "cozinha",
+                }}
+
+        fila = type("Resposta", (), {
+            "status_code": 200,
+            "json": lambda self: {"candidates": [
+                {"id": "shopee_1_2", "source": "Shopee"},
+                {"id": "shopee_1_3", "source": "Shopee"},
+            ]},
+        })()
+        salva = type("Resposta", (), {"status_code": 200})()
+        with patch.object(site_publisher.config, "SITE_ATIVO", True), \
+             patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "get", return_value=fila), \
+             patch.object(site_publisher.requests, "post", return_value=salva) as post:
+            resultado = site_publisher.atualizar_catalogo([Fonte], 2)
+        self.assertEqual({"consultados": 2, "encontrados": 1}, resultado)
+        updates = post.call_args.kwargs["json"]["updates"]
+        self.assertTrue(updates[0]["found"])
+        self.assertFalse(updates[1]["found"])
+        self.assertEqual("https://canaltabarato.pages.dev/api/refresh",
+                         post.call_args.args[0])
+
+    def test_falha_da_plataforma_nao_marca_produto_como_ausente(self):
+        class Fonte:
+            NOME = "Shopee"
+            consultar_produtos = staticmethod(
+                lambda ids: (_ for _ in ()).throw(RuntimeError("API fora"))
+            )
+
+        fila = type("Resposta", (), {
+            "status_code": 200,
+            "json": lambda self: {"candidates": [
+                {"id": "shopee_1_2", "source": "Shopee"}
+            ]},
+        })()
+        with patch.object(site_publisher.config, "SITE_ATIVO", True), \
+             patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "get", return_value=fila), \
+             patch.object(site_publisher.requests, "post") as post:
+            resultado = site_publisher.atualizar_catalogo([Fonte], 1)
+        self.assertEqual(0, resultado["consultados"])
+        post.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

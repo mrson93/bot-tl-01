@@ -68,6 +68,20 @@ class ShopeeSegurancaTest(unittest.TestCase):
             query,
         )
 
+    def test_consulta_produto_exato_para_atualizar_catalogo(self):
+        node = {"shopId": 12, "itemId": 34, "productName": "Panela",
+                "price": 79.9, "imageUrl": "https://img.test/panela.jpg",
+                "productLink": "https://shopee.com.br/produto"}
+        with patch.object(shopee, "_executar", return_value={
+                "productOfferV2": {"nodes": [node]}}) as executar:
+            produtos = shopee.consultar_produtos(
+                ["shopee_12_34", "texto_invalido"]
+            )
+        self.assertEqual(["shopee_12_34"], list(produtos))
+        query = executar.call_args.args[0]
+        self.assertIn("shopId: 12", query)
+        self.assertIn("itemId: 34", query)
+
 
 if __name__ == "__main__":
     unittest.main()

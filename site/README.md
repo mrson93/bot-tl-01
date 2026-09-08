@@ -5,6 +5,13 @@ enviadas pelo bot para `POST /api/publish`, protegidas pelo segredo `PUBLISH_TOK
 Os botões passam por `/go/:id`, que registra o clique e encaminha ao link oficial
 de afiliado.
 
+Cada oferta publicada passa a fazer parte de um catálogo persistente. O bot
+revalida gradualmente preço, desconto, nota, vendas e disponibilidade pelas APIs
+oficiais dentro das rodadas que já existem, sem criar novas execuções nem
+republicar o produto no Telegram ou Bluesky. Itens recentes são revistos primeiro
+e produtos clicados recebem prioridade. Uma falha da API apenas adia a consulta;
+o produto só sai da vitrine depois de três consultas válidas sem resultado.
+
 O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria,
 faixa de preço, nota, loja, período e presença de cupom. A API usa paginação e
 informa o total real de resultados; a vitrine carrega 24 itens por vez. Os
@@ -33,7 +40,7 @@ Clicar no código copia o texto e abre nosso redirecionamento para a loja em nov
 
 O site publica metadados canônicos, Open Graph, dados estruturados Schema.org,
 `robots.txt`, `llms.txt` e um `sitemap.xml` atualizado diretamente do banco. Cada
-oferta dos últimos 30 dias possui uma página HTML própria em
+oferta disponível no catálogo possui uma página HTML própria em
 `/oferta/:titulo--:id`, mantendo compatibilidade com os endereços antigos, que
 pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
@@ -55,4 +62,4 @@ nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenc
 4. Cadastrar `PUBLISH_TOKEN` como segredo e `ALLOWED_DESTINATION_HOSTS` como variável.
 5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
 6. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.pages.dev/api/publish`,
-   `SITE_ATIVO=true` e `SITE_API_TOKEN` como segredo.
+   `SITE_ATIVO=true`, `SITE_REFRESH_PER_RUN=6` e `SITE_API_TOKEN` como segredo.

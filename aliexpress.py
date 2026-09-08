@@ -88,6 +88,46 @@ def _buscar_pagina(pagina: int) -> list:
     return lista or []
 
 
+def _normalizar_produto(p: dict) -> dict:
+    """Converte respostas da busca e do detalhe no formato comum do bot."""
+    # nota vem como "94.5%" (percentual de avaliacoes positivas) -> vira 0-5
+    rating = round(_num(p.get("evaluate_rate")) / 20, 1)
+    preco_normal = _num(p.get("target_sale_price") or p.get("sale_price"))
+    preco_app = _num(p.get("target_app_sale_price") or p.get("app_sale_price"))
+    somente_app = bool(preco_app and preco_normal and preco_app < preco_normal)
+    promocao = p.get("promo_code_info") or {}
+    if isinstance(promocao, list):
+        promocao = promocao[0] if promocao else {}
+    cupom = promocao.get("promo_code") if isinstance(promocao, dict) else None
+    pagina_cupom = promocao.get("code_promotionurl") if isinstance(promocao, dict) else None
+    destino = pagina_cupom or p.get("product_detail_url")
+    return {
+        "fonte": NOME,
+        "oferta_id": f"aliexpress_{p.get('product_id')}",
+        "productName": p.get("product_title", "Oferta"),
+        "price": preco_app if somente_app else preco_normal,
+        "precoNoApp": somente_app,
+        "precoOriginal": _num(p.get("target_original_price")) or None,
+        "priceDiscountRate": _num(p.get("discount")),
+        "ratingStar": rating,
+        "sales": int(_num(p.get("lastest_volume"))),
+        "comissao": _num(p.get("commission_rate")) / 100,
+        "shopName": p.get("shop_name") or "AliExpress",
+        "categoria": (p.get("first_level_category_name")
+                       or desempenho.categoria_produto(p.get("product_title"))),
+        "cupom": cupom,
+        "cupomCondicao": (promocao.get("code_value")
+                           if isinstance(promocao, dict) else None),
+        "cupomAtivoEm": (promocao.get("code_availabletime_start")
+                          if isinstance(promocao, dict) else None),
+        "cupomExpiraEm": (promocao.get("code_availabletime_end")
+                           if isinstance(promocao, dict) else None),
+        "cupomResgate": bool(cupom and pagina_cupom),
+        "imageUrl": p.get("product_main_image_url"),
+        "productUrl": destino,
+    }
+
+
 def buscar_ofertas() -> list:
     """Busca ofertas no AliExpress (varias paginas) na mesma forma que a Shopee usa."""
     lista, vistos = [], set()
@@ -97,51 +137,34 @@ def buscar_ofertas() -> list:
             if pid not in vistos:
                 vistos.add(pid)
                 lista.append(p)
+    return [_normalizar_produto(produto) for produto in lista]
 
-    ofertas = []
-    for p in lista:
-        # nota vem como "94.5%" (percentual de avaliacoes positivas) -> vira 0-5
-        rating = round(_num(p.get("evaluate_rate")) / 20, 1)
-        preco_normal = _num(p.get("target_sale_price") or p.get("sale_price"))
-        preco_app = _num(p.get("target_app_sale_price") or p.get("app_sale_price"))
-        somente_app = bool(preco_app and preco_normal and preco_app < preco_normal)
-        promocao = p.get("promo_code_info") or {}
-        if isinstance(promocao, list):
-            promocao = promocao[0] if promocao else {}
-        cupom = promocao.get("promo_code") if isinstance(promocao, dict) else None
-        pagina_cupom = promocao.get("code_promotionurl") if isinstance(promocao, dict) else None
-        # A URL de campanha vem do programa de afiliados. Se ela existir, o
-        # botão leva primeiro ao resgate do cupom; caso contrário, permanece na
-        # página do produto, sem inventar um destino de campanha.
-        destino = pagina_cupom or p.get("product_detail_url")
-        ofertas.append({
-            "fonte": NOME,
-            "oferta_id": f"aliexpress_{p.get('product_id')}",
-            "productName": p.get("product_title", "Oferta"),
-            "price": preco_app if somente_app else preco_normal,
-            "precoNoApp": somente_app,
-            # preco "de" informado pela propria loja (nao calculado por nos)
-            "precoOriginal": _num(p.get("target_original_price")) or None,
-            "priceDiscountRate": _num(p.get("discount")),
-            "ratingStar": rating,
-            "sales": int(_num(p.get("lastest_volume"))),
-            # vem como "7.0%" -> guardamos como fracao (0.07)
-            "comissao": _num(p.get("commission_rate")) / 100,
-            "shopName": p.get("shop_name") or "AliExpress",
-            "categoria": (p.get("first_level_category_name")
-                           or desempenho.categoria_produto(p.get("product_title"))),
-            "cupom": cupom,
-            "cupomCondicao": (promocao.get("code_value")
-                               if isinstance(promocao, dict) else None),
-            "cupomAtivoEm": (promocao.get("code_availabletime_start")
-                              if isinstance(promocao, dict) else None),
-            "cupomExpiraEm": (promocao.get("code_availabletime_end")
-                               if isinstance(promocao, dict) else None),
-            "cupomResgate": bool(cupom and pagina_cupom),
-            "imageUrl": p.get("product_main_image_url"),
-            "productUrl": destino,
-        })
-    return ofertas
+
+def consultar_produtos(oferta_ids) -> dict:
+    """Atualiza vários produtos numa única chamada oficial de detalhe."""
+    ids = []
+    for oferta_id in oferta_ids:
+        texto = str(oferta_id)
+        if texto.startswith("aliexpress_") and texto[11:].isdigit():
+            ids.append(texto[11:])
+    if not ids:
+        return {}
+    resposta = _chamar("aliexpress.affiliate.productdetail.get", {
+        "product_ids": ",".join(ids),
+        "target_currency": config.ALIEXPRESS_CURRENCY,
+        "target_language": config.ALIEXPRESS_LANGUAGE,
+        "ship_to_country": config.ALIEXPRESS_SHIP_TO,
+        "tracking_id": config.ALIEXPRESS_TRACKING_ID,
+    })
+    produtos = _extrair_resultado(resposta, "products")
+    lista = produtos.get("product") if isinstance(produtos, dict) else produtos
+    if isinstance(lista, dict):
+        lista = [lista]
+    return {
+        produto["oferta_id"]: produto
+        for produto in (_normalizar_produto(item) for item in (lista or []))
+        if produto.get("price") and produto.get("imageUrl")
+    }
 
 
 def _pedidos(status, inicio, fim):

@@ -81,6 +81,7 @@ h1 em{font-family:Georgia,serif;font-weight:400;color:var(--orange)}
 .source a{color:inherit}
 .card-kicker{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .card-kicker time{font-size:12px;color:var(--muted);white-space:nowrap}
+.check-pending{display:inline-block;margin-top:8px;color:#8a6500;background:#fff3c4;border:1px solid #ead57b;padding:4px 7px;font-size:11px;font-weight:800}
 .featured h3{font-size:clamp(27px,3vw,40px);line-height:1.08;letter-spacing:-.045em;margin:12px 0 18px}
 .card-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:3px}
 .price{font-size:34px;letter-spacing:-.05em;font-weight:900}
@@ -133,6 +134,7 @@ footer small{color:var(--muted);font-size:13px}
 .offer-detail-price{display:flex;align-items:baseline;gap:10px}
 .offer-detail-note{font-size:13px;line-height:1.55;color:var(--muted);margin:17px 0}
 .offer-detail .buy{margin-top:12px}
+.unavailable-buy{background:var(--muted);cursor:not-allowed}.unavailable-buy:hover{background:var(--muted);transform:none}
 .offer-shop{padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:14px}
 .offer-shop a{color:inherit}
 .offer-date{color:var(--muted);font-size:13px;margin-top:14px}

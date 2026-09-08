@@ -44,6 +44,12 @@ class MainTest(unittest.TestCase):
         publicar.assert_called_once_with(fonte)
         marcar.assert_called_once_with("2026-09-06", "Shopee")
 
+    def test_falha_ao_atualizar_catalogo_nao_interrompe_rodada(self):
+        with patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "atualizar_catalogo",
+                          side_effect=RuntimeError("serviço fora")):
+            self.assertEqual(0, main.atualizar_catalogo_site([]))
+
     def test_extrai_apenas_cupom_com_resgate_oficial(self):
         fonte = object()
         ofertas = [

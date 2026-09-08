@@ -96,6 +96,85 @@ def publicar_loja(fonte):
         raise RuntimeError(f"Site recusou o atalho da loja ({resposta.status_code})")
 
 
+def _payload_atualizacao(oferta_id, oferta):
+    """Mantém no envio apenas os dados públicos necessários à vitrine."""
+    if not oferta:
+        return {"id": str(oferta_id), "found": False}
+    preco = oferta.get("price")
+    imagem = str(oferta.get("imageUrl") or "")
+    titulo = str(oferta.get("productName") or "").strip()
+    try:
+        valido = float(preco or 0) > 0 and imagem.startswith("https://") and bool(titulo)
+    except (TypeError, ValueError):
+        valido = False
+    if not valido:
+        return {"id": str(oferta_id), "found": False}
+    return {
+        "id": str(oferta_id), "found": True, "title": titulo,
+        "price": preco, "original_price": oferta.get("precoOriginal"),
+        "discount": oferta.get("priceDiscountRate"),
+        "rating": oferta.get("ratingStar"), "sales": oferta.get("sales"),
+        "shop": oferta.get("shopName"), "image_url": imagem,
+        "category": oferta.get("categoria") or "outros",
+        "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
+    }
+
+
+def atualizar_catalogo(fontes, limite=None):
+    """Revalida itens antigos aos poucos, sem criar posts nas redes sociais."""
+    limite = config.SITE_REFRESH_PER_RUN if limite is None else limite
+    if not esta_configurado() or int(limite or 0) <= 0:
+        return {"consultados": 0, "encontrados": 0}
+    headers = {"Authorization": f"Bearer {config.SITE_API_TOKEN}"}
+    resposta = requests.get(
+        _api_path("/api/refresh-candidates"), headers=headers,
+        params={"limit": max(1, min(20, int(limite)))},
+        timeout=15, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(
+            f"Site recusou a fila de atualização ({resposta.status_code})"
+        )
+    candidatos = (resposta.json() or {}).get("candidates") or []
+    por_fonte = {}
+    for candidato in candidatos:
+        oferta_id = str(candidato.get("id") or "")
+        fonte_nome = str(candidato.get("source") or "")
+        if oferta_id and fonte_nome:
+            por_fonte.setdefault(fonte_nome, []).append(oferta_id)
+
+    fontes_por_nome = {fonte.NOME: fonte for fonte in fontes}
+    atualizacoes = []
+    for nome, ids in por_fonte.items():
+        fonte = fontes_por_nome.get(nome)
+        consultar = getattr(fonte, "consultar_produtos", None) if fonte else None
+        if not callable(consultar):
+            continue
+        try:
+            encontrados = consultar(ids)
+        except Exception as erro:
+            # Não registrar ausência quando foi a API da loja que falhou.
+            print(f"   ⚠️  Atualização do catálogo em {nome} adiada: "
+                  f"{seguranca.redigir_segredos(erro)}")
+            continue
+        atualizacoes.extend(
+            _payload_atualizacao(oferta_id, encontrados.get(oferta_id))
+            for oferta_id in ids
+        )
+    if not atualizacoes:
+        return {"consultados": 0, "encontrados": 0}
+    resposta = requests.post(
+        _api_path("/api/refresh"), headers=headers,
+        json={"updates": atualizacoes}, timeout=20, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou a atualização ({resposta.status_code})")
+    return {
+        "consultados": len(atualizacoes),
+        "encontrados": sum(1 for item in atualizacoes if item["found"]),
+    }
+
+
 def resumo_cliques(inicio, fim):
     """Lê somente contagens agregadas, sem dados dos visitantes."""
     api = _api_path("/api/stats")

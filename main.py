@@ -82,6 +82,28 @@ def sincronizar_links_lojas_site(lojas, agora=None):
     return atualizados
 
 
+def atualizar_catalogo_site(lojas):
+    """Atualiza preços sem permitir que a vitrine interrompa as publicações."""
+    if not site_publisher.esta_configurado():
+        return 0
+    try:
+        resultado = site_publisher.atualizar_catalogo(lojas)
+        total = resultado["consultados"]
+        if total:
+            print(f"🔄 Catálogo: {resultado['encontrados']} de {total} produto(s) "
+                  "confirmado(s) com dados atuais.")
+            observabilidade.evento(
+                "catalogo_atualizado", quantidade=total,
+                encontrados=resultado["encontrados"],
+            )
+        return total
+    except Exception as erro:
+        print("⚠️ Atualização do catálogo adiada: "
+              f"{seguranca.redigir_segredos(erro)}")
+        observabilidade.evento("catalogo_atualizacao_falha")
+        return 0
+
+
 def enviar_bom_dia_se_preciso(agora=None) -> bool:
     """Envia uma saudacao por dia, na primeira execucao da manha."""
     agora = agora or datetime.now(FUSO_BRASILIA)
@@ -689,6 +711,7 @@ def rodar_uma_vez() -> int:
         limite = min(limite, restantes)
     lojas = fontes_ativas()
     sincronizar_links_lojas_site(lojas)
+    atualizar_catalogo_site(lojas)
     candidatos = []
     if lojas:
         with ThreadPoolExecutor(max_workers=len(lojas)) as executor:
