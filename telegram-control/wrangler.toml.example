@@ -5,6 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = false
 
+# O Worker dedicado scheduler é a única origem das consultas periódicas.
+[triggers]
+crons = []
+
 [vars]
 GITHUB_OWNER = "SEU_USUARIO_GITHUB"
 GITHUB_REPO = "SEU_REPOSITORIO"

@@ -150,11 +150,16 @@ def resumo_eventos(inicio, fim):
     return resultado
 
 
-def canal_pendente(oferta_id, canal, preco=None):
+def canal_pendente(oferta_id, canal, preco=None, repetir_apos_dias=None, agora=None):
     with _conn() as con:
-        row = con.execute("SELECT sucesso,preco FROM entregas WHERE id=? AND canal=?", (str(oferta_id), canal)).fetchone()
+        row = con.execute("SELECT sucesso,preco,entregue_em FROM entregas WHERE id=? AND canal=?", (str(oferta_id), canal)).fetchone()
     if not row or not row[0]:
         return True
+    if repetir_apos_dias is not None:
+        momento = int(agora or time.time())
+        corte = min(_inicio_do_dia(momento), momento - max(0, repetir_apos_dias) * 86400)
+        if row[2] < corte:
+            return True
     return preco is not None and row[1] is not None and float(preco) < float(row[1])
 
 

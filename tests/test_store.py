@@ -46,6 +46,16 @@ class StoreTest(unittest.TestCase):
         self.assertFalse(store.canal_pendente("x", "Telegram", 50))
         self.assertTrue(store.canal_pendente("x", "Bluesky", 50))
 
+    def test_repescagem_libera_entrega_antiga_sem_repetir_canal_recente(self):
+        agora = int(datetime.now().timestamp())
+        store.registrar_entrega("x", "Telegram", True, 50, agora=agora - 8 * 86400)
+        store.registrar_entrega("x", "Bluesky", True, 50, agora=agora)
+        self.assertFalse(store.canal_pendente("x", "Telegram", 50))
+        self.assertTrue(store.canal_pendente("x", "Telegram", 50, 7, agora))
+        self.assertFalse(store.canal_pendente("x", "Bluesky", 50, 7, agora))
+        store.registrar_entrega("x", "Telegram", True, 50, agora=agora)
+        self.assertFalse(store.canal_pendente("x", "Telegram", 50, 0, agora))
+
     def test_eventos_operacionais_sao_agregados_sem_dados_sensiveis(self):
         store.registrar_evento("ofertas_rejeitadas", "run-1", 4,
                                fonte="Shopee", motivo="desconto", agora=100)

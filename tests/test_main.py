@@ -6,6 +6,42 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_repescagem_publica_novamente_em_canais_com_entrega_antiga(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import Mock
+        fonte = Mock(NOME="Shopee")
+        fonte.gerar_link.return_value = "https://shopee.com.br/item"
+        canal = Mock(NOME="Telegram", TRACKING_ID="telegram")
+        oferta = {"oferta_id": "regressao", "price": 50,
+                  "productUrl": "https://shopee.com.br/item", "_motivo": "repescagem"}
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[canal]), \
+             patch.object(main.config, "DIAS_ANTES_DE_REPETIR", 7), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False):
+            main.store.registrar_entrega("regressao", "Telegram", True, 50,
+                                        agora=int(main.time.time()) - 8 * 86400)
+            self.assertEqual(1, main.publicar(fonte, oferta))
+            self.assertEqual(0, main.publicar(fonte, oferta))
+        canal.postar.assert_called_once()
+
+    def test_atualizacao_catalogo_registra_sucesso_sem_erro_de_telemetria(self):
+        with patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "atualizar_catalogo",
+                          return_value={"consultados": 6, "encontrados": 5}), \
+             patch.object(main.observabilidade.store, "registrar_evento") as registrar:
+            self.assertEqual(6, main.atualizar_catalogo_site([]))
+        self.assertEqual("catalogo_atualizado", registrar.call_args.args[0])
+
+    def test_agendamento_externo_nao_cria_espera_interna_apos_rodada_vazia(self):
+        with patch.object(main, "minutos_para_proximo", return_value=0), \
+             patch.object(main.store, "definir_proximo_post") as definir:
+            agora = datetime(2026, 9, 8, 20, 0, tzinfo=main.FUSO_BRASILIA)
+            main.agendar_proxima(tentativa_curta=True, agora=agora)
+        definir.assert_called_once_with(int(agora.timestamp()))
+
     def test_historico_de_vendas_guarda_somente_ofertas_comerciais(self):
         class Fonte:
             NOME = "Shopee"

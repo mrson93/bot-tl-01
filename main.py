@@ -183,8 +183,7 @@ def atualizar_catalogo_site(lojas):
             print(f"🔄 Catálogo: {resultado['encontrados']} de {total} produto(s) "
                   "confirmado(s) com dados atuais.")
             observabilidade.evento(
-                "catalogo_atualizado", quantidade=total,
-                encontrados=resultado["encontrados"],
+                "catalogo_atualizado", quantidade=resultado["encontrados"],
             )
         return total
     except Exception as erro:
@@ -226,8 +225,12 @@ def publicar(fonte, oferta: dict) -> int:
     ok = 0
     oid = oferta["oferta_id"]
     preco = float(oferta.get("price") or 0)
+    repeticao = ({"repetir_apos_dias": config.DIAS_ANTES_DE_REPETIR}
+                 if oferta.get("_motivo") == "repescagem" else {})
     for canal in canais_ativos():
-        if not store.canal_pendente(oid, canal.NOME, preco):
+        if not store.canal_pendente(oid, canal.NOME, preco, **repeticao):
+            observabilidade.evento("publicacao_ignorada", oferta_id=oid,
+                                  canal=canal.NOME, motivo="entrega_ja_concluida")
             continue
         try:
             link = fonte.gerar_link(oferta.get("productUrl"),
@@ -251,7 +254,7 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
-    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco):
+    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco, **repeticao):
         try:
             site_publisher.publicar(fonte, oferta)
             store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
@@ -527,7 +530,9 @@ def minutos_para_proximo(agora=None) -> int:
 
 def agendar_proxima(tentativa_curta=False, agora=None):
     agora = agora or datetime.now()
-    minutos = config.RETRY_MINUTES if tentativa_curta else minutos_para_proximo(agora)
+    minutos = minutos_para_proximo(agora)
+    if tentativa_curta and minutos > 0:
+        minutos = config.RETRY_MINUTES
     alvo = int(agora.timestamp()) + minutos * 60
     store.definir_proximo_post(alvo)
     print(f"⏰ Proxima tentativa: {datetime.fromtimestamp(alvo).strftime('%H:%M')} ({minutos} min).")
@@ -918,7 +923,11 @@ def main():
             return
         proximo = store.proximo_post()
         agora_ts = int(time.time())
-        if proximo and agora_ts < proximo:
+        agenda_interna = any((config.MIN_MINUTOS_ENTRE_POSTS,
+                              config.MAX_MINUTOS_ENTRE_POSTS,
+                              config.MIN_MINUTOS_FORA_PICO,
+                              config.MAX_MINUTOS_FORA_PICO))
+        if agenda_interna and proximo and agora_ts < proximo:
             # O relatorio diario nao depende de haver uma oferta liberada agora.
             enviar_relatorio_seguro()
             enviar_resumo_cupons_se_preciso()
