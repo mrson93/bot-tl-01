@@ -1,6 +1,6 @@
 # Tá Barato
 
-> Catálogo brasileiro de produtos com links de afiliado, selecionados por preço, desconto, avaliação e histórico de vendas.
+> Catálogo brasileiro de ofertas e produtos com links de afiliado, selecionados por preço, desconto, avaliação e histórico de vendas.
 
 Endereço oficial: https://canaltabarato.pages.dev/
 Idioma: português do Brasil (pt-BR)
