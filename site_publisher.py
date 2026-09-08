@@ -96,6 +96,32 @@ def publicar_loja(fonte):
         raise RuntimeError(f"Site recusou o atalho da loja ({resposta.status_code})")
 
 
+def publicar_shopee_vip(link_afiliado):
+    """Mantém no site o atalho rastreável da assinatura Shopee VIP."""
+    destino = seguranca.validar_url_https_em_hosts(
+        link_afiliado, ("shopee.com.br",), "Link do Shopee VIP"
+    )
+    resposta = requests.post(
+        _api_path("/api/stores"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={"source": "Shopee VIP", "destination": destino},
+        timeout=15, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou o Shopee VIP ({resposta.status_code})")
+
+
+def link_publico_loja(slug):
+    """Cria a URL pública rastreável usando a mesma origem da API do site."""
+    partes = urlsplit(seguranca.validar_url_https_publica(
+        config.SITE_API_URL, "API do site"
+    ))
+    slug = str(slug or "").strip().lower()
+    if not slug or any(c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in slug):
+        raise ValueError("Atalho do site inválido")
+    return urlunsplit((partes.scheme, partes.netloc, f"/loja/{slug}", "", ""))
+
+
 def _payload_atualizacao(oferta_id, oferta):
     """Mantém no envio apenas os dados públicos necessários à vitrine."""
     if not oferta:

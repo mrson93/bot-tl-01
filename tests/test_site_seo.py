@@ -108,6 +108,9 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("store:${slug}", redirect)
         self.assertIn("CREATE TABLE IF NOT EXISTS store_links", migration)
         self.assertIn('target="_blank"', app)
+        self.assertIn('id="vip-banner"', index)
+        self.assertIn("Shopee VIP", stores)
+        self.assertIn("shopee-vip", (ROOT / "site" / "functions" / "cupons.js").read_text())
 
     def test_catalogo_avancado_tem_total_real_historico_e_feedback(self):
         api = (ROOT / "site" / "functions" / "api" / "offers.js").read_text()

@@ -6,6 +6,18 @@ import seguranca
 
 
 class SegurancaTest(unittest.TestCase):
+    def test_url_restrita_aceita_subdominio_e_rejeita_dominio_parecido(self):
+        self.assertEqual(
+            "https://u.shopee.com.br/shopeevip?code=x",
+            seguranca.validar_url_https_em_hosts(
+                "https://u.shopee.com.br/shopeevip?code=x", ("shopee.com.br",)
+            ),
+        )
+        with self.assertRaises(ValueError):
+            seguranca.validar_url_https_em_hosts(
+                "https://shopee.com.br.exemplo.test/vip", ("shopee.com.br",)
+            )
+
     def test_redige_segredos_configurados_e_token_em_url(self):
         erro = (
             "falhou com segredo-app e "

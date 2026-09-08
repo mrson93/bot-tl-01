@@ -60,6 +60,10 @@ jobs:
       CUPOM_RESUMO_HORAS: ${{ vars.CUPOM_RESUMO_HORAS || '12,20' }}
       CUPOM_RESUMO_MAX_ITENS: ${{ vars.CUPOM_RESUMO_MAX_ITENS || '5' }}
       SHOPEE_CAMPANHAS_CUPOM: ${{ vars.SHOPEE_CAMPANHAS_CUPOM || 'true' }}
+      SHOPEE_VIP_URL: ${{ vars.SHOPEE_VIP_URL }}
+      SHOPEE_VIP_ATIVO: ${{ vars.SHOPEE_VIP_ATIVO || 'true' }}
+      SHOPEE_VIP_DIAS: ${{ vars.SHOPEE_VIP_DIAS || '0,2,5' }}
+      SHOPEE_VIP_HORAS: ${{ vars.SHOPEE_VIP_HORAS || '10,11,19,20' }}
       ALIEXPRESS_TRACKING_ID: default
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
       # pra saber qual canal vende mais. Vazio = usa o "default" acima.

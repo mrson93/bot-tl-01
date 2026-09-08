@@ -48,7 +48,9 @@ class WorkflowTest(unittest.TestCase):
     def test_configuracoes_operacionais_vem_de_variaveis_seguras(self):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
         for nome in ("SHOPEE_ATIVA", "ALIEXPRESS_ATIVA", "PESO_SHOPEE",
-                     "MIN_DISCOUNT", "MAX_POSTS_PER_RUN", "MAX_POSTS_PER_RUN_FORA_PICO", "HORA_INICIO"):
+                     "MIN_DISCOUNT", "MAX_POSTS_PER_RUN", "MAX_POSTS_PER_RUN_FORA_PICO", "HORA_INICIO",
+                     "SHOPEE_VIP_URL", "SHOPEE_VIP_ATIVO", "SHOPEE_VIP_DIAS",
+                     "SHOPEE_VIP_HORAS"):
             self.assertIn("vars." + nome, workflow)
         self.assertIn("vars.INTERVALO_ENTRE_POSTS_MINUTOS", workflow)
         self.assertIn("github.event.repository.visibility == 'private'", workflow)

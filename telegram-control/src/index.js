@@ -44,14 +44,16 @@ function textResponse(text, status = 200) {
   });
 }
 
-function constantTimeEqual(left, right) {
-  const a = String(left || "");
-  const b = String(right || "");
-  let difference = a.length ^ b.length;
-  const length = Math.max(a.length, b.length);
-  for (let index = 0; index < length; index += 1) {
-    difference |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
+async function constantTimeEqual(left, right) {
+  const encoder = new TextEncoder();
+  const [leftDigest, rightDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(String(left || ""))),
+    crypto.subtle.digest("SHA-256", encoder.encode(String(right || ""))),
+  ]);
+  const a = new Uint8Array(leftDigest);
+  const b = new Uint8Array(rightDigest);
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) difference |= a[index] ^ b[index];
   return difference === 0;
 }
 
@@ -115,7 +117,10 @@ function settingsRootKeyboard() {
         { text: CATEGORIES.relatorio.label, callback_data: "menu:relatorio" },
         { text: CATEGORIES.selecao.label, callback_data: "menu:selecao" },
       ],
-      [{ text: CATEGORIES.cupons.label, callback_data: "menu:cupons" }],
+      [
+        { text: CATEGORIES.cupons.label, callback_data: "menu:cupons" },
+        { text: CATEGORIES.campanhas.label, callback_data: "menu:campanhas" },
+      ],
       [
         { text: "🕘 Histórico", callback_data: "action:audit" },
         { text: "↩️ Restaurar padrões", callback_data: "defaults:ask" },
@@ -145,7 +150,10 @@ function helpKeyboard() {
         { text: CATEGORIES.relatorio.label, callback_data: "help:relatorio" },
         { text: CATEGORIES.cupons.label, callback_data: "help:cupons" },
       ],
-      [{ text: CATEGORIES.selecao.label, callback_data: "help:selecao" }],
+      [
+        { text: CATEGORIES.campanhas.label, callback_data: "help:campanhas" },
+        { text: CATEGORIES.selecao.label, callback_data: "help:selecao" },
+      ],
       [{ text: "⬅️ Painel principal", callback_data: "menu:panel" }],
     ],
   };
@@ -846,7 +854,7 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
   if (request.method === "POST" && url.pathname === "/internal/scheduled") {
     const expectedSecret = String(env.SCHEDULER_SHARED_SECRET || "");
     const receivedSecret = request.headers.get("X-Internal-Scheduler-Secret");
-    if (!expectedSecret || !constantTimeEqual(receivedSecret, expectedSecret)) {
+    if (!expectedSecret || !await constantTimeEqual(receivedSecret, expectedSecret)) {
       return textResponse("not found", 404);
     }
     const scheduledTime = Number(request.headers.get("X-Scheduled-Time") || Date.now());
@@ -868,7 +876,7 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
   }
   const expectedSecret = String(env.TELEGRAM_WEBHOOK_SECRET || "");
   const receivedSecret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
-  if (!expectedSecret || !constantTimeEqual(receivedSecret, expectedSecret)) {
+  if (!expectedSecret || !await constantTimeEqual(receivedSecret, expectedSecret)) {
     return textResponse("not found", 404);
   }
   const contentLength = Number(request.headers.get("Content-Length") || 0);

@@ -10,6 +10,12 @@ GITHUB_OWNER = "SEU_USUARIO_GITHUB"
 GITHUB_REPO = "SEU_REPOSITORIO"
 GITHUB_DEFAULT_BRANCH = "main"
 
+[observability]
+enabled = true
+
+[observability.logs]
+head_sampling_rate = 1
+
 # Configure exclusivamente com `wrangler secret put`:
 # TELEGRAM_BOT_TOKEN
 # TELEGRAM_ADMIN_ID

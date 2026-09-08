@@ -246,6 +246,8 @@ test("todas as configuracoes expostas possuem padrao e validacao", () => {
   assert.equal(validateSetting("MIN_RATING", "5.1").ok, false);
   assert.equal(validateSetting("HORAS_PICO", "1,12,18").ok, false);
   assert.equal(validateSetting("RELATORIO_MINUTO", "17").ok, false);
+  assert.deepEqual(validateSetting("SHOPEE_VIP_DIAS", "0,2,5"), { ok: true, value: "0,2,5" });
+  assert.equal(validateSetting("SHOPEE_VIP_DIAS", "0,7").ok, false);
 });
 
 test("ajuda explica comandos modos e todas as configuracoes", () => {

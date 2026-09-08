@@ -88,6 +88,17 @@ class SitePublisherTest(unittest.TestCase):
                          post.call_args.kwargs["json"]["destination"])
         self.assertEqual("https://shopee.com.br/", Fonte.chamada[0])
 
+    def test_publica_link_do_shopee_vip_e_cria_atalho_rastreavel(self):
+        resposta = type("Resposta", (), {"status_code": 201})()
+        with patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.publicar_shopee_vip("https://u.shopee.com.br/shopeevip?code=x")
+            link = site_publisher.link_publico_loja("shopee-vip")
+        self.assertEqual("Shopee VIP", post.call_args.kwargs["json"]["source"])
+        self.assertEqual("https://canaltabarato.pages.dev/loja/shopee-vip", link)
+
     def test_erro_nao_expoe_token(self):
         class Fonte:
             NOME = "Shopee"

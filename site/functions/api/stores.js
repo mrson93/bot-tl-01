@@ -2,6 +2,7 @@ import {authorized,json,safeUrl} from '../_lib.js';
 
 const STORES={
   Shopee:{slug:'shopee',name:'Shopee'},
+  'Shopee VIP':{slug:'shopee-vip',name:'Shopee VIP'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
 };

@@ -5,6 +5,7 @@ export const CATEGORIES = Object.freeze({
   variedade: { label: "🔁 Variedade", description: "Repetição e produtos semelhantes" },
   relatorio: { label: "📊 Relatório", description: "Horário e limites dos alertas" },
   cupons: { label: "🎟 Cupons", description: "Alertas e resumo de cupons oficiais" },
+  campanhas: { label: "👑 Campanhas", description: "Divulgações recorrentes sem repetir demais" },
   selecao: { label: "🧪 Seleção", description: "Comissão, histórico e teste A/B" },
 });
 
@@ -175,6 +176,19 @@ export const SETTINGS = Object.freeze({
     hint: "Limite para manter o resumão curto e fácil de consultar.",
   },
 
+  SHOPEE_VIP_ATIVO: {
+    category: "campanhas", label: "Divulgação Shopee VIP", type: "boolean", default: "true",
+    hint: "Ativa o banner no site e os posts recorrentes no Telegram. O link afiliado continua protegido fora deste painel.",
+  },
+  SHOPEE_VIP_DIAS: {
+    category: "campanhas", label: "Dias do Shopee VIP", type: "weekdays", default: "0,2,5",
+    hint: "Use números de 0 a 6: 0 segunda, 1 terça, 2 quarta, 3 quinta, 4 sexta, 5 sábado e 6 domingo.",
+  },
+  SHOPEE_VIP_HORAS: {
+    category: "campanhas", label: "Horas do Shopee VIP", type: "hours", default: "10,11,19,20",
+    hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
+  },
+
   PESO_COMISSAO: {
     category: "selecao", label: "Peso da comissão", type: "float", default: "1", min: 0, max: 3,
     hint: "Zero ignora comissão; 1 mantém o equilíbrio atual entre desconto e retorno.",
@@ -233,6 +247,15 @@ export function validateSetting(key, rawValue) {
     return { ok: true, value: hours.sort((a, b) => a - b).join(",") };
   }
 
+  if (setting.type === "weekdays") {
+    const pieces = String(rawValue ?? "").split(/[\s,;]+/).filter(Boolean);
+    const days = [...new Set(pieces.map((piece) => Number(piece)))];
+    if (!days.length || days.length > 7 || days.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) {
+      return { ok: false, error: "Informe dias entre 0 e 6, separados por vírgula." };
+    }
+    return { ok: true, value: days.sort((a, b) => a - b).join(",") };
+  }
+
   if (setting.type === "choice") {
     if (!setting.choices.includes(raw)) return { ok: false, error: `Escolha: ${setting.choices.join(", ")}.` };
     return { ok: true, value: raw };
@@ -256,7 +279,11 @@ export function displayValue(key, value) {
   const setting = SETTINGS[key];
   if (!setting) return String(value);
   if (setting.type === "boolean") return String(value) === "true" ? "Ativo" : "Desativado";
-  if (key === "HORAS_PICO") return `${value}h`;
+  if (setting.type === "weekdays") {
+    const names = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+    return String(value).split(",").map((day) => names[Number(day)] || day).join(", ");
+  }
+  if (setting.type === "hours") return String(value).split(",").map((hour) => `${hour}h`).join(", ");
   if (key === "HORA_INICIO" || key === "HORA_FIM" || key === "RELATORIO_HORA") return `${String(value).padStart(2, "0")}h`;
   if (key === "RELATORIO_MINUTO") return `${String(value).padStart(2, "0")} min`;
   return String(value).replace(".", ",");

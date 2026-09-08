@@ -70,6 +70,11 @@ function storeShortcuts(stores) {
   return `<section class="store-shortcuts coupon-stores"><div class="store-shortcuts-head"><div><p class="eyebrow">COMPRE DIRETO</p><h2>Ir para a loja</h2></div><p>Abra a página principal usando nosso link de afiliado.</p></div><nav class="store-links" aria-label="Lojas parceiras">${stores.map(store=>`<a class="store-button store-${html(store.slug)}" href="/loja/${encodeURIComponent(store.slug)}" target="_blank" rel="nofollow sponsored noopener"><span>${html(store.name)}</span><b>↗</b></a>`).join('')}</nav></section>`;
 }
 
+function vipBanner(stores) {
+  if(!stores.some(store=>store.slug==='shopee-vip')) return '';
+  return `<section class="vip-banner"><div><p class="eyebrow">BENEFÍCIOS NA SHOPEE</p><h2>Conheça o Shopee VIP</h2><p>Veja as vantagens, o valor e as condições atuais diretamente na página oficial.</p></div><a href="/loja/shopee-vip" target="_blank" rel="nofollow sponsored noopener">Conhecer o Shopee VIP <span>↗</span></a></section>`;
+}
+
 export async function onRequestGet({env}) {
   const now=Math.floor(Date.now()/1000);
   const [result,storeResult]=await Promise.all([
@@ -88,5 +93,7 @@ export async function onRequestGet({env}) {
   const title='Cupons de desconto ativos | Tá Barato';
   const description='Cupons encontrados em fontes oficiais e complementares, com condições e nosso link de afiliado para a loja.';
   const cards=coupons.map(couponCard).join('');
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.length} ${coupons.length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${storeShortcuts(storeResult.results||[])}${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
+  const stores=storeResult.results||[];
+  const regularStores=stores.filter(store=>store.slug!=='shopee-vip');
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.length} ${coupons.length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${vipBanner(stores)}${storeShortcuts(regularStores)}${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
 }

@@ -55,6 +55,17 @@ def validar_url_https_publica(valor, nome="URL", resolver=False) -> str:
     return texto
 
 
+def validar_url_https_em_hosts(valor, hosts, nome="URL") -> str:
+    """Restringe uma URL pública aos domínios explicitamente permitidos."""
+    texto = validar_url_https_publica(valor, nome)
+    host = (urlsplit(texto).hostname or "").rstrip(".").lower()
+    permitidos = tuple(str(item).rstrip(".").lower() for item in hosts if item)
+    if not permitidos or not any(host == item or host.endswith(f".{item}")
+                                 for item in permitidos):
+        raise ValueError(f"{nome} invalida ou insegura")
+    return texto
+
+
 def validar_origem_https_publica(valor, nome="URL") -> str:
     """Valida uma origem base, sem caminho, consulta ou fragmento."""
     texto = validar_url_https_publica(valor, nome)

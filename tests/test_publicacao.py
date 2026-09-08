@@ -63,6 +63,21 @@ class Redirecionamento:
 
 
 class PublicacaoTest(unittest.TestCase):
+    def test_shopee_vip_usa_texto_cauteloso_e_botao_rastreavel(self):
+        with patch.object(telegram_poster.config, "TELEGRAM_CHANNEL", "@canal"), \
+             patch.object(telegram_poster.requests, "post",
+                          return_value=Resposta({"ok": True})) as postar:
+            telegram_poster.postar_shopee_vip(
+                "https://canaltabarato.pages.dev/loja/shopee-vip", 0
+            )
+        dados = postar.call_args.kwargs["json"]
+        self.assertIn("Confirme tudo na página oficial", dados["text"])
+        self.assertNotIn("grátis", dados["text"].lower())
+        self.assertEqual(
+            "https://canaltabarato.pages.dev/loja/shopee-vip",
+            dados["reply_markup"]["inline_keyboard"][0][0]["url"],
+        )
+
     def test_bluesky_publica_bom_dia_sem_link_ou_imagem(self):
         with patch.object(bluesky, "_sessao", return_value={"accessJwt": "jwt", "did": "did:x"}), \
              patch.object(bluesky.requests, "post", return_value=Resposta({})) as postar:

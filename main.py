@@ -82,6 +82,82 @@ def sincronizar_links_lojas_site(lojas, agora=None):
     return atualizados
 
 
+def sincronizar_shopee_vip_site(agora=None):
+    """Publica uma vez ao dia o destino do banner rastreável do Shopee VIP."""
+    if (not config.SHOPEE_VIP_ATIVO or not config.SHOPEE_VIP_URL
+            or not site_publisher.esta_configurado()):
+        return False
+    try:
+        seguranca.validar_url_https_em_hosts(
+            config.SHOPEE_VIP_URL, ("shopee.com.br",), "Link do Shopee VIP"
+        )
+    except ValueError as erro:
+        print(f"   ⚠️  {erro}")
+        return False
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    data = agora.date().isoformat()
+    if store.link_loja_site_sincronizado(data, "Shopee VIP"):
+        return True
+    try:
+        site_publisher.publicar_shopee_vip(config.SHOPEE_VIP_URL)
+        store.marcar_link_loja_site_sincronizado(data, "Shopee VIP")
+        print("👑 Link do Shopee VIP atualizado no site.")
+        return True
+    except Exception as erro:
+        print("   ⚠️  Link do Shopee VIP indisponível no site: "
+              f"{seguranca.redigir_segredos(erro)}")
+        return False
+
+
+def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0):
+    """Publica no máximo uma vez em cada janela permitida do dia."""
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    if agora.tzinfo is None:
+        agora = agora.replace(tzinfo=FUSO_BRASILIA)
+    else:
+        agora = agora.astimezone(FUSO_BRASILIA)
+    if (not config.SHOPEE_VIP_ATIVO or not config.SHOPEE_VIP_URL
+            or not telegram_poster.esta_configurada()
+            or agora.weekday() not in config.SHOPEE_VIP_DIAS
+            or agora.hour not in config.SHOPEE_VIP_HORAS
+            or alertas_cupom):
+        return False
+    try:
+        link_direto = seguranca.validar_url_https_em_hosts(
+            config.SHOPEE_VIP_URL, ("shopee.com.br",), "Link do Shopee VIP"
+        )
+    except ValueError as erro:
+        print(f"   ⚠️  {erro}")
+        return False
+    data = agora.date().isoformat()
+    janela = "manha" if agora.hour < 15 else "noite"
+    campanha = f"shopee_vip_{janela}"
+    if store.campanha_enviada(data, campanha, "Telegram"):
+        return False
+    link = link_direto
+    if sincronizar_shopee_vip_site(agora):
+        try:
+            link = site_publisher.link_publico_loja("shopee-vip")
+        except Exception:
+            link = link_direto
+    try:
+        telegram_poster.postar_shopee_vip(link, agora.toordinal())
+        store.marcar_campanha_enviada(data, campanha, "Telegram")
+        observabilidade.evento(
+            "campanha_publicada", canal="Telegram", fonte="Shopee VIP"
+        )
+        print("👑 Shopee VIP divulgado no Telegram.")
+        return True
+    except Exception as erro:
+        observabilidade.evento(
+            "campanha_falha", canal="Telegram", fonte="Shopee VIP",
+            motivo="erro_canal",
+        )
+        print("   ⚠️  Divulgação do Shopee VIP adiada: "
+              f"{seguranca.redigir_segredos(erro)}")
+        return False
+
+
 def atualizar_catalogo_site(lojas):
     """Atualiza preços sem permitir que a vitrine interrompa as publicações."""
     if not site_publisher.esta_configurado():
@@ -701,13 +777,16 @@ def rodar_loja(fonte, limite: int) -> int:
 def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
     observabilidade.evento("execucao_iniciada")
+    sincronizar_shopee_vip_site()
     limite = config.limite_posts_por_rodada()
     if config.MAX_POSTS_POR_DIA:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
         if restantes <= 0:
             print(f"🛑 Limite diário de {config.MAX_POSTS_POR_DIA} ofertas atingido.")
-            observabilidade.evento("execucao_concluida", motivo="limite_diario")
-            return 0
+            vip = int(publicar_shopee_vip_se_preciso())
+            observabilidade.evento("execucao_concluida", motivo="limite_diario",
+                                    quantidade=vip)
+            return vip
         limite = min(limite, restantes)
     lojas = fontes_ativas()
     sincronizar_links_lojas_site(lojas)
@@ -727,9 +806,12 @@ def rodar_uma_vez() -> int:
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)
-    print(f"🏁 Rodada concluida. {total} oferta(s) e {alertas_cupom} alerta(s) de cupom.")
-    observabilidade.evento("execucao_concluida", quantidade=total + alertas_cupom)
-    return total + alertas_cupom
+    vip = int(publicar_shopee_vip_se_preciso(alertas_cupom=alertas_cupom))
+    print(f"🏁 Rodada concluida. {total} oferta(s), {alertas_cupom} alerta(s) de "
+          f"cupom e {vip} divulgação(ões) VIP.")
+    observabilidade.evento("execucao_concluida",
+                            quantidade=total + alertas_cupom + vip)
+    return total + alertas_cupom + vip
 
 
 def checar() -> bool:

@@ -197,6 +197,16 @@ def marcar_link_loja_site_sincronizado(data, fonte):
     _definir_estado(f"link_loja_site:{str(fonte).lower()}", str(data))
 
 
+def campanha_enviada(data, campanha, canal="Telegram"):
+    chave = f"campanha:{str(campanha).lower()}:{str(canal).lower()}"
+    return _estado(chave) == str(data)
+
+
+def marcar_campanha_enviada(data, campanha, canal="Telegram"):
+    chave = f"campanha:{str(campanha).lower()}:{str(canal).lower()}"
+    _definir_estado(chave, str(data))
+
+
 def salvar_cupom(cupom: dict, agora=None):
     """Atualiza um cupom oficial visto na API e devolve seu identificador."""
     momento = int(agora or time.time())

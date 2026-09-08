@@ -255,6 +255,58 @@ def postar_bom_dia(mensagem: str) -> None:
     ))
 
 
+_MENSAGENS_SHOPEE_VIP = (
+    ("👑 <b>CONHEÇA O SHOPEE VIP</b>\n\n"
+     "A assinatura pode liberar benefícios extras em compras elegíveis. "
+     "Veja as condições atuais e confira se faz sentido para você."),
+    ("🛍️ <b>VOCÊ JÁ VIU O SHOPEE VIP?</b>\n\n"
+     "Quem compra com frequência pode encontrar vantagens adicionais. "
+     "Confira os benefícios e as regras diretamente na Shopee."),
+    ("👑 <b>MAIS VANTAGENS NA SHOPEE</b>\n\n"
+     "Conheça a assinatura Shopee VIP e veja os benefícios disponíveis "
+     "para a sua conta antes de assinar."),
+    ("💡 <b>DICA PARA QUEM COMPRA NA SHOPEE</b>\n\n"
+     "O Shopee VIP reúne benefícios para compras elegíveis. Abra a página "
+     "oficial, consulte o valor e confirme as condições atuais."),
+)
+
+
+def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
+    """Divulga a assinatura sem prometer preço ou benefício não confirmado."""
+    link_afiliado = seguranca.validar_url_https_publica(
+        link_afiliado, "Link do Shopee VIP"
+    )
+    texto = _MENSAGENS_SHOPEE_VIP[int(variante) % len(_MENSAGENS_SHOPEE_VIP)]
+    texto += ("\n\n<i>Preço, benefícios e disponibilidade podem mudar. "
+              "Confirme tudo na página oficial.</i>")
+    dados = {
+        "chat_id": config.TELEGRAM_CHANNEL,
+        "text": texto,
+        "parse_mode": "HTML",
+        "reply_markup": {"inline_keyboard": [[{
+            "text": "👑 Conhecer o Shopee VIP", "url": link_afiliado,
+        }]]},
+    }
+    ultimo = None
+    for tentativa in range(config.HTTP_MAX_TENTATIVAS):
+        try:
+            resposta = requests.post(
+                API.format(token=config.TELEGRAM_BOT_TOKEN, metodo="sendMessage"),
+                json=dados, timeout=30,
+            )
+            corpo = resposta.json()
+            if corpo.get("ok"):
+                return
+            ultimo = RuntimeError(f"Telegram recusou Shopee VIP: {corpo}")
+        except requests.RequestException as erro:
+            ultimo = erro
+        if tentativa + 1 < config.HTTP_MAX_TENTATIVAS:
+            time.sleep(tentativa + 1)
+    raise RuntimeError(seguranca.redigir_segredos(
+        f"Nao foi possivel publicar o Shopee VIP: {ultimo}"
+    ))
+
+
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Alerta enxuto para cupom cuja pagina de resgate veio da API oficial."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")

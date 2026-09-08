@@ -84,6 +84,15 @@ SHOPEE_PAGES = _int("SHOPEE_PAGES", 3)
 PICO_PRIORIZA_MAIS_VENDIDOS = _bool("PICO_PRIORIZA_MAIS_VENDIDOS", True)
 PICO_JANELA_VENDAS_DIAS = max(1, min(30, _int("PICO_JANELA_VENDAS_DIAS", 7)))
 
+# Campanha recorrente do programa Shopee VIP. O link ja vem pronto do painel
+# afiliado; os dias seguem datetime.weekday() (0=segunda, 6=domingo).
+SHOPEE_VIP_URL = _get("SHOPEE_VIP_URL")
+SHOPEE_VIP_ATIVO = _bool("SHOPEE_VIP_ATIVO", True)
+SHOPEE_VIP_DIAS = [int(x) for x in (_get("SHOPEE_VIP_DIAS") or "0,2,5").split(",")
+                   if x.strip().isdigit() and 0 <= int(x) <= 6]
+SHOPEE_VIP_HORAS = [int(x) for x in (_get("SHOPEE_VIP_HORAS") or "10,11,19,20").split(",")
+                    if x.strip().isdigit() and 0 <= int(x) <= 23]
+
 # --- AliExpress (API de afiliado) ---
 ALIEXPRESS_APP_KEY = _get("ALIEXPRESS_APP_KEY")
 ALIEXPRESS_APP_SECRET = _get("ALIEXPRESS_APP_SECRET")

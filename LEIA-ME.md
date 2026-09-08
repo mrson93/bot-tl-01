@@ -36,8 +36,8 @@ o espaçamento interno permanece disponível apenas para instalações locais.
 O controlador em `telegram-control/` permite selecionar os modos Econômico,
 Normal, Rápido e Pausado, consultar o status, solicitar o relatório e ajustar
 as configurações operacionais pelo próprio Telegram. O menu `⚙️ Configurações`
-controla lojas, pesos comerciais, filtros, horários, variedade, relatório e
-teste A/B. Cada mudança exige confirmação e fica no histórico privado do painel.
+controla lojas, pesos comerciais, filtros, horários, variedade, relatório,
+campanhas recorrentes e teste A/B. Cada mudança exige confirmação e fica no histórico privado do painel.
 Ele funciona em um endereço gratuito `workers.dev`, aceita somente o administrador
 em conversa privada e altera somente uma lista fechada de variáveis não secretas
 do GitHub. Senhas, tokens e chaves nunca entram no painel. Consulte
@@ -79,6 +79,10 @@ Novas variáveis:
 | `CUPOM_ALERTAS_POR_RODADA` | `1` | Máximo de alertas exclusivos de cupom por execução |
 | `CUPOM_RESUMO_HORAS` | `12,20` | Horas de Brasília para o resumão de cupons ativos |
 | `CUPOM_RESUMO_MAX_ITENS` | `5` | Máximo de cupons listados em cada resumo |
+| `SHOPEE_VIP_URL` | vazio | Link afiliado oficial da assinatura, definido fora do painel do Telegram |
+| `SHOPEE_VIP_ATIVO` | `true` | Ativa banner no site e divulgação recorrente no Telegram |
+| `SHOPEE_VIP_DIAS` | `0,2,5` | Segunda, quarta e sábado (`0` é segunda e `6` é domingo) |
+| `SHOPEE_VIP_HORAS` | `10,11,19,20` | Janelas da manhã e da noite para divulgar o VIP |
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.
 
@@ -125,6 +129,10 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.
 - Se a imagem falhar, o Telegram publica a oferta em texto.
+- O Shopee VIP pode ser divulgado uma vez pela manhã e outra à noite nos dias
+  configurados. Um alerta urgente de cupom sempre passa na frente e adia a campanha.
+- O banner do VIP aparece na página inicial e na página de cupons somente quando
+  o link oficial estiver ativo no site. Os cliques são contados de forma agregada.
 
 ### Links próprios
 

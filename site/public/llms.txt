@@ -10,6 +10,7 @@ Idioma: português do Brasil (pt-BR)
 - Produtos da Shopee, AliExpress e de outras plataformas quando disponíveis.
 - Páginas individuais com título, último preço consultado, desconto, avaliação, volume de vendas, loja e histórico de preço.
 - Página de cupons oficiais ativos, com condições, validade e link para resgate.
+- Atalho para conhecer a assinatura Shopee VIP e consultar benefícios e condições atuais na página oficial.
 - Páginas permanentes de categorias e lojas geradas conforme o catálogo publicado.
 - Filtros por plataforma, categoria, loja, preço e avaliação.
 - Modos de navegação: em alta, recentes, maior desconto, mais vendidos e menor preço.
