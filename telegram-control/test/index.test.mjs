@@ -236,6 +236,56 @@ test("execucao manual pede confirmacao e dispara somente a rodada autorizada", a
   });
 });
 
+test("campanha Shopee VIP possui execucao individual com confirmacao", async () => {
+  const calls = [];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/actions/variables?")) {
+      return Response.json({ variables: [{ name: "SHOPEE_VIP_ATIVO", value: "true" }] });
+    }
+    if (String(url).includes("/dispatches")) return new Response(null, { status: 204 });
+    return Response.json({ ok: true });
+  };
+
+  await worker.fetch(request(callback("menu:campanhas")), env, fakeFetch);
+  const menu = calls.find((call) => call.url.includes("api.telegram.org") &&
+    JSON.parse(call.options.body).reply_markup?.inline_keyboard?.flat().some(
+      (button) => button.callback_data === "campaign:shopee_vip:ask"));
+  assert.ok(menu);
+
+  calls.length = 0;
+  await worker.fetch(request(callback("campaign:shopee_vip:ask")), env, fakeFetch);
+  assert.equal(calls.some((call) => call.url.includes("/dispatches")), false);
+  const confirmation = calls.find((call) => call.url.includes("api.telegram.org") &&
+    JSON.parse(call.options.body).reply_markup?.inline_keyboard?.flat().some(
+      (button) => button.callback_data === "campaign:shopee_vip:confirm"));
+  assert.ok(confirmation);
+
+  calls.length = 0;
+  await worker.fetch(request(callback("campaign:shopee_vip:confirm")), env, fakeFetch);
+  const dispatch = calls.find((call) => call.url.includes("/dispatches"));
+  assert.deepEqual(JSON.parse(dispatch.options.body), {
+    ref: "main",
+    inputs: { campanha: "shopee_vip" },
+  });
+});
+
+test("campanha desativada nao pode ser executada manualmente", async () => {
+  const calls = [];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/actions/variables?")) {
+      return Response.json({ variables: [{ name: "SHOPEE_VIP_ATIVO", value: "false" }] });
+    }
+    return Response.json({ ok: true });
+  };
+  await worker.fetch(request(callback("campaign:shopee_vip:confirm")), env, fakeFetch);
+  assert.equal(calls.some((call) => call.url.includes("/dispatches")), false);
+  const warning = calls.find((call) => call.url.includes("api.telegram.org") &&
+    JSON.parse(call.options.body).text?.includes("está desativada"));
+  assert.ok(warning);
+});
+
 test("todas as configuracoes expostas possuem padrao e validacao", () => {
   assert.ok(Object.keys(SETTINGS).length >= 20);
   for (const [key, setting] of Object.entries(SETTINGS)) {

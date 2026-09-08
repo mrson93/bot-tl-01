@@ -77,6 +77,24 @@ class MainTest(unittest.TestCase):
             ))
         postar.assert_not_called()
 
+    def test_execucao_manual_do_vip_ignora_horario_repeticao_e_alerta(self):
+        momento = datetime(2026, 9, 8, 3, 15, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.config, "SHOPEE_VIP_ATIVO", True), \
+             patch.object(main.config, "SHOPEE_VIP_URL", "https://u.shopee.com.br/vip"), \
+             patch.object(main.config, "SHOPEE_VIP_DIAS", [0]), \
+             patch.object(main.config, "SHOPEE_VIP_HORAS", [19]), \
+             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.store, "campanha_enviada", return_value=True) as enviada, \
+             patch.object(main.store, "marcar_campanha_enviada") as marcar, \
+             patch.object(main.telegram_poster, "postar_shopee_vip") as postar:
+            self.assertTrue(main.publicar_shopee_vip_se_preciso(
+                momento, alertas_cupom=1, forcar=True
+            ))
+        enviada.assert_not_called()
+        postar.assert_called_once()
+        marcar.assert_called_once_with("2026-09-08", "shopee_vip_manha", "Telegram")
+
     def test_falha_ao_atualizar_catalogo_nao_interrompe_rodada(self):
         with patch.object(main.site_publisher, "esta_configurado", return_value=True), \
              patch.object(main.site_publisher, "atualizar_catalogo",
@@ -310,6 +328,17 @@ class MainTest(unittest.TestCase):
             main.main()
 
         enviar.assert_called_once_with(forcar=True)
+        checar.assert_not_called()
+        rodar.assert_not_called()
+
+    def test_comando_campanha_executa_somente_a_campanha_escolhida(self):
+        with patch.object(main.sys, "argv", ["main.py", "--campanha", "shopee_vip"]), \
+             patch.object(main, "executar_campanha", return_value=True) as executar, \
+             patch.object(main, "checar") as checar, \
+             patch.object(main, "rodar_uma_vez") as rodar:
+            main.main()
+
+        executar.assert_called_once_with("shopee_vip")
         checar.assert_not_called()
         rodar.assert_not_called()
 

@@ -175,12 +175,18 @@ Se o Botize não fornecer preço anterior real, use apenas `💰 {{preco_atual}}
 python main.py --check
 python main.py --once
 python main.py --relatorio
+python main.py --campanha shopee_vip
 python -m unittest discover -v
 ```
 
 `--relatorio` força um envio privado imediato, sem buscar ou publicar ofertas.
 No GitHub Actions, marque **Enviar agora apenas o relatorio privado** ao executar
 o workflow manualmente.
+
+No painel privado do Telegram, cada item da área **Campanhas** possui seu próprio
+botão **Executar agora**. O painel pede confirmação e dispara somente a campanha
+escolhida, sem iniciar uma busca de ofertas. O disparo manual ignora o calendário
+e a repetição daquela janela, mas exige que a campanha esteja ativa e configurada.
 
 ## Backup e segurança
 

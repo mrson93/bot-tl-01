@@ -45,6 +45,13 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('RELATORIO_AUTOMATICO_NA_EXECUCAO: "false"', workflow)
         self.assertIn("inputs.somente_relatorio == true", workflow)
 
+    def test_execucao_manual_pode_disparar_campanha_individual(self):
+        workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
+        self.assertIn("campanha:", workflow)
+        self.assertIn("inputs.campanha != ''", workflow)
+        self.assertIn("inputs.campanha == 'shopee_vip'", workflow)
+        self.assertIn("python main.py --campanha shopee_vip", workflow)
+
     def test_configuracoes_operacionais_vem_de_variaveis_seguras(self):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
         for nome in ("SHOPEE_ATIVA", "ALIEXPRESS_ATIVA", "PESO_SHOPEE",

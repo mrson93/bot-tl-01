@@ -33,6 +33,16 @@ const MODES = Object.freeze({
   },
 });
 
+// Registro único das campanhas que podem ser disparadas separadamente. Para
+// adicionar outra campanha, inclua-a aqui e no workflow do GitHub.
+const CAMPAIGNS = Object.freeze({
+  shopee_vip: {
+    label: "Shopee VIP",
+    emoji: "👑",
+    activeSetting: "SHOPEE_VIP_ATIVO",
+  },
+});
+
 function textResponse(text, status = 200) {
   return new Response(text, {
     status,
@@ -326,11 +336,37 @@ async function dispatchBot(env, fetchImpl) {
   if (!response.ok) throw new Error(`github_dispatch_${response.status}`);
 }
 
+async function dispatchCampaign(env, campaignId, fetchImpl) {
+  if (!CAMPAIGNS[campaignId]) throw new Error("invalid_campaign");
+  const branch = String(env.GITHUB_DEFAULT_BRANCH || "main");
+  const response = await githubRequest(
+    env,
+    "/actions/workflows/bot.yml/dispatches",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ref: branch,
+        inputs: { campanha: campaignId },
+      }),
+    },
+    fetchImpl,
+  );
+  if (!response.ok) throw new Error(`github_dispatch_${response.status}`);
+}
+
 function categoryKeyboard(category, variables) {
   const rows = settingsForCategory(category).map(([key, setting]) => [{
     text: `${setting.label}: ${displayValue(key, effectiveValue(key, variables))}`.slice(0, 60),
     callback_data: `setting:${key}`,
   }]);
+  if (category === "campanhas") {
+    for (const [campaignId, campaign] of Object.entries(CAMPAIGNS)) {
+      rows.push([{
+        text: `▶️ Executar ${campaign.label} agora`,
+        callback_data: `campaign:${campaignId}:ask`,
+      }]);
+    }
+  }
   rows.push([{ text: "⬅️ Configurações", callback_data: "menu:root" }]);
   return { inline_keyboard: rows };
 }
@@ -685,11 +721,18 @@ export function helpCategoryText(category) {
   if (!metadata) return helpText();
   const explanations = settingsForCategory(category).map(([, setting]) =>
     `• ${setting.label}: ${setting.hint}`);
+  const campaignHelp = category === "campanhas"
+    ? [
+        "",
+        "▶️ Executar agora: cada campanha tem seu próprio botão. Após a confirmação, somente ela é publicada, mesmo fora do calendário. Campanhas desativadas continuam bloqueadas.",
+      ]
+    : [];
   return [
     `${metadata.label} — como funciona`,
     metadata.description,
     "",
     ...explanations,
+    ...campaignHelp,
     "",
     "Para alterar, abra Configurações no painel. O novo valor passa a valer na próxima execução.",
   ].join("\n");
@@ -730,6 +773,46 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
     await dispatchBot(env, fetchImpl);
     await answerCallback(env, callback.id, "Rodada solicitada", fetchImpl);
     return sendMessage(env, chatId, "▶️ Rodada solicitada ao GitHub. A publicação seguirá as regras atuais do bot.", fetchImpl);
+  }
+  if (callbackData.startsWith("campaign:")) {
+    const [, campaignId, action] = callbackData.split(":");
+    const campaign = CAMPAIGNS[campaignId];
+    if (!campaign || !["ask", "confirm"].includes(action)) {
+      return answerCallback(env, callback.id, "Campanha inválida", fetchImpl);
+    }
+    const variables = await getVariables(env, fetchImpl);
+    if (effectiveValue(campaign.activeSetting, variables) !== "true") {
+      await answerCallback(env, callback.id, "Campanha desativada", fetchImpl);
+      return sendMessage(
+        env,
+        chatId,
+        `${campaign.emoji} ${campaign.label} está desativada. Ative a campanha antes de executá-la.`,
+        fetchImpl,
+        categoryKeyboard("campanhas", variables),
+      );
+    }
+    if (action === "ask") {
+      await answerCallback(env, callback.id, "Confirmação necessária", fetchImpl);
+      return sendMessage(
+        env,
+        chatId,
+        `${campaign.emoji} Publicar ${campaign.label} agora?\n\nO calendário e a repetição automática serão ignorados somente neste disparo.`,
+        fetchImpl,
+        { inline_keyboard: [[
+          { text: `▶️ Publicar ${campaign.label}`, callback_data: `campaign:${campaignId}:confirm` },
+          { text: "Cancelar", callback_data: "menu:campanhas" },
+        ]] },
+      );
+    }
+    await dispatchCampaign(env, campaignId, fetchImpl);
+    await answerCallback(env, callback.id, "Campanha solicitada", fetchImpl);
+    return sendMessage(
+      env,
+      chatId,
+      `${campaign.emoji} ${campaign.label} foi solicitada ao GitHub e será processada no Telegram.`,
+      fetchImpl,
+      categoryKeyboard("campanhas", variables),
+    );
   }
   if (callbackData === "menu:panel") {
     await answerCallback(env, callback.id, "Painel principal", fetchImpl);
