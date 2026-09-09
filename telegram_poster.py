@@ -271,14 +271,25 @@ _MENSAGENS_SHOPEE_VIP = (
 )
 
 
+_BENEFICIOS_SHOPEE_VIP = (
+    "🎁 <b>Benefícios atuais informados pela Shopee:</b>\n"
+    "• Frete grátis ilimitado em pedidos acima de R$ 10\n"
+    "• 2 cupons de R$ 5 em compras acima de R$ 40 (até R$ 10 por mês)\n"
+    "• Cupons extras em datas duplas\n"
+    "• Atendimento prioritário\n"
+    "• 35% de desconto nos planos de assistência Meu Pet Club"
+)
+
+
 def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
-    """Divulga a assinatura sem prometer preço ou benefício não confirmado."""
+    """Divulga a assinatura com um resumo cauteloso dos benefícios oficiais."""
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, "Link do Shopee VIP"
     )
     texto = _MENSAGENS_SHOPEE_VIP[int(variante) % len(_MENSAGENS_SHOPEE_VIP)]
-    texto += ("\n\n<i>Preço, benefícios e disponibilidade podem mudar. "
-              "Confirme tudo na página oficial.</i>")
+    texto += ("\n\n" + _BENEFICIOS_SHOPEE_VIP +
+              "\n\n<i>Preço, benefícios, elegibilidade e disponibilidade "
+              "podem mudar. Confirme tudo na página oficial.</i>")
     dados = {
         "chat_id": config.TELEGRAM_CHANNEL,
         "text": texto,

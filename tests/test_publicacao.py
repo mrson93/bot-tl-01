@@ -72,7 +72,12 @@ class PublicacaoTest(unittest.TestCase):
             )
         dados = postar.call_args.kwargs["json"]
         self.assertIn("Confirme tudo na página oficial", dados["text"])
-        self.assertNotIn("grátis", dados["text"].lower())
+        self.assertIn("Frete grátis ilimitado", dados["text"])
+        self.assertIn("2 cupons de R$ 5", dados["text"])
+        self.assertIn("Cupons extras em datas duplas", dados["text"])
+        self.assertIn("Atendimento prioritário", dados["text"])
+        self.assertIn("35% de desconto nos planos de assistência Meu Pet Club", dados["text"])
+        self.assertIn("elegibilidade", dados["text"])
         self.assertEqual(
             "https://canaltabarato.pages.dev/loja/shopee-vip",
             dados["reply_markup"]["inline_keyboard"][0][0]["url"],
