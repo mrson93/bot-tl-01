@@ -272,6 +272,8 @@ _MENSAGENS_SHOPEE_VIP = (
 
 
 _BENEFICIOS_SHOPEE_VIP = (
+    "🆓 <b>Para contas elegíveis:</b> teste grátis por 1 mês\n"
+    "💳 Depois, R$ 9,90 por mês, com renovação automática\n\n"
     "🎁 <b>Benefícios atuais informados pela Shopee:</b>\n"
     "• Frete grátis ilimitado em pedidos acima de R$ 10\n"
     "• 2 cupons de R$ 5 em compras acima de R$ 40 (até R$ 10 por mês)\n"
@@ -288,8 +290,9 @@ def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
     )
     texto = _MENSAGENS_SHOPEE_VIP[int(variante) % len(_MENSAGENS_SHOPEE_VIP)]
     texto += ("\n\n" + _BENEFICIOS_SHOPEE_VIP +
-              "\n\n<i>Preço, benefícios, elegibilidade e disponibilidade "
-              "podem mudar. Confirme tudo na página oficial.</i>")
+              "\n\n<i>Confira se o período grátis aparece para a sua conta. "
+              "Preço, benefícios, elegibilidade e disponibilidade podem "
+              "mudar; confirme tudo antes de assinar.</i>")
     dados = {
         "chat_id": config.TELEGRAM_CHANNEL,
         "text": texto,
