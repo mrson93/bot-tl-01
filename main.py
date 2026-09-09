@@ -110,14 +110,19 @@ def sincronizar_shopee_vip_site(agora=None):
 
 
 def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
-    """Publica na janela prevista ou imediatamente quando solicitado pelo admin."""
+    """Publica em cada rede pendente ou imediatamente quando solicitado."""
     agora = agora or datetime.now(FUSO_BRASILIA)
     if agora.tzinfo is None:
         agora = agora.replace(tzinfo=FUSO_BRASILIA)
     else:
         agora = agora.astimezone(FUSO_BRASILIA)
+    destinos = []
+    if telegram_poster.esta_configurada():
+        destinos.append(("Telegram", telegram_poster.postar_shopee_vip))
+    if bluesky.esta_configurada():
+        destinos.append(("Bluesky", bluesky.postar_shopee_vip))
     if (not config.SHOPEE_VIP_ATIVO or not config.SHOPEE_VIP_URL
-            or not telegram_poster.esta_configurada()):
+            or not destinos):
         return False
     if (not forcar and (agora.weekday() not in config.SHOPEE_VIP_DIAS
                         or agora.hour not in config.SHOPEE_VIP_HORAS
@@ -133,31 +138,38 @@ def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
     data = agora.date().isoformat()
     janela = "manha" if agora.hour < 15 else "noite"
     campanha = f"shopee_vip_{janela}"
-    if not forcar and store.campanha_enviada(data, campanha, "Telegram"):
-        return False
+    if not forcar:
+        destinos = [
+            (canal, postar) for canal, postar in destinos
+            if not store.campanha_enviada(data, campanha, canal)
+        ]
+        if not destinos:
+            return False
     link = link_direto
     if sincronizar_shopee_vip_site(agora):
         try:
             link = site_publisher.link_publico_loja("shopee-vip")
         except Exception:
             link = link_direto
-    try:
-        telegram_poster.postar_shopee_vip(link, agora.toordinal())
-        store.marcar_campanha_enviada(data, campanha, "Telegram")
-        observabilidade.evento(
-            "campanha_publicada", canal="Telegram", fonte="Shopee VIP",
-            motivo="manual" if forcar else "automatica",
-        )
-        print("👑 Shopee VIP divulgado no Telegram.")
-        return True
-    except Exception as erro:
-        observabilidade.evento(
-            "campanha_falha", canal="Telegram", fonte="Shopee VIP",
-            motivo="erro_canal_manual" if forcar else "erro_canal_automatico",
-        )
-        print("   ⚠️  Divulgação do Shopee VIP adiada: "
-              f"{seguranca.redigir_segredos(erro)}")
-        return False
+    publicadas = 0
+    for canal, postar in destinos:
+        try:
+            postar(link, agora.toordinal())
+            store.marcar_campanha_enviada(data, campanha, canal)
+            observabilidade.evento(
+                "campanha_publicada", canal=canal, fonte="Shopee VIP",
+                motivo="manual" if forcar else "automatica",
+            )
+            print(f"👑 Shopee VIP divulgado no {canal}.")
+            publicadas += 1
+        except Exception as erro:
+            observabilidade.evento(
+                "campanha_falha", canal=canal, fonte="Shopee VIP",
+                motivo="erro_canal_manual" if forcar else "erro_canal_automatico",
+            )
+            print(f"   ⚠️  Divulgação do Shopee VIP no {canal} adiada: "
+                  f"{seguranca.redigir_segredos(erro)}")
+    return bool(publicadas)
 
 
 def executar_campanha(nome):

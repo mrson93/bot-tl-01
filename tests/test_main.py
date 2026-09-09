@@ -88,17 +88,24 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "SHOPEE_VIP_DIAS", [0, 2, 5]), \
              patch.object(main.config, "SHOPEE_VIP_HORAS", [10, 11, 19, 20]), \
              patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=True), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
              patch.object(main.store, "campanha_enviada", return_value=False) as enviada, \
              patch.object(main.store, "marcar_campanha_enviada") as marcar, \
-             patch.object(main.telegram_poster, "postar_shopee_vip") as postar:
+             patch.object(main.telegram_poster, "postar_shopee_vip") as postar, \
+             patch.object(main.bluesky, "postar_shopee_vip") as postar_bluesky:
             self.assertTrue(main.publicar_shopee_vip_se_preciso(manha))
             self.assertTrue(main.publicar_shopee_vip_se_preciso(noite))
         self.assertEqual(2, postar.call_count)
+        self.assertEqual(2, postar_bluesky.call_count)
         self.assertEqual("shopee_vip_manha", enviada.call_args_list[0].args[1])
-        self.assertEqual("shopee_vip_noite", enviada.call_args_list[1].args[1])
+        self.assertEqual("Telegram", enviada.call_args_list[0].args[2])
+        self.assertEqual("Bluesky", enviada.call_args_list[1].args[2])
+        self.assertEqual("shopee_vip_noite", enviada.call_args_list[2].args[1])
         self.assertEqual("shopee_vip_manha", marcar.call_args_list[0].args[1])
-        self.assertEqual("shopee_vip_noite", marcar.call_args_list[1].args[1])
+        self.assertEqual("Telegram", marcar.call_args_list[0].args[2])
+        self.assertEqual("Bluesky", marcar.call_args_list[1].args[2])
+        self.assertEqual("shopee_vip_noite", marcar.call_args_list[2].args[1])
 
     def test_shopee_vip_espera_quando_ha_alerta_urgente_de_cupom(self):
         momento = datetime(2026, 9, 7, 19, 15, tzinfo=main.FUSO_BRASILIA)
@@ -107,6 +114,7 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "SHOPEE_VIP_DIAS", [0]), \
              patch.object(main.config, "SHOPEE_VIP_HORAS", [19]), \
              patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=False), \
              patch.object(main.telegram_poster, "postar_shopee_vip") as postar:
             self.assertFalse(main.publicar_shopee_vip_se_preciso(
                 momento, alertas_cupom=1
@@ -120,6 +128,7 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "SHOPEE_VIP_DIAS", [0]), \
              patch.object(main.config, "SHOPEE_VIP_HORAS", [19]), \
              patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=False), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
              patch.object(main.store, "campanha_enviada", return_value=True) as enviada, \
              patch.object(main.store, "marcar_campanha_enviada") as marcar, \
@@ -130,6 +139,24 @@ class MainTest(unittest.TestCase):
         enviada.assert_not_called()
         postar.assert_called_once()
         marcar.assert_called_once_with("2026-09-08", "shopee_vip_manha", "Telegram")
+
+    def test_falha_do_vip_no_telegram_nao_impede_bluesky(self):
+        momento = datetime(2026, 9, 8, 19, 15, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.config, "SHOPEE_VIP_ATIVO", True), \
+             patch.object(main.config, "SHOPEE_VIP_URL", "https://u.shopee.com.br/vip"), \
+             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=True), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.store, "marcar_campanha_enviada") as marcar, \
+             patch.object(main.telegram_poster, "postar_shopee_vip",
+                          side_effect=RuntimeError("fora")), \
+             patch.object(main.bluesky, "postar_shopee_vip") as postar_bluesky:
+            self.assertTrue(main.publicar_shopee_vip_se_preciso(
+                momento, forcar=True
+            ))
+
+        postar_bluesky.assert_called_once()
+        marcar.assert_called_once_with("2026-09-08", "shopee_vip_noite", "Bluesky")
 
     def test_falha_ao_atualizar_catalogo_nao_interrompe_rodada(self):
         with patch.object(main.site_publisher, "esta_configurado", return_value=True), \

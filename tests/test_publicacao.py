@@ -95,6 +95,25 @@ class PublicacaoTest(unittest.TestCase):
             self.assertNotIn("facets", record)
             self.assertNotIn("embed", record)
 
+    def test_bluesky_publica_shopee_vip_com_link_e_texto_adaptado(self):
+        link = "https://canaltabarato.pages.dev/loja/shopee-vip"
+        with patch.object(bluesky, "_sessao",
+                          return_value={"accessJwt": "jwt", "did": "did:x"}), \
+             patch.object(bluesky.requests, "post", return_value=Resposta({})) as postar:
+            bluesky.postar_shopee_vip(link, 1)
+
+        record = postar.call_args.kwargs["json"]["record"]
+        self.assertLessEqual(len(record["text"]), 300)
+        self.assertIn("1 mês grátis", record["text"])
+        self.assertIn("R$ 9,90/mês", record["text"])
+        self.assertIn("Contas elegíveis", record["text"])
+        self.assertEqual(
+            link, record["facets"][0]["features"][0]["uri"]
+        )
+        inicio = record["facets"][0]["index"]["byteStart"]
+        fim = record["facets"][0]["index"]["byteEnd"]
+        self.assertEqual(link.encode("utf-8"), record["text"].encode("utf-8")[inicio:fim])
+
     def test_telegram_tenta_texto_quando_foto_falha(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,
                   "priceDiscountRate": 50, "imageUrl": "https://imagem.test/x.jpg"}

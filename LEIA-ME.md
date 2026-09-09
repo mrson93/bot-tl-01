@@ -129,8 +129,10 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.
 - Se a imagem falhar, o Telegram publica a oferta em texto.
-- O Shopee VIP pode ser divulgado uma vez pela manhã e outra à noite nos dias
-  configurados. Um alerta urgente de cupom sempre passa na frente e adia a campanha.
+- O Shopee VIP pode ser divulgado no Telegram e no Bluesky uma vez pela manhã e
+  outra à noite nos dias configurados. Cada rede controla sua própria entrega,
+  então uma falha isolada é retomada sem duplicar a publicação na outra. Um alerta
+  urgente de cupom sempre passa na frente e adia a campanha.
 - A mensagem do Shopee VIP resume os benefícios publicados na página oficial
   (frete, cupons, atendimento e Meu Pet Club), sempre com aviso para confirmar
   elegibilidade, preço e condições atuais antes da assinatura. O teste gratuito

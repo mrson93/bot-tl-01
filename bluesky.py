@@ -293,6 +293,52 @@ def postar_bom_dia(mensagem: str) -> None:
         ))
 
 
+def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
+    """Divulga o Shopee VIP em texto curto, com o link clicável."""
+    del variante  # Mantém a mesma interface usada pela campanha do Telegram.
+    link_afiliado = seguranca.validar_url_https_publica(
+        link_afiliado, "Link do Shopee VIP"
+    )
+    texto = (
+        "👑 SHOPEE VIP\n\n"
+        "🆓 Contas elegíveis: 1 mês grátis\n"
+        "💳 Depois: R$ 9,90/mês; renovação automática\n\n"
+        "✓ Frete grátis acima de R$ 10\n"
+        "✓ Cupons mensais\n"
+        "✓ Atendimento prioritário\n"
+        "✓ 35% off Meu Pet Club\n\n"
+        f"Confira as condições: {link_afiliado}"
+    )
+    if len(texto) > 300:
+        raise ValueError("A mensagem do Shopee VIP ultrapassa 300 caracteres")
+    inicio = len(texto[:texto.rindex(link_afiliado)].encode("utf-8"))
+    sess = _sessao()
+    record = {
+        "$type": "app.bsky.feed.post",
+        "text": texto,
+        "createdAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "facets": [{
+            "index": {
+                "byteStart": inicio,
+                "byteEnd": inicio + len(link_afiliado.encode("utf-8")),
+            },
+            "features": [{
+                "$type": "app.bsky.richtext.facet#link", "uri": link_afiliado,
+            }],
+        }],
+    }
+    resposta = requests.post(
+        f"{_pds()}/xrpc/com.atproto.repo.createRecord",
+        headers={"Authorization": f"Bearer {sess['accessJwt']}"},
+        json={"repo": sess["did"], "collection": "app.bsky.feed.post", "record": record},
+        timeout=30, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(seguranca.redigir_segredos(
+            f"Bluesky recusou Shopee VIP: {resposta.text}"
+        ))
+
+
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Publica alerta de cupom sem imagem, mantendo o link clicavel."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
