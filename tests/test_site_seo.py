@@ -132,6 +132,7 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("Menor observado", detail)
         self.assertIn("Variação no período", detail)
         self.assertIn("price-point-value", detail)
+        self.assertIn('style="height:${height}px"', detail)
         self.assertIn("Os próximos preços serão adicionados diariamente", detail)
         self.assertIn("overflow-x:auto", styles)
         self.assertNotIn("price-chart span:hover i", styles)
