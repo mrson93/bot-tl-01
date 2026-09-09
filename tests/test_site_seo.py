@@ -125,6 +125,17 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS offer_feedback", schema)
         self.assertIn("data-favorite", app)
 
+    def test_historico_exibe_valores_datas_e_registros_recentes(self):
+        detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
+        styles = (PUBLIC / "styles.css").read_text()
+        self.assertIn("ORDER BY observed_at DESC LIMIT 30", detail)
+        self.assertIn("Menor observado", detail)
+        self.assertIn("Variação no período", detail)
+        self.assertIn("price-point-value", detail)
+        self.assertIn("Os próximos preços serão adicionados diariamente", detail)
+        self.assertIn("overflow-x:auto", styles)
+        self.assertNotIn("price-chart span:hover i", styles)
+
     def test_catalogo_persistente_atualiza_precos_sem_apagar_produtos_antigos(self):
         root = ROOT / "site"
         migration = (root / "migrations" / "0006_catalogo_persistente.sql").read_text()
