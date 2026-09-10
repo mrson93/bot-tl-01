@@ -24,7 +24,7 @@ export async function onRequestPost(context) {
     const discount=Math.max(0,Math.min(100,Number(raw.discount)||0));
     const shop=String(raw.shop||'').trim().slice(0,100),image=safeUrl(raw.image_url);
     if(!title||!Number.isFinite(price)||price<=0||!image) return json({error:'invalid_product'},400);
-    const category=normalizeCategory(raw.category);
+    const category=normalizeCategory(`${raw.category||''} ${title}`);
     statements.push(env.DB.prepare(`UPDATE offers SET title=?,price_changed_at=CASE WHEN price<>? THEN ? ELSE COALESCE(price_changed_at,?) END,price=?,original_price=?,discount=?,rating=?,sales=?,shop=?,image_url=?,category=?,payment_label=?,last_checked_at=?,last_seen_at=?,availability='active',refresh_failures=0 WHERE id=?`).bind(title,price,now,now,price,Number.isFinite(original)?original:null,discount,Number.isFinite(rating)?rating:null,Number.isFinite(sales)?sales:null,shop,image,category,String(raw.payment_label||'').trim().slice(0,60)||null,now,now,id));
     statements.push(env.DB.prepare(`INSERT INTO offer_prices(offer_id,observed_on,price,observed_at) SELECT id,?,?,? FROM offers WHERE id=? ON CONFLICT(offer_id,observed_on) DO UPDATE SET price=excluded.price,observed_at=excluded.observed_at`).bind(day,price,now,id));
     changed.push({id,title});

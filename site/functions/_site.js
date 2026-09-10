@@ -37,7 +37,7 @@ export function normalizeCategory(value='') {
   if(/infantil|bebe|crianca|brinquedo/.test(key)) return 'infantil';
   if(/livr/.test(key)) return 'livros'; if(/\bpet\b/.test(key)) return 'pet';
   if(/cozinha/.test(key)) return 'cozinha'; if(/ferrament|industrial/.test(key)) return 'ferramentas';
-  if(/automot|carro/.test(key)) return 'automotivo'; if(/esport|fitness/.test(key)) return 'esportes';
+  if(/automot|carro/.test(key)) return 'automotivo'; if(/esport|fitness|academia|creatina|whey|suplement/.test(key)) return 'esportes';
   if(/sapato|moda|roupa|vestuario/.test(key)) return 'moda'; if(/eletron|tecnolog|informat/.test(key)) return 'eletronicos';
   if(/beleza|saude|cosmetic/.test(key)) return 'beleza'; if(/casa|decor|moveis/.test(key)) return 'casa'; return 'outros';
 }

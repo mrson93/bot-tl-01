@@ -185,6 +185,15 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("refresh_failures+1>=3", refresh)
         self.assertIn("availability!='unavailable'", offers)
 
+    def test_categoria_do_site_considera_titulo_do_produto(self):
+        site = ROOT / "site" / "functions"
+        helper = (site / "_site.js").read_text()
+        publish = (site / "api" / "publish.js").read_text()
+        refresh = (site / "api" / "refresh.js").read_text()
+        self.assertIn("creatina|whey|suplement", helper)
+        self.assertIn("${body.category||''} ${title}", publish)
+        self.assertIn("${raw.category||''} ${title}", refresh)
+
     def test_paginas_de_confianca_foram_publicadas(self):
         for name in ("como-escolhemos", "faq", "privacidade", "contato"):
             self.assertTrue((ROOT / "site" / "functions" / f"{name}.js").exists())
