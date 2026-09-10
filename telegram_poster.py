@@ -147,6 +147,19 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         sufixo = " no app" if oferta.get("precoNoApp") else ""
         linhas.append(f"💰 <b>R$ {_preco(preco)}</b>{sufixo}" + (f" · {int(round(desconto))}% OFF" if desconto else ""))
 
+    anterior = oferta.get("_preco_publicacao_anterior")
+    if oferta.get("_motivo") == "queda_preco" and anterior and preco:
+        try:
+            queda_repeticao = 100 * (float(anterior) - float(preco)) / float(anterior)
+            if queda_repeticao > 0:
+                linhas.append("")
+                linhas.append(
+                    f"📉 Reapareceu porque caiu <b>{queda_repeticao:.0f}%</b> "
+                    "desde a última publicação"
+                )
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+
     # linha de reputacao
     reput = []
     if rating:

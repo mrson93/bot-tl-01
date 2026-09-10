@@ -169,6 +169,15 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
     rodape = f"🛒 Comprar {prep} {fonte}: {link_afiliado}"
+    motivo_repeticao = ""
+    anterior = oferta.get("_preco_publicacao_anterior")
+    if oferta.get("_motivo") == "queda_preco" and anterior and preco:
+        try:
+            queda = 100 * (float(anterior) - float(preco)) / float(anterior)
+            if queda > 0:
+                motivo_repeticao = f"📉 Reapareceu porque caiu {queda:.0f}% desde a última publicação"
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
 
     def montar(titulo, chamada=humana, itens_reputacao=reputacao,
                detalhe_cupom=condicao, instrucao=True, incluir_cupom=True):
@@ -181,7 +190,8 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
             if instrucao:
                 cupom_linhas.append("📱 Ative no app antes de finalizar")
         # O link é obrigatório e aparece antes da reputação.
-        blocos = [cabecalho, linha_preco, "\n".join(cupom_linhas), rodape,
+        blocos = [cabecalho, linha_preco, motivo_repeticao,
+                  "\n".join(cupom_linhas), rodape,
                   " · ".join(itens_reputacao)]
         return "\n\n".join(bloco for bloco in blocos if bloco)
 

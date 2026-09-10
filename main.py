@@ -610,6 +610,8 @@ def buscar_candidatos(fonte) -> list:
         # Uma entrega que falhou continua elegivel mesmo durante o cooldown.
         if motivo or store.ha_canal_pendente(oid, nomes_canais, preco):
             oferta["_motivo"] = motivo or "canal_pendente"
+            if motivo == "queda_preco":
+                oferta["_preco_publicacao_anterior"] = store.preco_quando_postada(oid)
             candidatos.append(oferta)
         else:
             rejeicoes["repetida"] += 1

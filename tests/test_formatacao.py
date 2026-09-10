@@ -57,6 +57,21 @@ class FormatacaoTest(unittest.TestCase):
                   "precoOriginal": 100, "priceDiscountRate": 50}
         self.assertIn("De <s>R$ 100,00</s>", telegram.montar_legenda(oferta, "https://x.test"))
 
+    def test_queda_que_antecipa_repeticao_e_explicada_nos_dois_canais(self):
+        oferta = {"fonte": "Shopee", "productName": "Panela antiaderente",
+                  "price": 80, "_motivo": "queda_preco",
+                  "_preco_publicacao_anterior": 100, "variante": "B"}
+        legenda = telegram.montar_legenda(oferta, "https://shope.ee/x")
+        texto, _ = bluesky.montar_texto(oferta, "https://shope.ee/x")
+        self.assertIn("Reapareceu porque caiu <b>20%</b>", legenda)
+        self.assertIn("Reapareceu porque caiu 20%", texto)
+
+    def test_post_normal_nao_recebe_aviso_de_repeticao(self):
+        oferta = {"fonte": "Shopee", "productName": "Panela antiaderente",
+                  "price": 80, "_motivo": "inedita",
+                  "_preco_publicacao_anterior": 100}
+        self.assertNotIn("Reapareceu", telegram.montar_legenda(oferta, "https://shope.ee/x"))
+
     def test_titulo_nao_e_cortado_no_separador(self):
         titulo = "Conjunto completo de acessórios: Teclado, mouse e headset gamer"
         self.assertEqual(titulo, telegram.limpar_titulo(titulo))

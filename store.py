@@ -77,6 +77,19 @@ def quando_postada(oferta_id):
         return int(row[0]) if row else 0
 
 
+def preco_quando_postada(oferta_id):
+    """Preço da última publicação, usado só para explicar uma queda real."""
+    with _conn() as con:
+        row = con.execute("SELECT preco FROM postadas WHERE id=?",
+                          (str(oferta_id),)).fetchone()
+    if not row or row[0] in (None, ""):
+        return None
+    try:
+        return float(row[0])
+    except (TypeError, ValueError):
+        return None
+
+
 def avaliar_elegibilidade(oferta_id, preco, dias, queda_percent, agora=None):
     agora = int(agora or time.time())
     with _conn() as con:

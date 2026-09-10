@@ -37,6 +37,7 @@ class StoreTest(unittest.TestCase):
         ontem = int(datetime.now().timestamp()) - 86400
         store.marcar_postada("produto", preco=100, desconto=30, fonte="Shopee", agora=ontem)
         self.assertEqual("queda_preco", store.avaliar_elegibilidade("produto", 85, 7, 15))
+        self.assertEqual(100, store.preco_quando_postada("produto"))
         store.marcar_postada("hoje", preco=100, desconto=30, fonte="Shopee")
         self.assertIsNone(store.avaliar_elegibilidade("hoje", 80, 7, 15))
 
