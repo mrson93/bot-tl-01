@@ -173,6 +173,15 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("outbound_clicks", stats)
         self.assertIn("endereço IP", privacy)
 
+    def test_cloudflare_web_analytics_respeita_csp(self):
+        helper = (ROOT / "site" / "functions" / "_site.js").read_text()
+        headers = (PUBLIC / "_headers").read_text()
+        index = (PUBLIC / "index.html").read_text()
+        for text in (helper, headers, index):
+            self.assertIn("static.cloudflareinsights.com", text)
+        self.assertIn("https://cloudflareinsights.com", headers)
+        self.assertIn("Cloudflare Web Analytics", (ROOT / "site" / "functions" / "privacidade.js").read_text())
+
     def test_catalogo_persistente_atualiza_precos_sem_apagar_produtos_antigos(self):
         root = ROOT / "site"
         migration = (root / "migrations" / "0006_catalogo_persistente.sql").read_text()

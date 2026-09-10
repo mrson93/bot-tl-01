@@ -1,4 +1,5 @@
 export const SITE='https://canaltabarato.pages.dev';
+const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 
 export function html(value='') {
   return String(value).replace(/[&<>'\"]/g,char=>({
@@ -77,7 +78,7 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
   return new Response(body,{status,headers:{
     'Content-Type':'text/html; charset=utf-8',
     'Cache-Control':status===200?cache:'no-store',
-    'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
+    'Content-Security-Policy':"default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' https:; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
     'Referrer-Policy':'strict-origin-when-cross-origin',
     'X-Content-Type-Options':'nosniff',
     'X-Robots-Tag':status===200?'index, follow, max-image-preview:large':'noindex, nofollow'
@@ -92,7 +93,7 @@ export function head({title,description,canonical,structured='',image=''}) {
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
   <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
-  <link rel="stylesheet" href="/styles.css"><script src="/analytics.js" defer></script>${structured?`<script type="application/ld+json">${structured}</script>`:''}`;
+  <link rel="stylesheet" href="/styles.css"><script src="/analytics.js" defer></script>${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
 }
 
 export function header(active='offers') {
