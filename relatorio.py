@@ -22,9 +22,10 @@ def _top(contadores, limite=3):
 
 
 def _somar_cliques(resumos):
-    total = {"total": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}}
+    total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}}
     for resumo in resumos:
         total["total"] += int(resumo.get("total") or 0)
+        total["visitas"] += int(resumo.get("visitas") or 0)
         for campo in ("por_canal", "por_fonte", "por_oferta"):
             for chave, valor in (resumo.get(campo) or {}).items():
                 total[campo][chave] = total[campo].get(chave, 0) + int(valor or 0)
@@ -240,9 +241,12 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
     if disponiveis and len(disponiveis) < len(vendas_dia):
         total_vendas += " (parcial)"
     total_cliques = str(cliques_dia["total"]) if cliques_dia is not None else "indisponível"
+    total_visitas = (str(cliques_dia.get("visitas", 0))
+                     if cliques_dia is not None else "indisponível")
     blocos = [f"📊 RELATÓRIO DIÁRIO · {data}", "━━━━━━━━━━━━━━",
               "📈 RESULTADOS DE ONTEM · 00h–23h59",
-              f"🔗 Cliques: {total_cliques}", f"🛒 Vendas: {total_vendas}",
+              f"👁 Visitas no site: {total_visitas}",
+              f"🔗 Cliques: {total_cliques} (saídas para lojas)", f"🛒 Vendas: {total_vendas}",
               " · ".join(f"{fonte}: {valor if valor is not None else 'indisponível'}"
                          for fonte, valor in vendas_dia.items()),
               "Vendas = conversões válidas; inclui pendentes, exclui canceladas.",

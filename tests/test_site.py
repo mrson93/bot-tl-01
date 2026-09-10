@@ -115,7 +115,8 @@ class SitePublisherTest(unittest.TestCase):
     def test_le_estatisticas_agregadas_do_site(self):
         resposta = type("Resposta", (), {
             "status_code": 200,
-            "json": lambda self: {"total": 3, "by_channel": {"site": 3},
+            "json": lambda self: {"total": 3, "views": 12, "ctr": 25,
+                                  "by_channel": {"site": 3},
                                   "by_source": {"Shopee": 3},
                                   "by_offer": {"produto": 3}},
         })()
@@ -127,6 +128,8 @@ class SitePublisherTest(unittest.TestCase):
             resumo = site_publisher.resumo_cliques(datetime(2026, 9, 1),
                                                     datetime(2026, 9, 2))
         self.assertEqual(3, resumo["total"])
+        self.assertEqual(12, resumo["visitas"])
+        self.assertEqual(25, resumo["ctr"])
         self.assertEqual("https://canaltabarato.pages.dev/api/stats",
                          get.call_args.args[0])
 

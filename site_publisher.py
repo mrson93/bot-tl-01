@@ -214,6 +214,8 @@ def resumo_cliques(inicio, fim):
     dados = resposta.json() or {}
     return {
         "total": int(dados.get("total") or 0),
+        "visitas": int(dados.get("views") or 0),
+        "ctr": float(dados.get("ctr") or 0),
         "por_canal": {str(k): int(v) for k, v in
                       (dados.get("by_channel") or {}).items()},
         "por_fonte": {str(k): int(v) for k, v in

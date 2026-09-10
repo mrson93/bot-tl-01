@@ -19,6 +19,7 @@
   <meta name="twitter:description" content="Ofertas selecionadas por preço, desconto, avaliação e vendas, reunidas em um só lugar.">
   <title>Tá Barato | Ofertas, descontos e achados online</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/analytics.js" defer></script>
   <script src="/app.js" defer></script>
   <script type="application/ld+json">
   {
@@ -32,6 +33,11 @@
         "alternateName": "Canal Tá Barato",
         "description": "Ofertas selecionadas por preço, desconto, avaliação e vendas.",
         "inLanguage": "pt-BR",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://canaltabarato.pages.dev/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        },
         "publisher": {"@id": "https://canaltabarato.pages.dev/#organization"}
       },
       {
@@ -55,7 +61,7 @@
       <img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt="" aria-hidden="true">
       <span>TÁ <strong>BARATO</strong></span>
     </a>
-    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/cupons">Cupons</a></nav>
+    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/quedas-de-preco">Histórico</a><a href="/cupons">Cupons</a></nav>
     <a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Telegram <span>↗</span></a>
   </header>
 
@@ -86,6 +92,17 @@
         <p>Links oficiais de afiliado. Você não paga nada a mais por isso.</p>
       </div>
       <nav class="store-links" id="store-links" aria-label="Lojas parceiras"></nav>
+    </section>
+
+    <section class="discovery" aria-labelledby="discovery-title">
+      <div class="section-head"><div><p class="eyebrow">PREÇO COM CONTEXTO</p><h2 id="discovery-title">Encontre a melhor hora de comprar</h2></div></div>
+      <div class="discovery-grid">
+        <a href="/quedas-de-preco"><span>↘</span><strong>Quedas recentes</strong><small>O preço baixou desde a medição anterior</small></a>
+        <a href="/menores-precos"><span>◎</span><strong>Menores preços</strong><small>No menor valor já observado por nós</small></a>
+        <a href="/mais-acessadas"><span>↗</span><strong>Mais acessadas</strong><small>O que mais levou visitantes às lojas</small></a>
+        <a href="/mais-vendidos"><span>★</span><strong>Mais vendidos</strong><small>Produtos populares nas plataformas</small></a>
+      </div>
+      <nav class="price-links" aria-label="Comprar por faixa de preço"><span>Por preço:</span><a href="/faixas-de-preco/ate-50">até R$ 50</a><a href="/faixas-de-preco/de-50-a-100">R$ 50–100</a><a href="/faixas-de-preco/de-100-a-200">R$ 100–200</a><a href="/faixas-de-preco/acima-de-200">acima de R$ 200</a></nav>
     </section>
 
     <section class="catalog" aria-labelledby="catalog-title">
@@ -137,7 +154,7 @@
   <footer>
     <div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div>
     <p>Os preços podem mudar sem aviso. Ao comprar pelos links, o canal pode receber uma comissão, sem custo adicional para você.</p>
-    <nav class="footer-links"><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
+    <nav class="footer-links"><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
   </footer>
 </body>
 </html>

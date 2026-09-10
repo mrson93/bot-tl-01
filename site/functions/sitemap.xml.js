@@ -10,7 +10,12 @@ export async function onRequestGet({env}) {
     env.DB.prepare("SELECT DISTINCT category value FROM offers WHERE availability!='unavailable' AND category IS NOT NULL AND TRIM(category)!=''").all(),
     env.DB.prepare("SELECT DISTINCT shop value FROM offers WHERE availability!='unavailable' AND shop IS NOT NULL AND TRIM(shop)!=''").all()
   ]);
-  const urls=[entry('/','','hourly','1.0'),entry('/cupons','','hourly','0.9'),entry('/como-escolhemos','','monthly','0.6'),entry('/faq','','monthly','0.6'),entry('/privacidade','','yearly','0.3'),entry('/contato','','monthly','0.4'),
+  const urls=[entry('/','','hourly','1.0'),entry('/cupons','','hourly','0.9'),
+    entry('/quedas-de-preco','','hourly','0.9'),entry('/menores-precos','','daily','0.9'),
+    entry('/mais-acessadas','','daily','0.8'),entry('/mais-vendidos','','daily','0.8'),
+    entry('/faixas-de-preco/ate-50','','daily','0.7'),entry('/faixas-de-preco/de-50-a-100','','daily','0.7'),
+    entry('/faixas-de-preco/de-100-a-200','','daily','0.7'),entry('/faixas-de-preco/acima-de-200','','daily','0.7'),
+    entry('/como-escolhemos','','monthly','0.6'),entry('/faq','','monthly','0.6'),entry('/privacidade','','yearly','0.3'),entry('/contato','','monthly','0.4'),
     ...(categories.results||[]).map(row=>entry(`/categorias/${slugify(row.value)}`)),
     ...(shops.results||[]).map(row=>entry(`/lojas/${slugify(row.value)}`)),
     ...(offers.results||[]).map(offer=>entry(offerPath(offer),new Date(Number(offer.updated_at)*1000).toISOString()))

@@ -58,6 +58,12 @@ nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenc
 1. Criar um projeto Pages chamado `canaltabarato`.
 2. Criar um banco D1 chamado `canaltabarato-ofertas` e executar `schema.sql`. Em
    instalações já existentes, executar em ordem os arquivos de `migrations/`.
+
+O catálogo também publica páginas fixas de descoberta (`/quedas-de-preco`,
+`/menores-precos`, `/mais-acessadas`, `/mais-vendidos` e faixas de preço). A
+migração `0007_visitas_agregadas.sql` ativa contagens diárias de visualizações
+sem armazenar IP, identidade ou cookies de publicidade; o relatório privado
+compara essas visualizações com os cliques de saída para as lojas.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` como segredo e `ALLOWED_DESTINATION_HOSTS` como variável.
 5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.

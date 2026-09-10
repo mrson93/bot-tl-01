@@ -14,6 +14,7 @@ Idioma: português do Brasil (pt-BR)
 - Páginas permanentes de categorias e lojas geradas conforme o catálogo publicado.
 - Filtros por plataforma, categoria, loja, preço e avaliação.
 - Modos de navegação: em alta, recentes, maior desconto, mais vendidos e menor preço.
+- Páginas fixas de quedas recentes, menores preços observados, mais acessadas, mais vendidos e faixas de preço.
 - Canal no Telegram: https://t.me/CanalTaBarato
 - Perfil no Bluesky: https://bsky.app/profile/canaltabarato.bsky.social
 
@@ -21,6 +22,15 @@ Idioma: português do Brasil (pt-BR)
 
 Os preços e a disponibilidade podem mudar sem aviso. Os links de compra podem ser de afiliado; isso não aumenta o preço para o visitante. Consulte a página da oferta e confirme as condições no site oficial da loja.
 O catálogo é atualizado progressivamente pelas APIs das plataformas; cada produto informa quando o preço foi consultado pela última vez.
+O histórico começa quando o produto entra no catálogo. A página só classifica um preço como bom ou ruim depois de pelo menos 7 registros; antes disso, informa que o histórico está em formação.
+
+## Histórico e descoberta de preços
+
+- https://canaltabarato.pages.dev/quedas-de-preco
+- https://canaltabarato.pages.dev/menores-precos
+- https://canaltabarato.pages.dev/mais-acessadas
+- https://canaltabarato.pages.dev/mais-vendidos
+- https://canaltabarato.pages.dev/faixas-de-preco/ate-50
 
 ## Descoberta
 

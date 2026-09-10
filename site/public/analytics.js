@@ -1,0 +1,1 @@
+(()=>{try{const path=location.pathname.replace(/\/$/,'')||'/',key=`tb:view:${path}`;if(sessionStorage.getItem(key))return;sessionStorage.setItem(key,'1');fetch('/api/view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path}),keepalive:true}).catch(()=>{});}catch{}})();

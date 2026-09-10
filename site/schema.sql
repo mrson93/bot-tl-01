@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS store_links (slug TEXT PRIMARY KEY,name TEXT NOT NULL
 CREATE TABLE IF NOT EXISTS offer_prices (offer_id TEXT NOT NULL,observed_on TEXT NOT NULL,price REAL NOT NULL,observed_at INTEGER NOT NULL,PRIMARY KEY (offer_id,observed_on));
 CREATE INDEX IF NOT EXISTS idx_offer_prices_offer_time ON offer_prices(offer_id,observed_at DESC);
 CREATE TABLE IF NOT EXISTS offer_feedback (offer_id TEXT NOT NULL,kind TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,PRIMARY KEY (offer_id,kind));
+CREATE TABLE IF NOT EXISTS page_views_daily (observed_on TEXT NOT NULL,path TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,PRIMARY KEY (observed_on,path));
+CREATE INDEX IF NOT EXISTS idx_page_views_daily_date ON page_views_daily(observed_on);

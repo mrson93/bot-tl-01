@@ -130,6 +130,9 @@ class SiteSeoTest(unittest.TestCase):
         styles = (PUBLIC / "styles.css").read_text()
         self.assertIn("ORDER BY observed_at DESC LIMIT 30", detail)
         self.assertIn("Menor observado", detail)
+        self.assertIn("Média observada", detail)
+        self.assertIn("Histórico em formação", detail)
+        self.assertIn("prices.length>=7", detail)
         self.assertIn("Variação no período", detail)
         self.assertIn("price-line-chart", detail)
         self.assertIn("line-path", detail)
@@ -139,6 +142,35 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("Os próximos preços serão adicionados diariamente", detail)
         self.assertIn("overflow-x:auto", styles)
         self.assertNotIn("price-chart span:hover i", styles)
+
+    def test_paginas_fixadas_para_descoberta_de_precos(self):
+        root = ROOT / "site"
+        discovery = (root / "functions" / "_discovery.js").read_text()
+        sitemap = (root / "functions" / "sitemap.xml.js").read_text()
+        index = (PUBLIC / "index.html").read_text()
+        for route in ("quedas-de-preco", "menores-precos", "mais-acessadas",
+                      "mais-vendidos"):
+            self.assertTrue((root / "functions" / f"{route}.js").exists())
+            self.assertIn(f"/{route}", sitemap)
+            self.assertIn(f'href="/{route}"', index)
+        self.assertIn("previous_price", discovery)
+        self.assertIn("observations>=2", discovery)
+        self.assertIn("clicks_7d", discovery)
+        self.assertTrue((root / "functions" / "faixas-de-preco" / "[slug].js").exists())
+        self.assertIn("/faixas-de-preco/ate-50", sitemap)
+
+    def test_visitas_sao_agregadas_sem_dados_pessoais(self):
+        root = ROOT / "site"
+        migration = (root / "migrations" / "0007_visitas_agregadas.sql").read_text()
+        endpoint = (root / "functions" / "api" / "view.js").read_text()
+        analytics = (root / "public" / "analytics.js").read_text()
+        stats = (root / "functions" / "api" / "stats.js").read_text()
+        privacy = (root / "functions" / "privacidade.js").read_text()
+        self.assertIn("CREATE TABLE IF NOT EXISTS page_views_daily", migration)
+        self.assertIn("ON CONFLICT(observed_on,path)", endpoint)
+        self.assertIn("sessionStorage", analytics)
+        self.assertIn("outbound_clicks", stats)
+        self.assertIn("endereço IP", privacy)
 
     def test_catalogo_persistente_atualiza_precos_sem_apagar_produtos_antigos(self):
         root = ROOT / "site"
