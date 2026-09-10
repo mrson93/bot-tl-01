@@ -66,6 +66,17 @@ class WorkflowTest(unittest.TestCase):
             encoding="utf-8")
         self.assertIn('"crons": ["* * * * *"]', scheduler)
 
+    def test_facebook_comeca_desligado_e_token_fica_em_secret(self):
+        workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
+        self.assertIn("FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}", workflow)
+        self.assertIn("FACEBOOK_ATIVO: ${{ vars.FACEBOOK_ATIVO || 'false' }}", workflow)
+        self.assertIn("FACEBOOK_PAGE_ID: ${{ vars.FACEBOOK_PAGE_ID }}", workflow)
+        self.assertIn("FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '4' }}", workflow)
+
+        controle = Path("telegram-control/wrangler.jsonc").read_text(encoding="utf-8")
+        self.assertIn('"name": "bot-tl-01"', controle)
+        self.assertNotIn("FACEBOOK_PAGE_ACCESS_TOKEN", controle)
+
 
 if __name__ == "__main__":
     unittest.main()

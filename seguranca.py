@@ -81,6 +81,7 @@ def redigir_segredos(valor) -> str:
     nomes = (
         "TELEGRAM_BOT_TOKEN",
         "BLUESKY_APP_PASSWORD",
+        "FACEBOOK_PAGE_ACCESS_TOKEN",
         "SHOPEE_SECRET",
         "ALIEXPRESS_APP_SECRET",
         "AMAZON_CREDENTIAL_ID",

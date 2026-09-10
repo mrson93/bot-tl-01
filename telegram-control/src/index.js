@@ -93,6 +93,7 @@ export function parseCommand(rawText) {
 function panelKeyboard() {
   return {
     inline_keyboard: [
+      [{ text: CATEGORIES.canais.label, callback_data: "menu:canais" }],
       [
         { text: "💚 Econômico", callback_data: "mode:economico" },
         { text: "⚡ Normal", callback_data: "mode:normal" },
@@ -119,6 +120,7 @@ function settingsRootKeyboard() {
         { text: CATEGORIES.lojas.label, callback_data: "menu:lojas" },
         { text: CATEGORIES.filtros.label, callback_data: "menu:filtros" },
       ],
+      [{ text: CATEGORIES.canais.label, callback_data: "menu:canais" }],
       [
         { text: CATEGORIES.horarios.label, callback_data: "menu:horarios" },
         { text: CATEGORIES.variedade.label, callback_data: "menu:variedade" },
@@ -148,6 +150,7 @@ function helpKeyboard() {
         { text: "🎛 Painel e comandos", callback_data: "help:actions" },
         { text: "⏱ Modos de ritmo", callback_data: "help:modes" },
       ],
+      [{ text: CATEGORIES.canais.label, callback_data: "help:canais" }],
       [
         { text: CATEGORIES.lojas.label, callback_data: "help:lojas" },
         { text: CATEGORIES.filtros.label, callback_data: "help:filtros" },

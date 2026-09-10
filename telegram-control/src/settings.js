@@ -1,4 +1,5 @@
 export const CATEGORIES = Object.freeze({
+  canais: { label: "📣 Canais", description: "Destinos de publicação e limites próprios" },
   lojas: { label: "🏪 Lojas", description: "Ativação, preferência e profundidade das buscas" },
   filtros: { label: "🎯 Filtros", description: "Requisitos mínimos para uma oferta" },
   horarios: { label: "⏱ Horários", description: "Janela de publicação, pico e volume" },
@@ -10,6 +11,14 @@ export const CATEGORIES = Object.freeze({
 });
 
 export const SETTINGS = Object.freeze({
+  FACEBOOK_ATIVO: {
+    category: "canais", label: "Facebook ativo", type: "boolean", default: "false",
+    hint: "Publica ofertas na Página quando o ID e o token protegido já estiverem configurados.",
+  },
+  FACEBOOK_MAX_POSTS_DIA: {
+    category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 1, max: 20,
+    hint: "Comece com quatro por dia para aumentar o volume gradualmente sem aparência de spam.",
+  },
   SHOPEE_ATIVA: {
     category: "lojas", label: "Shopee ativa", type: "boolean", default: "true",
     hint: "Ativa ou desativa a busca de ofertas da Shopee.",

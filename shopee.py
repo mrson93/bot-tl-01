@@ -245,6 +245,8 @@ def _origem_tracking(utm_content) -> str:
         return "telegram"
     if "bsky" in texto or "bluesky" in texto:
         return "bsky"
+    if "facebook" in texto:
+        return "facebook"
     if not any(c.isalnum() for c in texto):
         return "sem_tracking"
     return "outros"

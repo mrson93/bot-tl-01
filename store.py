@@ -363,6 +363,16 @@ def posts_hoje(agora=None):
         ).fetchone()[0])
 
 
+def posts_canal_hoje(canal, agora=None):
+    """Conta ofertas distintas entregues hoje a um canal especifico."""
+    with _conn() as con:
+        return int(con.execute(
+            "SELECT COUNT(DISTINCT id) FROM entregas_log WHERE canal=? "
+            "AND sucesso=1 AND entregue_em>=?",
+            (str(canal), _inicio_do_dia(agora)),
+        ).fetchone()[0])
+
+
 def posts_por_loja_hoje(agora=None):
     with _conn() as con:
         linhas = con.execute(

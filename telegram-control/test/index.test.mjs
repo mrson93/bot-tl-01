@@ -298,6 +298,8 @@ test("todas as configuracoes expostas possuem padrao e validacao", () => {
   assert.equal(validateSetting("RELATORIO_MINUTO", "17").ok, false);
   assert.deepEqual(validateSetting("SHOPEE_VIP_DIAS", "0,2,5"), { ok: true, value: "0,2,5" });
   assert.equal(validateSetting("SHOPEE_VIP_DIAS", "0,7").ok, false);
+  assert.deepEqual(validateSetting("FACEBOOK_MAX_POSTS_DIA", "4"), { ok: true, value: "4" });
+  assert.equal(validateSetting("FACEBOOK_MAX_POSTS_DIA", "21").ok, false);
 });
 
 test("ajuda explica comandos modos e todas as configuracoes", () => {

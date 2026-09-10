@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bot-tl-01",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": {
+    "crons": []
+  },
+  "vars": {
+    "GITHUB_OWNER": "mrson93",
+    "GITHUB_REPO": "bot-tl-01",
+    "GITHUB_DEFAULT_BRANCH": "main"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    }
+  }
+}

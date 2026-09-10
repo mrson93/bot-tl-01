@@ -1,13 +1,13 @@
 # Bot automático de ofertas
 
-O bot busca ofertas da Shopee, AliExpress e Amazon, aplica filtros de qualidade e comissão e publica uma oferta por rodada no Telegram e no Bluesky.
+O bot busca ofertas da Shopee, AliExpress e Amazon, aplica filtros de qualidade e comissão e publica uma oferta por rodada no Telegram, Bluesky e, opcionalmente, em uma Página do Facebook.
 
 ## Como funciona
 
 - Ofertas inéditas têm prioridade.
 - O mesmo produto não aparece duas vezes no mesmo dia.
 - Após isso, ele só volta depois de 7 dias ou se o preço cair pelo menos 15%.
-- Cada canal possui seu próprio estado: uma falha no Bluesky não apaga o sucesso do Telegram.
+- Cada canal possui seu próprio estado: uma falha no Facebook ou Bluesky não apaga o sucesso dos demais.
 - No modo Econômico, o pico usa 30 minutos e há seis rodadas fora dele, além do relatório.
 - No modo Normal, o pico usa 15 minutos e o restante do dia usa 30 minutos.
 - No modo Rápido, o pico usa 10 minutos e o restante do dia usa 20 minutos.
@@ -58,6 +58,12 @@ Novas variáveis:
 | `RELATORIO_MINUTO` | `30` | Minuto a partir do qual o resumo pode ser enviado |
 | `RELATORIO_ALERTA_MIN_POSTS` | `10` | Posts sem conversão necessários para gerar alerta |
 | `FALHAS_CONSECUTIVAS_ALERTA` | `3` | Falhas seguidas necessárias para gerar alerta |
+| `FACEBOOK_ATIVO` | `false` | Ativa ofertas na Página depois que ID e token existirem |
+| `FACEBOOK_PAGE_ID` | vazio | Identificador numérico da Página administrada |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | vazio | Token secreto da Página com permissão de publicação |
+| `FACEBOOK_GRAPH_API_VERSION` | `v26.0` | Versão fixada da API da Meta |
+| `FACEBOOK_TRACKING_ID` | `facebook` | Identifica vendas originadas no Facebook |
+| `FACEBOOK_MAX_POSTS_DIA` | `4` | Limite inicial exclusivo da Página |
 | `SHOPEE_ATIVA` | `true` | Permite desligar a Shopee sem apagar credenciais |
 | `ALIEXPRESS_ATIVA` | `true` | Permite desligar o AliExpress sem apagar credenciais |
 | `AMAZON_ATIVA` | `false` | Ativa a Amazon depois que suas credenciais existirem |
@@ -86,6 +92,16 @@ Novas variáveis:
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.
 
+### Facebook
+
+A integração publica apenas em uma Página, nunca em perfil pessoal. O aplicativo
+da Meta precisa do caso de uso **Gerenciar tudo na sua Página** e de um token da
+Página com `pages_show_list`, `pages_read_engagement` e `pages_manage_posts`.
+Guarde `FACEBOOK_PAGE_ACCESS_TOKEN` em GitHub Secrets e o ID numérico em
+`FACEBOOK_PAGE_ID`, nas variáveis do GitHub. O código deve ser implantado primeiro
+com `FACEBOOK_ATIVO=false`; depois de uma validação manual, o canal pode ser ligado
+pelo painel privado. O limite inicial recomendado é quatro ofertas por dia.
+
 ### Relatório privado
 
 Depois de configurar `TELEGRAM_ADMIN_ID`, o bot envia uma vez por dia:
@@ -95,7 +111,7 @@ Depois de configurar `TELEGRAM_ADMIN_ID`, o bot envia uma vez por dia:
 - comissão do AliExpress na moeda informada pela plataforma;
 - conversões pendentes, concluídas e canceladas da Shopee nos últimos 7 dias;
 - comissão estimada e líquida da Shopee em reais;
-- conversões separadas pelos trackings `telegram` e `bsky`;
+- conversões separadas pelos trackings `telegram`, `bsky` e `facebook`;
 - produtos, horários, categorias, faixas de preço e desconto que converteram;
 - alertas de muitas publicações sem conversão e exemplos recentes sem venda;
 - cliques por canal e loja quando o redirecionador próprio estiver ativado.
@@ -129,6 +145,9 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.
 - Se a imagem falhar, o Telegram publica a oferta em texto.
+- O Facebook publica foto e texto com aviso de link afiliado; uma rejeição
+  definitiva da foto aciona um post de link sem imagem. Falhas incertas não geram
+  fallback imediato, evitando duplicação.
 - O Shopee VIP pode ser divulgado no Telegram e no Bluesky uma vez pela manhã e
   outra à noite nos dias configurados. Cada rede controla sua própria entrega,
   então uma falha isolada é retomada sem duplicar a publicação na outra. Um alerta
@@ -200,4 +219,4 @@ e a repetição daquela janela, mas exige que a campanha esteja ativa e configur
 O ponto de restauração imediatamente anterior a estas melhorias está na branch
 `codex/backup-relatorio-shopee-2026-08-21`, commit `62404a0`.
 
-Tokens que já tenham sido enviados em mensagens ou prints devem ser revogados e recriados. Isso inclui Telegram, Bluesky, AliExpress, Shopee, Amazon e o token usado pelo cron-job.org.
+Tokens que já tenham sido enviados em mensagens ou prints devem ser revogados e recriados. Isso inclui Telegram, Facebook, Bluesky, AliExpress, Shopee, Amazon e o token usado pelo cron-job.org.

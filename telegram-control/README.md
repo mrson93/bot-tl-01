@@ -6,7 +6,7 @@ vendas. As configurações operacionais e as dez últimas mudanças ficam em Git
 Actions Variables, nunca em arquivos ou commits.
 
 Não é necessário domínio próprio. A instalação atual usa
-`https://deal-signal-control.SUA_CONTA.workers.dev`; os comandos entram
+`https://bot-tl-01.SUA_CONTA.workers.dev`; os comandos entram
 somente pela rota protegida `/telegram`.
 
 ## Comandos
@@ -42,7 +42,8 @@ diferentes de `TELEGRAM_ADMIN_ID` são ignorados sem resposta.
 
 ## Implantação
 
-1. Copie `wrangler.toml.example` para `wrangler.toml`.
+1. Revise `wrangler.jsonc`, que contém somente o nome do Worker e configurações
+   públicas. Tokens e IDs administrativos permanecem em secrets.
 2. Crie um token de acesso refinado no GitHub, limitado apenas ao repositório
    `bot-tl-01`, com `Actions: read and write` e `Variables: read and write`.
 3. Configure estes cinco valores exclusivamente como secrets do Worker:
@@ -62,8 +63,8 @@ Na instalação atual, o token temporário usado para publicar no Cloudflare foi
 revogado depois da configuração. O token refinado do GitHub expira em
 22/11/2026 e deve ser substituído no secret `GITHUB_TOKEN` antes dessa data.
 
-Nunca coloque os cinco secrets no `wrangler.toml`, em commits, prints ou
-mensagens. O arquivo real `wrangler.toml` e `.dev.vars` são ignorados pelo Git.
+Nunca coloque os cinco secrets no `wrangler.jsonc`, em commits, prints ou
+mensagens. O arquivo `.dev.vars` é ignorado pelo Git.
 
 ## Agendador isolado
 

@@ -1,5 +1,5 @@
 """
-BOT DE OFERTAS  ->  TELEGRAM + BLUESKY   (Shopee + AliExpress)
+BOT DE OFERTAS  ->  TELEGRAM + BLUESKY + FACEBOOK   (Shopee + AliExpress)
 
 Como usar:
   python main.py            roda pra sempre, procurando e postando ofertas
@@ -31,6 +31,7 @@ import amazon
 import store
 import telegram_poster
 import bluesky
+import facebook
 import relatorio
 import seguranca
 import shortlinks
@@ -40,7 +41,7 @@ import observabilidade
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon]
 # Canais onde as ofertas sao publicadas.
-CANAIS = [telegram_poster, bluesky]
+CANAIS = [telegram_poster, bluesky, facebook]
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 MENSAGENS_BOM_DIA = [
@@ -59,7 +60,15 @@ def fontes_ativas():
 
 
 def canais_ativos():
-    return [c for c in CANAIS if c.esta_configurada()]
+    ativos = []
+    for canal in CANAIS:
+        if not canal.esta_configurada():
+            continue
+        pode_publicar = getattr(canal, "pode_publicar", None)
+        if callable(pode_publicar) and not pode_publicar():
+            continue
+        ativos.append(canal)
+    return ativos
 
 
 def sincronizar_links_lojas_site(lojas, agora=None):
@@ -859,6 +868,8 @@ def checar() -> bool:
     print(f"   Lojas ativas: {lojas}")
     canais = ", ".join(c.NOME for c in canais_ativos()) or "(nenhum)"
     print(f"   Canais ativos: {canais}")
+    if config.FACEBOOK_ATIVO and not facebook.esta_configurada():
+        print("   ⚠️  Facebook solicitado, mas o ID ou token da pagina ainda nao foi configurado.")
     print(f"   Filtros: desconto>={config.MIN_DISCOUNT}%  nota>={config.MIN_RATING}"
           f"  vendas>={config.MIN_SALES}")
     print(f"   Ritmo: ate {config.MAX_POSTS_PER_RUN} post(s) por rodada, "

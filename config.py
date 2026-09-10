@@ -64,6 +64,16 @@ BLUESKY_PDS = _get("BLUESKY_PDS") or "https://bsky.social"
 # id de rastreio so deste canal (crie no painel da loja). Vazio = usa o padrao.
 BLUESKY_TRACKING_ID = _get("BLUESKY_TRACKING_ID")
 
+# --- Facebook Page (Graph API) ---
+# Comeca desligado: criar o aplicativo na Meta nao autoriza publicacoes ate que
+# o ID e o token da pagina sejam configurados com pages_manage_posts.
+FACEBOOK_ATIVO = _bool("FACEBOOK_ATIVO", False)
+FACEBOOK_PAGE_ID = _get("FACEBOOK_PAGE_ID")
+FACEBOOK_PAGE_ACCESS_TOKEN = _get("FACEBOOK_PAGE_ACCESS_TOKEN")
+FACEBOOK_GRAPH_API_VERSION = _get("FACEBOOK_GRAPH_API_VERSION") or "v26.0"
+FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
+FACEBOOK_MAX_POSTS_DIA = max(1, _int("FACEBOOK_MAX_POSTS_DIA", 4))
+
 # --- Shopee ---
 SHOPEE_APP_ID = _get("SHOPEE_APP_ID")
 SHOPEE_SECRET = _get("SHOPEE_SECRET")
@@ -288,9 +298,13 @@ def validar():
     faltando = []
     telegram_ok = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL)
     bluesky_ok = bool(BLUESKY_HANDLE and BLUESKY_APP_PASSWORD)
+    facebook_ok = bool(FACEBOOK_ATIVO and FACEBOOK_PAGE_ID
+                       and FACEBOOK_PAGE_ACCESS_TOKEN)
+    if FACEBOOK_PAGE_ID and not FACEBOOK_PAGE_ID.isdigit():
+        faltando.append("FACEBOOK_PAGE_ID deve conter somente numeros")
     # precisa de PELO MENOS um canal onde publicar
-    if not telegram_ok and not bluesky_ok:
-        faltando.append("nenhum canal configurado (preencha Telegram OU Bluesky)")
+    if not telegram_ok and not bluesky_ok and not facebook_ok:
+        faltando.append("nenhum canal configurado (Telegram, Bluesky ou Facebook)")
     if TELEGRAM_CHANNEL and "t.me/" in TELEGRAM_CHANNEL:
         faltando.append("TELEGRAM_CHANNEL (link privado nao serve; use @usuario "
                         "do canal ou o ID numerico)")
