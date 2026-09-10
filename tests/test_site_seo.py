@@ -168,6 +168,7 @@ class SiteSeoTest(unittest.TestCase):
         privacy = (root / "functions" / "privacidade.js").read_text()
         self.assertIn("CREATE TABLE IF NOT EXISTS page_views_daily", migration)
         self.assertIn("ON CONFLICT(observed_on,path)", endpoint)
+        self.assertIn("CREATE TABLE IF NOT EXISTS page_views_daily", endpoint)
         self.assertIn("sessionStorage", analytics)
         self.assertIn("outbound_clicks", stats)
         self.assertIn("endereço IP", privacy)
