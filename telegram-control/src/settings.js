@@ -19,6 +19,14 @@ export const SETTINGS = Object.freeze({
     category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 0, max: 1000000,
     hint: "Use 0 para ilimitado. O limite geral de ofertas por dia continua valendo.",
   },
+  INSTAGRAM_STORIES_ATIVO: {
+    category: "canais", label: "Stories do Instagram", type: "boolean", default: "false",
+    hint: "Publica um cartao vertical com QR code no Instagram profissional vinculado a Pagina.",
+  },
+  INSTAGRAM_MAX_STORIES_DIA: {
+    category: "canais", label: "Limite diario de Stories", type: "integer", default: "10", min: 0, max: 100,
+    hint: "Use 0 para ilimitado. Dez por dia evita cansar quem acompanha a conta.",
+  },
   SHOPEE_ATIVA: {
     category: "lojas", label: "Shopee ativa", type: "boolean", default: "true",
     hint: "Ativa ou desativa a busca de ofertas da Shopee.",

@@ -1,5 +1,5 @@
 """
-BOT DE OFERTAS  ->  TELEGRAM + BLUESKY + FACEBOOK   (Shopee + AliExpress)
+BOT DE OFERTAS  ->  TELEGRAM + BLUESKY + FACEBOOK + INSTAGRAM
 
 Como usar:
   python main.py            roda pra sempre, procurando e postando ofertas
@@ -32,6 +32,7 @@ import store
 import telegram_poster
 import bluesky
 import facebook
+import instagram_stories
 import relatorio
 import seguranca
 import shortlinks
@@ -41,7 +42,7 @@ import observabilidade
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon]
 # Canais onde as ofertas sao publicadas.
-CANAIS = [telegram_poster, bluesky, facebook]
+CANAIS = [telegram_poster, bluesky, facebook, instagram_stories]
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 MENSAGENS_BOM_DIA = [
@@ -870,6 +871,8 @@ def checar() -> bool:
     print(f"   Canais ativos: {canais}")
     if config.FACEBOOK_ATIVO and not facebook.esta_configurada():
         print("   ⚠️  Facebook solicitado, mas o ID ou token da pagina ainda nao foi configurado.")
+    if config.INSTAGRAM_STORIES_ATIVO and not instagram_stories.esta_configurada():
+        print("   ⚠️  Instagram solicitado, mas a Pagina, o token ou o site de imagens ainda nao foi configurado.")
     print(f"   Filtros: desconto>={config.MIN_DISCOUNT}%  nota>={config.MIN_RATING}"
           f"  vendas>={config.MIN_SALES}")
     print(f"   Ritmo: ate {config.MAX_POSTS_PER_RUN} post(s) por rodada, "

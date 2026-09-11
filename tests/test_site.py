@@ -1,3 +1,4 @@
+import base64
 import unittest
 from unittest.mock import patch
 
@@ -5,6 +6,30 @@ import site_publisher
 
 
 class SitePublisherTest(unittest.TestCase):
+    def test_hospeda_jpeg_temporario_para_story(self):
+        jpeg = b"\xff\xd8\xff" + b"imagem"
+        resposta = type("Resposta", (), {
+            "status_code": 201,
+            "json": lambda self: {
+                "url": "https://canaltabarato.pages.dev/story-assets/abc.jpg"
+            },
+        })()
+        with patch.object(site_publisher.config, "SITE_ATIVO", True), \
+             patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            url = site_publisher.publicar_imagem_story(jpeg)
+        self.assertEqual(
+            "https://canaltabarato.pages.dev/api/story-assets",
+            post.call_args.args[0],
+        )
+        self.assertEqual(
+            jpeg, base64.b64decode(post.call_args.kwargs["json"]["image_base64"])
+        )
+        self.assertEqual(
+            "https://canaltabarato.pages.dev/story-assets/abc.jpg", url
+        )
     def test_envia_link_afiliado_e_dados_publicos(self):
         class Fonte:
             NOME = "Shopee"

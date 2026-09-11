@@ -1,4 +1,5 @@
 """Publica na vitrine própria sem interferir nos canais sociais."""
+import base64
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -59,6 +60,31 @@ def publicar(fonte, oferta):
     )
     if not 200 <= resposta.status_code < 300:
         raise RuntimeError(f"Site recusou a oferta ({resposta.status_code})")
+
+
+def publicar_imagem_story(conteudo: bytes) -> str:
+    """Hospeda temporariamente um JPEG para a Meta buscar durante a publicação."""
+    if not esta_configurado():
+        raise RuntimeError("Site não configurado para hospedar a imagem do Story")
+    if not isinstance(conteudo, bytes) or not conteudo.startswith(b"\xff\xd8\xff"):
+        raise ValueError("Imagem do Story deve ser um JPEG válido")
+    if len(conteudo) > 850_000:
+        raise ValueError("Imagem do Story excede 850 KB")
+    resposta = requests.post(
+        _api_path("/api/story-assets"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={"image_base64": base64.b64encode(conteudo).decode("ascii")},
+        timeout=20, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(
+            f"Site recusou a imagem do Story ({resposta.status_code})"
+        )
+    try:
+        url = (resposta.json() or {}).get("url")
+    except ValueError:
+        url = None
+    return seguranca.validar_url_https_publica(url, "Imagem pública do Story")
 
 
 def publicar_cupom(cupom, link_afiliado):

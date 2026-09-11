@@ -76,6 +76,17 @@ FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
 # continuam valendo para evitar que uma rodada publique em excesso.
 FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 4))
 
+# --- Instagram Stories (Graph API via Pagina do Facebook) ---
+# Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro
+# teste real. O ID da conta profissional e descoberto pela propria Graph API.
+INSTAGRAM_STORIES_ATIVO = _bool("INSTAGRAM_STORIES_ATIVO", False)
+INSTAGRAM_TRACKING_ID = _get("INSTAGRAM_TRACKING_ID") or "instagram"
+INSTAGRAM_USERNAME = (_get("INSTAGRAM_USERNAME") or "ofertascanaltabarato").lstrip("@").lower()
+INSTAGRAM_MAX_STORIES_DIA = max(0, _int("INSTAGRAM_MAX_STORIES_DIA", 10))
+INSTAGRAM_CONTAINER_TENTATIVAS = max(
+    1, min(30, _int("INSTAGRAM_CONTAINER_TENTATIVAS", 15))
+)
+
 # --- Shopee ---
 SHOPEE_APP_ID = _get("SHOPEE_APP_ID")
 SHOPEE_SECRET = _get("SHOPEE_SECRET")
@@ -302,11 +313,16 @@ def validar():
     bluesky_ok = bool(BLUESKY_HANDLE and BLUESKY_APP_PASSWORD)
     facebook_ok = bool(FACEBOOK_ATIVO and FACEBOOK_PAGE_ID
                        and FACEBOOK_PAGE_ACCESS_TOKEN)
+    instagram_ok = bool(INSTAGRAM_STORIES_ATIVO and FACEBOOK_PAGE_ID
+                        and FACEBOOK_PAGE_ACCESS_TOKEN and SITE_ATIVO
+                        and SITE_API_URL and SITE_API_TOKEN)
     if FACEBOOK_PAGE_ID and not FACEBOOK_PAGE_ID.isdigit():
         faltando.append("FACEBOOK_PAGE_ID deve conter somente numeros")
     # precisa de PELO MENOS um canal onde publicar
-    if not telegram_ok and not bluesky_ok and not facebook_ok:
-        faltando.append("nenhum canal configurado (Telegram, Bluesky ou Facebook)")
+    if not telegram_ok and not bluesky_ok and not facebook_ok and not instagram_ok:
+        faltando.append(
+            "nenhum canal configurado (Telegram, Bluesky, Facebook ou Instagram)"
+        )
     if TELEGRAM_CHANNEL and "t.me/" in TELEGRAM_CHANNEL:
         faltando.append("TELEGRAM_CHANNEL (link privado nao serve; use @usuario "
                         "do canal ou o ID numerico)")

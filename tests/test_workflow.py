@@ -77,6 +77,25 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('"name": "bot-tl-01"', controle)
         self.assertNotIn("FACEBOOK_PAGE_ACCESS_TOKEN", controle)
 
+    def test_instagram_reutiliza_token_protegido_e_comeca_desligado(self):
+        workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
+        self.assertIn("INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}", workflow)
+        self.assertIn('INSTAGRAM_TRACKING_ID: "instagram"', workflow)
+        self.assertIn('INSTAGRAM_USERNAME: "ofertascanaltabarato"', workflow)
+        self.assertIn("INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '10' }}", workflow)
+        self.assertEqual(1, workflow.count("FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}"))
+
+    def test_site_tem_armazenamento_temporario_para_cartao_do_story(self):
+        migration = Path("site/migrations/0008_story_assets.sql").read_text(encoding="utf-8")
+        upload = Path("site/functions/api/story-assets.js").read_text(encoding="utf-8")
+        serving = Path("site/functions/story-assets/[id].js").read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS story_assets", migration)
+        self.assertIn("MAX_IMAGE_BYTES=850_000", upload)
+        self.assertIn("authorized(request,env.PUBLISH_TOKEN)", upload)
+        self.assertIn("crypto.randomUUID()", upload)
+        self.assertIn("expires_at>?", serving)
+        self.assertIn("image/jpeg", serving)
+
 
 if __name__ == "__main__":
     unittest.main()
