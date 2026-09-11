@@ -90,6 +90,11 @@ class FacebookTest(unittest.TestCase):
                 facebook.store.registrar_entrega(str(indice), "Facebook", True)
             self.assertFalse(facebook.pode_publicar())
 
+    def test_limite_zero_significa_ilimitado(self):
+        with self.configuracao(), patch.object(facebook.config, "FACEBOOK_MAX_POSTS_DIA", 0), \
+             patch.object(facebook.store, "posts_canal_hoje", return_value=1000000):
+            self.assertTrue(facebook.pode_publicar())
+
     def test_configuracao_incompleta_mantem_canal_desligado(self):
         with patch.object(facebook.config, "FACEBOOK_ATIVO", True), \
              patch.object(facebook.config, "FACEBOOK_PAGE_ID", ""), \

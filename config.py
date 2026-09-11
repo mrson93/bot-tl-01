@@ -72,7 +72,9 @@ FACEBOOK_PAGE_ID = _get("FACEBOOK_PAGE_ID")
 FACEBOOK_PAGE_ACCESS_TOKEN = _get("FACEBOOK_PAGE_ACCESS_TOKEN")
 FACEBOOK_GRAPH_API_VERSION = _get("FACEBOOK_GRAPH_API_VERSION") or "v26.0"
 FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
-FACEBOOK_MAX_POSTS_DIA = max(1, _int("FACEBOOK_MAX_POSTS_DIA", 4))
+# Zero significa sem limite proprio do Facebook; os limites gerais do bot
+# continuam valendo para evitar que uma rodada publique em excesso.
+FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 4))
 
 # --- Shopee ---
 SHOPEE_APP_ID = _get("SHOPEE_APP_ID")

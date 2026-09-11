@@ -16,8 +16,8 @@ export const SETTINGS = Object.freeze({
     hint: "Publica ofertas na Página quando o ID e o token protegido já estiverem configurados.",
   },
   FACEBOOK_MAX_POSTS_DIA: {
-    category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 1, max: 20,
-    hint: "Comece com quatro por dia para aumentar o volume gradualmente sem aparência de spam.",
+    category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 0, max: 1000000,
+    hint: "Use 0 para ilimitado. O limite geral de ofertas por dia continua valendo.",
   },
   SHOPEE_ATIVA: {
     category: "lojas", label: "Shopee ativa", type: "boolean", default: "true",

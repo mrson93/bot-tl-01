@@ -27,8 +27,9 @@ def esta_configurada() -> bool:
 
 
 def pode_publicar() -> bool:
+    limite = config.FACEBOOK_MAX_POSTS_DIA
     return (esta_configurada()
-            and store.posts_canal_hoje(NOME) < config.FACEBOOK_MAX_POSTS_DIA)
+            and (limite == 0 or store.posts_canal_hoje(NOME) < limite))
 
 
 def _endpoint(recurso: str) -> str:

@@ -63,7 +63,7 @@ Novas variáveis:
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | vazio | Token secreto da Página com permissão de publicação |
 | `FACEBOOK_GRAPH_API_VERSION` | `v26.0` | Versão fixada da API da Meta |
 | `FACEBOOK_TRACKING_ID` | `facebook` | Identifica vendas originadas no Facebook |
-| `FACEBOOK_MAX_POSTS_DIA` | `4` | Limite inicial exclusivo da Página |
+| `FACEBOOK_MAX_POSTS_DIA` | `4` | Limite exclusivo da Página; `0` = ilimitado |
 | `SHOPEE_ATIVA` | `true` | Permite desligar a Shopee sem apagar credenciais |
 | `ALIEXPRESS_ATIVA` | `true` | Permite desligar o AliExpress sem apagar credenciais |
 | `AMAZON_ATIVA` | `false` | Ativa a Amazon depois que suas credenciais existirem |
