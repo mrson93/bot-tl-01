@@ -1,4 +1,5 @@
 """Publica ofertas em uma Pagina do Facebook usando a Graph API."""
+import json
 import re
 import time
 
@@ -165,10 +166,20 @@ def postar(oferta: dict, link_afiliado: str) -> None:
             imagem = None
     if imagem:
         try:
-            _publicar("photos", {"url": imagem, "caption": texto, "published": "true"})
+            # Primeiro cria apenas o ativo de imagem, sem publica-lo como uma
+            # entrada independente da secao Fotos. Depois anexa esse ativo a
+            # um post criado explicitamente no feed da Pagina.
+            foto = _publicar("photos", {"url": imagem, "published": "false"})
+            foto_id = str(foto.get("id") or "")
+            if not foto_id:
+                raise RuntimeError("Facebook respondeu sem confirmar o identificador da foto")
+            _publicar("feed", {
+                "message": texto,
+                "attached_media": json.dumps([{"media_fbid": foto_id}]),
+            })
             return
         except RespostaFacebookError:
-            # Como houve resposta definitiva da Meta, sabemos que a foto nao foi
-            # publicada e o fallback de texto nao cria uma duplicata.
+            # Uma recusa definitiva ao upload permite criar o post de link sem
+            # risco de duplicar uma publicacao visivel.
             pass
     _publicar("feed", {"message": texto, "link": link_afiliado})

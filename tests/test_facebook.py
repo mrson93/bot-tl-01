@@ -28,19 +28,28 @@ class FacebookTest(unittest.TestCase):
             HTTP_MAX_TENTATIVAS=1,
         )
 
-    def test_publica_foto_com_texto_e_aviso_de_afiliado(self):
+    def test_publica_imagem_anexada_ao_feed_com_aviso_de_afiliado(self):
         oferta = {"fonte": "Shopee", "productName": "Produto util",
                   "price": 49.9, "priceDiscountRate": 50,
                   "imageUrl": "https://imagem.test/produto.jpg"}
         with self.configuracao(), patch.object(
-            facebook.requests, "post", return_value=Resposta({"post_id": "1_2"})
+            facebook.requests, "post", side_effect=[
+                Resposta({"id": "foto_123"}),
+                Resposta({"id": "123456_789"}),
+            ]
         ) as publicar:
             facebook.postar(oferta, "https://oferta.test/comprar")
-        self.assertTrue(publicar.call_args.args[0].endswith("/123456/photos"))
-        dados = publicar.call_args.kwargs["data"]
-        self.assertIn("Produto util", dados["caption"])
-        self.assertIn("Link de afiliado", dados["caption"])
-        self.assertNotIn("token-super-secreto", publicar.call_args.args[0])
+        self.assertEqual(2, publicar.call_count)
+        upload, feed = publicar.call_args_list
+        self.assertTrue(upload.args[0].endswith("/123456/photos"))
+        self.assertEqual("false", upload.kwargs["data"]["published"])
+        self.assertNotIn("caption", upload.kwargs["data"])
+        self.assertTrue(feed.args[0].endswith("/123456/feed"))
+        dados = feed.kwargs["data"]
+        self.assertIn("Produto util", dados["message"])
+        self.assertIn("Link de afiliado", dados["message"])
+        self.assertEqual('[{"media_fbid": "foto_123"}]', dados["attached_media"])
+        self.assertNotIn("token-super-secreto", feed.args[0])
 
     def test_foto_recusada_cai_para_post_de_link(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,

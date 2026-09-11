@@ -145,7 +145,7 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.
 - Se a imagem falhar, o Telegram publica a oferta em texto.
-- O Facebook publica foto e texto com aviso de link afiliado; uma rejeição
+- O Facebook publica no feed da Página, com imagem anexada, texto e aviso de link afiliado; uma rejeição
   definitiva da foto aciona um post de link sem imagem. Falhas incertas não geram
   fallback imediato, evitando duplicação.
 - O Shopee VIP pode ser divulgado no Telegram e no Bluesky uma vez pela manhã e
