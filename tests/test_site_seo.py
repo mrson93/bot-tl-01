@@ -204,9 +204,15 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("${raw.category||''} ${title}", refresh)
 
     def test_paginas_de_confianca_foram_publicadas(self):
-        for name in ("como-escolhemos", "faq", "privacidade", "contato"):
+        for name in ("como-escolhemos", "faq", "privacidade", "exclusao-de-dados", "contato"):
             self.assertTrue((ROOT / "site" / "functions" / f"{name}.js").exists())
         self.assertIn("FAQPage", (ROOT / "site" / "functions" / "faq.js").read_text())
+        privacy = (ROOT / "site" / "functions" / "privacidade.js").read_text()
+        deletion = (ROOT / "site" / "functions" / "exclusao-de-dados.js").read_text()
+        sitemap = (ROOT / "site" / "functions" / "sitemap.xml.js").read_text()
+        self.assertIn("/exclusao-de-dados", privacy)
+        self.assertIn("48 horas", deletion)
+        self.assertIn("/exclusao-de-dados", sitemap)
 
 
 if __name__ == "__main__":

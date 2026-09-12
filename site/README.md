@@ -82,11 +82,15 @@ No ambiente de produção do Pages, cadastre como segredos `META_APP_SECRET`,
 O valor de `META_WEBHOOK_VERIFY_TOKEN` deve ser exatamente o mesmo informado ao
 configurar o webhook na Meta.
 
-No aplicativo da Meta, conceda `instagram_manage_messages` e
-`pages_manage_metadata`, configure o callback acima e assine o campo `messages`
+No aplicativo da Meta, conceda `instagram_manage_messages`,
+`pages_manage_metadata` e, quando exigido pela assinatura da Página,
+`pages_messaging`; configure o callback acima e assine o campo `messages`
 do Instagram. O token da Página precisa ter sido emitido novamente com essas
 permissões. Para responder ao público fora dos usuários administradores/testadores,
 o aplicativo e as permissões precisam do nível de acesso exigido pela Meta.
+Use `https://canaltabarato.pages.dev/privacidade` como URL da Política de
+Privacidade e `https://canaltabarato.pages.dev/exclusao-de-dados` como URL das
+instruções de exclusão de dados na configuração básica do aplicativo.
 
 Somente depois de concluir e testar essa configuração, defina a variável do
 GitHub `INSTAGRAM_DIRECT_ATIVO=true`. Enquanto ela estiver falsa, o cartão mantém
