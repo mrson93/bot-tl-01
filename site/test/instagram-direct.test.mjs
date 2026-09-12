@@ -31,6 +31,15 @@ test('qualquer resposta ao Story e a palavra QUERO acionam o fluxo',()=>{
   assert.equal(events[1].keyword,true);
 });
 
+test('aceita mensagens entregues pelo objeto page apenas para IDs configurados',()=>{
+  const payload={object:'page',entry:[{id:'111695315138976',messaging:[
+    {sender:{id:'pessoa-1'},message:{mid:'mensagem-page-1',text:'uhuu',reply_to:{mid:'17900000000000001'}}},
+  ]}]};
+  const expectedIds=['17841435020643780','111695315138976'];
+  assert.equal(extractInboundEvents(payload,expectedIds).length,1);
+  assert.equal(extractInboundEvents({...payload,entry:[{...payload.entry[0],id:'outra-pagina'}]},expectedIds).length,0);
+});
+
 test('envia título, preço e link uma única vez',async()=>{
   const seen=new Set();
   const story={media_id:'17900000000000001',title:'Panela elétrica',price:79.9,

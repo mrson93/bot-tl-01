@@ -34,7 +34,7 @@ export async function onRequestPost(context) {
   }
   let payload;
   try{payload=JSON.parse(new TextDecoder().decode(raw));}catch{return new Response('Bad request',{status:400});}
-  const events=extractInboundEvents(payload,env.META_INSTAGRAM_ACCOUNT_ID).slice(0,25);
+  const events=extractInboundEvents(payload,[env.META_INSTAGRAM_ACCOUNT_ID,env.META_PAGE_ID]).slice(0,25);
   if(!events.length) return new Response('OK',{status:200});
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS instagram_dm_events(event_hash TEXT PRIMARY KEY,status TEXT NOT NULL,created_at INTEGER NOT NULL)`).run();
   let failed=false;

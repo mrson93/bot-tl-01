@@ -22,11 +22,13 @@ function normalized(value) {
     .toLowerCase().trim();
 }
 
-export function extractInboundEvents(payload,expectedAccountId='') {
-  if(payload?.object!=='instagram'||!Array.isArray(payload.entry)) return [];
+export function extractInboundEvents(payload,expectedAccountIds=[]) {
+  if(!['instagram','page'].includes(payload?.object)||!Array.isArray(payload.entry)) return [];
+  const allowedIds=new Set((Array.isArray(expectedAccountIds)?expectedAccountIds:[expectedAccountIds])
+    .map(value=>String(value||'')).filter(Boolean));
   const events=[];
   for(const entry of payload.entry){
-    if(expectedAccountId&&String(entry?.id||'')!==String(expectedAccountId)) continue;
+    if(allowedIds.size&&!allowedIds.has(String(entry?.id||''))) continue;
     for(const item of Array.isArray(entry?.messaging)?entry.messaging:[]){
       const message=item?.message||{};
       if(message.is_echo) continue;
