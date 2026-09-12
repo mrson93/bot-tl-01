@@ -3,7 +3,6 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-import qrcode
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -122,8 +121,8 @@ def _quebrar_link(draw, texto, largura, max_linhas=3):
     return linhas[:max_linhas], fonte
 
 
-def gerar(oferta: dict, link: str) -> bytes:
-    """Devolve JPEG 9:16 com QR e link afiliado rastreado em texto."""
+def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
+    """Devolve JPEG 9:16 com chamada para o Direct ou link em texto."""
     link = seguranca.validar_url_https_publica(link, "Link do Story")
     canvas = Image.new("RGB", (LARGURA, ALTURA), "#FFC400")
     draw = ImageDraw.Draw(canvas)
@@ -159,21 +158,27 @@ def gerar(oferta: dict, link: str) -> bytes:
         draw.rounded_rectangle((365, 1342, 715, 1422), radius=38, fill="#252525")
         draw.text((540, 1382), f"{int(round(desconto))}% OFF", font=_fonte(42, True), fill="white", anchor="mm")
 
-    qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=3)
-    qr.add_data(link)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
-    qr_img = qr_img.resize((300, 300), Image.Resampling.NEAREST)
-    canvas.paste(qr_img, (130, 1480))
-
-    draw.text((470, 1492), "LINK DA OFERTA", font=_fonte(38, True), fill="#ED1C24")
-    linhas_link, fonte_link = _quebrar_link(draw, _link_exibivel(link), 500)
-    y_link = 1550
-    for linha in linhas_link:
-        draw.text((470, y_link), linha, font=fonte_link, fill="#252525")
-        y_link += fonte_link.size + 8
-    draw.text((470, max(1655, y_link + 10)), "Digite no navegador ou use o QR Code",
-              font=_fonte(24), fill="#555555")
+    if direct_ativo:
+        draw.rounded_rectangle((130, 1480, 950, 1685), radius=36, fill="#ED1C24")
+        draw.text((540, 1528), "QUER O LINK?", font=_fonte(44, True),
+                  fill="white", anchor="ma")
+        draw.text((540, 1592), "Responda QUERO", font=_fonte(40, True),
+                  fill="white", anchor="ma")
+        draw.text((540, 1648), "ou responda qualquer coisa no Story",
+                  font=_fonte(25), fill="white", anchor="ma")
+    else:
+        draw.text((540, 1492), "LINK DA OFERTA", font=_fonte(38, True),
+                  fill="#ED1C24", anchor="ma")
+        linhas_link, fonte_link = _quebrar_link(
+            draw, _link_exibivel(link), 820, max_linhas=4
+        )
+        y_link = 1550
+        for linha in linhas_link:
+            draw.text((540, y_link), linha, font=fonte_link,
+                      fill="#252525", anchor="ma")
+            y_link += fonte_link.size + 8
+        draw.text((540, max(1690, y_link + 10)), "Digite o endereço no navegador",
+                  font=_fonte(24), fill="#555555", anchor="ma")
     fonte = str(oferta.get("fonte") or "loja")
     draw.text((470, 1720), f"Oferta {fonte}", font=_fonte(27, True), fill="#555555")
     draw.text((540, 1822), "Link de afiliado • preço pode mudar", font=_fonte(24), fill="#6B6B6B", anchor="mm")

@@ -8,6 +8,24 @@ export async function authorized(request, secret) {
   for(let i=0;i<Math.max(x.length,y.length);i++) diff|=(x[i%x.length]^y[i%y.length]);
   return diff===0;
 }
+export async function readBytesLimited(request,maxBytes) {
+  if(!request.body) return new Uint8Array();
+  const reader=request.body.getReader(),chunks=[];let total=0;
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    total+=value.byteLength;
+    if(total>maxBytes){await reader.cancel();throw new Error('too_large');}
+    chunks.push(value);
+  }
+  const joined=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){joined.set(chunk,offset);offset+=chunk.byteLength;}
+  return joined;
+}
+export async function readJsonLimited(request,maxBytes) {
+  const bytes=await readBytesLimited(request,maxBytes);
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
 export function safeUrl(value, allowedHosts='') {
   try { const url=new URL(value); if(url.protocol!=='https:') return null;
     const allowed=String(allowedHosts).split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);

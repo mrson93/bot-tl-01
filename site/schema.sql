@@ -16,3 +16,8 @@ CREATE TABLE IF NOT EXISTS page_views_daily (observed_on TEXT NOT NULL,path TEXT
 CREATE INDEX IF NOT EXISTS idx_page_views_daily_date ON page_views_daily(observed_on);
 CREATE TABLE IF NOT EXISTS story_assets (id TEXT PRIMARY KEY,image BLOB NOT NULL,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_story_assets_expires ON story_assets(expires_at);
+CREATE TABLE IF NOT EXISTS instagram_story_offers (media_id TEXT PRIMARY KEY,container_id TEXT NOT NULL,offer_id TEXT,title TEXT NOT NULL,price REAL,link TEXT NOT NULL,published_at INTEGER NOT NULL,expires_at INTEGER NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_instagram_story_offers_container ON instagram_story_offers(container_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_story_offers_time ON instagram_story_offers(published_at DESC);
+CREATE TABLE IF NOT EXISTS instagram_dm_events (event_hash TEXT PRIMARY KEY,status TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_instagram_dm_events_time ON instagram_dm_events(created_at);

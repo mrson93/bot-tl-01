@@ -42,6 +42,27 @@ class SitePublisherTest(unittest.TestCase):
             site_publisher.verificar_imagem_publica_story(
                 "https://canaltabarato.pages.dev/story-assets/abc.jpg", 7
             )
+
+    def test_registra_story_para_resposta_no_direct(self):
+        resposta = type("Resposta", (), {"status_code": 201})()
+        oferta = {"oferta_id": "shopee_1", "productName": "Panela", "price": 79.9}
+        with patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.pages.dev/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.registrar_story_instagram(
+                "17900000000000001", "18000000000000001", oferta,
+                "https://s.shopee.com.br/instagram"
+            )
+        self.assertEqual("https://canaltabarato.pages.dev/api/instagram-story-links",
+                         post.call_args.args[0])
+        self.assertEqual("Panela", post.call_args.kwargs["json"]["title"])
+        self.assertEqual("18000000000000001",
+                         post.call_args.kwargs["json"]["container_id"])
+        self.assertEqual(79.9, post.call_args.kwargs["json"]["price"])
+        self.assertEqual("Bearer segredo",
+                         post.call_args.kwargs["headers"]["Authorization"])
+
     def test_envia_link_afiliado_e_dados_publicos(self):
         class Fonte:
             NOME = "Shopee"

@@ -131,6 +131,37 @@ def verificar_imagem_publica_story(url: str, tamanho_esperado: int) -> None:
     raise ultimo or RuntimeError("Não foi possível validar a imagem pública do Story")
 
 
+def registrar_story_instagram(media_id, container_id, oferta: dict,
+                              link_afiliado: str) -> None:
+    """Associa o Story à oferta usada pela resposta automática no Direct."""
+    media_id = str(media_id or "")
+    if not media_id.isdigit():
+        raise ValueError("Instagram não devolveu o ID do Story publicado")
+    container_id = str(container_id or "")
+    if not container_id.isdigit():
+        raise ValueError("Instagram não devolveu o ID do contêiner do Story")
+    link_afiliado = seguranca.validar_url_https_publica(
+        link_afiliado, "Link do Direct do Instagram"
+    )
+    resposta = requests.post(
+        _api_path("/api/instagram-story-links"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={
+            "media_id": media_id,
+            "container_id": container_id,
+            "offer_id": str(oferta.get("oferta_id") or "")[:100],
+            "title": str(oferta.get("productName") or "Oferta")[:180],
+            "price": oferta.get("price") or oferta.get("priceMin"),
+            "link": link_afiliado,
+        },
+        timeout=15, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(
+            f"Site recusou o registro do Story ({resposta.status_code})"
+        )
+
+
 def publicar_cupom(cupom, link_afiliado):
     """Publica somente cupons oficiais, usando o mesmo segredo da vitrine."""
     destino = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")

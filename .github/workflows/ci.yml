@@ -24,4 +24,5 @@ jobs:
         with:
           node-version: "22"
       - run: node --test telegram-control/test/*.test.mjs
+      - run: node --test site/test/*.test.mjs
       - run: find site -name '*.js' -print0 | xargs -0 -n1 node --check

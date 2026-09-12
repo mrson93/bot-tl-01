@@ -67,7 +67,7 @@ Novas variáveis:
 | `INSTAGRAM_STORIES_ATIVO` | `false` | Ativa cartões de oferta nos Stories da conta profissional vinculada |
 | `INSTAGRAM_USERNAME` | `ofertascanaltabarato` | Confirma a conta correta antes de publicar |
 | `INSTAGRAM_TRACKING_ID` | `instagram` | Identifica vendas originadas nos Stories |
-| `INSTAGRAM_MAX_STORIES_DIA` | `10` | Limite exclusivo dos Stories; `0` = ilimitado |
+| `INSTAGRAM_MAX_STORIES_DIA` | `0` | Limite exclusivo dos Stories; `0` = ilimitado |
 | `SHOPEE_ATIVA` | `true` | Permite desligar a Shopee sem apagar credenciais |
 | `ALIEXPRESS_ATIVA` | `true` | Permite desligar o AliExpress sem apagar credenciais |
 | `AMAZON_ATIVA` | `false` | Ativa a Amazon depois que suas credenciais existirem |

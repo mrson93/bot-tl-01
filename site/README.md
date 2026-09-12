@@ -69,3 +69,25 @@ compara essas visualizações com os cliques de saída para as lojas.
 5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
 6. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.pages.dev/api/publish`,
    `SITE_ATIVO=true`, `SITE_REFRESH_PER_RUN=6` e `SITE_API_TOKEN` como segredo.
+
+## Direct automático do Instagram
+
+O endpoint `https://canaltabarato.pages.dev/api/meta-webhook` recebe respostas a
+Stories. Uma resposta com qualquer conteúdo usa a oferta associada ao Story; uma
+mensagem comum contendo a palavra `QUERO` usa a oferta do Story mais recente.
+
+No ambiente de produção do Pages, cadastre como segredos `META_APP_SECRET`,
+`META_WEBHOOK_VERIFY_TOKEN` e `META_PAGE_ACCESS_TOKEN`. Cadastre como variáveis
+`META_PAGE_ID`, `META_INSTAGRAM_ACCOUNT_ID` e `META_GRAPH_API_VERSION=v26.0`.
+O valor de `META_WEBHOOK_VERIFY_TOKEN` deve ser exatamente o mesmo informado ao
+configurar o webhook na Meta.
+
+No aplicativo da Meta, conceda `instagram_manage_messages` e
+`pages_manage_metadata`, configure o callback acima e assine o campo `messages`
+do Instagram. O token da Página precisa ter sido emitido novamente com essas
+permissões. Para responder ao público fora dos usuários administradores/testadores,
+o aplicativo e as permissões precisam do nível de acesso exigido pela Meta.
+
+Somente depois de concluir e testar essa configuração, defina a variável do
+GitHub `INSTAGRAM_DIRECT_ATIVO=true`. Enquanto ela estiver falsa, o cartão mantém
+o link em texto e não promete uma resposta automática.

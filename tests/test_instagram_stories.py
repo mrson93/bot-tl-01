@@ -27,6 +27,7 @@ class InstagramStoriesTest(unittest.TestCase):
             INSTAGRAM_STORIES_ATIVO=True,
             INSTAGRAM_USERNAME="ofertascanaltabarato",
             INSTAGRAM_MAX_STORIES_DIA=10,
+            INSTAGRAM_DIRECT_ATIVO=True,
             INSTAGRAM_CONTAINER_TENTATIVAS=2,
             FACEBOOK_PAGE_ID="111695315138976",
             FACEBOOK_PAGE_ACCESS_TOKEN="token-meta-secreto",
@@ -47,10 +48,11 @@ class InstagramStoriesTest(unittest.TestCase):
         with self.configuracao(), \
              patch.object(instagram_stories.requests, "get", side_effect=gets) as get, \
              patch.object(instagram_stories.requests, "post", side_effect=posts) as post, \
-             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg"), \
+             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg") as gerar, \
              patch.object(instagram_stories.site_publisher, "publicar_imagem_story",
                           return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"), \
              patch.object(instagram_stories.site_publisher, "verificar_imagem_publica_story"), \
+             patch.object(instagram_stories.site_publisher, "registrar_story_instagram") as registrar, \
              patch.object(instagram_stories.time, "sleep"):
             instagram_stories.postar(
                 {"productName": "Panela", "price": 79.9},
@@ -67,6 +69,9 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual(
             "Bearer token-meta-secreto", publicar.kwargs["headers"]["Authorization"]
         )
+        self.assertTrue(gerar.call_args.kwargs["direct_ativo"])
+        registrar.assert_called_once()
+        self.assertEqual("17900000000000001", registrar.call_args.args[0])
 
     def test_recusa_conta_vinculada_diferente_da_configurada(self):
         with self.configuracao(), patch.object(
@@ -112,7 +117,7 @@ class InstagramStoriesTest(unittest.TestCase):
                 )
             self.assertFalse(instagram_stories.pode_publicar())
 
-    def test_cartao_tem_formato_vertical_e_qr_do_link(self):
+    def test_cartao_tem_formato_vertical_sem_qr_code(self):
         link = "https://canaltabarato.pages.dev/go/oferta-instagram?src=instagram"
         with patch.object(story_card, "_baixar_imagem", return_value=None):
             conteudo = story_card.gerar(
@@ -127,6 +132,29 @@ class InstagramStoriesTest(unittest.TestCase):
             "canaltabarato.pages.dev/go/oferta-instagram?src=instagram",
             story_card._link_exibivel(link),
         )
+
+    def test_falha_ao_registrar_direct_nao_duplica_story_publicado(self):
+        gets = [
+            Resposta({"instagram_business_account": {"id": "17841435020643780"}}),
+            Resposta({"id": "17841435020643780", "username": "ofertascanaltabarato"}),
+            Resposta({"status_code": "FINISHED"}),
+        ]
+        posts = [Resposta({"id": "18000000000000001"}),
+                 Resposta({"id": "17900000000000001"})]
+        with self.configuracao(), \
+             patch.object(instagram_stories.requests, "get", side_effect=gets), \
+             patch.object(instagram_stories.requests, "post", side_effect=posts), \
+             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg"), \
+             patch.object(instagram_stories.site_publisher, "publicar_imagem_story",
+                          return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"), \
+             patch.object(instagram_stories.site_publisher, "verificar_imagem_publica_story"), \
+             patch.object(instagram_stories.site_publisher, "registrar_story_instagram",
+                          side_effect=RuntimeError("fora")), \
+             patch.object(instagram_stories.time, "sleep"):
+            instagram_stories.postar(
+                {"oferta_id": "x", "productName": "Panela", "price": 79.9},
+                "https://s.shopee.com.br/link-instagram",
+            )
 
 
 if __name__ == "__main__":

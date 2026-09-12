@@ -65,7 +65,8 @@ jobs:
       INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}
       INSTAGRAM_TRACKING_ID: "instagram"
       INSTAGRAM_USERNAME: "ofertascanaltabarato"
-      INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '10' }}
+      INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '0' }}
+      INSTAGRAM_DIRECT_ATIVO: ${{ vars.INSTAGRAM_DIRECT_ATIVO || 'false' }}
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
       SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.pages.dev/api/publish' }}
       SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}

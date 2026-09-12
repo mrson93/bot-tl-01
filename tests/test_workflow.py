@@ -82,8 +82,21 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}", workflow)
         self.assertIn('INSTAGRAM_TRACKING_ID: "instagram"', workflow)
         self.assertIn('INSTAGRAM_USERNAME: "ofertascanaltabarato"', workflow)
-        self.assertIn("INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '10' }}", workflow)
+        self.assertIn("INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '0' }}", workflow)
+        self.assertIn("INSTAGRAM_DIRECT_ATIVO: ${{ vars.INSTAGRAM_DIRECT_ATIVO || 'false' }}", workflow)
         self.assertEqual(1, workflow.count("FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}"))
+
+    def test_direct_instagram_valida_assinatura_e_nao_guarda_mensagem(self):
+        migration = Path("site/migrations/0009_instagram_direct.sql").read_text(encoding="utf-8")
+        webhook = Path("site/functions/api/meta-webhook.js").read_text(encoding="utf-8")
+        helper = Path("site/functions/_instagram_dm.js").read_text(encoding="utf-8")
+        self.assertIn("instagram_story_offers", migration)
+        self.assertIn("instagram_dm_events", migration)
+        self.assertIn("X-Hub-Signature-256", webhook)
+        self.assertIn("META_APP_SECRET", webhook)
+        self.assertIn("instagram_manage_messages", Path("site/README.md").read_text(encoding="utf-8"))
+        self.assertNotIn("message_text", migration)
+        self.assertIn("INSERT OR IGNORE", helper)
 
     def test_site_tem_armazenamento_temporario_para_cartao_do_story(self):
         migration = Path("site/migrations/0008_story_assets.sql").read_text(encoding="utf-8")

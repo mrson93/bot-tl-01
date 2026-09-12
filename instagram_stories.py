@@ -153,7 +153,9 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         link_afiliado, "Link de afiliado do Instagram"
     )
     conta = _conta_instagram()
-    imagem = story_card.gerar(oferta, link_afiliado)
+    imagem = story_card.gerar(
+        oferta, link_afiliado, direct_ativo=config.INSTAGRAM_DIRECT_ATIVO
+    )
     imagem_publica = site_publisher.publicar_imagem_story(imagem)
     # A Meta faz o download por conta própria, sem cookies. Faça a mesma
     # verificação e dê uma pequena janela para a leitura distribuída do D1
@@ -168,7 +170,17 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     _aguardar_container(container_id)
     # Uma falha de rede aqui pode ter ocorrido depois da publicação. Não
     # repetimos automaticamente para não arriscar um Story duplicado.
-    _post(
+    publicado = _post(
         f"{conta}/media_publish", {"creation_id": container_id},
         repetir_rede=False,
     )
+    if config.INSTAGRAM_DIRECT_ATIVO:
+        try:
+            site_publisher.registrar_story_instagram(
+                publicado.get("id"), container_id, oferta, link_afiliado
+            )
+        except Exception as erro:
+            # O Story já foi publicado. Falhar aqui não pode provocar uma
+            # segunda publicação na próxima rodada.
+            print("   ⚠️  Story publicado, mas o Direct automático não foi "
+                  f"registrado: {seguranca.redigir_segredos(erro)}")
