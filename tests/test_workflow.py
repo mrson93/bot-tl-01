@@ -96,6 +96,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("expires_at>?", serving)
         self.assertIn("image/jpeg", serving)
         self.assertIn("Content-Length", serving)
+        self.assertIn("Uint8Array.from(row.image)", serving)
         self.assertIn("onRequestHead", serving)
 
 
