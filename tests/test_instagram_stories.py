@@ -113,15 +113,20 @@ class InstagramStoriesTest(unittest.TestCase):
             self.assertFalse(instagram_stories.pode_publicar())
 
     def test_cartao_tem_formato_vertical_e_qr_do_link(self):
+        link = "https://canaltabarato.pages.dev/go/oferta-instagram?src=instagram"
         with patch.object(story_card, "_baixar_imagem", return_value=None):
             conteudo = story_card.gerar(
                 {"productName": "Panela elétrica com desconto", "price": 79.9,
                  "priceDiscountRate": 40, "fonte": "Shopee"},
-                "https://canaltabarato.pages.dev/go/oferta-instagram",
+                link,
             )
         imagem = Image.open(io.BytesIO(conteudo))
         self.assertEqual((1080, 1920), imagem.size)
         self.assertLessEqual(len(conteudo), 850_000)
+        self.assertEqual(
+            "canaltabarato.pages.dev/go/oferta-instagram?src=instagram",
+            story_card._link_exibivel(link),
+        )
 
 
 if __name__ == "__main__":
