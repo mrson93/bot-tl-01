@@ -30,6 +30,18 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual(
             "https://canaltabarato.pages.dev/story-assets/abc.jpg", url
         )
+
+    def test_verifica_jpeg_publico_para_story(self):
+        resposta = type("Resposta", (), {
+            "status_code": 200,
+            "headers": {"Content-Type": "image/jpeg", "Content-Length": "7"},
+            "iter_content": lambda self, _tamanho: iter([b"\xff\xd8\xffjpeg"]),
+            "close": lambda self: None,
+        })()
+        with patch.object(site_publisher.requests, "get", return_value=resposta):
+            site_publisher.verificar_imagem_publica_story(
+                "https://canaltabarato.pages.dev/story-assets/abc.jpg", 7
+            )
     def test_envia_link_afiliado_e_dados_publicos(self):
         class Fonte:
             NOME = "Shopee"

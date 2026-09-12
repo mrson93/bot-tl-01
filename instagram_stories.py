@@ -51,7 +51,17 @@ def _corpo(resposta):
 
 def _erro(resposta, prefixo):
     corpo = _corpo(resposta)
-    detalhe = corpo.get("error", {}).get("message") or resposta.text[:300]
+    erro = corpo.get("error") or {}
+    detalhe = erro.get("message") or resposta.text[:300]
+    # O Graph API costuma devolver uma mensagem genérica para falhas ao
+    # buscar a mídia. O subcódigo e a mensagem voltada ao usuário distinguem
+    # URL inacessível (9004/2207052) de parâmetro ou permissão inválidos.
+    subcodigo = erro.get("error_subcode") or erro.get("subcode")
+    mensagem_usuario = erro.get("error_user_msg")
+    if subcodigo:
+        detalhe += f" [subcódigo {subcodigo}]"
+    if mensagem_usuario and mensagem_usuario != detalhe:
+        detalhe += f" — {mensagem_usuario}"
     return RuntimeError(seguranca.redigir_segredos(
         f"{prefixo} ({resposta.status_code}): {detalhe}"
     ))
@@ -145,6 +155,11 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     conta = _conta_instagram()
     imagem = story_card.gerar(oferta, link_afiliado)
     imagem_publica = site_publisher.publicar_imagem_story(imagem)
+    # A Meta faz o download por conta própria, sem cookies. Faça a mesma
+    # verificação e dê uma pequena janela para a leitura distribuída do D1
+    # antes de criar o contêiner.
+    site_publisher.verificar_imagem_publica_story(imagem_publica, len(imagem))
+    time.sleep(3)
     container = _post(
         f"{conta}/media",
         {"media_type": "STORIES", "image_url": imagem_publica},

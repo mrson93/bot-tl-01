@@ -95,6 +95,8 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("crypto.randomUUID()", upload)
         self.assertIn("expires_at>?", serving)
         self.assertIn("image/jpeg", serving)
+        self.assertIn("Content-Length", serving)
+        self.assertIn("onRequestHead", serving)
 
 
 if __name__ == "__main__":

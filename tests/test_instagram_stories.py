@@ -49,7 +49,9 @@ class InstagramStoriesTest(unittest.TestCase):
              patch.object(instagram_stories.requests, "post", side_effect=posts) as post, \
              patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg"), \
              patch.object(instagram_stories.site_publisher, "publicar_imagem_story",
-                          return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"):
+                          return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"), \
+             patch.object(instagram_stories.site_publisher, "verificar_imagem_publica_story"), \
+             patch.object(instagram_stories.time, "sleep"):
             instagram_stories.postar(
                 {"productName": "Panela", "price": 79.9},
                 "https://s.shopee.com.br/link-instagram",
@@ -93,7 +95,9 @@ class InstagramStoriesTest(unittest.TestCase):
         ), patch.object(
             instagram_stories.site_publisher, "publicar_imagem_story",
             return_value="https://canaltabarato.pages.dev/story-assets/a.jpg",
-        ):
+        ), patch.object(
+            instagram_stories.site_publisher, "verificar_imagem_publica_story"
+        ), patch.object(instagram_stories.time, "sleep"):
             with self.assertRaises(RuntimeError) as contexto:
                 instagram_stories.postar({}, "https://oferta.test/x")
         self.assertEqual(2, post.call_count)

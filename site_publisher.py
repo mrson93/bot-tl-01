@@ -1,5 +1,6 @@
 """Publica na vitrine própria sem interferir nos canais sociais."""
 import base64
+import time
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
@@ -85,6 +86,49 @@ def publicar_imagem_story(conteudo: bytes) -> str:
     except ValueError:
         url = None
     return seguranca.validar_url_https_publica(url, "Imagem pública do Story")
+
+
+def verificar_imagem_publica_story(url: str, tamanho_esperado: int) -> None:
+    """Confere o contrato público que a Meta usará para buscar o JPEG."""
+    url = seguranca.validar_url_https_publica(url, "Imagem pública do Story")
+    ultimo = None
+    for tentativa in range(4):
+        try:
+            resposta = requests.get(
+                url, stream=True, timeout=15, allow_redirects=False,
+                headers={"User-Agent": "CanalTaBarato/1.0"},
+            )
+        except requests.RequestException:
+            ultimo = RuntimeError("Não foi possível validar a imagem pública do Story")
+        else:
+            try:
+                content_type = str(resposta.headers.get("Content-Type") or "").lower()
+                content_length = int(resposta.headers.get("Content-Length") or 0)
+                if not 200 <= resposta.status_code < 300:
+                    raise RuntimeError(
+                        f"Imagem pública do Story retornou HTTP {resposta.status_code}"
+                    )
+                if not content_type.startswith("image/jpeg"):
+                    raise RuntimeError(
+                        "Imagem pública do Story não retornou Content-Type image/jpeg"
+                    )
+                if content_length and content_length != int(tamanho_esperado):
+                    raise RuntimeError("Imagem pública do Story retornou tamanho inesperado")
+                primeiro = next(resposta.iter_content(3), b"")
+                if not primeiro.startswith(b"\xff\xd8\xff"):
+                    raise RuntimeError("Imagem pública do Story não retornou um JPEG válido")
+                return
+            except RuntimeError as erro:
+                ultimo = erro
+                # O upload D1 pode levar um instante para aparecer no ponto que
+                # atenderá a Meta. Só repetimos falhas transitórias de leitura.
+                if resposta.status_code not in {404, 408, 425, 429} and resposta.status_code < 500:
+                    raise
+            finally:
+                resposta.close()
+        if tentativa < 3:
+            time.sleep(tentativa + 1)
+    raise ultimo or RuntimeError("Não foi possível validar a imagem pública do Story")
 
 
 def publicar_cupom(cupom, link_afiliado):
