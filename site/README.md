@@ -89,8 +89,9 @@ do Instagram. O token da Página precisa ter sido emitido novamente com essas
 permissões. Para responder ao público fora dos usuários administradores/testadores,
 o aplicativo e as permissões precisam do nível de acesso exigido pela Meta.
 Use `https://canaltabarato.com.br/privacidade` como URL da Política de
-Privacidade e `https://canaltabarato.com.br/exclusao-de-dados` como URL das
-instruções de exclusão de dados na configuração básica do aplicativo.
+Privacidade, `https://canaltabarato.com.br/termos` como Termos de Serviço e
+`https://canaltabarato.com.br/exclusao-de-dados` como URL das instruções de
+exclusão de dados na configuração básica do aplicativo.
 
 Somente depois de concluir e testar essa configuração, defina a variável do
 GitHub `INSTAGRAM_DIRECT_ATIVO=true`. Enquanto ela estiver falsa, o cartão mantém
