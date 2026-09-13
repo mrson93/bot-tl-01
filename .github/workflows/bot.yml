@@ -57,7 +57,7 @@ jobs:
       AMAZON_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREDENTIAL_SECRET }}
       # --- configuracoes normais (pode editar aqui mesmo) ---
       TELEGRAM_CHANNEL: "@CanalTaBarato"
-      BLUESKY_HANDLE: "canaltabarato.bsky.social"
+      BLUESKY_HANDLE: "canaltabarato.com.br"
       FACEBOOK_ATIVO: ${{ vars.FACEBOOK_ATIVO || 'false' }}
       FACEBOOK_PAGE_ID: ${{ vars.FACEBOOK_PAGE_ID }}
       FACEBOOK_GRAPH_API_VERSION: "v26.0"

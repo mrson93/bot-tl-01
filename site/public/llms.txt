@@ -16,7 +16,7 @@ Idioma: português do Brasil (pt-BR)
 - Modos de navegação: em alta, recentes, maior desconto, mais vendidos e menor preço.
 - Páginas fixas de quedas recentes, menores preços observados, mais acessadas, mais vendidos e faixas de preço.
 - Canal no Telegram: https://t.me/CanalTaBarato
-- Perfil no Bluesky: https://bsky.app/profile/canaltabarato.bsky.social
+- Perfil no Bluesky: https://bsky.app/profile/canaltabarato.com.br
 
 ## Observações
 
