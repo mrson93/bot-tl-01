@@ -3,6 +3,12 @@
   "name": "ta-barato-links",
   "main": "src/index.js",
   "compatibility_date": "2026-09-12",
+  "routes": [
+    {
+      "pattern": "go.canaltabarato.com.br",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
