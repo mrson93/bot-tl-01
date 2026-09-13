@@ -52,6 +52,7 @@ jobs:
       BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
       FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
       SITE_API_TOKEN: ${{ secrets.SITE_API_TOKEN }}
+      SHORTLINK_API_TOKEN: ${{ secrets.SHORTLINK_API_TOKEN }}
       AMAZON_CREDENTIAL_ID: ${{ secrets.AMAZON_CREDENTIAL_ID }}
       AMAZON_CREDENTIAL_SECRET: ${{ secrets.AMAZON_CREDENTIAL_SECRET }}
       # --- configuracoes normais (pode editar aqui mesmo) ---
@@ -70,6 +71,8 @@ jobs:
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
       SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.com.br/api/publish' }}
       SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}
+      SHORTLINK_API_URL: ${{ vars.SHORTLINK_API_URL || 'https://go.canaltabarato.com.br' }}
+      SHORTLINK_BASE_URL: ${{ vars.SHORTLINK_BASE_URL || 'https://go.canaltabarato.com.br' }}
       SITE_REFRESH_PER_RUN: ${{ vars.SITE_REFRESH_PER_RUN || '6' }}
       CUPOM_ALERTA_SEPARADO: ${{ vars.CUPOM_ALERTA_SEPARADO || 'true' }}
       CUPOM_ALERTAS_POR_RODADA: ${{ vars.CUPOM_ALERTAS_POR_RODADA || '1' }}

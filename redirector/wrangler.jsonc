@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "ta-barato-links",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-12",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ta-barato-links",
+      "database_id": "7eeddae2-a601-42d8-908f-4d1dcdbe5481"
+    }
+  ],
+  "vars": {
+    "PUBLIC_BASE_URL": "https://go.canaltabarato.com.br",
+    "ALLOWED_DESTINATION_HOSTS": "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br"
+  }
+}
