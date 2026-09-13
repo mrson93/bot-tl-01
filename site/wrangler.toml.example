@@ -9,6 +9,6 @@ database_name = "canaltabarato-ofertas"
 database_id = "PREENCHA_O_ID_DO_D1"
 
 [vars]
-ALLOWED_DESTINATION_HOSTS = "shope.ee,s.shopee.com.br,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br"
+ALLOWED_DESTINATION_HOSTS = "shope.ee,s.shopee.com.br,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br,go.canaltabarato.com.br"
 
 # PUBLISH_TOKEN é segredo: configure no painel da Cloudflare, nunca aqui.
