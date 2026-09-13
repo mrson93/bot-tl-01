@@ -9,7 +9,10 @@ export async function onRequestGet({request,env}) {
   ]);
   const bySource={},byOffer={}; let total=0;
   for(const row of [...(grouped.results||[]),...(couponGrouped.results||[]),...(storeGrouped.results||[])]){const quantity=Number(row.quantity||0);total+=quantity;bySource[row.source]=(bySource[row.source]||0)+quantity;byOffer[row.offer_id]=quantity;}
-  let views=0;
-  try{const viewResult=await env.DB.prepare(`SELECT COALESCE(SUM(quantity),0) quantity FROM page_views_daily WHERE observed_on>=date(?,'unixepoch','-3 hours') AND observed_on<date(?,'unixepoch','-3 hours')`).bind(start,end).all();views=Number((viewResult.results||[])[0]?.quantity)||0;}catch(error){if(!String(error?.message||error).toLowerCase().includes('no such table'))throw error;}
-  return json({total,views,outbound_clicks:total,ctr:views?Number((100*total/views).toFixed(2)):0,by_channel:{site:total},by_source:bySource,by_offer:byOffer});
+  let views=0,byTrafficSource={};
+  try{const [viewResult,trafficResult]=await env.DB.batch([
+    env.DB.prepare(`SELECT COALESCE(SUM(quantity),0) quantity FROM page_views_daily WHERE observed_on>=date(?,'unixepoch','-3 hours') AND observed_on<date(?,'unixepoch','-3 hours')`).bind(start,end),
+    env.DB.prepare(`SELECT source,COALESCE(SUM(quantity),0) quantity FROM traffic_sources_daily WHERE observed_on>=date(?,'unixepoch','-3 hours') AND observed_on<date(?,'unixepoch','-3 hours') GROUP BY source`).bind(start,end)
+  ]);views=Number((viewResult.results||[])[0]?.quantity)||0;for(const row of trafficResult.results||[])byTrafficSource[row.source]=Number(row.quantity)||0;}catch(error){if(!String(error?.message||error).toLowerCase().includes('no such table'))throw error;}
+  return json({total,views,outbound_clicks:total,ctr:views?Number((100*total/views).toFixed(2)):0,by_channel:{site:total},by_source:bySource,by_offer:byOffer,by_traffic_source:byTrafficSource});
 }

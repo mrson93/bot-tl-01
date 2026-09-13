@@ -182,6 +182,10 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("sessionStorage", analytics)
         self.assertIn("outbound_clicks", stats)
         self.assertIn("endereço IP", privacy)
+        traffic = (root / "migrations" / "0010_origens_de_trafego.sql").read_text()
+        self.assertIn("traffic_sources_daily", traffic)
+        self.assertIn("instagram", analytics)
+        self.assertIn("by_traffic_source", stats)
 
     def test_cloudflare_web_analytics_respeita_csp(self):
         helper = (ROOT / "site" / "functions" / "_site.js").read_text()

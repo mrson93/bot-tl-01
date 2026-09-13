@@ -323,4 +323,6 @@ def resumo_cliques(inicio, fim):
                       (dados.get("by_source") or {}).items()},
         "por_oferta": {str(k): int(v) for k, v in
                        (dados.get("by_offer") or {}).items()},
+        "por_origem": {str(k): int(v) for k, v in
+                       (dados.get("by_traffic_source") or {}).items()},
     }

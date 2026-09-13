@@ -12,11 +12,13 @@ class RelatorioTest(unittest.TestCase):
              "por_fonte": {"Shopee": 2}, "por_oferta": {"a": 2}},
             {"total": 3, "por_canal": {"site": 3},
              "por_fonte": {"Shopee": 1, "Amazon": 2},
-             "por_oferta": {"a": 1, "b": 2}},
+             "por_oferta": {"a": 1, "b": 2},
+             "por_origem": {"instagram": 3}},
         ])
         self.assertEqual(5, total["total"])
         self.assertEqual(3, total["por_oferta"]["a"])
         self.assertEqual(3, total["por_fonte"]["Shopee"])
+        self.assertEqual(3, total["por_origem"]["instagram"])
 
     def setUp(self):
         for nome, retorno in (
@@ -162,6 +164,7 @@ class RelatorioTest(unittest.TestCase):
                                  ["Shopee: 10 posts e nenhuma conversao"],
                                  [("x", "Shopee", "Produto sem venda")], {
                                      "total": 5, "por_canal": {"Telegram": 5},
+                                     "por_origem": {"instagram": 3},
                                      "por_produto": {"Panela": 5},
                                      "somente_cliques": [("Panela", 5)],
                                  })
@@ -172,6 +175,7 @@ class RelatorioTest(unittest.TestCase):
         self.assertIn("Shopee: 10 posts e nenhuma conversao", texto)
         self.assertIn("Produto sem venda", texto)
         self.assertIn("Mais clicados: Panela (5)", texto)
+        self.assertIn("Origem das visitas: instagram 3", texto)
         self.assertIn("Sem conversão: Panela (5)", texto)
 
     def test_texto_mostra_tendencia_e_ab_so_com_amostra_minima(self):

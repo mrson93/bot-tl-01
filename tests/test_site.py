@@ -176,7 +176,8 @@ class SitePublisherTest(unittest.TestCase):
             "json": lambda self: {"total": 3, "views": 12, "ctr": 25,
                                   "by_channel": {"site": 3},
                                   "by_source": {"Shopee": 3},
-                                  "by_offer": {"produto": 3}},
+                                  "by_offer": {"produto": 3},
+                                  "by_traffic_source": {"instagram": 7, "direct": 5}},
         })()
         with patch.object(site_publisher.config, "SITE_API_URL",
                           "https://canaltabarato.pages.dev/api/publish"), \
@@ -188,6 +189,7 @@ class SitePublisherTest(unittest.TestCase):
         self.assertEqual(3, resumo["total"])
         self.assertEqual(12, resumo["visitas"])
         self.assertEqual(25, resumo["ctr"])
+        self.assertEqual({"instagram": 7, "direct": 5}, resumo["por_origem"])
         self.assertEqual("https://canaltabarato.pages.dev/api/stats",
                          get.call_args.args[0])
 

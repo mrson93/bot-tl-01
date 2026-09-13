@@ -14,6 +14,8 @@ CREATE INDEX IF NOT EXISTS idx_offer_prices_offer_time ON offer_prices(offer_id,
 CREATE TABLE IF NOT EXISTS offer_feedback (offer_id TEXT NOT NULL,kind TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,PRIMARY KEY (offer_id,kind));
 CREATE TABLE IF NOT EXISTS page_views_daily (observed_on TEXT NOT NULL,path TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,PRIMARY KEY (observed_on,path));
 CREATE INDEX IF NOT EXISTS idx_page_views_daily_date ON page_views_daily(observed_on);
+CREATE TABLE IF NOT EXISTS traffic_sources_daily (observed_on TEXT NOT NULL,source TEXT NOT NULL,landing_path TEXT NOT NULL,quantity INTEGER NOT NULL DEFAULT 0,PRIMARY KEY (observed_on,source,landing_path));
+CREATE INDEX IF NOT EXISTS idx_traffic_sources_daily_date ON traffic_sources_daily(observed_on);
 CREATE TABLE IF NOT EXISTS story_assets (id TEXT PRIMARY KEY,image BLOB NOT NULL,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_story_assets_expires ON story_assets(expires_at);
 CREATE TABLE IF NOT EXISTS instagram_story_offers (media_id TEXT PRIMARY KEY,container_id TEXT NOT NULL,offer_id TEXT,title TEXT NOT NULL,price REAL,link TEXT NOT NULL,published_at INTEGER NOT NULL,expires_at INTEGER NOT NULL);

@@ -22,11 +22,11 @@ def _top(contadores, limite=3):
 
 
 def _somar_cliques(resumos):
-    total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}}
+    total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}, "por_origem": {}}
     for resumo in resumos:
         total["total"] += int(resumo.get("total") or 0)
         total["visitas"] += int(resumo.get("visitas") or 0)
-        for campo in ("por_canal", "por_fonte", "por_oferta"):
+        for campo in ("por_canal", "por_fonte", "por_oferta", "por_origem"):
             for chave, valor in (resumo.get(campo) or {}).items():
                 total[campo][chave] = total[campo].get(chave, 0) + int(valor or 0)
     return total
@@ -142,6 +142,10 @@ def _texto_detalhado(linhas, data, conversoes=None, conversoes_shopee=None,
         if cliques["por_canal"]:
             blocos.append("Cliques por canal: " + ", ".join(
                 f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_canal"].items())
+            ))
+        if cliques.get("por_origem"):
+            blocos.append("Visitas por origem: " + ", ".join(
+                f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_origem"].items())
             ))
         if cliques.get("por_produto"):
             blocos.append("Produtos mais clicados: " + "; ".join(
@@ -334,6 +338,10 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
         if cliques.get("por_canal"):
             blocos.append("Por canal: " + " · ".join(
                 f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_canal"].items())
+            ))
+        if cliques.get("por_origem"):
+            blocos.append("Origem das visitas: " + " · ".join(
+                f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_origem"].items())
             ))
         if cliques.get("por_produto"):
             blocos.append("Mais clicados: " + "; ".join(
