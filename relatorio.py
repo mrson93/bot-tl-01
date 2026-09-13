@@ -455,7 +455,7 @@ def enviar_se_devido(agora=None, forcar=False):
         alertas.append(
             f"Bluesky: {eventos['imagens_omitidas']} posts saíram sem imagem"
         )
-    for canal in ("Telegram", "Bluesky", "Facebook"):
+    for canal in ("Telegram", "Bluesky", "Facebook", "Instagram Stories", "Site"):
         falhas = store.falhas_consecutivas(canal)
         if falhas >= config.FALHAS_CONSECUTIVAS_ALERTA:
             alertas.append(f"{canal}: {falhas} entregas consecutivas falharam")

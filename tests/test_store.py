@@ -79,6 +79,13 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("c", "Telegram", False, agora=120)
         self.assertEqual(2, store.falhas_consecutivas("Telegram"))
 
+    def test_alerta_de_canal_e_rearmado_apos_recuperacao(self):
+        self.assertFalse(store.falha_canal_ja_alertada("Facebook"))
+        store.marcar_falha_canal_alertada("Facebook")
+        self.assertTrue(store.falha_canal_ja_alertada("Facebook"))
+        store.limpar_alerta_falha_canal("Facebook")
+        self.assertFalse(store.falha_canal_ja_alertada("Facebook"))
+
     def test_proximo_horario_fica_persistido(self):
         store.definir_proximo_post(1_800_000_000)
         self.assertEqual(1_800_000_000, store.proximo_post())

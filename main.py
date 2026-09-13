@@ -38,6 +38,7 @@ import seguranca
 import shortlinks
 import site_publisher
 import observabilidade
+import monitor
 
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon]
@@ -241,6 +242,16 @@ def enviar_bom_dia_se_preciso(agora=None) -> bool:
     return publicou
 
 
+def _registrar_saude_canal(canal, sucesso, erro=""):
+    """O monitor nunca pode transformar uma publicação aceita em falha."""
+    try:
+        return monitor.registrar_resultado_canal(canal, sucesso, erro)
+    except Exception as erro_alerta:
+        print("   ⚠️  Não foi possível atualizar o alerta privado: "
+              f"{seguranca.redigir_segredos(erro_alerta)}")
+        return False
+
+
 def publicar(fonte, oferta: dict) -> int:
     """Publica em todos os canais ativos, cada um com seu link rastreado.
     Retorna quantos canais aceitaram."""
@@ -266,12 +277,14 @@ def publicar(fonte, oferta: dict) -> int:
                           f"{seguranca.redigir_segredos(erro_link)}")
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
+            _registrar_saude_canal(canal.NOME, True)
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                     canal=canal.NOME, fonte=fonte.NOME)
             ok += 1
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, canal.NOME, False, preco, fonte.NOME, erro)
+            _registrar_saude_canal(canal.NOME, False, erro)
             observabilidade.evento("publicacao_falha", oferta_id=oid,
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
@@ -280,11 +293,13 @@ def publicar(fonte, oferta: dict) -> int:
         try:
             site_publisher.publicar(fonte, oferta)
             store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
+            _registrar_saude_canal("Site", True)
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                     canal="Site", fonte=fonte.NOME)
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)
+            _registrar_saude_canal("Site", False, erro)
             observabilidade.evento("publicacao_falha", oferta_id=oid,
                                     canal="Site", fonte=fonte.NOME,
                                     motivo="erro_site")

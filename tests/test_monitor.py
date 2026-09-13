@@ -7,6 +7,27 @@ import monitor
 
 
 class MonitorTest(unittest.TestCase):
+    def test_alerta_uma_vez_apos_tres_falhas_e_rearma_com_sucesso(self):
+        with patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
+             patch.object(monitor.store, "falhas_consecutivas", return_value=3), \
+             patch.object(monitor.store, "falha_canal_ja_alertada",
+                          side_effect=[False, True]), \
+             patch.object(monitor.store, "marcar_falha_canal_alertada") as marcar, \
+             patch.object(monitor.store, "limpar_alerta_falha_canal") as limpar, \
+             patch.object(monitor, "enviar_alerta", return_value=True) as enviar:
+            self.assertTrue(monitor.registrar_resultado_canal(
+                "Facebook", False, "token expirado"
+            ))
+            self.assertFalse(monitor.registrar_resultado_canal(
+                "Facebook", False, "token expirado"
+            ))
+            self.assertFalse(monitor.registrar_resultado_canal(
+                "Facebook", True
+            ))
+        enviar.assert_called_once()
+        marcar.assert_called_once_with("Facebook")
+        limpar.assert_called_once_with("Facebook")
+
     def test_rejeita_repositorio_invalido(self):
         with patch.dict("os.environ", {
             "GITHUB_REPOSITORY": "dono/repositorio/outro",

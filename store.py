@@ -443,6 +443,20 @@ def falhas_consecutivas(canal, limite=20):
     return total
 
 
+def falha_canal_ja_alertada(canal):
+    """Indica se a sequência atual de falhas já gerou um alerta privado."""
+    return _estado(f"alerta_falha_canal:{str(canal).lower()}") == "1"
+
+
+def marcar_falha_canal_alertada(canal):
+    _definir_estado(f"alerta_falha_canal:{str(canal).lower()}", "1")
+
+
+def limpar_alerta_falha_canal(canal):
+    """Libera um novo alerta depois que o canal volta a publicar."""
+    _definir_estado(f"alerta_falha_canal:{str(canal).lower()}", "0")
+
+
 def salvar_desempenho(fonte, produtos, agora=None):
     """Substitui o retrato agregado de 7 dias; não recebe IDs de pedidos."""
     momento = int(agora or time.time())

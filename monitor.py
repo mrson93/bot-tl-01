@@ -7,6 +7,7 @@ import requests
 
 import config
 import seguranca
+import store
 
 
 def _repositorio_valido(repositorio):
@@ -28,6 +29,27 @@ def enviar_alerta(mensagem, sessao=requests):
             f"Telegram recusou o alerta: {corpo}"
         ))
     return True
+
+
+def registrar_resultado_canal(canal, sucesso, erro=""):
+    """Alerta uma vez por sequência de falhas e rearma após a recuperação."""
+    if sucesso:
+        store.limpar_alerta_falha_canal(canal)
+        return False
+
+    falhas = store.falhas_consecutivas(canal)
+    limite = max(1, config.FALHAS_CONSECUTIVAS_ALERTA)
+    if falhas < limite or store.falha_canal_ja_alertada(canal):
+        return False
+
+    detalhe = seguranca.redigir_segredos(erro)[:350]
+    mensagem = f"{canal}: {falhas} publicações consecutivas falharam."
+    if detalhe:
+        mensagem += f" Último erro: {detalhe}"
+    if enviar_alerta(mensagem):
+        store.marcar_falha_canal_alertada(canal)
+        return True
+    return False
 
 
 def verificar_execucoes(agora=None, sessao=requests, limite_minutos=20):
