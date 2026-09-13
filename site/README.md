@@ -67,12 +67,12 @@ compara essas visualizações com os cliques de saída para as lojas.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` como segredo e `ALLOWED_DESTINATION_HOSTS` como variável.
 5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
-6. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.pages.dev/api/publish`,
+6. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.com.br/api/publish`,
    `SITE_ATIVO=true`, `SITE_REFRESH_PER_RUN=6` e `SITE_API_TOKEN` como segredo.
 
 ## Direct automático do Instagram
 
-O endpoint `https://canaltabarato.pages.dev/api/meta-webhook` recebe respostas a
+O endpoint `https://canaltabarato.com.br/api/meta-webhook` recebe respostas a
 Stories. Uma resposta com qualquer conteúdo usa a oferta associada ao Story; uma
 mensagem comum contendo a palavra `QUERO` usa a oferta do Story mais recente.
 
@@ -88,8 +88,8 @@ No aplicativo da Meta, conceda `instagram_manage_messages`,
 do Instagram. O token da Página precisa ter sido emitido novamente com essas
 permissões. Para responder ao público fora dos usuários administradores/testadores,
 o aplicativo e as permissões precisam do nível de acesso exigido pela Meta.
-Use `https://canaltabarato.pages.dev/privacidade` como URL da Política de
-Privacidade e `https://canaltabarato.pages.dev/exclusao-de-dados` como URL das
+Use `https://canaltabarato.com.br/privacidade` como URL da Política de
+Privacidade e `https://canaltabarato.com.br/exclusao-de-dados` como URL das
 instruções de exclusão de dados na configuração básica do aplicativo.
 
 Somente depois de concluir e testar essa configuração, defina a variável do

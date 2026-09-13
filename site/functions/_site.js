@@ -1,4 +1,4 @@
-export const SITE='https://canaltabarato.pages.dev';
+export const SITE='https://canaltabarato.com.br';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 
 export function html(value='') {

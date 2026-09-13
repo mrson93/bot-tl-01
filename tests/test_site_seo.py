@@ -39,7 +39,7 @@ class SiteSeoTest(unittest.TestCase):
         parser = HeadParser()
         parser.feed((PUBLIC / "index.html").read_text())
         canonical = [item for item in parser.links if item.get("rel") == "canonical"]
-        self.assertEqual("https://canaltabarato.pages.dev/", canonical[0]["href"])
+        self.assertEqual("https://canaltabarato.com.br/", canonical[0]["href"])
         self.assertTrue(any("max-image-preview:large" in item.get("content", "")
                             for item in parser.meta if item.get("name") == "robots"))
         data = json.loads(parser.json_ld)
@@ -50,8 +50,18 @@ class SiteSeoTest(unittest.TestCase):
         robots = (PUBLIC / "robots.txt").read_text()
         self.assertIn("User-agent: OAI-SearchBot", robots)
         self.assertIn("User-agent: ChatGPT-User", robots)
-        self.assertIn("Sitemap: https://canaltabarato.pages.dev/sitemap.xml", robots)
+        self.assertIn("Sitemap: https://canaltabarato.com.br/sitemap.xml", robots)
         self.assertIn("Disallow: /api/", robots)
+
+    def test_dominio_oficial_e_redirecionamento_legado(self):
+        root = ROOT / "site"
+        helper = (root / "functions" / "_site.js").read_text()
+        middleware = (root / "functions" / "_middleware.js").read_text()
+        indexnow = (root / "functions" / "_indexnow.js").read_text()
+        self.assertIn("https://canaltabarato.com.br", helper)
+        self.assertIn("canaltabarato.pages.dev", middleware)
+        self.assertIn("url.pathname.startsWith('/api/')", middleware)
+        self.assertIn("host:'canaltabarato.com.br'", indexnow)
 
     def test_ofertas_possuem_paginas_descobríveis(self):
         app = (PUBLIC / "app.js").read_text()

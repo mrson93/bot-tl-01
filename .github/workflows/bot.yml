@@ -68,7 +68,7 @@ jobs:
       INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '0' }}
       INSTAGRAM_DIRECT_ATIVO: ${{ vars.INSTAGRAM_DIRECT_ATIVO || 'false' }}
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
-      SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.pages.dev/api/publish' }}
+      SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.com.br/api/publish' }}
       SITE_TRACKING_ID: ${{ vars.SITE_TRACKING_ID || 'site' }}
       SITE_REFRESH_PER_RUN: ${{ vars.SITE_REFRESH_PER_RUN || '6' }}
       CUPOM_ALERTA_SEPARADO: ${{ vars.CUPOM_ALERTA_SEPARADO || 'true' }}

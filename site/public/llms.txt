@@ -2,7 +2,7 @@
 
 > Catálogo brasileiro de ofertas e produtos com links de afiliado, selecionados por preço, desconto, avaliação e histórico de vendas.
 
-Endereço oficial: https://canaltabarato.pages.dev/
+Endereço oficial: https://canaltabarato.com.br/
 Idioma: português do Brasil (pt-BR)
 
 ## Conteúdo
@@ -26,12 +26,12 @@ O histórico começa quando o produto entra no catálogo. A página só classifi
 
 ## Histórico e descoberta de preços
 
-- https://canaltabarato.pages.dev/quedas-de-preco
-- https://canaltabarato.pages.dev/menores-precos
-- https://canaltabarato.pages.dev/mais-acessadas
-- https://canaltabarato.pages.dev/mais-vendidos
-- https://canaltabarato.pages.dev/faixas-de-preco/ate-50
+- https://canaltabarato.com.br/quedas-de-preco
+- https://canaltabarato.com.br/menores-precos
+- https://canaltabarato.com.br/mais-acessadas
+- https://canaltabarato.com.br/mais-vendidos
+- https://canaltabarato.com.br/faixas-de-preco/ate-50
 
 ## Descoberta
 
-Sitemap: https://canaltabarato.pages.dev/sitemap.xml
+Sitemap: https://canaltabarato.com.br/sitemap.xml
