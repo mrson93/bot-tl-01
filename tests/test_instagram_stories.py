@@ -44,7 +44,11 @@ class InstagramStoriesTest(unittest.TestCase):
             Resposta({"id": "17841435020643780", "username": "ofertascanaltabarato"}),
             Resposta({"id": "18000000000000001", "status_code": "FINISHED"}),
         ]
-        posts = [Resposta({"id": "18000000000000001"}), Resposta({"id": "17900000000000001"})]
+        posts = [
+            Resposta({"success": True}),
+            Resposta({"id": "18000000000000001"}),
+            Resposta({"id": "17900000000000001"}),
+        ]
         with self.configuracao(), \
              patch.object(instagram_stories.requests, "get", side_effect=gets) as get, \
              patch.object(instagram_stories.requests, "post", side_effect=posts) as post, \
@@ -60,8 +64,16 @@ class InstagramStoriesTest(unittest.TestCase):
             )
 
         self.assertEqual(3, get.call_count)
-        self.assertEqual(2, post.call_count)
-        criar, publicar = post.call_args_list
+        self.assertEqual(3, post.call_count)
+        assinar, criar, publicar = post.call_args_list
+        self.assertTrue(assinar.args[0].endswith("/111695315138976/subscribed_apps"))
+        self.assertEqual(
+            "messages,messaging_postbacks",
+            assinar.kwargs["data"]["subscribed_fields"],
+        )
+        self.assertEqual(
+            "Bearer token-meta-secreto", assinar.kwargs["headers"]["Authorization"]
+        )
         self.assertTrue(criar.args[0].endswith("/17841435020643780/media"))
         self.assertEqual("STORIES", criar.kwargs["data"]["media_type"])
         self.assertTrue(publicar.args[0].endswith("/17841435020643780/media_publish"))
@@ -94,7 +106,11 @@ class InstagramStoriesTest(unittest.TestCase):
             ]
         ), patch.object(
             instagram_stories.requests, "post",
-            side_effect=[Resposta({"id": "18000000000000001"}), erro],
+            side_effect=[
+                Resposta({"success": True}),
+                Resposta({"id": "18000000000000001"}),
+                erro,
+            ],
         ) as post, patch.object(
             instagram_stories.story_card, "gerar", return_value=b"jpeg"
         ), patch.object(
@@ -105,7 +121,7 @@ class InstagramStoriesTest(unittest.TestCase):
         ), patch.object(instagram_stories.time, "sleep"):
             with self.assertRaises(RuntimeError) as contexto:
                 instagram_stories.postar({}, "https://oferta.test/x")
-        self.assertEqual(2, post.call_count)
+        self.assertEqual(3, post.call_count)
         self.assertNotIn("token-meta-secreto", str(contexto.exception))
 
     def test_limite_diario_e_configuravel(self):
@@ -139,7 +155,8 @@ class InstagramStoriesTest(unittest.TestCase):
             Resposta({"id": "17841435020643780", "username": "ofertascanaltabarato"}),
             Resposta({"status_code": "FINISHED"}),
         ]
-        posts = [Resposta({"id": "18000000000000001"}),
+        posts = [Resposta({"success": True}),
+                 Resposta({"id": "18000000000000001"}),
                  Resposta({"id": "17900000000000001"})]
         with self.configuracao(), \
              patch.object(instagram_stories.requests, "get", side_effect=gets), \
@@ -155,6 +172,32 @@ class InstagramStoriesTest(unittest.TestCase):
                 {"oferta_id": "x", "productName": "Panela", "price": 79.9},
                 "https://s.shopee.com.br/link-instagram",
             )
+
+    def test_falha_ao_assinar_webhook_nao_impede_story(self):
+        gets = [
+            Resposta({"instagram_business_account": {"id": "17841435020643780"}}),
+            Resposta({"id": "17841435020643780", "username": "ofertascanaltabarato"}),
+            Resposta({"status_code": "FINISHED"}),
+        ]
+        posts = [
+            Resposta({"error": {"message": "sem permissão"}}, status=403),
+            Resposta({"id": "18000000000000001"}),
+            Resposta({"id": "17900000000000001"}),
+        ]
+        with self.configuracao(), \
+             patch.object(instagram_stories.requests, "get", side_effect=gets), \
+             patch.object(instagram_stories.requests, "post", side_effect=posts) as post, \
+             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg"), \
+             patch.object(instagram_stories.site_publisher, "publicar_imagem_story",
+                          return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"), \
+             patch.object(instagram_stories.site_publisher, "verificar_imagem_publica_story"), \
+             patch.object(instagram_stories.site_publisher, "registrar_story_instagram"), \
+             patch.object(instagram_stories.time, "sleep"):
+            instagram_stories.postar(
+                {"oferta_id": "x", "productName": "Panela", "price": 79.9},
+                "https://s.shopee.com.br/link-instagram",
+            )
+        self.assertEqual(3, post.call_count)
 
 
 if __name__ == "__main__":

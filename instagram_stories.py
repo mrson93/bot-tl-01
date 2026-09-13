@@ -37,7 +37,9 @@ def _endpoint(recurso: str) -> str:
     recurso = str(recurso or "").strip("/")
     if not _VERSAO.fullmatch(versao):
         raise ValueError("Versão da Graph API do Instagram inválida")
-    if not re.fullmatch(r"\d+(?:/(?:media|media_publish))?", recurso):
+    if not re.fullmatch(
+        r"\d+(?:/(?:media|media_publish|subscribed_apps))?", recurso
+    ):
         raise ValueError("Recurso da Graph API do Instagram inválido")
     return f"https://graph.facebook.com/{versao}/{recurso}"
 
@@ -91,7 +93,7 @@ def _get(recurso, params):
     )) from None
 
 
-def _post(recurso, dados, repetir_rede=True):
+def _post(recurso, dados, repetir_rede=True, confirmar="id", prefixo=None):
     headers = {"Authorization": f"Bearer {config.FACEBOOK_PAGE_ACCESS_TOKEN}"}
     ultimo = None
     tentativas = config.HTTP_MAX_TENTATIVAS if repetir_rede else 1
@@ -105,9 +107,11 @@ def _post(recurso, dados, repetir_rede=True):
             ultimo = erro
         else:
             corpo = _corpo(resposta)
-            if 200 <= resposta.status_code < 300 and corpo.get("id"):
+            if 200 <= resposta.status_code < 300 and corpo.get(confirmar):
                 return corpo
-            ultimo = _erro(resposta, "Instagram recusou a publicação")
+            ultimo = _erro(
+                resposta, prefixo or "Instagram recusou a publicação"
+            )
             if resposta.status_code != 429 and resposta.status_code < 500:
                 raise ultimo
         if tentativa + 1 < tentativas:
@@ -116,6 +120,19 @@ def _post(recurso, dados, repetir_rede=True):
     raise RuntimeError(seguranca.redigir_segredos(
         f"Instagram indisponível{contexto}: {ultimo}"
     )) from None
+
+
+def _assinar_webhook_mensagens() -> None:
+    """Garante que a Página entregue mensagens do Instagram ao webhook do app."""
+    pagina = str(config.FACEBOOK_PAGE_ID or "")
+    if not pagina.isdigit():
+        raise ValueError("ID da Página do Facebook inválido")
+    _post(
+        f"{pagina}/subscribed_apps",
+        {"subscribed_fields": "messages,messaging_postbacks"},
+        confirmar="success",
+        prefixo="Meta recusou a inscrição do Direct automático",
+    )
 
 
 def _conta_instagram() -> str:
@@ -153,6 +170,15 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         link_afiliado, "Link de afiliado do Instagram"
     )
     conta = _conta_instagram()
+    if config.INSTAGRAM_DIRECT_ATIVO:
+        try:
+            _assinar_webhook_mensagens()
+        except Exception as erro:
+            # A inscrição é idempotente e será tentada novamente no próximo
+            # Story. Uma indisponibilidade aqui não deve impedir a publicação.
+            print("   ⚠️  Story será publicado, mas não foi possível ativar "
+                  "o recebimento do Direct automático: "
+                  f"{seguranca.redigir_segredos(erro)}")
     imagem = story_card.gerar(
         oferta, link_afiliado, direct_ativo=config.INSTAGRAM_DIRECT_ATIVO
     )
