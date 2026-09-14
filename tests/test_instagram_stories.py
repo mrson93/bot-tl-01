@@ -81,7 +81,7 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual(
             "Bearer token-meta-secreto", publicar.kwargs["headers"]["Authorization"]
         )
-        self.assertTrue(gerar.call_args.kwargs["direct_ativo"])
+        self.assertEqual({}, gerar.call_args.kwargs)
         registrar.assert_called_once()
         self.assertEqual("17900000000000001", registrar.call_args.args[0])
 
@@ -134,7 +134,7 @@ class InstagramStoriesTest(unittest.TestCase):
             self.assertFalse(instagram_stories.pode_publicar())
 
     def test_cartao_tem_formato_vertical_sem_qr_code(self):
-        link = "https://canaltabarato.pages.dev/go/oferta-instagram?src=instagram"
+        link = "https://go.canaltabarato.com.br/A7kP3mQ9"
         with patch.object(story_card, "_baixar_imagem", return_value=None):
             conteudo = story_card.gerar(
                 {"productName": "Panela elétrica com desconto", "price": 79.9,
@@ -145,9 +145,18 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual((1080, 1920), imagem.size)
         self.assertLessEqual(len(conteudo), 850_000)
         self.assertEqual(
-            "canaltabarato.pages.dev/go/oferta-instagram?src=instagram",
+            "canaltabarato.com.br/A7kP3mQ9",
             story_card._link_exibivel(link),
         )
+
+    def test_titulo_do_cartao_fica_completo_sem_reticencias(self):
+        titulo = ("Kit completo de panelas antiaderentes com tampas de vidro "
+                  "cabos resistentes e acessórios para cozinha")
+        imagem = Image.new("RGB", (1080, 1920), "white")
+        draw = story_card.ImageDraw.Draw(imagem)
+        linhas, _fonte, _entrelinha = story_card._ajustar_titulo(draw, titulo)
+        self.assertEqual(titulo, " ".join(linhas))
+        self.assertNotIn("…", " ".join(linhas))
 
     def test_falha_ao_registrar_direct_nao_duplica_story_publicado(self):
         gets = [

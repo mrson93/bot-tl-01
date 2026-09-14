@@ -33,12 +33,21 @@ async function createLink(request, env) {
   const channel = String(body.channel || "").trim().slice(0, 40);
   const source = String(body.source || "").trim().slice(0, 60);
   if (!offerId || !channel || !source) return json({ error: "invalid_dimensions" }, 400);
-  const slug = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
   const now = Math.floor(Date.now() / 1000);
-  await env.DB.prepare(
-    "INSERT INTO links(slug,destination,offer_id,channel,source,created_at) VALUES(?,?,?,?,?,?)",
-  ).bind(slug, body.destination, offerId, channel, source, now).run();
-  return json({ short_url: `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/${slug}` }, 201);
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    const slug = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    try {
+      await env.DB.prepare(
+        "INSERT INTO links(slug,destination,offer_id,channel,source,created_at) VALUES(?,?,?,?,?,?)",
+      ).bind(slug, body.destination, offerId, channel, source, now).run();
+      return json({ short_url: `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/${slug}` }, 201);
+    } catch (error) {
+      if (!String(error?.message || error).includes("UNIQUE constraint failed")) throw error;
+    }
+  }
+  return json({ error: "slug_unavailable" }, 503);
 }
 
 async function stats(request, env) {
@@ -79,7 +88,10 @@ async function stats(request, env) {
 
 async function redirect(pathname, env) {
   const slug = pathname.slice(1);
-  if (!/^[a-f0-9]{16}$/.test(slug)) return new Response("Not found", { status: 404 });
+  // Mantém funcionando tudo o que já foi publicado com o formato antigo.
+  if (!/^(?:[A-Za-z0-9]{8}|[a-f0-9]{16})$/.test(slug)) {
+    return new Response("Not found", { status: 404 });
+  }
   const link = await env.DB.prepare(
     "SELECT destination FROM links WHERE slug=?",
   ).bind(slug).first();

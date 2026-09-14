@@ -20,7 +20,18 @@ test('valida dimensões e cria link próprio sem dados pessoais',async()=>{
   const response=await worker.fetch(request,env());
   const body=await response.json();
   assert.equal(response.status,201);
-  assert.match(body.short_url,/^https:\/\/go\.canaltabarato\.com\.br\/[a-f0-9]{16}$/);
+  assert.match(body.short_url,/^https:\/\/go\.canaltabarato\.com\.br\/[A-Za-z0-9]{8}$/);
+});
+
+test('mantém links antigos válidos durante a transição',async()=>{
+  let selected;
+  const DB={prepare(){return {bind(slug){selected=slug;return this;},
+    async first(){return {destination:'https://shopee.com.br/oferta'};},
+    async run(){return {meta:{changes:1}};}};}};
+  const response=await worker.fetch(
+    new Request('https://go.canaltabarato.com.br/abcdef0123456789'),env({DB}));
+  assert.equal(response.status,302);
+  assert.equal(selected,'abcdef0123456789');
 });
 
 test('rejeita destino não autorizado e intervalo inválido',async()=>{

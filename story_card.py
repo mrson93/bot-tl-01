@@ -29,29 +29,60 @@ def _fonte(tamanho, negrito=False):
     raise RuntimeError("Fonte necessária para o cartão do Story não encontrada")
 
 
-def _quebrar(draw, texto, fonte, largura, max_linhas):
-    palavras = str(texto or "Oferta").split()
+def _quebrar_completo(draw, texto, fonte, largura):
+    """Quebra todo o texto sem omitir palavras nem acrescentar reticências."""
     linhas, atual = [], ""
-    for palavra in palavras:
+    for palavra in str(texto or "Oferta").split():
         teste = f"{atual} {palavra}".strip()
         if draw.textbbox((0, 0), teste, font=fonte)[2] <= largura:
             atual = teste
-        else:
-            if atual:
-                linhas.append(atual)
-            atual = palavra
-            if len(linhas) == max_linhas - 1:
-                break
-    if atual and len(linhas) < max_linhas:
+            continue
+        if atual:
+            linhas.append(atual)
+            atual = ""
+        # Marketplaces às vezes devolvem um código sem espaços maior que a
+        # caixa. Ele também precisa ser preservado, então quebramos por letra.
+        pedaco = ""
+        for caractere in palavra:
+            teste = pedaco + caractere
+            if pedaco and draw.textbbox((0, 0), teste, font=fonte)[2] > largura:
+                linhas.append(pedaco)
+                pedaco = caractere
+            else:
+                pedaco = teste
+        atual = pedaco
+    if atual:
         linhas.append(atual)
-    usado = sum(len(linha.split()) for linha in linhas)
-    if usado < len(palavras) and linhas:
-        while linhas[-1] and draw.textbbox(
-            (0, 0), linhas[-1] + "…", font=fonte
-        )[2] > largura:
-            linhas[-1] = linhas[-1][:-1].rstrip()
-        linhas[-1] += "…"
     return linhas
+
+
+def _ajustar_titulo(draw, texto, largura=850, altura=220):
+    """Escolhe a maior fonte que comporte o título completo no cartão."""
+    for tamanho in (49, 45, 41, 37, 33, 29, 25, 22, 20):
+        fonte = _fonte(tamanho, True)
+        linhas = _quebrar_completo(draw, texto, fonte, largura)
+        entrelinha = tamanho + 7
+        if len(linhas) <= 6 and len(linhas) * entrelinha <= altura:
+            return linhas, fonte, entrelinha
+    fonte = _fonte(18, True)
+    linhas = _quebrar_completo(draw, texto, fonte, largura)
+    return linhas, fonte, 22
+
+
+def _desenhar_logo(draw):
+    """Desenha a marca do canal em formato de ingresso no cabeçalho."""
+    amarelo, vermelho = "#FFC400", "#ED1C24"
+    draw.rounded_rectangle((54, 54, 1026, 226), radius=54, fill=amarelo)
+    draw.rectangle((54, 150, 1026, 226), fill=amarelo)
+    ingresso = (244, 76, 836, 208)
+    draw.rounded_rectangle(ingresso, radius=8, fill=vermelho)
+    raio = 25
+    for x, y in ((244, 142), (836, 142), (540, 76), (540, 208)):
+        draw.ellipse((x - raio, y - raio, x + raio, y + raio), fill=amarelo)
+    draw.text((446, 142), "TÁ", font=_fonte(48, True), fill="white", anchor="mm")
+    for y in (111, 136, 161):
+        draw.rectangle((532, y, 548, y + 13), fill=amarelo)
+    draw.text((681, 142), "BARATO", font=_fonte(48, True), fill="white", anchor="mm")
 
 
 def _baixar_imagem(url):
@@ -96,15 +127,20 @@ def _preco(valor):
 
 
 def _link_exibivel(link):
-    """Encurta só a apresentação, preservando todo o endereço funcional."""
+    """Mostra o atalho no domínio principal, sem protocolo ou www."""
     partes = urlsplit(link)
-    return urlunsplit(("", partes.netloc, partes.path or "/",
+    host = partes.netloc.removeprefix("www.")
+    # O redirecionador vive em go.*, mas o site encaminha o mesmo código na
+    # raiz. Isso economiza caracteres importantes em uma imagem de Story.
+    if host == "go.canaltabarato.com.br" and not partes.query and not partes.fragment:
+        host = "canaltabarato.com.br"
+    return urlunsplit(("", host, partes.path or "/",
                        partes.query, partes.fragment)).lstrip("//")
 
 
 def _quebrar_link(draw, texto, largura, max_linhas=3):
     """Quebra URL sem inserir caracteres; quem digitar continuará no destino."""
-    for tamanho in (28, 25, 22, 19, 17):
+    for tamanho in (40, 36, 32, 28, 25, 22, 19, 17):
         fonte = _fonte(tamanho, True)
         linhas, atual = [], ""
         for caractere in texto:
@@ -122,15 +158,13 @@ def _quebrar_link(draw, texto, largura, max_linhas=3):
 
 
 def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
-    """Devolve JPEG 9:16 com chamada para o Direct ou link em texto."""
+    """Devolve JPEG 9:16 com o endereço curto exato da oferta."""
     link = seguranca.validar_url_https_publica(link, "Link do Story")
     canvas = Image.new("RGB", (LARGURA, ALTURA), "#FFC400")
     draw = ImageDraw.Draw(canvas)
 
     draw.rounded_rectangle((54, 54, 1026, 1866), radius=54, fill="#FFFDF7")
-    draw.rounded_rectangle((54, 54, 1026, 226), radius=54, fill="#ED1C24")
-    draw.rectangle((54, 150, 1026, 226), fill="#ED1C24")
-    draw.text((540, 140), "TÁ BARATO", font=_fonte(72, True), fill="white", anchor="mm")
+    _desenhar_logo(draw)
 
     produto = _baixar_imagem(oferta.get("imageUrl"))
     caixa = (130, 270, 950, 1030)
@@ -143,13 +177,12 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
     else:
         draw.text((540, 650), "OFERTA DO DIA", font=_fonte(64, True), fill="#ED1C24", anchor="mm")
 
-    titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 92)
-    titulo_fonte = _fonte(49, True)
-    linhas = _quebrar(draw, titulo, titulo_fonte, 850, 3)
-    y = 1065
+    titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
+    linhas, titulo_fonte, entrelinha = _ajustar_titulo(draw, titulo)
+    y = 1048
     for linha in linhas:
         draw.text((540, y), linha, font=titulo_fonte, fill="#252525", anchor="ma")
-        y += 59
+        y += entrelinha
 
     preco = oferta.get("price") or oferta.get("priceMin")
     draw.text((540, 1280), _preco(preco), font=_fonte(92, True), fill="#ED1C24", anchor="mm")
@@ -158,27 +191,18 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
         draw.rounded_rectangle((365, 1342, 715, 1422), radius=38, fill="#252525")
         draw.text((540, 1382), f"{int(round(desconto))}% OFF", font=_fonte(42, True), fill="white", anchor="mm")
 
-    if direct_ativo:
-        draw.rounded_rectangle((130, 1480, 950, 1685), radius=36, fill="#ED1C24")
-        draw.text((540, 1528), "QUER O LINK?", font=_fonte(44, True),
-                  fill="white", anchor="ma")
-        draw.text((540, 1592), "Responda QUERO", font=_fonte(40, True),
-                  fill="white", anchor="ma")
-        draw.text((540, 1648), "ou responda qualquer coisa no Story",
-                  font=_fonte(25), fill="white", anchor="ma")
-    else:
-        draw.text((540, 1492), "LINK DA OFERTA", font=_fonte(38, True),
-                  fill="#ED1C24", anchor="ma")
-        linhas_link, fonte_link = _quebrar_link(
-            draw, _link_exibivel(link), 820, max_linhas=4
-        )
-        y_link = 1550
-        for linha in linhas_link:
-            draw.text((540, y_link), linha, font=fonte_link,
-                      fill="#252525", anchor="ma")
-            y_link += fonte_link.size + 8
-        draw.text((540, max(1690, y_link + 10)), "Digite o endereço no navegador",
-                  font=_fonte(24), fill="#555555", anchor="ma")
+    draw.text((540, 1482), "ACESSE A OFERTA", font=_fonte(38, True),
+              fill="#ED1C24", anchor="ma")
+    linhas_link, fonte_link = _quebrar_link(
+        draw, _link_exibivel(link), 820, max_linhas=4
+    )
+    y_link = 1542
+    for linha in linhas_link:
+        draw.text((540, y_link), linha, font=fonte_link,
+                  fill="#252525", anchor="ma")
+        y_link += fonte_link.size + 8
+    draw.text((540, max(1685, y_link + 10)), "Digite o endereço no navegador",
+              font=_fonte(24), fill="#555555", anchor="ma")
     fonte = str(oferta.get("fonte") or "loja")
     draw.text((470, 1720), f"Oferta {fonte}", font=_fonte(27, True), fill="#555555")
     draw.text((540, 1822), "Link de afiliado • preço pode mudar", font=_fonte(24), fill="#6B6B6B", anchor="mm")
