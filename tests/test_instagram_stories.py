@@ -134,7 +134,7 @@ class InstagramStoriesTest(unittest.TestCase):
             self.assertFalse(instagram_stories.pode_publicar())
 
     def test_cartao_tem_formato_vertical_sem_qr_code(self):
-        link = "https://go.canaltabarato.com.br/A7kP3mQ9"
+        link = "https://go.canaltabarato.com.br/a7kp3mq9"
         with patch.object(story_card, "_baixar_imagem", return_value=None):
             conteudo = story_card.gerar(
                 {"productName": "Panela elétrica com desconto", "price": 79.9,
@@ -145,7 +145,7 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual((1080, 1920), imagem.size)
         self.assertLessEqual(len(conteudo), 850_000)
         self.assertEqual(
-            "canaltabarato.com.br/A7kP3mQ9",
+            "canaltabarato.com.br/a7kp3mq9",
             story_card._link_exibivel(link),
         )
 

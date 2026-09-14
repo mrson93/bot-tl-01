@@ -34,7 +34,8 @@ async function createLink(request, env) {
   const source = String(body.source || "").trim().slice(0, 60);
   if (!offerId || !channel || !source) return json({ error: "invalid_dimensions" }, 400);
   const now = Math.floor(Date.now() / 1000);
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  // Minúsculas e sem 0/1/l/o: fica muito mais fácil copiar da imagem à mão.
+  const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const bytes = crypto.getRandomValues(new Uint8Array(8));
     const slug = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");

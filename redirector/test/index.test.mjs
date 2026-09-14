@@ -20,7 +20,7 @@ test('valida dimensões e cria link próprio sem dados pessoais',async()=>{
   const response=await worker.fetch(request,env());
   const body=await response.json();
   assert.equal(response.status,201);
-  assert.match(body.short_url,/^https:\/\/go\.canaltabarato\.com\.br\/[A-Za-z0-9]{8}$/);
+  assert.match(body.short_url,/^https:\/\/go\.canaltabarato\.com\.br\/[a-z2-9]{8}$/);
 });
 
 test('mantém links antigos válidos durante a transição',async()=>{
