@@ -246,6 +246,19 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("48 horas", deletion)
         self.assertIn("/exclusao-de-dados", sitemap)
 
+    def test_pagina_dos_stories_e_cliques_rastreados(self):
+        root = ROOT / "site"
+        stories = (root / "functions" / "stories.js").read_text()
+        redirect = (root / "functions" / "story-go" / "[id].js").read_text()
+        migration = (root / "migrations" / "0011_cliques_dos_stories.sql").read_text()
+        sitemap = (root / "functions" / "sitemap.xml.js").read_text()
+        self.assertIn("instagram_story_offers", stories)
+        self.assertIn("24*60*60", stories)
+        self.assertIn("instagram_story_clicks_daily", redirect)
+        self.assertIn("safeUrl", redirect)
+        self.assertIn("CREATE TABLE IF NOT EXISTS instagram_story_clicks_daily", migration)
+        self.assertIn("/stories", sitemap)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 import {json} from '../_lib.js';
 
-const ALLOWED=/^\/(?:$|oferta\/[^/?#]{1,200}$|cupons$|quedas-de-preco$|menores-precos$|mais-acessadas$|mais-vendidos$|categorias\/[^/?#]{1,80}$|lojas\/[^/?#]{1,80}$|faixas-de-preco\/(?:ate-50|de-50-a-100|de-100-a-200|acima-de-200)$)/;
+const ALLOWED=/^\/(?:$|stories$|oferta\/[^/?#]{1,200}$|cupons$|quedas-de-preco$|menores-precos$|mais-acessadas$|mais-vendidos$|categorias\/[^/?#]{1,80}$|lojas\/[^/?#]{1,80}$|faixas-de-preco\/(?:ate-50|de-50-a-100|de-100-a-200|acima-de-200)$)/;
 const SOURCES=new Set(['facebook','instagram','telegram','bluesky','google','bing','direct','other']);
 
 function saoPauloDay() {
