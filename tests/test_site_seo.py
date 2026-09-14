@@ -196,7 +196,7 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("https://cloudflareinsights.com", headers)
         self.assertIn("Cloudflare Web Analytics", (ROOT / "site" / "functions" / "privacidade.js").read_text())
 
-    def test_google_analytics_exige_consentimento_e_respeita_csp(self):
+    def test_google_analytics_sem_popup_e_sem_cookies_respeita_csp(self):
         helper = (ROOT / "site" / "functions" / "_site.js").read_text()
         headers = (PUBLIC / "_headers").read_text()
         index = (PUBLIC / "index.html").read_text()
@@ -205,14 +205,17 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn('src="/google-analytics.js"', helper)
         self.assertIn('src="/google-analytics.js"', index)
         self.assertIn("G-3LVTD2P52D", analytics)
-        self.assertIn("tb:google-analytics-consent", analytics)
+        self.assertNotIn("analytics-consent", analytics)
+        self.assertNotIn("localStorage", analytics)
+        self.assertIn("analytics_storage:'denied'", analytics)
         self.assertIn("ad_storage:'denied'", analytics)
+        self.assertIn("ads_data_redaction", analytics)
         self.assertIn("affiliate_click", analytics)
         for text in (helper, headers):
             self.assertIn("https://www.googletagmanager.com", text)
             self.assertIn("https://*.google-analytics.com", text)
         self.assertIn("Google Analytics", privacy)
-        self.assertIn("só é carregada depois", privacy)
+        self.assertIn("sem armazenamento de cookies", privacy)
 
     def test_catalogo_persistente_atualiza_precos_sem_apagar_produtos_antigos(self):
         root = ROOT / "site"
