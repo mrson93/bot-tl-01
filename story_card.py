@@ -69,20 +69,27 @@ def _ajustar_titulo(draw, texto, largura=850, altura=220):
     return linhas, fonte, 22
 
 
-def _desenhar_logo(draw):
-    """Desenha a marca do canal em formato de ingresso no cabeçalho."""
-    amarelo, vermelho = "#FFC400", "#ED1C24"
+def _desenhar_logo(canvas, draw):
+    """Aplica a logo original sem alterar sua proporção."""
+    amarelo = "#FFC400"
     draw.rounded_rectangle((54, 54, 1026, 226), radius=54, fill=amarelo)
     draw.rectangle((54, 150, 1026, 226), fill=amarelo)
-    ingresso = (244, 76, 836, 208)
-    draw.rounded_rectangle(ingresso, radius=8, fill=vermelho)
-    raio = 25
-    for x, y in ((244, 142), (836, 142), (540, 76), (540, 208)):
-        draw.ellipse((x - raio, y - raio, x + raio, y + raio), fill=amarelo)
-    draw.text((446, 142), "TÁ", font=_fonte(48, True), fill="white", anchor="mm")
-    for y in (111, 136, 161):
-        draw.rectangle((532, y, 548, y + 13), fill=amarelo)
-    draw.text((681, 142), "BARATO", font=_fonte(48, True), fill="white", anchor="mm")
+    caminho = Path(__file__).with_name("assets") / "canal-ta-barato-logo.jpg"
+    try:
+        with Image.open(caminho) as original:
+            # Remove somente a margem externa do avatar; o ingresso, as cores e
+            # a proporção da arte original permanecem intactos.
+            logo = original.convert("RGB").crop((20, 92, 300, 232))
+        pixels = logo.load()
+        for y in range(logo.height):
+            for x in range(logo.width):
+                vermelho, verde, azul = pixels[x, y]
+                if vermelho > 200 and verde > 130 and azul < 90:
+                    pixels[x, y] = (255, 196, 0)
+        logo = ImageOps.contain(logo, (420, 150), Image.Resampling.LANCZOS)
+        canvas.paste(logo, ((LARGURA - logo.width) // 2, 65))
+    except OSError as erro:
+        raise RuntimeError("Logo original do canal não encontrada") from erro
 
 
 def _baixar_imagem(url):
@@ -164,7 +171,7 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
     draw = ImageDraw.Draw(canvas)
 
     draw.rounded_rectangle((54, 54, 1026, 1866), radius=54, fill="#FFFDF7")
-    _desenhar_logo(draw)
+    _desenhar_logo(canvas, draw)
 
     produto = _baixar_imagem(oferta.get("imageUrl"))
     caixa = (130, 270, 950, 1030)
@@ -201,10 +208,14 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
         draw.text((540, y_link), linha, font=fonte_link,
                   fill="#252525", anchor="ma")
         y_link += fonte_link.size + 8
-    draw.text((540, max(1685, y_link + 10)), "Digite o endereço no navegador",
+    draw.text((540, max(1620, y_link + 8)), "Digite o endereço no navegador",
               font=_fonte(24), fill="#555555", anchor="ma")
+    draw.rounded_rectangle((185, 1650, 895, 1712), radius=30, fill="#ED1C24")
+    draw.text((540, 1681), "LINK NA BIO • ENTRE NO TELEGRAM",
+              font=_fonte(25, True), fill="white", anchor="mm")
     fonte = str(oferta.get("fonte") or "loja")
-    draw.text((470, 1720), f"Oferta {fonte}", font=_fonte(27, True), fill="#555555")
+    draw.text((540, 1750), f"Oferta {fonte}", font=_fonte(27, True),
+              fill="#555555", anchor="mm")
     draw.text((540, 1822), "Link de afiliado • preço pode mudar", font=_fonte(24), fill="#6B6B6B", anchor="mm")
 
     saida = BytesIO()

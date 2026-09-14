@@ -15,6 +15,8 @@ test('lista ofertas dos Stories com link rastreado',async()=>{
   assert.match(body,/Panela elétrica/);
   assert.match(body,/R\$\s79,90/u);
   assert.match(body,/\/story-go\/17900000000000001/);
+  assert.match(body,/Entre no canal gratuito do Telegram/);
+  assert.match(body,/https:\/\/t\.me\/CanalTaBarato/);
   assert.equal(response.headers.get('cache-control'),'public, max-age=60, stale-while-revalidate=180');
 });
 
