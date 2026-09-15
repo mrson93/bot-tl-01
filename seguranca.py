@@ -1,5 +1,6 @@
 """Pequenas barreiras de seguranca usadas nas integracoes externas."""
 import ipaddress
+import os
 import re
 import socket
 from urllib.parse import urlsplit
@@ -82,6 +83,7 @@ def redigir_segredos(valor) -> str:
         "TELEGRAM_BOT_TOKEN",
         "BLUESKY_APP_PASSWORD",
         "FACEBOOK_PAGE_ACCESS_TOKEN",
+        "BUFFER_API_KEY",
         "SHOPEE_SECRET",
         "ALIEXPRESS_APP_SECRET",
         "AMAZON_CREDENTIAL_ID",
@@ -89,7 +91,7 @@ def redigir_segredos(valor) -> str:
         "SITE_API_TOKEN",
     )
     for nome in nomes:
-        segredo = getattr(config, nome, "")
+        segredo = getattr(config, nome, "") or os.getenv(nome, "")
         if segredo and len(segredo) >= 4:
             texto = texto.replace(segredo, "[SEGREDO]")
     return _TOKEN_TELEGRAM.sub(r"\1[SEGREDO]", texto)

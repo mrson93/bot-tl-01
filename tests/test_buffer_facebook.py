@@ -1,0 +1,92 @@
+import os
+import unittest
+from unittest.mock import patch
+
+import buffer_facebook
+import facebook
+
+
+class Resposta:
+    def __init__(self, corpo, status=200):
+        self._corpo = corpo
+        self.status_code = status
+
+    def json(self):
+        return self._corpo
+
+
+class BufferFacebookTest(unittest.TestCase):
+    def configuracao(self):
+        return patch.dict(os.environ, {
+            "BUFFER_API_KEY": "buffer-chave-secreta-comprida",
+            "BUFFER_FACEBOOK_CHANNEL_ID": "6aa9c3e5ea19ca0bde4ff5f3",
+        }, clear=False)
+
+    def test_publica_card_imediatamente_com_variaveis_graphql(self):
+        jpeg = b"\xff\xd8\xffcard"
+        with self.configuracao(), \
+             patch.object(buffer_facebook.site_publisher,
+                          "publicar_imagem_story",
+                          return_value="https://canaltabarato.com.br/story-assets/card.jpg"), \
+             patch.object(buffer_facebook.site_publisher,
+                          "verificar_imagem_publica_story") as verificar, \
+             patch.object(buffer_facebook.requests, "post", return_value=Resposta({
+                 "data": {"createPost": {"post": {"id": "post_123"}}}
+             })) as post:
+            post_id = buffer_facebook.publicar("Oferta", jpeg)
+
+        self.assertEqual("post_123", post_id)
+        verificar.assert_called_once_with(
+            "https://canaltabarato.com.br/story-assets/card.jpg", len(jpeg)
+        )
+        chamada = post.call_args
+        self.assertEqual("https://api.buffer.com", chamada.args[0])
+        self.assertEqual("Bearer buffer-chave-secreta-comprida",
+                         chamada.kwargs["headers"]["Authorization"])
+        entrada = chamada.kwargs["json"]["variables"]["input"]
+        self.assertEqual("shareNow", entrada["mode"])
+        self.assertEqual("automatic", entrada["schedulingType"])
+        self.assertEqual("6aa9c3e5ea19ca0bde4ff5f3", entrada["channelId"])
+        self.assertEqual(
+            "https://canaltabarato.com.br/story-assets/card.jpg",
+            entrada["assets"][0]["image"]["url"],
+        )
+
+    def test_falha_incerta_nao_e_repetida(self):
+        with self.configuracao(), \
+             patch.object(buffer_facebook.requests, "post",
+                          side_effect=buffer_facebook.requests.ConnectionError()) as post:
+            with self.assertRaisesRegex(RuntimeError, "sem confirmação"):
+                buffer_facebook.publicar("Oferta", None)
+        self.assertEqual(1, post.call_count)
+
+    def test_erro_graphql_nao_expoe_resposta(self):
+        with self.configuracao(), patch.object(
+            buffer_facebook.requests, "post",
+            return_value=Resposta({"errors": [{"message": "segredo"}]})
+        ):
+            with self.assertRaisesRegex(RuntimeError, "recusou") as contexto:
+                buffer_facebook.publicar("Oferta", None)
+        self.assertNotIn("segredo", str(contexto.exception))
+
+    def test_configuracao_exige_id_de_canal_valido(self):
+        with patch.dict(os.environ, {
+            "BUFFER_API_KEY": "buffer-chave-secreta-comprida",
+            "BUFFER_FACEBOOK_CHANNEL_ID": "invalido",
+        }, clear=False):
+            self.assertFalse(buffer_facebook.esta_configurado())
+
+    def test_facebook_prefere_buffer_sem_chamar_api_direta_da_meta(self):
+        oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50}
+        with patch.object(facebook.config, "FACEBOOK_ATIVO", True), \
+             patch.object(facebook.buffer_facebook, "esta_configurado",
+                          return_value=True), \
+             patch.object(facebook.buffer_facebook, "publicar") as publicar, \
+             patch.object(facebook, "_publicar") as publicar_meta:
+            facebook.postar(oferta, "https://oferta.test/comprar")
+        publicar.assert_called_once()
+        publicar_meta.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

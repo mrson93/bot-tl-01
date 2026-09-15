@@ -5,6 +5,7 @@ import time
 
 import requests
 
+import buffer_facebook
 import config
 import desempenho
 import experimentos
@@ -24,8 +25,8 @@ class RespostaFacebookError(RuntimeError):
 
 
 def esta_configurada() -> bool:
-    return bool(config.FACEBOOK_ATIVO and config.FACEBOOK_PAGE_ID
-                and config.FACEBOOK_PAGE_ACCESS_TOKEN)
+    direta = bool(config.FACEBOOK_PAGE_ID and config.FACEBOOK_PAGE_ACCESS_TOKEN)
+    return bool(config.FACEBOOK_ATIVO and (buffer_facebook.esta_configurado() or direta))
 
 
 def pode_publicar() -> bool:
@@ -168,6 +169,17 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         print("   ⚠️  Facebook sem card personalizado: "
               f"{seguranca.redigir_segredos(erro)}")
         card = None
+    if buffer_facebook.esta_configurado():
+        try:
+            buffer_facebook.publicar(texto, card, oferta.get("imageUrl"))
+        except buffer_facebook.FalhaHospedagemCard as erro:
+            # Se a hospedagem temporária do card falhar, ainda tentamos a foto
+            # original da oferta. Uma falha da API não cai na integração direta
+            # da Meta, pois isso poderia criar dois posts.
+            print("   ⚠️  Facebook via Buffer sem card personalizado: "
+                  f"{seguranca.redigir_segredos(erro)}")
+            buffer_facebook.publicar(texto, None, oferta.get("imageUrl"))
+        return
     if card:
         try:
             foto = _publicar("photos", {"published": "false"}, arquivo=card)

@@ -43,6 +43,13 @@ class SegurancaTest(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 seguranca.validar_url_https_publica(url)
 
+    def test_redige_chave_do_buffer_lida_do_ambiente(self):
+        with patch.dict("os.environ", {"BUFFER_API_KEY": "buffer-chave-secreta"}):
+            seguro = seguranca.redigir_segredos(
+                "falhou com buffer-chave-secreta"
+            )
+        self.assertEqual("falhou com [SEGREDO]", seguro)
+
 
 if __name__ == "__main__":
     unittest.main()
