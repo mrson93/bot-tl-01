@@ -27,3 +27,4 @@ telegram-control/node_modules/
 site/wrangler.toml
 site/.dev.vars
 site/node_modules/
+.DS_Store
