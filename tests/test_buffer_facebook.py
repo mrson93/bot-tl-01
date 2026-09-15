@@ -69,6 +69,19 @@ class BufferFacebookTest(unittest.TestCase):
                 buffer_facebook.publicar("Oferta", None)
         self.assertNotIn("segredo", str(contexto.exception))
 
+    def test_erro_tipado_e_sanitizado_para_diagnostico(self):
+        with self.configuracao(), patch.object(
+            buffer_facebook.requests, "post",
+            return_value=Resposta({
+                "data": {"createPost": {
+                    "message": "campo inválido buffer-chave-secreta-comprida"
+                }}
+            })
+        ):
+            with self.assertRaisesRegex(RuntimeError, "campo inválido") as contexto:
+                buffer_facebook.publicar("Oferta", None)
+        self.assertNotIn("buffer-chave-secreta-comprida", str(contexto.exception))
+
     def test_configuracao_exige_id_de_canal_valido(self):
         with patch.dict(os.environ, {
             "BUFFER_API_KEY": "buffer-chave-secreta-comprida",

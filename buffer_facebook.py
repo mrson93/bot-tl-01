@@ -125,5 +125,6 @@ def publicar(texto: str, card: Optional[bytes],
     if post_id:
         return post_id
     if resultado.get("message"):
-        raise RuntimeError("Buffer recusou os dados da publicação")
+        detalhe = seguranca.redigir_segredos(resultado["message"])[:300]
+        raise RuntimeError(f"Buffer recusou os dados da publicação: {detalhe}")
     raise RuntimeError("Buffer respondeu sem confirmar a publicação")
