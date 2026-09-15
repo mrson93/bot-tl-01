@@ -98,7 +98,7 @@ export function head({title,description,canonical,structured='',image=''}) {
 }
 
 export function header(active='offers') {
-  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal"><a href="/"${active==='offers'?' aria-current="page"':''}>Ofertas</a><a href="/quedas-de-preco"${active==='history'?' aria-current="page"':''}>Histórico</a><a href="/cupons"${active==='coupons'?' aria-current="page"':''}>Cupons</a></nav><a class="telegram-link" href="https://t.me/CanalTaBarato" rel="noopener noreferrer">Telegram <span>↗</span></a></header>`;
+  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal"><a href="/"${active==='offers'?' aria-current="page"':''}>Ofertas</a><a href="/quedas-de-preco"${active==='history'?' aria-current="page"':''}>Histórico</a><a href="/cupons"${active==='coupons'?' aria-current="page"':''}>Cupons</a></nav></header>`;
 }
 
 export function footer() {
