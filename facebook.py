@@ -8,6 +8,7 @@ import requests
 import config
 import desempenho
 import experimentos
+import feed_card
 import seguranca
 import store
 import telegram_poster as fmt
@@ -113,16 +114,19 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     return "\n".join(linhas)
 
 
-def _publicar(recurso: str, dados: dict) -> dict:
+def _publicar(recurso: str, dados: dict, arquivo=None) -> dict:
     url = _endpoint(recurso)
     headers = {"Authorization": f"Bearer {config.FACEBOOK_PAGE_ACCESS_TOKEN}"}
     ultimo = None
     for tentativa in range(config.HTTP_MAX_TENTATIVAS):
         try:
-            resposta = requests.post(
-                url, headers=headers, data=dados, timeout=30,
-                allow_redirects=False,
-            )
+            argumentos = {"headers": headers, "data": dados, "timeout": 30,
+                          "allow_redirects": False}
+            if arquivo is not None:
+                argumentos["files"] = {
+                    "source": ("oferta-feed.jpg", arquivo, "image/jpeg")
+                }
+            resposta = requests.post(url, **argumentos)
         except requests.RequestException as erro:
             ultimo = erro
             if tentativa + 1 < config.HTTP_MAX_TENTATIVAS:
@@ -158,6 +162,26 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         link_afiliado, "Link de afiliado"
     )
     texto = montar_texto(oferta, link_afiliado)
+    try:
+        card = feed_card.gerar(oferta)
+    except (OSError, RuntimeError, ValueError) as erro:
+        print("   ⚠️  Facebook sem card personalizado: "
+              f"{seguranca.redigir_segredos(erro)}")
+        card = None
+    if card:
+        try:
+            foto = _publicar("photos", {"published": "false"}, arquivo=card)
+            foto_id = str(foto.get("id") or "")
+            if not foto_id:
+                raise RuntimeError("Facebook respondeu sem confirmar o identificador da foto")
+            _publicar("feed", {
+                "message": texto,
+                "attached_media": json.dumps([{"media_fbid": foto_id}]),
+            })
+            return
+        except RespostaFacebookError:
+            pass
+
     imagem = oferta.get("imageUrl")
     if imagem:
         try:

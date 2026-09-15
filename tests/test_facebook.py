@@ -1,9 +1,12 @@
+import io
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 import facebook
+import feed_card
+from PIL import Image
 
 
 class Resposta:
@@ -43,6 +46,10 @@ class FacebookTest(unittest.TestCase):
         upload, feed = publicar.call_args_list
         self.assertTrue(upload.args[0].endswith("/123456/photos"))
         self.assertEqual("false", upload.kwargs["data"]["published"])
+        arquivo = upload.kwargs["files"]["source"]
+        self.assertEqual("oferta-feed.jpg", arquivo[0])
+        self.assertEqual("image/jpeg", arquivo[2])
+        self.assertTrue(arquivo[1].startswith(b"\xff\xd8\xff"))
         self.assertNotIn("caption", upload.kwargs["data"])
         self.assertTrue(feed.args[0].endswith("/123456/feed"))
         dados = feed.kwargs["data"]
@@ -51,15 +58,42 @@ class FacebookTest(unittest.TestCase):
         self.assertEqual('[{"media_fbid": "foto_123"}]', dados["attached_media"])
         self.assertNotIn("token-super-secreto", feed.args[0])
 
+    def test_card_do_feed_tem_formato_4_por_5_e_titulo_longo_sem_colisao(self):
+        titulo = ("Kit completo de panelas antiaderentes com tampas de vidro "
+                  "utensílios para cozinha cabo removível conjunto premium "
+                  "resistente para uso diário com entrega rápida")
+        with patch.object(feed_card.base, "_baixar_imagem", return_value=None):
+            conteudo = feed_card.gerar({
+                "fonte": "Shopee", "productName": titulo, "price": 1234.56,
+                "priceDiscountRate": 45,
+            })
+        imagem = Image.open(io.BytesIO(conteudo))
+        self.assertEqual((1080, 1350), imagem.size)
+        self.assertLessEqual(len(conteudo), feed_card.MAX_JPEG)
+
+        draw = feed_card.ImageDraw.Draw(imagem)
+        linhas, fonte, entrelinha = feed_card._ajustar_titulo(draw, titulo)
+        layout = feed_card._layout_texto(
+            draw, linhas, fonte, entrelinha, "R$ 1.234,56", 45
+        )
+        self.assertGreaterEqual(len(linhas), 4)
+        self.assertGreaterEqual(layout["preco_topo"] - layout["titulo_fim"], 22)
+        self.assertGreaterEqual(layout["cta_topo"] - layout["desconto_fim"], 17)
+
     def test_foto_recusada_cai_para_post_de_link(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,
                   "imageUrl": "https://imagem.test/produto.jpg"}
         with self.configuracao(), patch.object(facebook.requests, "post", side_effect=[
             Resposta({"error": {"message": "imagem invalida"}}, 400),
+            Resposta({"id": "foto_original_123"}),
             Resposta({"id": "123_456"}),
         ]) as publicar:
             facebook.postar(oferta, "https://oferta.test/comprar")
-        self.assertEqual(2, publicar.call_count)
+        self.assertEqual(3, publicar.call_count)
+        self.assertEqual(
+            "https://imagem.test/produto.jpg",
+            publicar.call_args_list[1].kwargs["data"]["url"],
+        )
         self.assertTrue(publicar.call_args.args[0].endswith("/123456/feed"))
 
     def test_exibe_motivo_quando_reposta_por_queda_real(self):
