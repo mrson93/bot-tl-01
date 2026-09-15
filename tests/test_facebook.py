@@ -55,7 +55,11 @@ class FacebookTest(unittest.TestCase):
         dados = feed.kwargs["data"]
         self.assertIn("Produto util", dados["message"])
         self.assertIn("Link de afiliado", dados["message"])
-        self.assertEqual('[{"media_fbid": "foto_123"}]', dados["attached_media"])
+        self.assertEqual("true", dados["published"])
+        self.assertEqual(
+            '{"media_fbid": "foto_123"}', dados["attached_media[0]"]
+        )
+        self.assertNotIn("attached_media", dados)
         self.assertNotIn("token-super-secreto", feed.args[0])
 
     def test_card_do_feed_tem_formato_4_por_5_e_titulo_longo_sem_colisao(self):
@@ -94,7 +98,13 @@ class FacebookTest(unittest.TestCase):
             "https://imagem.test/produto.jpg",
             publicar.call_args_list[1].kwargs["data"]["url"],
         )
-        self.assertTrue(publicar.call_args.args[0].endswith("/123456/feed"))
+        feed = publicar.call_args
+        self.assertTrue(feed.args[0].endswith("/123456/feed"))
+        self.assertEqual("true", feed.kwargs["data"]["published"])
+        self.assertEqual(
+            '{"media_fbid": "foto_original_123"}',
+            feed.kwargs["data"]["attached_media[0]"],
+        )
 
     def test_exibe_motivo_quando_reposta_por_queda_real(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 80,

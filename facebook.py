@@ -176,7 +176,8 @@ def postar(oferta: dict, link_afiliado: str) -> None:
                 raise RuntimeError("Facebook respondeu sem confirmar o identificador da foto")
             _publicar("feed", {
                 "message": texto,
-                "attached_media": json.dumps([{"media_fbid": foto_id}]),
+                "published": "true",
+                "attached_media[0]": json.dumps({"media_fbid": foto_id}),
             })
             return
         except RespostaFacebookError:
@@ -199,7 +200,8 @@ def postar(oferta: dict, link_afiliado: str) -> None:
                 raise RuntimeError("Facebook respondeu sem confirmar o identificador da foto")
             _publicar("feed", {
                 "message": texto,
-                "attached_media": json.dumps([{"media_fbid": foto_id}]),
+                "published": "true",
+                "attached_media[0]": json.dumps({"media_fbid": foto_id}),
             })
             return
         except RespostaFacebookError:
