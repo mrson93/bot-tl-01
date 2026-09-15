@@ -90,6 +90,7 @@ export function head({title,description,canonical,structured='',image=''}) {
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${html(title)}</title><meta name="description" content="${html(description)}">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+  <meta name="google-adsense-account" content="ca-pub-5239970037930660">
   <link rel="canonical" href="${html(canonical)}"><meta name="theme-color" content="#ff5a1f">
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}

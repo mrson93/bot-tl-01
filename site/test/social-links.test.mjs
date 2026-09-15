@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
+import {head} from '../functions/_site.js';
 
 const links=[
   'https://www.facebook.com/canaltabarato',
@@ -27,4 +28,12 @@ test('reserva somente dois espaços discretos para publicidade',async()=>{
   const page=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
   assert.equal((page.match(/class="ad-placement"/g)||[]).length,2);
   assert.doesNotMatch(page,/popup|interstitial|vignette/i);
+});
+
+test('publica a identificação oficial do AdSense',async()=>{
+  const page=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  const adsTxt=await readFile(new URL('../public/ads.txt',import.meta.url),'utf8');
+  assert.match(page,/google-adsense-account" content="ca-pub-5239970037930660"/);
+  assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/google-adsense-account" content="ca-pub-5239970037930660"/);
+  assert.equal(adsTxt,'google.com, pub-5239970037930660, DIRECT, f08c47fec0942fa0\n');
 });
