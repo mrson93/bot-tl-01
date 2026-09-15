@@ -92,6 +92,7 @@ def publicar(texto: str, card: Optional[bytes],
         "schedulingType": "automatic",
         "mode": "shareNow",
         "assets": ([{"image": {"url": url_imagem}}] if url_imagem else []),
+        "metadata": {"facebook": {"type": "post"}},
     }
     try:
         resposta = requests.post(

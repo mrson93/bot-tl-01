@@ -46,6 +46,7 @@ class BufferFacebookTest(unittest.TestCase):
         entrada = chamada.kwargs["json"]["variables"]["input"]
         self.assertEqual("shareNow", entrada["mode"])
         self.assertEqual("automatic", entrada["schedulingType"])
+        self.assertEqual("post", entrada["metadata"]["facebook"]["type"])
         self.assertEqual("6aa9c3e5ea19ca0bde4ff5f3", entrada["channelId"])
         self.assertEqual(
             "https://canaltabarato.com.br/story-assets/card.jpg",
