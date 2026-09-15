@@ -11,9 +11,13 @@ O Tá Barato acompanha ofertas para você encontrar oportunidades sem perder tem
 🎟️ cupons e condições em destaque  
 📲 atualizações no site, Facebook, Instagram e Telegram
 
-Siga a página e marque o Tá Barato como **Favorito** para aumentar a chance de receber as próximas ofertas no seu feed.
+Siga o Tá Barato e acompanhe novas oportunidades todos os dias.
 
-👉 Acesse: https://canaltabarato.com.br/?utm_source=facebook&utm_medium=paid_social&utm_campaign=seguidores_ta_barato
+🌐 Site: https://canaltabarato.com.br/?utm_source=facebook&utm_medium=paid_social&utm_campaign=seguidores_ta_barato
+📘 Facebook: https://www.facebook.com/111695315138976
+📸 Instagram: https://www.instagram.com/ofertascanaltabarato/
+📲 Telegram: https://t.me/CanalTaBarato
+🦋 Bluesky: https://bsky.app/profile/canaltabarato.com.br
 
 Preços e estoque podem mudar. Alguns links são de afiliado, sem custo adicional para você.
 

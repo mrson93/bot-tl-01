@@ -53,7 +53,7 @@ def montar():
 
     draw.rounded_rectangle((93, 946, 987, 1035), radius=43,
                            fill=(237, 28, 36, 246))
-    draw.text((540, 990), "SIGA E MARQUE COMO FAVORITO", font=fonte(34),
+    draw.text((540, 990), "SIGA O TÁ BARATO E ECONOMIZE", font=fonte(34),
               fill="white", anchor="mm")
     imagem.save(SAIDA, format="PNG", optimize=True)
 
