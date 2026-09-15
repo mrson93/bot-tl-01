@@ -926,6 +926,46 @@ def teste_telegram() -> None:
     print("✅ Enviado! Confira os canais. Pode apagar a mensagem de teste depois.")
 
 
+def publicar_teste_facebook_real() -> int:
+    """Publica uma oferta real somente no Facebook, para diagnóstico manual."""
+    if not facebook.esta_configurada():
+        raise RuntimeError("Facebook via Buffer não está configurado")
+
+    candidatos = []
+    for fonte in fontes_ativas():
+        candidatos.extend(buscar_candidatos(fonte))
+    for oferta in _ordenar_candidatos(candidatos):
+        oid = str(oferta.get("oferta_id") or "")
+        preco = float(oferta.get("price") or 0)
+        if not oid or not store.canal_pendente(oid, facebook.NOME, preco):
+            continue
+        fonte = next(
+            (item for item in FONTES if item.NOME == oferta.get("fonte")), None
+        )
+        if fonte is None:
+            continue
+        link = fonte.gerar_link(
+            oferta.get("productUrl"), facebook.TRACKING_ID, etiquetas(oferta)
+        )
+        if shortlinks.esta_configurado():
+            try:
+                link = shortlinks.criar(link, oid, facebook.NOME, fonte.NOME)
+            except Exception as erro_link:
+                print("   ⚠️  Link próprio indisponível; usando afiliado oficial: "
+                      f"{seguranca.redigir_segredos(erro_link)}")
+        facebook.postar(oferta, link)
+        store.registrar_entrega(oid, facebook.NOME, True, preco, fonte.NOME)
+        _registrar_saude_canal(facebook.NOME, True)
+        observabilidade.evento(
+            "publicacao_sucesso", oferta_id=oid,
+            canal=facebook.NOME, fonte=fonte.NOME,
+        )
+        print("✅ Oferta real publicada somente no Facebook via Buffer.")
+        return 1
+    print("⚠️ Nenhuma oferta inédita disponível para o teste do Facebook.")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
 
@@ -936,6 +976,17 @@ def main():
     if "--teste-telegram" in args:
         teste_telegram()
         return
+
+    if "--teste-facebook-real" in args:
+        try:
+            publicado = publicar_teste_facebook_real()
+        except Exception as erro:
+            print("❌ Teste do Facebook falhou: "
+                  f"{seguranca.redigir_segredos(erro)}")
+            sys.exit(1)
+        if publicado:
+            return
+        sys.exit(2)
 
     if "--relatorio" in args:
         if enviar_relatorio_seguro(forcar=True):

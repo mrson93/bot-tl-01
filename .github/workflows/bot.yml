@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      teste_facebook:
+        description: "Publicar uma oferta real somente no Facebook"
+        required: false
+        default: false
+        type: boolean
       campanha:
         description: "Executar uma campanha individual (uso do painel privado)"
         required: false
@@ -34,7 +39,8 @@ jobs:
     # Apenas o painel e o controlador Cloudflare podem iniciar uma rodada.
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      (inputs.executar_bot == true || inputs.somente_relatorio == true || inputs.campanha != '')
+      (inputs.executar_bot == true || inputs.somente_relatorio == true ||
+       inputs.teste_facebook == true || inputs.campanha != '')
     runs-on: ubuntu-latest
     # Até três posts com intervalo de três minutos precisam de margem além da busca.
     timeout-minutes: 15
@@ -179,8 +185,12 @@ jobs:
         run: python estado_remoto.py restaurar
 
       - name: Procurar e postar ofertas
-        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true && inputs.campanha == ''
+        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true && inputs.teste_facebook != true && inputs.campanha == ''
         run: python main.py --once
+
+      - name: Testar publicação somente no Facebook
+        if: github.ref == 'refs/heads/main' && inputs.teste_facebook == true
+        run: python main.py --teste-facebook-real
 
       - name: Publicar campanha Shopee VIP
         if: github.ref == 'refs/heads/main' && inputs.campanha == 'shopee_vip'

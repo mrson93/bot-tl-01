@@ -6,6 +6,31 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_teste_real_do_facebook_nao_publica_em_outros_canais(self):
+        from unittest.mock import Mock
+        fonte = Mock(NOME="Shopee")
+        fonte.gerar_link.return_value = "https://shopee.com.br/afiliado"
+        oferta = {
+            "oferta_id": "teste_buffer", "fonte": "Shopee", "price": 50,
+            "productUrl": "https://shopee.com.br/item",
+        }
+        with patch.object(main.facebook, "esta_configurada", return_value=True), \
+             patch.object(main, "FONTES", [fonte]), \
+             patch.object(main, "fontes_ativas", return_value=[fonte]), \
+             patch.object(main, "buscar_candidatos", return_value=[oferta]), \
+             patch.object(main, "_ordenar_candidatos", return_value=[oferta]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega") as registrar, \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.facebook, "postar") as postar, \
+             patch.object(main, "_registrar_saude_canal"), \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(1, main.publicar_teste_facebook_real())
+        postar.assert_called_once_with(oferta, "https://shopee.com.br/afiliado")
+        registrar.assert_called_once_with(
+            "teste_buffer", "Facebook", True, 50.0, "Shopee"
+        )
+
     def test_repescagem_publica_novamente_em_canais_com_entrega_antiga(self):
         import tempfile
         from pathlib import Path
