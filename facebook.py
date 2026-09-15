@@ -60,6 +60,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     # O Facebook comporta a legenda completa; limitar aqui criava reticências
     # desnecessárias mesmo quando o card ainda tinha espaço para o título.
     titulo = fmt.limpar_titulo(oferta.get("productName", "Oferta"), 0)
+    titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
     fonte = str(oferta.get("fonte") or "loja")
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)

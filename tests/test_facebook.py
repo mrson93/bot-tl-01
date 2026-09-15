@@ -94,6 +94,13 @@ class FacebookTest(unittest.TestCase):
         self.assertIn(titulo, texto)
         self.assertNotIn("…", texto)
 
+        with self.configuracao():
+            texto_catalogo = facebook.montar_texto(
+                {"fonte": "Shopee", "productName": titulo + "...", "price": 50},
+                "https://oferta.test/comprar",
+            )
+        self.assertNotIn("...", texto_catalogo)
+
     def test_card_remove_reticencias_que_ja_vieram_do_catalogo(self):
         titulo = "Produto completo enviado pelo catálogo..."
         with patch.object(feed_card.base, "_baixar_imagem", return_value=None), \
