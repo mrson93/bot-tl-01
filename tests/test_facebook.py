@@ -84,6 +84,25 @@ class FacebookTest(unittest.TestCase):
         self.assertGreaterEqual(layout["preco_topo"] - layout["titulo_fim"], 22)
         self.assertGreaterEqual(layout["cta_topo"] - layout["desconto_fim"], 17)
 
+    def test_facebook_nao_corta_titulo_com_reticencias(self):
+        titulo = "Conjunto completo para cozinha com vários acessórios úteis"
+        with self.configuracao():
+            texto = facebook.montar_texto(
+                {"fonte": "Shopee", "productName": titulo, "price": 50},
+                "https://oferta.test/comprar",
+            )
+        self.assertIn(titulo, texto)
+        self.assertNotIn("…", texto)
+
+    def test_card_remove_reticencias_que_ja_vieram_do_catalogo(self):
+        titulo = "Produto completo enviado pelo catálogo..."
+        with patch.object(feed_card.base, "_baixar_imagem", return_value=None), \
+             patch.object(feed_card, "_ajustar_titulo",
+                          wraps=feed_card._ajustar_titulo) as ajustar:
+            feed_card.gerar({"productName": titulo, "price": 50})
+        self.assertEqual("Produto completo enviado pelo catálogo",
+                         ajustar.call_args.args[1])
+
     def test_foto_recusada_cai_para_post_de_link(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,
                   "imageUrl": "https://imagem.test/produto.jpg"}

@@ -57,9 +57,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, "Link de afiliado"
     )
-    titulo = fmt.limpar_titulo(
-        oferta.get("productName", "Oferta"), config.TITULO_MAX_CARACTERES
-    )
+    # O Facebook comporta a legenda completa; limitar aqui criava reticências
+    # desnecessárias mesmo quando o card ainda tinha espaço para o título.
+    titulo = fmt.limpar_titulo(oferta.get("productName", "Oferta"), 0)
     fonte = str(oferta.get("fonte") or "loja")
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)

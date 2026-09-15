@@ -1,6 +1,7 @@
 """Gera o cartão 4:5 usado nas ofertas do feed do Facebook."""
 from io import BytesIO
 from pathlib import Path
+import re
 
 from PIL import Image, ImageDraw, ImageOps
 
@@ -100,6 +101,9 @@ def gerar(oferta: dict) -> bytes:
               fill="white", anchor="lm")
 
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
+    # Alguns catálogos já devolvem o nome visualmente truncado. Não repetimos
+    # as reticências no criativo, onde parecem um corte feito pelo nosso bot.
+    titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
     linhas, titulo_fonte, entrelinha = _ajustar_titulo(draw, titulo)
     preco = base._preco(oferta.get("price") or oferta.get("priceMin"))
     desconto = float(oferta.get("priceDiscountRate") or 0)

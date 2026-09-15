@@ -71,6 +71,7 @@ jobs:
       FACEBOOK_TRACKING_ID: "facebook"
       FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '4' }}
       BUFFER_FACEBOOK_CHANNEL_ID: ${{ vars.BUFFER_FACEBOOK_CHANNEL_ID }}
+      BUFFER_X_CHANNEL_ID: ${{ vars.BUFFER_X_CHANNEL_ID }}
       INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}
       INSTAGRAM_TRACKING_ID: "instagram"
       INSTAGRAM_USERNAME: "ofertascanaltabarato"

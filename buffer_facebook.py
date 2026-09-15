@@ -73,12 +73,13 @@ def _url_imagem(card: Optional[bytes],
     return None
 
 
-def publicar(texto: str, card: Optional[bytes],
-             imagem_original: Optional[str] = None) -> str:
-    """Cria um post imediato no canal do Facebook conectado ao Buffer."""
-    chave, canal = _credenciais()
+def publicar_no_canal(texto: str, card: Optional[bytes],
+                      imagem_original: Optional[str], canal: str,
+                      metadata: Optional[dict] = None) -> str:
+    """Cria um post imediato em um canal conectado ao Buffer."""
+    chave = os.getenv("BUFFER_API_KEY", "").strip()
     if len(chave) < 20 or not _CHANNEL_ID.fullmatch(canal):
-        raise RuntimeError("Buffer não configurado para o Facebook")
+        raise RuntimeError("Buffer não configurado para o canal")
 
     try:
         url_imagem = _url_imagem(card, imagem_original)
@@ -92,8 +93,9 @@ def publicar(texto: str, card: Optional[bytes],
         "schedulingType": "automatic",
         "mode": "shareNow",
         "assets": ([{"image": {"url": url_imagem}}] if url_imagem else []),
-        "metadata": {"facebook": {"type": "post"}},
     }
+    if metadata:
+        entrada["metadata"] = metadata
     try:
         resposta = requests.post(
             API_URL,
@@ -129,3 +131,13 @@ def publicar(texto: str, card: Optional[bytes],
         detalhe = seguranca.redigir_segredos(resultado["message"])[:300]
         raise RuntimeError(f"Buffer recusou os dados da publicação: {detalhe}")
     raise RuntimeError("Buffer respondeu sem confirmar a publicação")
+
+
+def publicar(texto: str, card: Optional[bytes],
+             imagem_original: Optional[str] = None) -> str:
+    """Cria um post imediato no canal do Facebook conectado ao Buffer."""
+    _, canal = _credenciais()
+    return publicar_no_canal(
+        texto, card, imagem_original, canal,
+        {"facebook": {"type": "post"}},
+    )

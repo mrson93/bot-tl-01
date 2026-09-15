@@ -32,6 +32,7 @@ import store
 import telegram_poster
 import bluesky
 import facebook
+import buffer_x
 import instagram_stories
 import relatorio
 import seguranca
@@ -43,7 +44,7 @@ import monitor
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon]
 # Canais onde as ofertas sao publicadas.
-CANAIS = [telegram_poster, bluesky, facebook, instagram_stories]
+CANAIS = [telegram_poster, bluesky, facebook, buffer_x, instagram_stories]
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 MENSAGENS_BOM_DIA = [

@@ -7,14 +7,15 @@ const links=[
   'https://www.facebook.com/canaltabarato',
   'https://www.instagram.com/ofertascanaltabarato/',
   'https://t.me/CanalTaBarato',
-  'https://bsky.app/profile/canaltabarato.com.br'
+  'https://bsky.app/profile/canaltabarato.com.br',
+  'https://x.com/canaltabarato'
 ];
 
 test('página inicial apresenta todos os canais oficiais',async()=>{
   const page=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
   assert.match(page,/Escolha seu canal/);
   assert.ok(page.indexOf('class="social-strip"')<page.indexOf('id="vip-banner"'));
-  assert.equal((page.match(/cdn\.simpleicons\.org\/(facebook|instagram|telegram|bluesky)/g)||[]).length,4);
+  assert.equal((page.match(/cdn\.simpleicons\.org\/(facebook|instagram|telegram|bluesky|x)/g)||[]).length,5);
   assert.doesNotMatch(page,/class="telegram-link"/);
   for(const link of links) assert.ok(page.includes(link),`link ausente: ${link}`);
 });
