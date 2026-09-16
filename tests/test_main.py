@@ -6,6 +6,50 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_revalida_preco_imediatamente_antes_de_publicar(self):
+        class Fonte:
+            NOME = "Mercado Livre"
+            VALIDA_ANTES_PUBLICAR = True
+
+            @staticmethod
+            def revalidar_oferta(oferta):
+                return {**oferta, "price": 79.90, "productName": "Preço atualizado"}
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://www.mercadolivre.com.br/produto"
+
+        canal = unittest.mock.Mock(NOME="Telegram", TRACKING_ID="telegram")
+        oferta = {"oferta_id": "mercadolivre_MLB1", "price": 99.90,
+                  "productName": "Preço anterior", "productUrl": "https://produto.test",
+                  "curadoriaManual": True}
+        with patch.object(main, "canais_ativos", return_value=[canal]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega") as registrar, \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main, "_registrar_saude_canal"), \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(1, main.publicar(Fonte, oferta))
+
+        self.assertEqual(79.90, canal.postar.call_args.args[0]["price"])
+        self.assertEqual(79.90, registrar.call_args.args[3])
+
+    def test_nao_publica_oferta_que_nao_esta_mais_vigente(self):
+        class Fonte:
+            NOME = "Mercado Livre"
+            VALIDA_ANTES_PUBLICAR = True
+
+            @staticmethod
+            def revalidar_oferta(oferta):
+                return None
+
+        oferta = {"oferta_id": "mercadolivre_MLB1", "price": 99.90}
+        with patch.object(main, "canais_ativos") as canais, \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(0, main.publicar(Fonte, oferta))
+        canais.assert_not_called()
+
     def test_teste_real_do_facebook_nao_publica_em_outros_canais(self):
         from unittest.mock import Mock
         fonte = Mock(NOME="Shopee")

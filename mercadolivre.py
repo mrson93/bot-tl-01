@@ -9,6 +9,7 @@ import config
 import seguranca
 
 NOME = "Mercado Livre"
+VALIDA_ANTES_PUBLICAR = True
 _HOSTS_PAGINA = ("meli.la", "mercadolivre.com.br")
 _HOSTS_PRODUTO = ("mercadolivre.com.br",)
 _HOSTS_IMAGEM = ("mlstatic.com",)
@@ -186,6 +187,24 @@ def buscar_ofertas() -> list:
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
     return ofertas
+
+
+def consultar_produtos(ids) -> dict:
+    """Consulta novamente a lista e devolve somente os produtos ainda vigentes."""
+    procurados = {str(item) for item in ids if item}
+    if not procurados:
+        return {}
+    return {
+        oferta["oferta_id"]: oferta
+        for oferta in buscar_ofertas()
+        if oferta["oferta_id"] in procurados
+    }
+
+
+def revalidar_oferta(oferta: dict):
+    """Obtém preço e disponibilidade atuais imediatamente antes da publicação."""
+    oferta_id = str(oferta.get("oferta_id") or "")
+    return consultar_produtos([oferta_id]).get(oferta_id)
 
 
 def gerar_link(url_produto: str, tracking_id: str = None, etiquetas=None) -> str:

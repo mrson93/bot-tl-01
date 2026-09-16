@@ -227,6 +227,7 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("refresh_failures", migration)
         self.assertNotIn("DELETE FROM offers", publish)
         self.assertIn("refresh_failures+1>=3", refresh)
+        self.assertIn("mercadolivre_MLB[0-9]+", refresh)
         self.assertIn("availability!='unavailable'", offers)
 
     def test_categoria_do_site_considera_titulo_do_produto(self):

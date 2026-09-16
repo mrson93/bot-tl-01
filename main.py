@@ -254,9 +254,51 @@ def _registrar_saude_canal(canal, sucesso, erro=""):
         return False
 
 
+def _revalidar_antes_de_publicar(fonte, oferta):
+    """Atualiza ofertas de fontes que exigem confirmação no último instante."""
+    if getattr(fonte, "VALIDA_ANTES_PUBLICAR", False) is not True:
+        return oferta
+    oferta_id = str(oferta.get("oferta_id") or "")
+    try:
+        atual = fonte.revalidar_oferta(oferta)
+    except Exception as erro:
+        print("   ⚠️  Oferta não publicada: não foi possível confirmar preço e "
+              f"disponibilidade ({seguranca.redigir_segredos(erro)}).")
+        observabilidade.evento(
+            "publicacao_ignorada", oferta_id=oferta_id,
+            fonte=fonte.NOME, motivo="revalidacao_indisponivel",
+        )
+        return None
+    if not atual or str(atual.get("oferta_id") or "") != oferta_id:
+        print("   ⚠️  Oferta não publicada: produto não está mais vigente na lista.")
+        observabilidade.evento(
+            "publicacao_ignorada", oferta_id=oferta_id,
+            fonte=fonte.NOME, motivo="oferta_nao_vigente",
+        )
+        return None
+
+    internos = {chave: valor for chave, valor in oferta.items()
+                if chave.startswith("_") or chave in {"categoria", "experimento", "variante"}}
+    oferta.clear()
+    oferta.update(atual)
+    oferta.update(internos)
+    motivo = motivo_rejeicao_filtro(oferta)
+    if motivo:
+        print(f"   ⚠️  Oferta não publicada após atualização: {motivo}.")
+        observabilidade.evento(
+            "publicacao_ignorada", oferta_id=oferta_id,
+            fonte=fonte.NOME, motivo=f"revalidacao_{motivo}",
+        )
+        return None
+    return oferta
+
+
 def publicar(fonte, oferta: dict) -> int:
     """Publica em todos os canais ativos, cada um com seu link rastreado.
     Retorna quantos canais aceitaram."""
+    oferta = _revalidar_antes_de_publicar(fonte, oferta)
+    if oferta is None:
+        return 0
     ok = 0
     oid = oferta["oferta_id"]
     preco = float(oferta.get("price") or 0)
@@ -951,6 +993,11 @@ def publicar_teste_facebook_real() -> int:
         )
         if fonte is None:
             continue
+        oferta = _revalidar_antes_de_publicar(fonte, oferta)
+        if oferta is None:
+            continue
+        oid = str(oferta.get("oferta_id") or "")
+        preco = float(oferta.get("price") or 0)
         link = fonte.gerar_link(
             oferta.get("productUrl"), facebook.TRACKING_ID, etiquetas(oferta)
         )

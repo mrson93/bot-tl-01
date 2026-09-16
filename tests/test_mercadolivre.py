@@ -53,6 +53,23 @@ class MercadoLivreTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             mercadolivre.gerar_link("https://exemplo.com/produto")
 
+    def test_consulta_produtos_retorna_apenas_os_que_continuam_na_lista(self):
+        with patch.object(mercadolivre, "_baixar_html", return_value=HTML), \
+             patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
+             patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
+            encontrados = mercadolivre.consultar_produtos([
+                "mercadolivre_MLB3340103325", "mercadolivre_MLB0000000000"
+            ])
+
+        self.assertEqual(["mercadolivre_MLB3340103325"], list(encontrados))
+        self.assertEqual(28.90, encontrados["mercadolivre_MLB3340103325"]["price"])
+
+    def test_revalidacao_informa_quando_produto_saiu_da_lista(self):
+        with patch.object(mercadolivre, "buscar_ofertas", return_value=[]):
+            self.assertIsNone(mercadolivre.revalidar_oferta({
+                "oferta_id": "mercadolivre_MLB3340103325"
+            }))
+
     def test_preco_com_milhar_e_centavos(self):
         self.assertEqual(5039, mercadolivre._preco_por_rotulo("Agora: 5039 reais"))
         self.assertEqual(1234.56, mercadolivre._preco_por_rotulo(

@@ -14,7 +14,7 @@ export async function onRequestPost(context) {
   const statements=[],changed=[];
   for(const raw of body.updates) {
     const id=String(raw.id||'').slice(0,100),found=raw.found===true;
-    if(!id||!/^((shopee_[0-9]+_[0-9]+)|(aliexpress_[0-9]+))$/.test(id)) return json({error:'invalid_update'},400);
+    if(!id||!/^((shopee_[0-9]+_[0-9]+)|(aliexpress_[0-9]+)|(mercadolivre_MLB[0-9]+))$/.test(id)) return json({error:'invalid_update'},400);
     if(!found) {
       statements.push(env.DB.prepare(`UPDATE offers SET last_checked_at=?,refresh_failures=MIN(refresh_failures+1,3),availability=CASE WHEN refresh_failures+1>=3 THEN 'unavailable' ELSE 'unverified' END WHERE id=?`).bind(now,id));
       continue;
