@@ -290,7 +290,10 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
-    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco, **repeticao):
+    # O site funciona como o feed próprio: toda oferta escolhida para uma
+    # nova rodada deve atualizar sua data de publicação, mesmo que o produto
+    # já exista no catálogo.
+    if site_publisher.esta_configurado():
         try:
             site_publisher.publicar(fonte, oferta)
             store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
