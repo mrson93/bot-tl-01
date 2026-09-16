@@ -1,0 +1,79 @@
+import unittest
+from unittest.mock import patch
+
+import amazon
+
+
+HTML = """
+<a class="a-link-normal single-product-item-link" href="/dp/B0F9Z2DV83?linkCode=spc&amp;tag=canaltabarato-20&amp;creativeASIN=B0F9Z2DV83">
+  <div class="single-product-item" data-asin="B0F9Z2DV83">
+    <img class="product-image" src="https://m.media-amazon.com/images/I/robo.jpg">
+    <span class="product-brand-text"><bdi>WAP</bdi></span>
+    <span class="product-title-text"><bdi>Aspirador de Pó Robô W310</bdi></span>
+    <span class="product-badge-label">57% off</span>
+    <span class="a-price"><span class="a-offscreen">R$509,90</span></span>
+    <span class="basis-price-text a-text-strike">R$ 1.199,90</span>
+  </div>
+</a>
+<a class="a-link-normal single-product-item-link" href="/dp/B0DPNHDC9B?tag=canaltabarato-20">
+  <div class="single-product-item" data-asin="B0DPNHDC9B">
+    <img class="product-image" src="https://m.media-amazon.com/images/I/cerave.jpg">
+    <span class="product-brand-text">CeraVe</span>
+    <span class="product-title-text">Loção Facial Hidratante</span>
+    <span class="a-price"><span class="a-offscreen">R$117,90</span></span>
+  </div>
+</a>
+"""
+
+
+class AmazonListaTest(unittest.TestCase):
+    def _config(self):
+        return (
+            patch.object(amazon.config, "AMAZON_LIST_URL", "https://amzn.to/lista"),
+            patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"),
+            patch.object(amazon.config, "AMAZON_FETCH_LIMIT", 100),
+        )
+
+    def test_importa_lista_com_preco_desconto_e_tag_de_afiliado(self):
+        a, b, c = self._config()
+        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=HTML):
+            ofertas = amazon.buscar_ofertas()
+
+        self.assertEqual(2, len(ofertas))
+        robo = ofertas[0]
+        self.assertEqual("amazon_B0F9Z2DV83", robo["oferta_id"])
+        self.assertEqual(509.90, robo["price"])
+        self.assertEqual(1199.90, robo["precoOriginal"])
+        self.assertEqual(57, robo["priceDiscountRate"])
+        self.assertEqual("WAP", robo["shopName"])
+        self.assertIn("tag=canaltabarato-20", robo["productUrl"])
+        self.assertTrue(robo["curadoriaManual"])
+
+    def test_revalidacao_retorna_apenas_produto_ainda_presente(self):
+        a, b, c = self._config()
+        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=HTML):
+            encontrados = amazon.consultar_produtos([
+                "amazon_B0DPNHDC9B", "amazon_B000000000"
+            ])
+        self.assertEqual(["amazon_B0DPNHDC9B"], list(encontrados))
+
+    def test_descarta_produto_sem_tag_de_afiliado_correta(self):
+        html = HTML.replace("tag=canaltabarato-20", "tag=outra-20")
+        a, b, c = self._config()
+        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=html):
+            with self.assertRaisesRegex(RuntimeError, "Nenhuma oferta válida"):
+                amazon.buscar_ofertas()
+
+    def test_gerar_link_substitui_tag_e_rejeita_outro_dominio(self):
+        with patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"):
+            link = amazon.gerar_link(
+                "https://www.amazon.com.br/dp/B0F9Z2DV83?tag=antiga-20&psc=1"
+            )
+        self.assertIn("tag=canaltabarato-20", link)
+        self.assertNotIn("tag=antiga-20", link)
+        with self.assertRaises(ValueError):
+            amazon.gerar_link("https://exemplo.com/produto")
+
+
+if __name__ == "__main__":
+    unittest.main()

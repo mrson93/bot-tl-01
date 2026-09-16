@@ -98,6 +98,8 @@ jobs:
       TELEGRAM_TRACKING_ID: "telegram"
       BLUESKY_TRACKING_ID: "bsky"
       AMAZON_ASSOCIATE_TAG: "canaltabarato-20"
+      AMAZON_LIST_URL: ${{ vars.AMAZON_LIST_URL }}
+      AMAZON_FETCH_LIMIT: ${{ vars.AMAZON_FETCH_LIMIT || '100' }}
       AMAZON_MARKETPLACE: "www.amazon.com.br"
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
       PESO_AMAZON: ${{ vars.PESO_AMAZON || '1' }}

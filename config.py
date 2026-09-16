@@ -136,6 +136,7 @@ ALIEXPRESS_LANGUAGE = _get("ALIEXPRESS_LANGUAGE") or "pt"
 AMAZON_CREDENTIAL_ID = _get("AMAZON_CREDENTIAL_ID")
 AMAZON_CREDENTIAL_SECRET = _get("AMAZON_CREDENTIAL_SECRET")
 AMAZON_ASSOCIATE_TAG = _get("AMAZON_ASSOCIATE_TAG")
+AMAZON_LIST_URL = _get("AMAZON_LIST_URL")
 AMAZON_ATIVA = _bool("AMAZON_ATIVA", False)
 PESO_AMAZON = _float("PESO_AMAZON", 1.0)
 AMAZON_MARKETPLACE = _get("AMAZON_MARKETPLACE") or "www.amazon.com.br"
@@ -143,6 +144,7 @@ AMAZON_KEYWORD = _get("AMAZON_KEYWORD")
 AMAZON_SEARCH_INDEX = _get("AMAZON_SEARCH_INDEX")
 AMAZON_SORT = _get("AMAZON_SORT") or "Featured"
 AMAZON_PAGES = _int("AMAZON_PAGES", 3)
+AMAZON_FETCH_LIMIT = max(1, min(100, _int("AMAZON_FETCH_LIMIT", 100)))
 
 # --- Mercado Livre (lista publica de recomendacoes do afiliado) ---
 MERCADOLIVRE_LIST_URL = _get("MERCADOLIVRE_LIST_URL")
@@ -291,8 +293,10 @@ def aliexpress_configurada():
 
 
 def amazon_configurada():
-    return bool(AMAZON_CREDENTIAL_ID and AMAZON_CREDENTIAL_SECRET
-                and AMAZON_ASSOCIATE_TAG)
+    return bool(AMAZON_ASSOCIATE_TAG and (
+        AMAZON_LIST_URL
+        or (AMAZON_CREDENTIAL_ID and AMAZON_CREDENTIAL_SECRET)
+    ))
 
 
 def mercadolivre_configurada():
