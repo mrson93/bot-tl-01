@@ -621,6 +621,17 @@ class MainTest(unittest.TestCase):
             self.assertFalse(main.passa_no_filtro(fraca))
             self.assertTrue(main.passa_no_filtro(forte))
 
+    def test_curadoria_manual_nao_exige_metrica_que_lista_nao_informa(self):
+        oferta = {"price": 28.90, "priceDiscountRate": 0,
+                  "ratingStar": 4.9, "sales": None, "comissao": None,
+                  "curadoriaManual": True}
+        with patch.object(main.config, "MIN_DISCOUNT", 15), \
+             patch.object(main.config, "DESCONTO_PREFERIDO", 30), \
+             patch.object(main.config, "MIN_RATING", 4), \
+             patch.object(main.config, "MIN_PRICE", 10), \
+             patch.object(main.config, "MIN_GANHO", 3):
+            self.assertTrue(main.passa_no_filtro(oferta))
+
     def test_diagnostico_identifica_regra_comercial_que_rejeitou(self):
         oferta = {"price": 5, "priceDiscountRate": 80,
                   "ratingStar": 5, "sales": 1000, "comissao": 1}

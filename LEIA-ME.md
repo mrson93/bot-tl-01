@@ -1,6 +1,6 @@
 # Bot automático de ofertas
 
-O bot busca ofertas da Shopee, AliExpress e Amazon, aplica filtros de qualidade e comissão e publica uma oferta por rodada no Telegram, Bluesky e, opcionalmente, em uma Página do Facebook.
+O bot busca ofertas da Shopee, AliExpress e Amazon, além dos produtos escolhidos na lista pública de recomendações do Mercado Livre. Ele aplica os filtros disponíveis e publica uma oferta por rodada no Telegram, Bluesky, Facebook, X, Instagram Stories e na vitrine própria, conforme os canais ativados.
 
 ## Como funciona
 
@@ -71,9 +71,12 @@ Novas variáveis:
 | `SHOPEE_ATIVA` | `true` | Permite desligar a Shopee sem apagar credenciais |
 | `ALIEXPRESS_ATIVA` | `true` | Permite desligar o AliExpress sem apagar credenciais |
 | `AMAZON_ATIVA` | `false` | Ativa a Amazon depois que suas credenciais existirem |
+| `MERCADOLIVRE_ATIVA` | `true` | Ativa a fila da lista pública do Mercado Livre |
+| `MERCADOLIVRE_LIST_URL` | vazio | Link público de Minhas recomendações; os itens adicionados entram na fila |
 | `PESO_SHOPEE` | `1` | Preferência moderada da Shopee na fila global |
 | `PESO_ALIEXPRESS` | `1` | Preferência moderada do AliExpress na fila global |
 | `PESO_AMAZON` | `1` | Preferência moderada da Amazon na fila global |
+| `PESO_MERCADOLIVRE` | `1` | Preferência moderada da curadoria do Mercado Livre |
 | `INTERVALO_ENTRE_POSTS_MINUTOS` | `3` | Espera entre posts da mesma rodada |
 | `DIVERSIDADE_JANELA_POSTS` | `3` | Publicações recentes consideradas na variedade |
 | `SIMILARIDADE_MAXIMA` | `0.55` | Limite de semelhança entre títulos |

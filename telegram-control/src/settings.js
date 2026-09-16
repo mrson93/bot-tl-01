@@ -39,6 +39,10 @@ export const SETTINGS = Object.freeze({
     category: "lojas", label: "Amazon ativa", type: "boolean", default: "false",
     hint: "Só terá efeito quando as credenciais da Amazon estiverem configuradas.",
   },
+  MERCADOLIVRE_ATIVA: {
+    category: "lojas", label: "Mercado Livre ativo", type: "boolean", default: "true",
+    hint: "Publica os produtos escolhidos na sua lista pública de recomendações.",
+  },
   PESO_SHOPEE: {
     category: "lojas", label: "Preferência Shopee", type: "float", default: "1", min: 0.5, max: 2,
     hint: "1 é neutro; 1,2 aumenta a prioridade em 20%; 0,8 reduz em 20%.",
@@ -50,6 +54,10 @@ export const SETTINGS = Object.freeze({
   PESO_AMAZON: {
     category: "lojas", label: "Preferência Amazon", type: "float", default: "1", min: 0.5, max: 2,
     hint: "1 é neutro; só terá efeito quando a Amazon estiver configurada.",
+  },
+  PESO_MERCADOLIVRE: {
+    category: "lojas", label: "Preferência Mercado Livre", type: "float", default: "1", min: 0.5, max: 2,
+    hint: "1 é neutro; aumente um pouco para dar prioridade à sua curadoria manual.",
   },
   SHOPEE_PAGES: {
     category: "lojas", label: "Páginas Shopee", type: "integer", default: "3", min: 1, max: 5,
@@ -225,7 +233,7 @@ export const SETTINGS = Object.freeze({
 });
 
 export const AUDIT_VARIABLE = "BOT_CONFIG_AUDIT";
-export const STORE_KEYS = Object.freeze(["SHOPEE_ATIVA", "ALIEXPRESS_ATIVA", "AMAZON_ATIVA"]);
+export const STORE_KEYS = Object.freeze(["SHOPEE_ATIVA", "ALIEXPRESS_ATIVA", "AMAZON_ATIVA", "MERCADOLIVRE_ATIVA"]);
 
 export function settingsForCategory(category) {
   return Object.entries(SETTINGS).filter(([, setting]) => setting.category === category);

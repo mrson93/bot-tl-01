@@ -5,6 +5,7 @@ const STORES={
   'Shopee VIP':{slug:'shopee-vip',name:'Shopee VIP'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
+  'Mercado Livre':{slug:'mercadolivre',name:'Mercado Livre'},
 };
 
 export async function onRequestGet({env}) {

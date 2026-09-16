@@ -393,6 +393,7 @@ test("nao permite desativar todas as lojas", async () => {
         { name: "SHOPEE_ATIVA", value: "true" },
         { name: "ALIEXPRESS_ATIVA", value: "false" },
         { name: "AMAZON_ATIVA", value: "false" },
+        { name: "MERCADOLIVRE_ATIVA", value: "false" },
       ] });
     }
     return Response.json({ ok: true });

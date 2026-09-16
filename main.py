@@ -28,6 +28,7 @@ import experimentos
 import shopee
 import aliexpress
 import amazon
+import mercadolivre
 import store
 import telegram_poster
 import bluesky
@@ -42,7 +43,7 @@ import observabilidade
 import monitor
 
 # Lojas de onde vem as ofertas.
-FONTES = [shopee, aliexpress, amazon]
+FONTES = [shopee, aliexpress, amazon, mercadolivre]
 # Canais onde as ofertas sao publicadas.
 CANAIS = [telegram_poster, bluesky, facebook, buffer_x, instagram_stories]
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
@@ -474,9 +475,10 @@ def motivo_rejeicao_filtro(oferta: dict):
 
     if preco < config.MIN_PRICE:
         return "preco"
-    if desconto < config.MIN_DISCOUNT:
+    if desconto < config.MIN_DISCOUNT and not oferta.get("curadoriaManual"):
         return "desconto"
-    if desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom"):
+    if (desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom")
+            and not oferta.get("curadoriaManual")):
         vendas_fortes = (vendas is not None
                           and int(vendas) >= config.VENDAS_EXCECAO_DESCONTO
                           and (not rating or rating >= max(config.MIN_RATING, 4.8)))
@@ -492,7 +494,8 @@ def motivo_rejeicao_filtro(oferta: dict):
         return "vendas"
     # promocao de 80% num produto de R$ 18 rende R$ 2: ocupa o mesmo espaco no
     # canal que uma que rende R$ 40, entao exigimos um minimo por venda
-    if config.MIN_GANHO and ganho_por_venda(oferta) < config.MIN_GANHO:
+    if (config.MIN_GANHO and oferta.get("comissao") is not None
+            and ganho_por_venda(oferta) < config.MIN_GANHO):
         return "comissao"
     return None
 

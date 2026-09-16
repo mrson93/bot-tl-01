@@ -14,6 +14,7 @@ PAGINAS_INICIAIS = {
     "Shopee": "https://shopee.com.br/",
     "AliExpress": "https://pt.aliexpress.com/",
     "Amazon": "https://www.amazon.com.br/",
+    "Mercado Livre": None,
 }
 
 
@@ -182,7 +183,8 @@ def publicar_cupom(cupom, link_afiliado):
 
 def publicar_loja(fonte):
     """Gera e publica o atalho afiliado para a página principal da loja."""
-    pagina = PAGINAS_INICIAIS.get(fonte.NOME)
+    pagina = (config.MERCADOLIVRE_LIST_URL if fonte.NOME == "Mercado Livre"
+              else PAGINAS_INICIAIS.get(fonte.NOME))
     if not pagina:
         raise RuntimeError(f"Loja sem página principal cadastrada: {fonte.NOME}")
     destino = fonte.gerar_link(pagina, config.SITE_TRACKING_ID,

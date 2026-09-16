@@ -144,6 +144,12 @@ AMAZON_SEARCH_INDEX = _get("AMAZON_SEARCH_INDEX")
 AMAZON_SORT = _get("AMAZON_SORT") or "Featured"
 AMAZON_PAGES = _int("AMAZON_PAGES", 3)
 
+# --- Mercado Livre (lista publica de recomendacoes do afiliado) ---
+MERCADOLIVRE_LIST_URL = _get("MERCADOLIVRE_LIST_URL")
+MERCADOLIVRE_ATIVA = _bool("MERCADOLIVRE_ATIVA", True)
+PESO_MERCADOLIVRE = _float("PESO_MERCADOLIVRE", 1.0)
+MERCADOLIVRE_FETCH_LIMIT = max(1, min(150, _int("MERCADOLIVRE_FETCH_LIMIT", 150)))
+
 # --- Filtros ("o que e uma boa oferta") ---
 MIN_DISCOUNT = _float("MIN_DISCOUNT", 15)
 MIN_RATING = _float("MIN_RATING", 4.5)
@@ -289,12 +295,17 @@ def amazon_configurada():
                 and AMAZON_ASSOCIATE_TAG)
 
 
+def mercadolivre_configurada():
+    return bool(MERCADOLIVRE_LIST_URL)
+
+
 def loja_ativa(nome):
     """Permite desligar uma fonte sem apagar suas credenciais."""
     return {
         "Shopee": SHOPEE_ATIVA,
         "AliExpress": ALIEXPRESS_ATIVA,
         "Amazon": AMAZON_ATIVA,
+        "Mercado Livre": MERCADOLIVRE_ATIVA,
     }.get(nome, True)
 
 
@@ -304,6 +315,7 @@ def peso_loja(nome):
         "Shopee": PESO_SHOPEE,
         "AliExpress": PESO_ALIEXPRESS,
         "Amazon": PESO_AMAZON,
+        "Mercado Livre": PESO_MERCADOLIVRE,
     }.get(nome, 1.0)))
 
 
@@ -329,7 +341,7 @@ def validar():
                         "do canal ou o ID numerico)")
     # precisa de PELO MENOS uma loja configurada
     if not (shopee_configurada() or aliexpress_configurada()
-            or amazon_configurada()):
+            or amazon_configurada() or mercadolivre_configurada()):
         faltando.append("nenhuma loja configurada (preencha Shopee, AliExpress "
-                        "OU Amazon)")
+                        "Amazon OU Mercado Livre)")
     return faltando

@@ -31,7 +31,10 @@ def _preco(valor) -> str:
 
 
 # preposicao certa pra cada loja ("na Shopee", "no AliExpress")
-_PREPOSICAO = {"Shopee": "na", "AliExpress": "no", "Amazon": "na"}
+_PREPOSICAO = {
+    "Shopee": "na", "AliExpress": "no", "Amazon": "na",
+    "Mercado Livre": "no",
+}
 
 # Chamada por faixa de desconto, da mais forte para a mais fraca. Abaixo de
 # 40% o post vai direto ao produto: anunciar "OFERTA" num desconto pequeno

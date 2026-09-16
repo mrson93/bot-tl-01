@@ -32,4 +32,4 @@
 - [x] Criar teste A/B rastreável sem dados pessoais.
 - [x] Normalizar a seleção por posts, comissão, recência e cancelamentos.
 
-Mercado Livre e Shein continuam fora da automação enquanto não houver acesso oficial adequado às APIs de afiliados.
+O Mercado Livre usa a lista pública de recomendações do próprio afiliado como fila curada, preservando o link rastreado que a plataforma gera. A Shein continua fora da automação enquanto não houver acesso oficial adequado à API de afiliados.

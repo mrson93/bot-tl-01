@@ -2,7 +2,7 @@ const $=selector=>document.querySelector(selector),grid=$('#offers'),featured=$(
 let offers=[],source='',offset=0,total=0,hasMore=false,requestId=0,favoritesOnly=false,timer;const pageSize=24;
 const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])),norm=(v='')=>String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),slug=v=>norm(v).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80)||'oferta';
 const labels={eletronicos:'Eletrônicos',automotivo:'Automotivo',ferramentas:'Ferramentas',esportes:'Esportes',cozinha:'Cozinha',casa:'Casa',moda:'Moda',beleza:'Beleza e saúde',livros:'Livros',pet:'Pet',outros:'Outros'};
-const storeIcons={shopee:'https://cdn.simpleicons.org/shopee/ffffff',aliexpress:'https://cdn.simpleicons.org/aliexpress/ffffff',amazon:'https://cdn.simpleicons.org/amazon/ffb629'};
+const storeIcons={shopee:'https://cdn.simpleicons.org/shopee/ffffff',aliexpress:'https://cdn.simpleicons.org/aliexpress/ffffff',amazon:'https://cdn.simpleicons.org/amazon/ffb629',mercadolivre:'https://cdn.simpleicons.org/mercadolibre/ffe600'};
 const label=v=>labels[v]||String(v||'').replace(/(^|\s)(\p{L})/gu,(_,s,l)=>s+l.toUpperCase());
 const favoriteIds=()=>{try{const value=JSON.parse(localStorage.getItem('tb:favorites')||'[]');return new Set(Array.isArray(value)?value:[]);}catch{return new Set();}};
 function toggleFavorite(id){const ids=favoriteIds();ids.has(id)?ids.delete(id):ids.add(id);localStorage.setItem('tb:favorites',JSON.stringify([...ids]));render();}

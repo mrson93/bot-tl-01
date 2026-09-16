@@ -102,6 +102,10 @@ jobs:
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
       PESO_AMAZON: ${{ vars.PESO_AMAZON || '1' }}
       AMAZON_PAGES: ${{ vars.AMAZON_PAGES || '3' }}
+      MERCADOLIVRE_LIST_URL: ${{ vars.MERCADOLIVRE_LIST_URL }}
+      MERCADOLIVRE_ATIVA: ${{ vars.MERCADOLIVRE_ATIVA || 'true' }}
+      PESO_MERCADOLIVRE: ${{ vars.PESO_MERCADOLIVRE || '1' }}
+      MERCADOLIVRE_FETCH_LIMIT: ${{ vars.MERCADOLIVRE_FETCH_LIMIT || '150' }}
       # 6 paginas por loja: com 3 o AliExpress chegava a ZERO ofertas ineditas
       # e o bot caia na repescagem. Nao suba muito: a busca ja leva ~28s e o
       # Actions cobra por minuto comecado.
