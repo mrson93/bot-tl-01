@@ -861,11 +861,13 @@ para alguém que nunca viu o projeto antes.
   GitHub pelo proprietário. Sem esse secret, X fica inativo para não gastar
   chamadas da API em um canal inacessível. Não declarar X operacional até uma
   entrega real.
-- O agendador Cloudflare encaminha eventos, mas em pelo menos duas ocasiões
-  o horário de próximo disparo avançou sem uma execução aparecer no GitHub.
-  O controlador passou a confirmar a criação da execução no cron seguinte e
-  a tentar novamente com limite. Não declarar agendamento estável sem prova
-  de uma rodada automática real após a implantação.
+- Causa encontrada do agendamento: a API de variáveis do GitHub devolve
+  páginas de 30; o controlador lia apenas a primeira. Com 57 variáveis,
+  `NEXT_AUTOMATIC_DISPATCH_AT` estava na segunda página, parecia ausente e
+  era recriado a cada minuto. O controlador agora percorre as páginas,
+  confirma a criação da execução no cron seguinte e tenta novamente com
+  limite se o GitHub não registrar o disparo. Exigir uma rodada automática
+  real após a implantação antes de declarar o problema resolvido.
 - Metas de mix: Shopee 30%, Mercado Livre 30%, Amazon 25%, AliExpress 15%
   em janela de 7 dias. Fontes sem candidatos válidos são excluídas da soma,
   então a porcentagem efetiva pode divergir das metas.

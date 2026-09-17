@@ -492,3 +492,27 @@ test("agendador confirma a execução e tenta novamente se o GitHub não a criou
   assert.equal(await runScheduledAutomation({ scheduledTime: initial + 240000 }, env, fakeFetch), false);
   assert.equal(variables.get("LAST_AUTOMATIC_DISPATCH_AT"), "0");
 });
+
+test("agendador encontra o próximo horário mesmo na segunda página de variáveis", async () => {
+  const now = Date.parse("2026-08-25T15:00:00Z");
+  const calls = [];
+  const firstPage = [
+    { name: "BOT_MODE", value: "rapido" },
+    { name: "HORA_INICIO", value: "6" },
+    { name: "HORA_FIM", value: "0" },
+    ...Array.from({ length: 27 }, (_, index) => ({ name: `FILLER_${index}`, value: "x" })),
+  ];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push(String(url));
+    if (String(url).includes("/actions/variables?")) {
+      return Response.json({ total_count: 31, variables: String(url).includes("page=2")
+        ? [{ name: "NEXT_AUTOMATIC_DISPATCH_AT", value: String(now + 60000) }]
+        : firstPage });
+    }
+    return new Response(null, { status: 204 });
+  };
+  assert.equal(await runScheduledAutomation({ scheduledTime: now }, env, fakeFetch), false);
+  assert.ok(calls.some((url) => url.includes("page=2")));
+  assert.equal(calls.some((url) => url.includes("/dispatches")), false);
+  assert.equal(calls.some((url) => url.includes("/actions/variables/NEXT_AUTOMATIC")), false);
+});

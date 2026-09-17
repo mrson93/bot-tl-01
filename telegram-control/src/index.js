@@ -245,12 +245,22 @@ async function getMode(env, fetchImpl) {
 }
 
 async function getVariables(env, fetchImpl) {
-  const response = await githubRequest(
-    env, "/actions/variables?per_page=100", { method: "GET" }, fetchImpl,
-  );
-  if (!response.ok) throw new Error(`github_variables_read_${response.status}`);
-  const variables = (await response.json()).variables || [];
-  return Object.fromEntries(variables.map((item) => [String(item.name), String(item.value)]));
+  const variables = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await githubRequest(
+      env, `/actions/variables?per_page=30&page=${page}`,
+      { method: "GET" }, fetchImpl,
+    );
+    if (!response.ok) throw new Error(`github_variables_read_${response.status}`);
+    const data = await response.json();
+    const batch = data.variables || [];
+    variables.push(...batch);
+    if (batch.length < 30 || variables.length >= Number(data.total_count || Infinity)) {
+      return Object.fromEntries(variables.map((item) =>
+        [String(item.name), String(item.value)]));
+    }
+  }
+  throw new Error("github_variables_pagination_incomplete");
 }
 
 async function setVariable(env, name, value, fetchImpl) {
