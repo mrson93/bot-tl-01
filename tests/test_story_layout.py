@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -6,6 +7,16 @@ import story_card
 
 
 class StoryLayoutTest(unittest.TestCase):
+    def test_nome_da_plataforma_fica_centralizado_acima_da_foto(self):
+        with patch.object(story_card, "_baixar_imagem", return_value=None), \
+             patch.object(story_card.ImageDraw.ImageDraw, "text") as escrever:
+            story_card.gerar({"fonte": "Mercado Livre", "productName": "Produto",
+                              "price": 50}, "https://go.canaltabarato.com.br/x")
+        etiqueta = next(call for call in escrever.call_args_list
+                        if call.args[1] == "OFERTA • MERCADO LIVRE")
+        self.assertEqual((540, 247), etiqueta.args[0])
+        self.assertEqual("mm", etiqueta.kwargs["anchor"])
+
     def test_titulo_de_quatro_linhas_nao_encosta_no_preco(self):
         titulo = (
             "Kit completo de panelas antiaderentes com tampas de vidro "

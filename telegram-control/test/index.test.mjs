@@ -168,6 +168,12 @@ test("modo normal altera apenas a variavel permitida e confirma no telegram", as
   const github = calls.find((call) => call.options.method === "PATCH" && call.url.includes("BOT_MODE"));
   assert.equal(github.options.method, "PATCH");
   assert.deepEqual(JSON.parse(github.options.body), { name: "BOT_MODE", value: "normal" });
+  const next = calls.find((call) => call.options.method === "PATCH" &&
+    call.url.includes("NEXT_AUTOMATIC_DISPATCH_AT"));
+  assert.ok(next, "trocar de modo deve recalcular a próxima execução");
+  const scheduledAt = Number(JSON.parse(next.options.body).value);
+  assert.ok(scheduledAt >= Date.now() + 14 * 60000);
+  assert.ok(scheduledAt <= Date.now() + 31 * 60000);
   assert.equal(github.options.headers["User-Agent"], "deal-signal-control");
   assert.equal(github.options.headers.Authorization, "Bearer github-secret");
   const telegram = calls.find((call) => call.url.includes("api.telegram.org"));

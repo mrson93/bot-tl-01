@@ -66,6 +66,9 @@ def _upload_imagem(jwt: str, url_imagem: str, oferta=None):
     if not url_imagem:
         return _imagem_omitida("imagem ausente na oferta", "ausente", oferta)
     try:
+        url_imagem = seguranca.validar_url_https_em_hosts(
+            url_imagem, config.IMAGEM_HOSTS_PERMITIDOS, "URL da imagem"
+        )
         url_imagem = seguranca.validar_url_https_publica(
             url_imagem, "URL da imagem", resolver=True
         )
@@ -163,7 +166,8 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         reputacao.append(f"🏬 {loja}")
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
-    rodape = f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"
+    rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
+              f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}")
     motivo_repeticao = ""
     anterior = oferta.get("_preco_publicacao_anterior")
     if oferta.get("_motivo") == "queda_preco" and anterior and preco:

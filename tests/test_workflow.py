@@ -8,9 +8,10 @@ class WorkflowTest(unittest.TestCase):
         # A primeira execução de uma instalação nova ainda não tem artefato.
         self.assertIn("python estado_remoto.py restaurar", workflow)
         self.assertNotIn("python estado_remoto.py restaurar --obrigatorio", workflow)
-        self.assertIn("actions/upload-artifact@v7", workflow)
+        self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7", workflow)
         self.assertIn("python estado_remoto.py preparar", workflow)
         self.assertIn("path: postadas.db.enc", workflow)
+        self.assertIn("retention-days: 7", workflow)
         self.assertIn("BOT_STATE_KEY: ${{ secrets.BOT_STATE_KEY }}", workflow)
         self.assertNotIn("git push", workflow)
         self.assertNotIn("python -m unittest", workflow)
@@ -29,6 +30,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("python -m unittest discover -v", workflow)
         self.assertIn("node --test telegram-control/test/*.test.mjs", workflow)
         self.assertIn("node --check", workflow)
+        self.assertNotRegex(workflow, r"uses:\s+[^\s]+@v\d+")
 
     def test_monitor_roda_somente_uma_vez_por_dia(self):
         workflow = Path(".github/workflows/monitor.yml").read_text(encoding="utf-8")

@@ -159,16 +159,23 @@ class PublicacaoTest(unittest.TestCase):
             self.assertIsNone(bluesky._upload_imagem("jwt", "https://127.0.0.1/x.jpg"))
             baixar.assert_not_called()
 
+    def test_bluesky_nao_busca_imagem_fora_da_allowlist(self):
+        with patch("seguranca.socket.getaddrinfo") as resolver, \
+             patch.object(bluesky.requests, "get") as baixar:
+            self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem-atacante.example/x.jpg"))
+            resolver.assert_not_called()
+            baixar.assert_not_called()
+
     def test_bluesky_recusa_imagem_grande_antes_de_baixar_o_corpo(self):
         endereco_publico = [(2, 1, 6, "", ("93.184.216.34", 443))]
         saida = io.StringIO()
         with redirect_stdout(saida), \
              patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
              patch.object(bluesky.requests, "get", return_value=ImagemGrande()) as baixar:
-            self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
+            self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
             self.assertTrue(baixar.call_args.kwargs["stream"])
         self.assertIn("imagem original maior que 1 MB", saida.getvalue())
-        self.assertNotIn("imagem.test", saida.getvalue())
+        self.assertNotIn("cf.shopee.com.br", saida.getvalue())
 
     def test_bluesky_limita_imagem_mesmo_sem_content_length(self):
         imagem = ImagemEmPartes()
@@ -176,7 +183,7 @@ class PublicacaoTest(unittest.TestCase):
         with patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
              patch.object(bluesky.requests, "get", return_value=imagem), \
              patch.object(bluesky.requests, "post") as postar:
-            self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
+            self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
         self.assertTrue(imagem.fechada)
         postar.assert_not_called()
 
@@ -184,7 +191,7 @@ class PublicacaoTest(unittest.TestCase):
         endereco_privado = [(2, 1, 6, "", ("10.0.0.5", 443))]
         with patch("seguranca.socket.getaddrinfo", return_value=endereco_privado), \
              patch.object(bluesky.requests, "get") as baixar:
-            self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
+            self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
             baixar.assert_not_called()
 
     def test_bluesky_nao_segue_redirecionamento_de_imagem(self):
@@ -194,7 +201,7 @@ class PublicacaoTest(unittest.TestCase):
              patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
              patch.object(bluesky.requests, "get", return_value=Redirecionamento()) as baixar, \
              patch.object(bluesky.requests, "post") as postar:
-            self.assertIsNone(bluesky._upload_imagem("jwt", "https://imagem.test/x.jpg"))
+            self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
         self.assertFalse(baixar.call_args.kwargs["allow_redirects"])
         postar.assert_not_called()
         self.assertIn("redirecionamento não permitido", saida.getvalue())

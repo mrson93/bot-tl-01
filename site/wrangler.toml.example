@@ -1,6 +1,6 @@
 name = "canaltabarato"
 pages_build_output_dir = "./public"
-compatibility_date = "2026-09-05"
+compatibility_date = "2026-09-15"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
@@ -8,7 +8,21 @@ binding = "DB"
 database_name = "canaltabarato-ofertas"
 database_id = "PREENCHA_O_ID_DO_D1"
 
+[[ratelimits]]
+name = "FEEDBACK_RATE_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[ratelimits]]
+name = "METRICS_RATE_LIMITER"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 60
+  period = 60
+
 [vars]
 ALLOWED_DESTINATION_HOSTS = "shope.ee,s.shopee.com.br,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br,meli.la,mercadolivre.com.br,go.canaltabarato.com.br"
 
-# PUBLISH_TOKEN é segredo: configure no painel da Cloudflare, nunca aqui.
+# PUBLISH_TOKEN e ABUSE_HASH_SECRET são segredos: configure no painel da Cloudflare.

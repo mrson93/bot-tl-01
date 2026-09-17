@@ -1,5 +1,8 @@
 # Bot automático de ofertas
 
+> Para entender todo o produto, arquitetura, integrações, operação, segurança e
+> estado atual, comece por [`CONTEXTO-DO-PROJETO.md`](CONTEXTO-DO-PROJETO.md).
+
 O bot busca ofertas da Shopee, AliExpress e Amazon, além dos produtos escolhidos na lista pública de recomendações do Mercado Livre. Ele aplica os filtros disponíveis e publica uma oferta por rodada no Telegram, Bluesky, Facebook, X, Instagram Stories e na vitrine própria, conforme os canais ativados.
 
 ## Como funciona
@@ -10,7 +13,8 @@ O bot busca ofertas da Shopee, AliExpress e Amazon, além dos produtos escolhido
 - Cada canal possui seu próprio estado: uma falha no Facebook ou Bluesky não apaga o sucesso dos demais.
 - No modo Econômico, o pico usa 30 minutos e há seis rodadas fora dele, além do relatório.
 - No modo Normal, o pico usa 15 minutos e o restante do dia usa 30 minutos.
-- No modo Rápido, o pico usa 10 minutos e o restante do dia usa 20 minutos.
+- No modo Rápido, o intervalo é sorteado entre 8–11 minutos no pico e 16–22
+  minutos fora dele.
 - Se não houver oferta, tenta novamente após `RETRY_MINUTES`.
 - Quando uma rodada tiver mais de uma oferta, espera três minutos entre cada post.
 - Com o repositório privado, a rodada é limitada automaticamente a uma oferta
@@ -25,7 +29,7 @@ O bot busca ofertas da Shopee, AliExpress e Amazon, além dos produtos escolhido
 
 O modo Econômico reserva cerca de 21 execuções diárias do bot e uma do monitor.
 O modo Normal reserva cerca de 52 execuções do bot e uma do monitor.
-O modo Rápido reserva cerca de 78 execuções do bot e uma do monitor. Grades
+O modo Rápido estima cerca de 82 execuções do bot e uma do monitor. Grades
 inativas e chamadas antigas do cron-job.org sem a opção
 `executar_bot` são ignoradas antes de reservar uma máquina e não consomem minutos.
 Nas execuções em nuvem, a grade escolhida pelo Telegram é a única trava de ritmo;
@@ -178,7 +182,9 @@ cada programa.
 
 O banco `postadas.db` é restaurado de um artefato privado chamado `bot-state`,
 validado com `PRAGMA integrity_check` e salvo novamente somente quando mudar.
-O artefato tem retenção de 90 dias. O backup anterior à migração continua na
+O estado é compactado antes de ser criptografado; cada artefato novo tem retenção
+de 7 dias. Snapshots antigos continuam legíveis. Artefatos já existentes mantêm
+o próprio vencimento no GitHub até uma limpeza específica. O backup anterior à migração continua na
 branch de segurança.
 
 Os testes Python e os testes do controlador rodam no workflow `Testes` apenas

@@ -1,10 +1,17 @@
 import {safeUrl} from '../_lib.js';
+import {claimPublicAction} from '../_abuse.js';
 
 function saoPauloDay() {
   return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
-async function recordClick(env,mediaId,offerId) {
+async function recordClick(context,mediaId,offerId) {
+  const {env}=context;
+  const claim=await claimPublicAction({
+    env,request:context.request,purpose:'story-click',resource:mediaId,windowSeconds:300,
+    limiter:env.METRICS_RATE_LIMITER,
+  });
+  if(!claim.accepted) return;
   const day=saoPauloDay(),normalizedOffer=String(offerId||'');
   const insert=()=>env.DB.prepare(`INSERT INTO instagram_story_clicks_daily(observed_on,media_id,offer_id,quantity)
     VALUES(?,?,?,1) ON CONFLICT(observed_on,media_id,offer_id)
@@ -27,6 +34,6 @@ export async function onRequestGet(context) {
     .bind(mediaId,Math.floor(Date.now()/1000)).first();
   const destination=row&&safeUrl(row.link,env.ALLOWED_DESTINATION_HOSTS);
   if(!destination) return new Response('Oferta não encontrada',{status:404});
-  context.waitUntil(recordClick(env,mediaId,row.offer_id).catch(error=>console.warn(JSON.stringify({event:'story_click_record_failed',reason:error instanceof Error?error.name:'unknown'}))));
+  context.waitUntil(recordClick(context,mediaId,row.offer_id).catch(error=>console.warn(JSON.stringify({event:'story_click_record_failed',reason:error instanceof Error?error.name:'unknown'}))));
   return Response.redirect(destination,302);
 }

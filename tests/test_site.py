@@ -151,6 +151,20 @@ class SitePublisherTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "sem página principal"):
             site_publisher.publicar_loja(fonte)
 
+    def test_amazon_publica_atalho_para_lista_curada(self):
+        fonte = type("Fonte", (), {"NOME": "Amazon"})()
+        resposta = type("Resposta", (), {"status_code": 201})()
+        with patch.object(site_publisher.config, "AMAZON_LIST_URL",
+                          "https://amzn.to/lista-curada"), \
+             patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.com.br/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            site_publisher.publicar_loja(fonte)
+        self.assertEqual("Amazon", post.call_args.kwargs["json"]["source"])
+        self.assertEqual("https://amzn.to/lista-curada",
+                         post.call_args.kwargs["json"]["destination"])
+
     def test_publica_link_do_shopee_vip_e_cria_atalho_rastreavel(self):
         resposta = type("Resposta", (), {"status_code": 201})()
         with patch.object(site_publisher.config, "SITE_API_URL",

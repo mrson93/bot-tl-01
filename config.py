@@ -61,6 +61,12 @@ TELEGRAM_TRACKING_ID = _get("TELEGRAM_TRACKING_ID")
 BLUESKY_HANDLE = _get("BLUESKY_HANDLE")          # ex: seucanal.bsky.social
 BLUESKY_APP_PASSWORD = _get("BLUESKY_APP_PASSWORD")  # senha de app (Settings > App Passwords)
 BLUESKY_PDS = _get("BLUESKY_PDS") or "https://bsky.social"
+IMAGEM_HOSTS_PERMITIDOS = tuple(
+    host.strip().lower() for host in (
+        _get("IMAGEM_HOSTS_PERMITIDOS")
+        or "cf.shopee.com.br,img.susercontent.com,aliexpress-media.com,alicdn.com,m.media-amazon.com,images-na.ssl-images-amazon.com,http2.mlstatic.com,mla-s2-p.mlstatic.com"
+    ).split(",") if host.strip()
+)
 # id de rastreio so deste canal (crie no painel da loja). Vazio = usa o padrao.
 BLUESKY_TRACKING_ID = _get("BLUESKY_TRACKING_ID")
 

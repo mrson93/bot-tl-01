@@ -183,11 +183,20 @@ def publicar_cupom(cupom, link_afiliado):
 
 def publicar_loja(fonte):
     """Gera e publica o atalho afiliado para a página principal da loja."""
-    pagina = PAGINAS_INICIAIS.get(fonte.NOME)
-    if not pagina:
-        raise RuntimeError(f"Loja sem página principal cadastrada: {fonte.NOME}")
-    destino = fonte.gerar_link(pagina, config.SITE_TRACKING_ID,
-                               ["site", "loja", fonte.NOME.lower()])
+    if fonte.NOME == "Amazon" and config.AMAZON_LIST_URL:
+        # A vitrine da Amazon tem a lista curada do afiliado como destino.
+        # A página inicial genérica não representa a curadoria nem preserva
+        # com segurança a atribuição da lista.
+        destino = seguranca.validar_url_https_em_hosts(
+            config.AMAZON_LIST_URL, ("amzn.to", "amazon.com.br"),
+            "Lista afiliada da Amazon",
+        )
+    else:
+        pagina = PAGINAS_INICIAIS.get(fonte.NOME)
+        if not pagina:
+            raise RuntimeError(f"Loja sem página principal cadastrada: {fonte.NOME}")
+        destino = fonte.gerar_link(pagina, config.SITE_TRACKING_ID,
+                                   ["site", "loja", fonte.NOME.lower()])
     resposta = requests.post(
         _api_path("/api/stores"),
         headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},

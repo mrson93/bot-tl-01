@@ -658,6 +658,14 @@ async function showStatus(env, chatId, fetchImpl) {
 async function chooseMode(env, chatId, mode, callbackId, fetchImpl) {
   const before = await getMode(env, fetchImpl);
   await setMode(env, mode, fetchImpl);
+  if (before !== mode && mode !== "pausado") {
+    // O prazo antigo pode ter sido calculado no modo Econômico (120 min fora
+    // do pico). Recalcular evita que o Normal/Rápido espere esse prazo antigo.
+    const variables = await getVariables(env, fetchImpl);
+    const hour = Number.parseInt(brasiliaTime(new Date()).hour, 10);
+    const minutes = automaticIntervalMinutes(mode, hoursVariable(variables).includes(hour));
+    await setVariable(env, NEXT_AUTOMATIC_DISPATCH_AT, Date.now() + minutes * 60000, fetchImpl);
+  }
   await recordAudit(env, { key: "BOT_MODE", before, after: mode }, fetchImpl);
   await answerCallback(env, callbackId, `Modo ${MODES[mode].label} ativado`, fetchImpl);
   await sendMessage(

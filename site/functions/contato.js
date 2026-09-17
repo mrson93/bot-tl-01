@@ -1,2 +1,7 @@
 import {infoPage} from './_site.js';
-export function onRequestGet(){return infoPage({slug:'contato',title:'Fale com o Tá Barato',eyebrow:'CONTATO',description:'Canais oficiais para acompanhar ofertas ou falar com o Tá Barato.',content:`<h2>Canal oficial</h2><p>Para acompanhar as ofertas em tempo real, entre no <a href="https://t.me/CanalTaBarato" rel="noopener noreferrer">canal Tá Barato no Telegram ↗</a>.</p><h2>Sobre uma oferta</h2><p>Se o preço mudou ou o produto acabou, abra a página da oferta e use o botão de aviso. Isso ajuda a retirar links desatualizados da vitrine.</p><h2>Redes</h2><p>Você também pode acompanhar o perfil <a href="https://bsky.app/profile/canaltabarato.com.br" rel="noopener noreferrer">@canaltabarato.com.br no Bluesky ↗</a>.</p>`});}
+
+export function onRequestGet() {
+  return infoPage({slug:'contato',title:'Fale com o Tá Barato',eyebrow:'CONTATO',
+    description:'Canais oficiais para acompanhar ofertas ou falar com o Tá Barato.',
+    content:`<h2>Canal oficial</h2><p>Para acompanhar as ofertas em tempo real, entre no <a href="https://t.me/CanalTaBarato" rel="noopener noreferrer">canal Tá Barato no Telegram ↗</a>.</p><h2>Sobre uma oferta</h2><p>Se o preço mudou ou o produto acabou, abra a página da oferta e use o botão de aviso. Isso sinaliza o item para revisão; a disponibilidade é confirmada pela consulta oficial do catálogo.</p><h2>Redes</h2><p>Você também pode acompanhar o perfil <a href="https://bsky.app/profile/canaltabarato.com.br" rel="noopener noreferrer">@canaltabarato.com.br no Bluesky ↗</a>.</p>`});
+}

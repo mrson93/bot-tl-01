@@ -6,6 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+import config
 import seguranca
 import telegram_poster as fmt
 
@@ -146,6 +147,9 @@ def _baixar_imagem(url):
     if not url:
         return None
     try:
+        url = seguranca.validar_url_https_em_hosts(
+            url, config.IMAGEM_HOSTS_PERMITIDOS, "URL da imagem do produto"
+        )
         url = seguranca.validar_url_https_publica(
             url, "URL da imagem do produto", resolver=True
         )
@@ -223,6 +227,8 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
 
     draw.rounded_rectangle((54, 54, 1026, 1866), radius=54, fill="#FFFDF7")
     _desenhar_logo(canvas, draw)
+    draw.text((540, 247), f"OFERTA • {fmt.nome_plataforma(oferta).upper()}",
+              font=_fonte(24, True), fill="#252525", anchor="mm")
 
     produto = _baixar_imagem(oferta.get("imageUrl"))
     # Uma sombra curta separa a foto do fundo sem competir com o produto.

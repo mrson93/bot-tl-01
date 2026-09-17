@@ -23,6 +23,7 @@ class BufferXTest(unittest.TestCase):
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
         self.assertIn("Ver oferta #publi", texto)
+        self.assertIn("🏬 Loja\n🛒 Ver oferta", texto)
         self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
 

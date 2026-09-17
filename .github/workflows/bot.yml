@@ -175,9 +175,9 @@ jobs:
       HORA_FIM: ${{ vars.HORA_FIM || '0' }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
           cache: pip          # economiza segundos e ajuda a caber em 1 minuto
@@ -223,12 +223,14 @@ jobs:
 
       - name: Enviar estado remoto protegido
         if: always() && steps.proteger_estado.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bot-state
           path: postadas.db.enc
           if-no-files-found: error
-          retention-days: 90
+          # O estado e salvo a cada rodada; uma semana cobre recuperacao sem
+          # acumular meses de snapshots redundantes no Actions storage.
+          retention-days: 7
           compression-level: 9
 
       - name: Alertar falha da execução

@@ -2,7 +2,7 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "ta-barato-links",
   "main": "src/index.js",
-  "compatibility_date": "2026-09-12",
+  "compatibility_date": "2026-09-15",
   "routes": [
     {
       "pattern": "go.canaltabarato.com.br",
@@ -14,6 +14,13 @@
       "binding": "DB",
       "database_name": "ta-barato-links",
       "database_id": "7eeddae2-a601-42d8-908f-4d1dcdbe5481"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "CLICK_RATE_LIMITER",
+      "namespace_id": "2001",
+      "simple": { "limit": 60, "period": 60 }
     }
   ],
   "vars": {

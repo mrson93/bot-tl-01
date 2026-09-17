@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bot-tl-01",
   "main": "src/index.js",
-  "compatibility_date": "2026-09-10",
+  "compatibility_date": "2026-09-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,

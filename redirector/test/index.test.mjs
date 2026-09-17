@@ -4,7 +4,7 @@ import worker from '../src/index.js';
 
 function env(overrides={}) {
   return {ADMIN_TOKEN:'a'.repeat(32),PUBLIC_BASE_URL:'https://go.canaltabarato.com.br',
-    ALLOWED_DESTINATION_HOSTS:'shopee.com.br',DB:{prepare(){return {bind(){return this;},
+    ABUSE_HASH_SECRET:'b'.repeat(32),ALLOWED_DESTINATION_HOSTS:'shopee.com.br',DB:{prepare(){return {bind(){return this;},
       async run(){return {meta:{changes:1}};},async first(){return null;},async all(){return {results:[]};}};}},...overrides};
 }
 
@@ -34,13 +34,40 @@ test('aceita destino oficial do Mercado Livre',async()=>{
 
 test('mantém links antigos válidos durante a transição',async()=>{
   let selected;
-  const DB={prepare(){return {bind(slug){selected=slug;return this;},
+  const DB={prepare(sql){return {bind(slug){if(sql.includes('SELECT destination')) selected=slug;return this;},
     async first(){return {destination:'https://shopee.com.br/oferta'};},
     async run(){return {meta:{changes:1}};}};}};
   const response=await worker.fetch(
     new Request('https://go.canaltabarato.com.br/abcdef0123456789'),env({DB}));
   assert.equal(response.status,302);
   assert.equal(selected,'abcdef0123456789');
+});
+
+test('deduplica cliques repetidos sem impedir o redirecionamento',async()=>{
+  const events=new Set();let clicks=0;
+  const DB={prepare(sql){return {args:[],bind(...args){this.args=args;return this;},
+    async first(){return {destination:'https://shopee.com.br/oferta'};},
+    async run(){
+      if(sql.includes('INSERT OR IGNORE INTO abuse_events')){
+        const fresh=!events.has(this.args[0]);events.add(this.args[0]);return {meta:{changes:fresh?1:0}};
+      }
+      if(sql.includes('INSERT INTO clicks')) clicks+=1;
+      return {meta:{changes:1}};
+    }};}};
+  const request=()=>new Request('https://go.canaltabarato.com.br/abcdefgh',{headers:{
+    'CF-Connecting-IP':'203.0.113.10','User-Agent':'test',
+  }});
+  assert.equal((await worker.fetch(request(),env({DB}))).status,302);
+  assert.equal((await worker.fetch(request(),env({DB}))).status,302);
+  assert.equal(clicks,1);
+});
+
+test('limita o corpo real da criação de link',async()=>{
+  const request=new Request('https://go.canaltabarato.com.br/api/links',{method:'POST',
+    headers:{Authorization:`Bearer ${'a'.repeat(32)}`,'Content-Type':'application/json'},
+    body:JSON.stringify({destination:'https://shopee.com.br/x',offer_id:'1',channel:'x',
+      source:'x',padding:'x'.repeat(17_000)})});
+  assert.equal((await worker.fetch(request,env())).status,413);
 });
 
 test('rejeita destino não autorizado e intervalo inválido',async()=>{

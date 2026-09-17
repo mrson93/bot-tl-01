@@ -64,6 +64,11 @@ def rotulo_publicidade() -> str:
     return "#publi"
 
 
+def nome_plataforma(oferta: dict) -> str:
+    """Nome curto da plataforma para identificar o destino antes do link."""
+    return str(oferta.get("fonte") or "Loja").strip()[:30] or "Loja"
+
+
 # separadores que os marketplaces usam antes de emendar palavra-chave
 _SEPARADORES = (" - ", " – ", " — ", " | ", " • ", ", ")
 # abaixo disso o primeiro pedaco nao e nome de produto, e so um prefixo solto
@@ -195,6 +200,7 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         linhas.append("📱 Ative o cupom no aplicativo antes de finalizar")
 
     linhas.append("")
+    linhas.append(f"🏬 Loja: {html.escape(nome_plataforma(oferta))}")
     prep = _PREPOSICAO.get(fonte, "na")
     acao = "RESGATAR CUPOM" if oferta.get("cupomResgate") else "COMPRAR"
     linhas.append(f'🛒 <a href="{link_html}">{acao} {prep.upper()} '

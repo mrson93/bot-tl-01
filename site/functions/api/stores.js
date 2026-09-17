@@ -1,4 +1,4 @@
-import {authorized,json,safeUrl} from '../_lib.js';
+import {authorized,json,readJsonLimited,safeUrl} from '../_lib.js';
 
 const STORES={
   Shopee:{slug:'shopee',name:'Shopee'},
@@ -15,7 +15,9 @@ export async function onRequestGet({env}) {
 export async function onRequestPost({request,env}) {
   if(!await authorized(request,env.PUBLISH_TOKEN)) return json({error:'unauthorized'},401);
   if(Number(request.headers.get('Content-Length')||0)>8192) return json({error:'too_large'},413);
-  let body;try{body=await request.json();}catch{return json({error:'invalid_json'},400);}
+  let body;try{body=await readJsonLimited(request,8192);}catch(error){
+    return json({error:error?.message==='too_large'?'too_large':'invalid_json'},error?.message==='too_large'?413:400);
+  }
   const store=STORES[String(body.source||'').trim()];
   const destination=safeUrl(body.destination,env.ALLOWED_DESTINATION_HOSTS);
   if(!store||!destination) return json({error:'invalid_store'},400);

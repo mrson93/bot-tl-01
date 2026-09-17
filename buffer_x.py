@@ -52,7 +52,8 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
 
     cupom = str(oferta.get("cupom") or "").strip()
     linha_cupom = f"🎟 Cupom: {cupom}" if cupom else ""
-    rodape = f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link}"
+    rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
+              f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link}")
     abertura = fmt.chamada_inicial(oferta)
     fixos = "\n\n".join(parte for parte in
                          (abertura, linha_preco, linha_cupom, rodape) if parte)

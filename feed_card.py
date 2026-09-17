@@ -79,7 +79,8 @@ def gerar(oferta: dict) -> bytes:
     draw = ImageDraw.Draw(canvas)
     draw.rounded_rectangle((42, 42, 1038, 1308), radius=48, fill="#FFFDF7")
     _desenhar_logo(canvas)
-    draw.text((540, 194), "OFERTA DO DIA", font=base._fonte(34, True),
+    loja = fmt.nome_plataforma(oferta).upper()
+    draw.text((540, 194), f"OFERTA • {loja}", font=base._fonte(32, True),
               fill="#252525", anchor="mm")
 
     draw.rounded_rectangle((113, 253, 977, 793), radius=36, fill="#E9DFCE")
@@ -93,12 +94,6 @@ def gerar(oferta: dict) -> bytes:
     else:
         draw.text((540, 510), "OFERTA DE VERDADE", font=base._fonte(51, True),
                   fill="#ED1C24", anchor="mm")
-
-    fonte_loja = str(oferta.get("fonte") or "OFERTA").upper()[:28]
-    draw.rounded_rectangle((128, 266, 128 + max(150, 19 * len(fonte_loja)), 322),
-                           radius=28, fill="#252525")
-    draw.text((153, 294), fonte_loja, font=base._fonte(24, True),
-              fill="white", anchor="lm")
 
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     # Alguns catálogos já devolvem o nome visualmente truncado. Não repetimos

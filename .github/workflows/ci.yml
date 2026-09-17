@@ -13,16 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -v
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
-      - run: node --test telegram-control/test/*.test.mjs
+      - run: node --test telegram-control/test/*.test.mjs telegram-control/scheduler/test/*.test.mjs
       - run: node --test site/test/*.test.mjs
-      - run: find site -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: node --test redirector/test/*.test.mjs
+      - run: find site/functions telegram-control/src telegram-control/scheduler redirector/src -name '*.js' -print0 | xargs -0 -n1 node --check

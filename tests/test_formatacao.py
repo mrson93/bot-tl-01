@@ -181,8 +181,16 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("42% OFF\n\n⭐ 4.3", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
-        self.assertIn("42% OFF\n\n🛒 Ver oferta", texto)
+        self.assertIn("42% OFF\n\n🏬 Shopee\n🛒 Ver oferta", texto)
         self.assertIn("https://oferta.test\n\n⭐ 4.3", texto)
+
+    def test_plataforma_aparece_imediatamente_antes_do_link(self):
+        oferta = {"fonte": "Mercado Livre", "productName": "Produto",
+                  "price": 79, "variante": "B"}
+        legenda = telegram.montar_legenda(oferta, "https://go.canaltabarato.com.br/x")
+        texto, _ = bluesky.montar_texto(oferta, "https://go.canaltabarato.com.br/x")
+        self.assertIn("🏬 Loja: Mercado Livre\n🛒 <a", legenda)
+        self.assertIn("🏬 Mercado Livre\n🛒 Ver oferta", texto)
 
 
 if __name__ == "__main__":

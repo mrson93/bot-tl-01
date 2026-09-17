@@ -1,4 +1,4 @@
-import {authorized,json,safeUrl} from '../_lib.js';
+import {authorized,json,readJsonLimited,safeUrl} from '../_lib.js';
 import {notifyIndexNow} from '../_indexnow.js';
 import {normalizeCategory,offerPath,slugify} from '../_site.js';
 
@@ -6,7 +6,9 @@ export async function onRequestPost(context) {
   const {request,env}=context;
   if(!await authorized(request,env.PUBLISH_TOKEN)) return json({error:'unauthorized'},401);
   if(Number(request.headers.get('Content-Length')||0)>32768) return json({error:'too_large'},413);
-  let body; try{body=await request.json();}catch{return json({error:'invalid_json'},400);}
+  let body;try{body=await readJsonLimited(request,32768);}catch(error){
+    return json({error:error?.message==='too_large'?'too_large':'invalid_json'},error?.message==='too_large'?413:400);
+  }
   const destination=safeUrl(body.destination,env.ALLOWED_DESTINATION_HOSTS);
   const image=safeUrl(body.image_url);
   const id=String(body.id||'').slice(0,100), title=String(body.title||'').trim().slice(0,180);

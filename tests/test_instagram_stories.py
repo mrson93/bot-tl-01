@@ -158,6 +158,29 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual(titulo, " ".join(linhas))
         self.assertNotIn("…", " ".join(linhas))
 
+    def test_titulo_longo_reserva_espaco_antes_do_preco(self):
+        titulo = ("Kit completo de panelas antiaderentes com tampas de vidro "
+                  "utensílios para cozinha cabo removível conjunto premium")
+        imagem = Image.new("RGB", (1080, 1920), "white")
+        draw = story_card.ImageDraw.Draw(imagem)
+        linhas, fonte, entrelinha = story_card._ajustar_titulo(draw, titulo)
+        self.assertGreaterEqual(len(linhas), 4)
+        layout = story_card._layout_inferior(
+            draw, linhas, fonte, entrelinha, "R$ 1.234,56", 45
+        )
+        self.assertGreaterEqual(layout["preco_topo"] - layout["titulo_fim"], 30)
+        self.assertGreaterEqual(layout["painel_topo"] - layout["desconto_fim"], 22)
+        self.assertLess(layout["painel_topo"], layout["painel_fim"])
+
+    def test_cartao_nao_baixa_imagem_fora_da_allowlist(self):
+        with patch("seguranca.socket.getaddrinfo") as resolver, \
+             patch.object(story_card.requests, "get") as baixar:
+            self.assertIsNone(
+                story_card._baixar_imagem("https://imagem-atacante.example/x.jpg")
+            )
+            resolver.assert_not_called()
+            baixar.assert_not_called()
+
     def test_falha_ao_registrar_direct_nao_duplica_story_publicado(self):
         gets = [
             Resposta({"instagram_business_account": {"id": "17841435020643780"}}),

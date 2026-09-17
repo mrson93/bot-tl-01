@@ -29,8 +29,7 @@ function baseQuery() {
     LEFT JOIN (SELECT offer_id,COUNT(*) observations,MIN(price) min_price,AVG(price) avg_price
       FROM offer_prices WHERE observed_at>=? GROUP BY offer_id) p ON p.offer_id=o.id
     LEFT JOIN (SELECT offer_id,COUNT(*) clicks_7d FROM clicks WHERE clicked_at>=? GROUP BY offer_id) c ON c.offer_id=o.id
-    WHERE o.availability!='unavailable'
-      AND NOT EXISTS (SELECT 1 FROM offer_feedback f WHERE f.offer_id=o.id AND f.kind='expired' AND f.quantity>=5)`;
+    WHERE o.availability!='unavailable'`;
 }
 
 function decorate(row,kind) {

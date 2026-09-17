@@ -55,6 +55,7 @@ class FacebookTest(unittest.TestCase):
         dados = feed.kwargs["data"]
         self.assertIn("Produto util", dados["message"])
         self.assertIn("Ver oferta #publi", dados["message"])
+        self.assertIn("🏬 Loja: Shopee\n🛒 Ver oferta", dados["message"])
         self.assertNotIn("Link de afiliado", dados["message"])
         self.assertEqual("true", dados["published"])
         self.assertEqual(
@@ -110,6 +111,15 @@ class FacebookTest(unittest.TestCase):
             feed_card.gerar({"productName": titulo, "price": 50})
         self.assertEqual("Produto completo enviado pelo catálogo",
                          ajustar.call_args.args[1])
+
+    def test_nome_da_plataforma_fica_centralizado_acima_da_foto(self):
+        with patch.object(feed_card.base, "_baixar_imagem", return_value=None), \
+             patch.object(feed_card.ImageDraw.ImageDraw, "text") as escrever:
+            feed_card.gerar({"fonte": "Amazon", "productName": "Produto", "price": 50})
+        etiqueta = next(call for call in escrever.call_args_list
+                        if call.args[1] == "OFERTA • AMAZON")
+        self.assertEqual((540, 194), etiqueta.args[0])
+        self.assertEqual("mm", etiqueta.kwargs["anchor"])
 
     def test_foto_recusada_cai_para_post_de_link(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,

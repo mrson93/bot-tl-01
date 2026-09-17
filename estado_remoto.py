@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 import time
 import zipfile
+import zlib
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -29,6 +30,7 @@ MAX_BANCO = 32 * 1024 * 1024
 MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
 MAX_ARTEFATOS_TENTADOS = 10
 MAGIA = b"DEAL-SIGNAL-STATE-1\x00"
+MAGIA_COMPACTADA = b"DEAL-SIGNAL-STATE-2\x00"
 CONTEXTO = b"bot-state:v1"
 
 
@@ -126,18 +128,38 @@ def _chave_estado():
 
 def _criptografar(dados):
     nonce = os.urandom(12)
-    return MAGIA + nonce + AESGCM(_chave_estado()).encrypt(nonce, dados, CONTEXTO)
+    # O ZIP do GitHub nao consegue compactar dados depois de criptografados.
+    # Compactar antes do AES-GCM reduz cada snapshot sem expor o SQLite.
+    compactados = zlib.compress(dados, level=9)
+    return MAGIA_COMPACTADA + nonce + AESGCM(_chave_estado()).encrypt(
+        nonce, compactados, CONTEXTO
+    )
 
 
 def _descriptografar(dados):
-    if not dados.startswith(MAGIA) or len(dados) <= len(MAGIA) + 28:
+    magia = (MAGIA_COMPACTADA if dados.startswith(MAGIA_COMPACTADA)
+             else MAGIA if dados.startswith(MAGIA) else None)
+    if magia is None or len(dados) <= len(magia) + 28:
         raise RuntimeError("Estado remoto criptografado invalido")
-    inicio = len(MAGIA)
+    inicio = len(magia)
     nonce = dados[inicio:inicio + 12]
     try:
-        return AESGCM(_chave_estado()).decrypt(nonce, dados[inicio + 12:], CONTEXTO)
+        conteudo = AESGCM(_chave_estado()).decrypt(
+            nonce, dados[inicio + 12:], CONTEXTO
+        )
     except Exception as erro:
         raise RuntimeError("Nao foi possivel autenticar o estado remoto") from erro
+    if magia == MAGIA:
+        return conteudo  # snapshots antigos continuam restauraveis
+    try:
+        descompactador = zlib.decompressobj()
+        bruto = descompactador.decompress(conteudo, MAX_BANCO + 1)
+        if (len(bruto) > MAX_BANCO or descompactador.unconsumed_tail
+                or not descompactador.eof or descompactador.unused_data):
+            raise RuntimeError("Estado remoto compactado excede o limite ou esta invalido")
+        return bruto
+    except zlib.error as erro:
+        raise RuntimeError("Estado remoto compactado invalido") from erro
 
 
 def preparar_upload():

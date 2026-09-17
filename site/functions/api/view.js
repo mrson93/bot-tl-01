@@ -1,4 +1,5 @@
-import {json} from '../_lib.js';
+import {claimPublicAction} from '../_abuse.js';
+import {json,readJsonLimited} from '../_lib.js';
 
 const ALLOWED=/^\/(?:$|stories$|oferta\/[^/?#]{1,200}$|cupons$|quedas-de-preco$|menores-precos$|mais-acessadas$|mais-vendidos$|categorias\/[^/?#]{1,80}$|lojas\/[^/?#]{1,80}$|faixas-de-preco\/(?:ate-50|de-50-a-100|de-100-a-200|acima-de-200)$)/;
 const SOURCES=new Set(['facebook','instagram','telegram','bluesky','google','bing','direct','other']);
@@ -8,11 +9,21 @@ function saoPauloDay() {
 }
 
 export async function onRequestPost({request,env}) {
+  if(!String(request.headers.get('Content-Type')||'').toLowerCase().startsWith('application/json')) return json({error:'unsupported_media_type'},415);
+  if(Number(request.headers.get('Content-Length')||0)>2048) return json({error:'too_large'},413);
   let data;
-  try{data=await request.json();}catch{return json({error:'invalid_json'},400);}
+  try{data=await readJsonLimited(request,2048);}catch(error){
+    return json({error:String(error?.message||error)==='too_large'?'too_large':'invalid_json'},
+      String(error?.message||error)==='too_large'?413:400);
+  }
   const path=String(data?.path||'').slice(0,220);
   const source=SOURCES.has(String(data?.source||'').toLowerCase())?String(data.source).toLowerCase():'other';
   if(!ALLOWED.test(path)) return json({error:'invalid_path'},400);
+  const claim=await claimPublicAction({env,request,purpose:'view',resource:`${path}:${source}`,
+    windowSeconds:600,limiter:env.METRICS_RATE_LIMITER});
+  if(claim.reason==='rate_limited') return json({error:'rate_limited'},429);
+  if(['misconfigured','rate_limiter_error'].includes(claim.reason)) return json({ok:true,tracked:false},202);
+  if(!claim.accepted) return json({ok:true,duplicate:true},202);
   const day=saoPauloDay();
   const insert=()=>env.DB.batch([
     env.DB.prepare(`INSERT INTO page_views_daily(observed_on,path,quantity) VALUES(?,?,1)

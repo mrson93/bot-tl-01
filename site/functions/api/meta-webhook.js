@@ -17,8 +17,9 @@ async function secureEqual(left,right) {
 export async function onRequestGet({request,env}) {
   const url=new URL(request.url),mode=url.searchParams.get('hub.mode');
   const token=url.searchParams.get('hub.verify_token');
+  const expectedToken=String(env.META_WEBHOOK_VERIFY_TOKEN||'');
   const challenge=String(url.searchParams.get('hub.challenge')||'').slice(0,256);
-  if(mode==='subscribe'&&challenge&&await secureEqual(token,env.META_WEBHOOK_VERIFY_TOKEN)){
+  if(expectedToken&&token&&mode==='subscribe'&&challenge&&await secureEqual(token,expectedToken)){
     return new Response(challenge,{status:200,headers:{'Content-Type':'text/plain;charset=UTF-8','Cache-Control':'no-store'}});
   }
   return new Response('Forbidden',{status:403});

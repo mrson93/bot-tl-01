@@ -78,6 +78,26 @@ class EstadoRemotoTest(unittest.TestCase):
             self.assertNotIn(b"SQLite format 3", protegido)
             self.assertEqual(estado_remoto.DB.read_bytes(), estado_remoto._descriptografar(protegido))
 
+    def test_compacta_antes_de_criptografar_e_aceita_formato_anterior(self):
+        bruto = self._sqlite() + b"repeticao" * 100_000
+        with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
+            novo = estado_remoto._criptografar(bruto)
+            self.assertTrue(novo.startswith(estado_remoto.MAGIA_COMPACTADA))
+            self.assertLess(len(novo), len(bruto) // 10)
+            self.assertEqual(bruto, estado_remoto._descriptografar(novo))
+            nonce = b"n" * 12
+            antigo = estado_remoto.MAGIA + nonce + estado_remoto.AESGCM(
+                estado_remoto._chave_estado()
+            ).encrypt(nonce, bruto, estado_remoto.CONTEXTO)
+            self.assertEqual(bruto, estado_remoto._descriptografar(antigo))
+
+    def test_rejeita_descompactacao_acima_do_limite(self):
+        with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}), \
+             patch.object(estado_remoto, "MAX_BANCO", 100):
+            protegido = estado_remoto._criptografar(b"a" * 101)
+            with self.assertRaisesRegex(RuntimeError, "excede o limite"):
+                estado_remoto._descriptografar(protegido)
+
     def test_rejeita_snapshot_sem_criptografia(self):
         lista = Mock()
         lista.json.return_value = {"artifacts": [{

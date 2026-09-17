@@ -1,10 +1,40 @@
+import {shouldRecordClick} from './abuse.js';
+
 function json(data, status = 200) {
-  return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+  return Response.json(data, { status, headers: {"Cache-Control":"no-store",
+    "Strict-Transport-Security":"max-age=31536000","X-Content-Type-Options":"nosniff"} });
 }
 
-function authorized(request, env) {
+async function constantTimeEqual(left,right) {
+  const encoder=new TextEncoder();
+  const [a,b]=await Promise.all([
+    crypto.subtle.digest('SHA-256',encoder.encode(String(left||''))),
+    crypto.subtle.digest('SHA-256',encoder.encode(String(right||''))),
+  ]);
+  const x=new Uint8Array(a),y=new Uint8Array(b);let difference=0;
+  for(let index=0;index<x.length;index+=1) difference|=x[index]^y[index];
+  return difference===0;
+}
+
+async function authorized(request, env) {
   const token = String(env.ADMIN_TOKEN || "");
-  return token.length >= 32 && request.headers.get("Authorization") === `Bearer ${token}`;
+  const supplied=String(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
+  return token.length>=32&&supplied.length>=32&&constantTimeEqual(supplied,token);
+}
+
+async function readJsonLimited(request,maxBytes) {
+  if(!request.body) throw new Error('invalid_json');
+  const reader=request.body.getReader(),chunks=[];let total=0;
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    total+=value.byteLength;
+    if(total>maxBytes){await reader.cancel();throw new Error('payload_too_large');}
+    chunks.push(value);
+  }
+  const bytes=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 function allowedDestination(destination, env) {
@@ -20,12 +50,15 @@ function allowedDestination(destination, env) {
 }
 
 async function createLink(request, env) {
-  if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
+  if (!await authorized(request, env)) return json({ error: "unauthorized" }, 401);
   if (Number(request.headers.get("Content-Length") || 0) > 16_384) {
     return json({ error: "payload_too_large" }, 413);
   }
   let body;
-  try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
+  try { body = await readJsonLimited(request,16_384); } catch(error) {
+    return json({error:error?.message==='payload_too_large'?'payload_too_large':'invalid_json'},
+      error?.message==='payload_too_large'?413:400);
+  }
   if (!allowedDestination(body.destination, env)) {
     return json({ error: "destination_not_allowed" }, 400);
   }
@@ -52,7 +85,7 @@ async function createLink(request, env) {
 }
 
 async function stats(request, env) {
-  if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
+  if (!await authorized(request, env)) return json({ error: "unauthorized" }, 401);
   const url = new URL(request.url);
   const now = Math.floor(Date.now() / 1000);
   const start = Number(url.searchParams.get("start") || now - 31 * 86400);
@@ -87,7 +120,7 @@ async function stats(request, env) {
     by_offer: byOffer });
 }
 
-async function redirect(pathname, env) {
+async function redirect(request, pathname, env) {
   const slug = pathname.slice(1);
   // Mantém funcionando tudo o que já foi publicado com o formato antigo.
   if (!/^(?:[A-Za-z0-9]{8}|[a-f0-9]{16})$/.test(slug)) {
@@ -99,10 +132,13 @@ async function redirect(pathname, env) {
   if (!link || !allowedDestination(link.destination, env)) {
     return new Response("Not found", { status: 404 });
   }
-  await env.DB.prepare("INSERT INTO clicks(slug,clicked_at) VALUES(?,?)")
-    .bind(slug, Math.floor(Date.now() / 1000)).run();
+  if(await shouldRecordClick(request,env,slug)){
+    await env.DB.prepare("INSERT INTO clicks(slug,clicked_at) VALUES(?,?)")
+      .bind(slug, Math.floor(Date.now() / 1000)).run();
+  }
   return new Response(null,{status:302,headers:{Location:link.destination,
-    'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
+    'Cache-Control':'no-store','Referrer-Policy':'no-referrer',
+    'Strict-Transport-Security':'max-age=31536000','X-Content-Type-Options':'nosniff'}});
 }
 
 export default {
@@ -114,7 +150,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/stats") {
       return stats(request, env);
     }
-    if (request.method === "GET") return redirect(url.pathname, env);
+    if (request.method === "GET") return redirect(request, url.pathname, env);
     return new Response("Method not allowed", { status: 405 });
   },
 };

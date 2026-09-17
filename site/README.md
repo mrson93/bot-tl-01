@@ -46,10 +46,11 @@ pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
 adicionar uma etapa à conversão.
 As páginas de produto exibem histórico dos preços observados, ofertas relacionadas,
-favoritos locais, compartilhamento e um aviso de preço alterado. Cinco relatos
-retiram o item da vitrine; o formulário aceita apenas requisições do próprio site
-e o navegador impede relatos repetidos comuns. O site não exige cadastro nem envia
-os favoritos ao servidor.
+favoritos locais, compartilhamento e um aviso de preço alterado. Relatos sinalizam
+o item para revisão, mas não retiram ofertas automaticamente. O servidor limita e
+deduplica relatos, visualizações e cliques com identificadores HMAC temporários; IP
+e User-Agent nunca são gravados em claro. O site não exige cadastro nem envia os
+favoritos ao servidor.
 Ao receber uma oferta, a API também avisa o IndexNow em segundo plano. Uma falha
 nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenciais.
 
@@ -65,9 +66,14 @@ migração `0007_visitas_agregadas.sql` ativa contagens diárias de visualizaç�
 sem armazenar IP, identidade ou cookies de publicidade; o relatório privado
 compara essas visualizações com os cliques de saída para as lojas.
 3. Associar o binding `DB` ao projeto Pages.
-4. Cadastrar `PUBLISH_TOKEN` como segredo e `ALLOWED_DESTINATION_HOSTS` como variável.
-5. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
-6. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.com.br/api/publish`,
+4. Cadastrar `PUBLISH_TOKEN` e `ABUSE_HASH_SECRET` como segredos. O segundo deve ter
+   pelo menos 32 caracteres aleatórios e ser compartilhado somente com as Functions.
+   Cadastrar `ALLOWED_DESTINATION_HOSTS` como variável.
+5. Configurar os bindings `FEEDBACK_RATE_LIMITER` e `METRICS_RATE_LIMITER` conforme
+   `wrangler.toml.example`. A deduplicação D1 permanece ativa mesmo sem o binding,
+   mas feedback falha fechado se `ABUSE_HASH_SECRET` estiver ausente.
+6. Publicar `site/public` com a pasta `site/functions` no mesmo projeto.
+7. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.com.br/api/publish`,
    `SITE_ATIVO=true`, `SITE_REFRESH_PER_RUN=6` e `SITE_API_TOKEN` como segredo.
 
 ## Direct automático do Instagram
@@ -81,6 +87,7 @@ No ambiente de produção do Pages, cadastre como segredos `META_APP_SECRET`,
 `META_PAGE_ID`, `META_INSTAGRAM_ACCOUNT_ID` e `META_GRAPH_API_VERSION=v26.0`.
 O valor de `META_WEBHOOK_VERIFY_TOKEN` deve ser exatamente o mesmo informado ao
 configurar o webhook na Meta.
+O endpoint de verificação falha fechado quando qualquer um desses valores está ausente.
 
 No aplicativo da Meta, conceda `instagram_manage_messages`,
 `pages_manage_metadata` e, quando exigido pela assinatura da Página,

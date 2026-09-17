@@ -81,6 +81,8 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
     'Cache-Control':status===200?cache:'no-store',
     'Content-Security-Policy':"default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' https:; connect-src 'self' https://cloudflareinsights.com https://*.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
     'Referrer-Policy':'strict-origin-when-cross-origin',
+    'Strict-Transport-Security':'max-age=31536000',
+    'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
     'X-Content-Type-Options':'nosniff',
     'X-Robots-Tag':status===200?'index, follow, max-image-preview:large':'noindex, nofollow'
   }});

@@ -1,2 +1,19 @@
 import {SITE,infoPage} from './_site.js';
-export function onRequestGet(){const items=[['O preço mostrado é garantido?','Não. Preços e estoque podem mudar a qualquer momento. Confirme o valor final na loja.'],['O site vende os produtos?','Não. O Tá Barato reúne ofertas e leva você ao site oficial da loja.'],['Os links são de afiliado?','Alguns são. O canal pode receber comissão, sem custo adicional para você.'],['Como funcionam os cupons?','Clique no código para copiá-lo e abrir a loja. Confira no carrinho as regras, validade e produtos elegíveis.'],['Como aviso que uma oferta acabou?','Na página do produto, use o botão “Preço mudou ou oferta acabou?”. Relatos repetidos retiram a oferta da vitrine.'],['Preciso criar uma conta?','Não. Favoritos ficam salvos apenas neste navegador.']];const schema=JSON.stringify({'@context':'https://schema.org','@type':'FAQPage',mainEntity:items.map(([name,text])=>({'@type':'Question',name,acceptedAnswer:{'@type':'Answer',text}}))}).replace(/</g,'\\u003c');return infoPage({slug:'faq',title:'Dúvidas frequentes',eyebrow:'AJUDA',description:'Respostas sobre ofertas, cupons, links de afiliado e funcionamento do Tá Barato.',structured:schema,content:items.map(([q,a])=>`<details><summary>${q}</summary><p>${a}</p></details>`).join('')+`<p>Não encontrou sua dúvida? Fale conosco pelo <a href="${SITE}/contato">contato</a>.</p>`});}
+
+export function onRequestGet() {
+  const items=[
+    ['O preço mostrado é garantido?','Não. Preços e estoque podem mudar a qualquer momento. Confirme o valor final na loja.'],
+    ['O site vende os produtos?','Não. O Tá Barato reúne ofertas e leva você ao site oficial da loja.'],
+    ['Os links são de afiliado?','Alguns são. O canal pode receber comissão, sem custo adicional para você.'],
+    ['Como funcionam os cupons?','Clique no código para copiá-lo e abrir a loja. Confira no carrinho as regras, validade e produtos elegíveis.'],
+    ['Como aviso que uma oferta acabou?','Na página do produto, use o botão “Preço mudou ou oferta acabou?”. O aviso sinaliza o item para revisão; a disponibilidade é confirmada pela consulta oficial do catálogo.'],
+    ['Preciso criar uma conta?','Não. Favoritos ficam salvos apenas neste navegador.'],
+  ];
+  const schema=JSON.stringify({'@context':'https://schema.org','@type':'FAQPage',
+    mainEntity:items.map(([name,text])=>({'@type':'Question',name,
+      acceptedAnswer:{'@type':'Answer',text}}))}).replace(/</g,'\\u003c');
+  return infoPage({slug:'faq',title:'Dúvidas frequentes',eyebrow:'AJUDA',
+    description:'Respostas sobre ofertas, cupons, links de afiliado e funcionamento do Tá Barato.',
+    structured:schema,content:items.map(([q,a])=>`<details><summary>${q}</summary><p>${a}</p></details>`).join('')+
+      `<p>Não encontrou sua dúvida? Fale conosco pelo <a href="${SITE}/contato">contato</a>.</p>`});
+}

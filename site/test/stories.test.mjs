@@ -33,7 +33,10 @@ test('redireciona o clique do Story e agenda a medição',async()=>{
     async first(){return {offer_id:'oferta-1',link:'https://s.shopee.com.br/produto'};},
     async run(){statements.push({sql:this.sql,args:this.args});return {meta:{changes:1}};}};return statement;}};
   let pending;
-  const response=await storyRedirect({env:{DB,ALLOWED_DESTINATION_HOSTS:'shopee.com.br'},
+  const request=new Request('https://tabarato.com/story-go/17900000000000001',{
+    headers:{'CF-Connecting-IP':'203.0.113.5','User-Agent':'test-agent'},
+  });
+  const response=await storyRedirect({request,env:{DB,ALLOWED_DESTINATION_HOSTS:'shopee.com.br',ABUSE_HASH_SECRET:'s'.repeat(32)},
     params:{id:'17900000000000001'},waitUntil(promise){pending=promise;}});
   await pending;
   assert.equal(response.status,302);

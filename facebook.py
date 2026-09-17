@@ -106,7 +106,8 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         except (TypeError, ValueError, ZeroDivisionError):
             pass
 
-    linhas.extend(("", f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"))
+    linhas.extend(("", f"🏬 Loja: {fmt.nome_plataforma(oferta)}",
+                   f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"))
     return "\n".join(linhas)
 
 
