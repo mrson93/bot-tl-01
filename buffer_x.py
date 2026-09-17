@@ -19,8 +19,7 @@ def _canal() -> str:
 
 
 def esta_configurada() -> bool:
-    chave = (os.getenv("BUFFER_X_API_KEY", "")
-             or os.getenv("BUFFER_API_KEY", "")).strip()
+    chave = os.getenv("BUFFER_X_API_KEY", "").strip()
     return bool(len(chave) >= 20 and _CHANNEL_ID.fullmatch(_canal()))
 
 
@@ -98,7 +97,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         print("   ⚠️  X sem card personalizado: "
               f"{seguranca.redigir_segredos(erro)}")
         card = None
-    chave = os.getenv("BUFFER_X_API_KEY", "").strip() or None
+    chave = os.getenv("BUFFER_X_API_KEY", "").strip()
     def criar():
         try:
             return buffer_api.publicar_no_canal(

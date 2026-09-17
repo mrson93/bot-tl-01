@@ -858,7 +858,9 @@ para alguém que nunca viu o projeto antes.
 - O X está em outra conta/organização do Buffer; com a chave do Facebook, a
   API retorna `Channel not found`. O fluxo aceita `BUFFER_X_API_KEY` específico,
   mas a credencial da conta que detém X precisa ser adicionada ao secret do
-  GitHub pelo proprietário. Não declarar X operacional até uma entrega real.
+  GitHub pelo proprietário. Sem esse secret, X fica inativo para não gastar
+  chamadas da API em um canal inacessível. Não declarar X operacional até uma
+  entrega real.
 - O agendador Cloudflare encaminha eventos, mas em pelo menos duas ocasiões
   o horário de próximo disparo avançou sem uma execução aparecer no GitHub.
   O controlador passou a confirmar a criação da execução no cron seguinte e

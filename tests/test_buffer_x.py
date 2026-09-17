@@ -8,7 +8,7 @@ import buffer_x
 class BufferXTest(unittest.TestCase):
     def configuracao(self):
         return patch.dict(os.environ, {
-            "BUFFER_API_KEY": "buffer-chave-secreta-comprida",
+            "BUFFER_X_API_KEY": "buffer-chave-secreta-comprida",
             "BUFFER_X_CHANNEL_ID": "6aa9ceb2ea19ca0bde50aefa",
         }, clear=False)
 
@@ -53,8 +53,16 @@ class BufferXTest(unittest.TestCase):
 
     def test_configuracao_exige_id_valido(self):
         with patch.dict(os.environ, {
-            "BUFFER_API_KEY": "buffer-chave-secreta-comprida",
+            "BUFFER_X_API_KEY": "buffer-chave-secreta-comprida",
             "BUFFER_X_CHANNEL_ID": "invalido",
+        }, clear=False):
+            self.assertFalse(buffer_x.esta_configurada())
+
+    def test_nao_usa_chave_do_facebook_para_canal_x_de_outra_conta(self):
+        with patch.dict(os.environ, {
+            "BUFFER_API_KEY": "buffer-chave-do-facebook-comprida",
+            "BUFFER_X_API_KEY": "",
+            "BUFFER_X_CHANNEL_ID": "6aa9ceb2ea19ca0bde50aefa",
         }, clear=False):
             self.assertFalse(buffer_x.esta_configurada())
 
