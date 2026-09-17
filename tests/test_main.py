@@ -149,6 +149,16 @@ class MainTest(unittest.TestCase):
         publicar.assert_called_once_with(fonte)
         marcar.assert_called_once_with("2026-09-06", "Shopee")
 
+    def test_nao_publica_atalho_generico_do_mercado_livre_no_site(self):
+        fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
+        momento = datetime(2026, 9, 6, 10, 0, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "publicar_loja") as publicar, \
+             patch.object(main.store, "marcar_link_loja_site_sincronizado") as marcar:
+            self.assertEqual(0, main.sincronizar_links_lojas_site([fonte], momento))
+        publicar.assert_not_called()
+        marcar.assert_not_called()
+
     def test_shopee_vip_publica_uma_vez_por_janela_sem_criar_nova_execucao(self):
         manha = datetime(2026, 9, 7, 10, 15, tzinfo=main.FUSO_BRASILIA)
         noite = datetime(2026, 9, 7, 19, 15, tzinfo=main.FUSO_BRASILIA)
@@ -358,6 +368,58 @@ class MainTest(unittest.TestCase):
              patch.object(Canal, "postar") as postar:
             self.assertEqual(1, main.publicar(Fonte, oferta))
         self.assertEqual("https://shope.ee/oficial", postar.call_args.args[1])
+
+    def test_story_do_mercado_livre_nunca_recebe_link_direto(self):
+        class Fonte:
+            NOME = "Mercado Livre"
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://www.mercadolivre.com.br/produto"
+
+        class Canal:
+            NOME = "Instagram Stories"
+            TRACKING_ID = "instagram"
+
+            @staticmethod
+            def postar(*args):
+                return None
+
+        oferta = {"oferta_id": "mercadolivre_MLB1", "productUrl": "https://produto.test",
+                  "price": 50}
+        with patch.object(main, "canais_ativos", return_value=[Canal]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega") as registrar, \
+             patch.object(main.shortlinks, "esta_configurado", return_value=True), \
+             patch.object(main.shortlinks, "criar", side_effect=RuntimeError("fora")), \
+             patch.object(main.shortlinks, "eh_proprio", return_value=False), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(Canal, "postar") as postar:
+            self.assertEqual(0, main.publicar(Fonte, oferta))
+        postar.assert_not_called()
+        self.assertFalse(registrar.call_args.args[2])
+
+    def test_story_do_mercado_livre_usa_dominio_curto(self):
+        class Fonte:
+            NOME = "Mercado Livre"
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://www.mercadolivre.com.br/produto"
+
+        canal = unittest.mock.Mock(NOME="Instagram Stories", TRACKING_ID="instagram")
+        oferta = {"oferta_id": "mercadolivre_MLB1", "productUrl": "https://produto.test",
+                  "price": 50}
+        curto = "https://go.canaltabarato.com.br/abcdefgh"
+        with patch.object(main, "canais_ativos", return_value=[canal]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega"), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=True), \
+             patch.object(main.shortlinks, "criar", return_value=curto), \
+             patch.object(main.shortlinks, "eh_proprio", return_value=True), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False):
+            self.assertEqual(1, main.publicar(Fonte, oferta))
+        canal.postar.assert_called_once_with(oferta, curto)
 
     def test_bom_dia_e_enviado_so_uma_vez(self):
         agora = datetime(2026, 8, 19, 5, 0)

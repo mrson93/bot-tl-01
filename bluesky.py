@@ -8,8 +8,6 @@ from datetime import datetime, timezone
 import requests
 
 import config
-import desempenho
-import experimentos
 import seguranca
 import observabilidade
 
@@ -133,7 +131,6 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, "Link de afiliado"
     )
-    fonte = oferta.get("fonte") or "loja"
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)
 
@@ -155,9 +152,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     elif preco:
         linha_preco = f"💰 R$ {_preco(preco)}{sufixo_app}" + (f" · {int(round(desconto))}% OFF" if desconto else "")
 
-    prep = fmt._PREPOSICAO.get(fonte, "na")
-    humana = (desempenho.chamada_humana(oferta)
-              if experimentos.usa_chamada_humana(oferta) else "")
+    humana = fmt.chamada_inicial(oferta)
     reputacao = []
     if oferta.get("ratingStar"):
         reputacao.append(f"⭐ {float(oferta['ratingStar']):.1f}")
@@ -168,7 +163,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         reputacao.append(f"🏬 {loja}")
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
-    rodape = f"🛒 Comprar {prep} {fonte}: {link_afiliado}"
+    rodape = f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"
     motivo_repeticao = ""
     anterior = oferta.get("_preco_publicacao_anterior")
     if oferta.get("_motivo") == "queda_preco" and anterior and preco:
@@ -237,6 +232,16 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         titulo = fmt.limpar_titulo(titulo, max(1, len(titulo) - excesso - 1))
         texto = montar(titulo, chamada="", itens_reputacao=[],
                        instrucao=False, incluir_cupom=False)
+    if len(texto) > 300:
+        # O link nunca é cortado. Mantemos preço, chamada de compra e o
+        # máximo de título que ainda cabe no limite da rede.
+        essenciais = "\n\n".join(parte for parte in (linha_preco, rodape) if parte)
+        espaco = 300 - len(essenciais) - 2
+        titulo = fmt.limpar_titulo(oferta.get("productName", "Oferta"), 0)
+        titulo = titulo[:max(0, espaco)].rsplit(" ", 1)[0].rstrip(" ,;:-–—|/.")
+        texto = "\n\n".join(parte for parte in (titulo, essenciais) if parte)
+    if len(texto) > 300:
+        raise RuntimeError("O link da oferta é longo demais para o Bluesky")
     inicio_link = len(texto[: texto.rindex(link_afiliado)].encode("utf-8"))
     return texto, inicio_link
 

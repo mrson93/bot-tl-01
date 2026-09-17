@@ -50,14 +50,37 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     if desconto:
         linha_preco += f" · {int(round(desconto))}% OFF"
 
-    rodape = f"🛒 Ver oferta: {link}\n\nLink de afiliado."
-    abertura = fmt.abertura(desconto)
-    fixos = "\n\n".join(parte for parte in (abertura, linha_preco, rodape) if parte)
+    cupom = str(oferta.get("cupom") or "").strip()
+    linha_cupom = f"🎟 Cupom: {cupom}" if cupom else ""
+    rodape = f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link}"
+    abertura = fmt.chamada_inicial(oferta)
+    fixos = "\n\n".join(parte for parte in
+                         (abertura, linha_preco, linha_cupom, rodape) if parte)
     espaco_titulo = max(1, _LIMITE_TEXTO - len(fixos) - 2)
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip()
     titulo = _cortar_palavras(titulo, espaco_titulo) or "Oferta"
-    texto = "\n\n".join(parte for parte in (abertura, titulo, linha_preco, rodape) if parte)
+    texto = "\n\n".join(parte for parte in
+                         (abertura, titulo, linha_preco, linha_cupom, rodape)
+                         if parte)
+    if len(texto) > _LIMITE_TEXTO and abertura:
+        abertura = ""
+        fixos = "\n\n".join(parte for parte in
+                             (linha_preco, linha_cupom, rodape) if parte)
+        titulo = _cortar_palavras(
+            fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0),
+            max(1, _LIMITE_TEXTO - len(fixos) - 2),
+        ) or "Oferta"
+        texto = "\n\n".join(parte for parte in
+                             (titulo, linha_preco, linha_cupom, rodape) if parte)
+    if len(texto) > _LIMITE_TEXTO and linha_cupom:
+        linha_cupom = ""
+        fixos = "\n\n".join(parte for parte in (linha_preco, rodape) if parte)
+        titulo = _cortar_palavras(
+            fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0),
+            max(1, _LIMITE_TEXTO - len(fixos) - 2),
+        ) or "Oferta"
+        texto = "\n\n".join(parte for parte in (titulo, linha_preco, rodape) if parte)
     if len(texto) > _LIMITE_TEXTO:
         raise RuntimeError("Não foi possível ajustar o texto do X ao limite")
     return texto

@@ -53,6 +53,17 @@ def abertura(desconto: float) -> str:
     return ""
 
 
+def chamada_inicial(oferta: dict) -> str:
+    """Usa a mesma abertura editorial em todas as redes sociais."""
+    return (desempenho.chamada_humana(oferta)
+            if experimentos.usa_chamada_humana(oferta) else "")
+
+
+def rotulo_publicidade() -> str:
+    """Identifica publicidade sem ocupar uma frase inteira da legenda."""
+    return "#publi"
+
+
 # separadores que os marketplaces usam antes de emendar palavra-chave
 _SEPARADORES = (" - ", " – ", " — ", " | ", " • ", ", ")
 # abaixo disso o primeiro pedaco nao e nome de produto, e so um prefixo solto
@@ -126,8 +137,7 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     loja = html.escape(oferta.get("shopName") or "")
 
     linhas = []
-    humana = (desempenho.chamada_humana(oferta)
-              if experimentos.usa_chamada_humana(oferta) else "")
+    humana = chamada_inicial(oferta)
     if humana:
         linhas.append(html.escape(humana))
         linhas.append("")
@@ -189,6 +199,7 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     acao = "RESGATAR CUPOM" if oferta.get("cupomResgate") else "COMPRAR"
     linhas.append(f'🛒 <a href="{link_html}">{acao} {prep.upper()} '
                   f'{fonte_html}</a>')
+    linhas.append(rotulo_publicidade())
 
     return "\n".join(linhas)
 

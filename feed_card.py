@@ -132,7 +132,7 @@ def gerar(oferta: dict) -> bytes:
                            radius=36, fill="#ED1C24")
     draw.text((540, cta_topo + 36), "CONFIRA O LINK NA LEGENDA",
               font=base._fonte(29, True), fill="white", anchor="mm")
-    draw.text((540, 1281), "Link de afiliado • preço pode mudar",
+    draw.text((540, 1281), "#publi • preço pode mudar",
               font=base._fonte(21), fill="#666666", anchor="mm")
 
     saida = BytesIO()

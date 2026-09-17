@@ -17,6 +17,21 @@ def _mesma_origem(url, base):
     return a.scheme == b.scheme == "https" and a.netloc.lower() == b.netloc.lower()
 
 
+def eh_proprio(url):
+    """Confirma se o endereço usa o domínio curto configurado."""
+    if not config.SHORTLINK_BASE_URL:
+        return False
+    try:
+        return _mesma_origem(
+            seguranca.validar_url_https_publica(url, "Link curto"),
+            seguranca.validar_url_https_publica(
+                config.SHORTLINK_BASE_URL, "Base de links"
+            ),
+        )
+    except ValueError:
+        return False
+
+
 def criar(destino, oferta_id, canal, fonte):
     """Registra um destino afiliado; nunca devolve URL de outra origem."""
     destino = seguranca.validar_url_https_publica(destino, "Link de afiliado")

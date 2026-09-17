@@ -23,6 +23,15 @@ test('valida dimensões e cria link próprio sem dados pessoais',async()=>{
   assert.match(body.short_url,/^https:\/\/go\.canaltabarato\.com\.br\/[a-z2-9]{8}$/);
 });
 
+test('aceita destino oficial do Mercado Livre',async()=>{
+  const request=new Request('https://go.canaltabarato.com.br/api/links',{method:'POST',
+    headers:{Authorization:`Bearer ${'a'.repeat(32)}`,'Content-Type':'application/json'},
+    body:JSON.stringify({destination:'https://www.mercadolivre.com.br/produto',offer_id:'MLB1',
+      channel:'Instagram Stories',source:'Mercado Livre'})});
+  const response=await worker.fetch(request,env({ALLOWED_DESTINATION_HOSTS:'mercadolivre.com.br,meli.la'}));
+  assert.equal(response.status,201);
+});
+
 test('mantém links antigos válidos durante a transição',async()=>{
   let selected;
   const DB={prepare(){return {bind(slug){selected=slug;return this;},

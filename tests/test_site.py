@@ -146,6 +146,11 @@ class SitePublisherTest(unittest.TestCase):
                          post.call_args.kwargs["json"]["destination"])
         self.assertEqual("https://shopee.com.br/", Fonte.chamada[0])
 
+    def test_mercado_livre_nao_tem_atalho_generico_no_site(self):
+        fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
+        with self.assertRaisesRegex(RuntimeError, "sem página principal"):
+            site_publisher.publicar_loja(fonte)
+
     def test_publica_link_do_shopee_vip_e_cria_atalho_rastreavel(self):
         resposta = type("Resposta", (), {"status_code": 201})()
         with patch.object(site_publisher.config, "SITE_API_URL",

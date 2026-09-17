@@ -18,6 +18,6 @@
   ],
   "vars": {
     "PUBLIC_BASE_URL": "https://go.canaltabarato.com.br",
-    "ALLOWED_DESTINATION_HOSTS": "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br"
+    "ALLOWED_DESTINATION_HOSTS": "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br,meli.la,mercadolivre.com.br"
   }
 }

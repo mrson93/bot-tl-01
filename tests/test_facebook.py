@@ -31,7 +31,7 @@ class FacebookTest(unittest.TestCase):
             HTTP_MAX_TENTATIVAS=1,
         )
 
-    def test_publica_imagem_anexada_ao_feed_com_aviso_de_afiliado(self):
+    def test_publica_imagem_anexada_ao_feed_com_aviso_curto_de_publicidade(self):
         oferta = {"fonte": "Shopee", "productName": "Produto util",
                   "price": 49.9, "priceDiscountRate": 50,
                   "imageUrl": "https://imagem.test/produto.jpg"}
@@ -54,7 +54,8 @@ class FacebookTest(unittest.TestCase):
         self.assertTrue(feed.args[0].endswith("/123456/feed"))
         dados = feed.kwargs["data"]
         self.assertIn("Produto util", dados["message"])
-        self.assertIn("Link de afiliado", dados["message"])
+        self.assertIn("Ver oferta #publi", dados["message"])
+        self.assertNotIn("Link de afiliado", dados["message"])
         self.assertEqual("true", dados["published"])
         self.assertEqual(
             '{"media_fbid": "foto_123"}', dados["attached_media[0]"]

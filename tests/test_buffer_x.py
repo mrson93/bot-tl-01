@@ -22,7 +22,23 @@ class BufferXTest(unittest.TestCase):
         self.assertLessEqual(len(texto), 280)
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
+        self.assertIn("Ver oferta #publi", texto)
+        self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
+
+    def test_prioriza_preco_link_e_cupom_quando_precisa_encurtar(self):
+        oferta = {
+            "fonte": "Mercado Livre", "productName": "Produto " * 100,
+            "price": 79.90, "priceDiscountRate": 50, "cupom": "BARATO20",
+            "variante": "A",
+        }
+        texto = buffer_x.montar_texto(
+            oferta, "https://go.canaltabarato.com.br/abcdefgh"
+        )
+        self.assertLessEqual(len(texto), 280)
+        self.assertIn("R$ 79,90", texto)
+        self.assertIn("BARATO20", texto)
+        self.assertIn("https://go.canaltabarato.com.br/abcdefgh", texto)
 
     def test_publica_card_no_canal_x_do_buffer(self):
         oferta = {"productName": "Produto", "price": 50,

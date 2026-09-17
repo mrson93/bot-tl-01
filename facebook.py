@@ -7,8 +7,6 @@ import requests
 
 import buffer_facebook
 import config
-import desempenho
-import experimentos
 import feed_card
 import seguranca
 import store
@@ -61,12 +59,10 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     # desnecessárias mesmo quando o card ainda tinha espaço para o título.
     titulo = fmt.limpar_titulo(oferta.get("productName", "Oferta"), 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
-    fonte = str(oferta.get("fonte") or "loja")
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)
     original = oferta.get("precoOriginal")
-    humana = (desempenho.chamada_humana(oferta)
-              if experimentos.usa_chamada_humana(oferta) else "")
+    humana = fmt.chamada_inicial(oferta)
     linhas = []
     if humana:
         linhas.extend((humana, ""))
@@ -110,9 +106,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         except (TypeError, ValueError, ZeroDivisionError):
             pass
 
-    prep = fmt._PREPOSICAO.get(fonte, "na")
-    linhas.extend(("", f"🛒 Comprar {prep} {fonte}: {link_afiliado}",
-                   "", "ℹ️ Link de afiliado; o canal pode receber comissão sem custo adicional para você."))
+    linhas.extend(("", f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"))
     return "\n".join(linhas)
 
 

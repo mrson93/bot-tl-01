@@ -5,11 +5,10 @@ const STORES={
   'Shopee VIP':{slug:'shopee-vip',name:'Shopee VIP'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
-  'Mercado Livre':{slug:'mercadolivre',name:'Mercado Livre'},
 };
 
 export async function onRequestGet({env}) {
-  const result=await env.DB.prepare('SELECT slug,name,updated_at FROM store_links ORDER BY name').all();
+  const result=await env.DB.prepare("SELECT slug,name,updated_at FROM store_links WHERE slug<>'mercadolivre' ORDER BY name").all();
   return json({stores:result.results||[]},200,'public, max-age=300, stale-while-revalidate=900');
 }
 

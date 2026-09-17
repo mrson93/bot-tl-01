@@ -91,6 +91,7 @@ class FormatacaoTest(unittest.TestCase):
         legenda = telegram.montar_legenda(oferta, "https://amazon.test/x")
         self.assertIn("R$ 109,23", legenda)
         self.assertIn("COMPRAR NA AMAZON", legenda)
+        self.assertIn("#publi", legenda)
         self.assertNotIn("OFERTA", legenda)
 
     def test_bluesky_tambem_nao_inventa_preco_original(self):
@@ -147,7 +148,7 @@ class FormatacaoTest(unittest.TestCase):
                   "shopName": "Dulojashoes", "variante": "B"}
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("🏬 Dulojashoes", texto)
-        self.assertLess(texto.index("🛒 Comprar"), texto.index("⭐ 4.3"))
+        self.assertLess(texto.index("🛒 Ver oferta"), texto.index("⭐ 4.3"))
 
     def test_bluesky_preserva_preco_compra_e_link_em_texto_extremo(self):
         oferta = {"fonte": "AliExpress", "productName": "Produto longo " * 30,
@@ -159,6 +160,7 @@ class FormatacaoTest(unittest.TestCase):
         texto, _ = bluesky.montar_texto(oferta, link)
         self.assertLessEqual(len(texto), 300)
         self.assertIn("R$ 29,00 no app", texto)
+        self.assertIn("#publi", texto)
         self.assertIn(link, texto)
         self.assertLess(texto.index("R$ 29,00"), texto.index(link))
 
@@ -179,7 +181,7 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("42% OFF\n\n⭐ 4.3", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
-        self.assertIn("42% OFF\n\n🛒 Comprar", texto)
+        self.assertIn("42% OFF\n\n🛒 Ver oferta", texto)
         self.assertIn("https://oferta.test\n\n⭐ 4.3", texto)
 
 

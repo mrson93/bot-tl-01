@@ -82,7 +82,7 @@ export async function onRequestGet({env}) {
       expires_at,published_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
       ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END,expires_at ASC,published_at DESC LIMIT 100`
     ).bind(now).all(),
-    env.DB.prepare('SELECT slug,name FROM store_links ORDER BY name').all(),
+    env.DB.prepare("SELECT slug,name FROM store_links WHERE slug<>'mercadolivre' ORDER BY name").all(),
   ]);
   const official=(result.results||[]).map(coupon=>({...coupon,href:`/cupom/${encodeURIComponent(coupon.id)}`}));
   const external=await externalCoupons(storeResult.results||[],now);

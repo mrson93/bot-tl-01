@@ -9,7 +9,7 @@ database_id = "PREENCHA_O_ID_DO_D1"
 
 [vars]
 PUBLIC_BASE_URL = "https://oferta.seudominio.com.br"
-ALLOWED_DESTINATION_HOSTS = "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br"
+ALLOWED_DESTINATION_HOSTS = "shope.ee,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br,meli.la,mercadolivre.com.br"
 
 [[routes]]
 pattern = "oferta.seudominio.com.br"

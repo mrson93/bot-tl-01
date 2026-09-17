@@ -82,6 +82,10 @@ def sincronizar_links_lojas_site(lojas, agora=None):
     data = (agora or datetime.now(FUSO_BRASILIA)).date().isoformat()
     atualizados = 0
     for fonte in lojas:
+        # A lista do Mercado Livre é uma fila de produtos, não um atalho
+        # genérico de loja para a vitrine do site.
+        if fonte.NOME == "Mercado Livre":
+            continue
         if store.link_loja_site_sincronizado(data, fonte.NOME):
             continue
         try:
@@ -319,6 +323,14 @@ def publicar(fonte, oferta: dict) -> int:
                 except Exception as erro_link:
                     print("   ⚠️  Link proprio indisponivel; usando afiliado oficial: "
                           f"{seguranca.redigir_segredos(erro_link)}")
+            exige_curto = (fonte.NOME == "Mercado Livre" and canal.NOME in {
+                "Bluesky", "X", "Instagram Stories",
+            })
+            if exige_curto and not shortlinks.eh_proprio(link):
+                raise RuntimeError(
+                    f"{canal.NOME} exige o link curto do domínio próprio "
+                    "para ofertas do Mercado Livre"
+                )
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
             _registrar_saude_canal(canal.NOME, True)
