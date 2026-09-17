@@ -2,6 +2,7 @@
 from io import BytesIO
 import os
 import re
+import time
 from typing import Optional
 
 from PIL import Image
@@ -9,6 +10,7 @@ import requests
 
 import seguranca
 import site_publisher
+import store
 
 
 API_URL = "https://api.buffer.com"
@@ -18,9 +20,15 @@ _MAX_IMAGEM_HOSPEDADA = 850_000
 _CREATE_POST = """
 mutation CreateFacebookPost($input: CreatePostInput!) {
   createPost(input: $input) {
-    ... on PostActionSuccess { post { id } }
+    ... on PostActionSuccess { post { id status } }
     ... on MutationError { message }
   }
+}
+""".strip()
+
+_GET_POST = """
+query BufferPost($input: PostInput!) {
+  post(input: $input) { id status }
 }
 """.strip()
 
@@ -75,9 +83,10 @@ def _url_imagem(card: Optional[bytes],
 
 def publicar_no_canal(texto: str, card: Optional[bytes],
                       imagem_original: Optional[str], canal: str,
-                      metadata: Optional[dict] = None) -> str:
+                      metadata: Optional[dict] = None,
+                      api_key: Optional[str] = None) -> str:
     """Cria um post imediato em um canal conectado ao Buffer."""
-    chave = os.getenv("BUFFER_API_KEY", "").strip()
+    chave = (api_key or os.getenv("BUFFER_API_KEY", "")).strip()
     if len(chave) < 20 or not _CHANNEL_ID.fullmatch(canal):
         raise RuntimeError("Buffer não configurado para o canal")
 
@@ -131,6 +140,45 @@ def publicar_no_canal(texto: str, card: Optional[bytes],
         detalhe = seguranca.redigir_segredos(resultado["message"])[:300]
         raise RuntimeError(f"Buffer recusou os dados da publicação: {detalhe}")
     raise RuntimeError("Buffer respondeu sem confirmar a publicação")
+
+
+def consultar_status(post_id: str, api_key: Optional[str] = None) -> str:
+    """Consulta a entrega real; criar um post não significa que ele foi enviado."""
+    chave = (api_key or os.getenv("BUFFER_API_KEY", "")).strip()
+    try:
+        resposta = requests.post(
+            API_URL,
+            headers={"Authorization": f"Bearer {chave}",
+                     "Content-Type": "application/json"},
+            json={"query": _GET_POST, "variables": {"input": {"id": post_id}}},
+            timeout=20, allow_redirects=False,
+        )
+        corpo = resposta.json() or {}
+    except (requests.RequestException, ValueError):
+        raise RuntimeError("Não foi possível confirmar a entrega pelo Buffer") from None
+    if not 200 <= resposta.status_code < 300 or corpo.get("errors"):
+        raise RuntimeError("Buffer recusou a consulta do estado da publicação")
+    status = str(((corpo.get("data") or {}).get("post") or {}).get("status") or "")
+    if status not in {"draft", "error", "needs_approval", "scheduled", "sending", "sent"}:
+        raise RuntimeError("Buffer não informou o estado da publicação")
+    return status
+
+
+def publicar_confirmado(oferta_id: str, canal_nome: str, criar,
+                        api_key: Optional[str] = None) -> str:
+    """Evita duplicar posts em fila e só confirma entrega quando status=sent."""
+    post_id = store.buffer_post(oferta_id, canal_nome)
+    if not post_id:
+        post_id = str(criar())
+        store.registrar_buffer_post(oferta_id, canal_nome, post_id)
+    for tentativa in range(3):
+        status = consultar_status(post_id, api_key)
+        if status == "sent":
+            return post_id
+        if status not in {"sending"} or tentativa == 2:
+            break
+        time.sleep(2)
+    raise RuntimeError(f"Buffer recebeu o post {post_id}, mas estado atual: {status}")
 
 
 def publicar(texto: str, card: Optional[bytes],

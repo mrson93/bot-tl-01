@@ -459,3 +459,36 @@ test("agendador automatico espera o horario sorteado e entao dispara uma rodada"
   assert.equal(await runScheduledAutomation({ scheduledTime: Number(nextAt) }, env, fakeFetch), true);
   assert.equal(calls.filter((call) => call.url.includes("/dispatches")).length, 1);
 });
+
+test("agendador confirma a execução e tenta novamente se o GitHub não a criou", async () => {
+  const variables = new Map([
+    ["BOT_MODE", "rapido"], ["HORA_INICIO", "6"], ["HORA_FIM", "0"],
+  ]);
+  const calls = [];
+  let runs = [];
+  const fakeFetch = async (url, options = {}) => {
+    const endereco = String(url);
+    calls.push({ endereco, options });
+    if (endereco.includes("/actions/variables?")) {
+      return Response.json({ variables: [...variables].map(([name, value]) => ({ name, value })) });
+    }
+    if (endereco.includes("/actions/workflows/bot.yml/runs?")) {
+      return Response.json({ workflow_runs: runs });
+    }
+    if (endereco.includes("/actions/variables/")) {
+      const body = JSON.parse(options.body);
+      variables.set(body.name, body.value);
+      return new Response(null, { status: 204 });
+    }
+    return new Response(null, { status: 204 });
+  };
+  const initial = Date.parse("2026-08-25T15:00:00Z");
+  variables.set("NEXT_AUTOMATIC_DISPATCH_AT", String(initial));
+  assert.equal(await runScheduledAutomation({ scheduledTime: initial }, env, fakeFetch), true);
+  assert.equal(Number(variables.get("NEXT_AUTOMATIC_DISPATCH_AT")), initial + 120000);
+  assert.equal(await runScheduledAutomation({ scheduledTime: initial + 120000 }, env, fakeFetch), true);
+  assert.equal(calls.filter((call) => call.endereco.includes("/dispatches")).length, 2);
+  runs = [{ created_at: new Date(initial + 120000).toISOString() }];
+  assert.equal(await runScheduledAutomation({ scheduledTime: initial + 240000 }, env, fakeFetch), false);
+  assert.equal(variables.get("LAST_AUTOMATIC_DISPATCH_AT"), "0");
+});

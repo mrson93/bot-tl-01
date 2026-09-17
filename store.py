@@ -22,6 +22,7 @@ def _conn():
             con.execute(f"ALTER TABLE postadas ADD COLUMN {nome} {tipo}")
     con.execute("CREATE TABLE IF NOT EXISTS entregas (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, preco REAL, fonte TEXT, tentativas INTEGER NOT NULL DEFAULT 1, erro TEXT, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
     con.execute("CREATE TABLE IF NOT EXISTS entregas_log (id TEXT, canal TEXT, sucesso INTEGER, preco REAL, fonte TEXT, erro TEXT, entregue_em INTEGER)")
+    con.execute("CREATE TABLE IF NOT EXISTS buffer_posts (id TEXT NOT NULL, canal TEXT NOT NULL, post_id TEXT NOT NULL, criado_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
     con.execute("CREATE TABLE IF NOT EXISTS estado (chave TEXT PRIMARY KEY, valor TEXT)")
     con.execute("CREATE TABLE IF NOT EXISTS desempenho (fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, categoria TEXT, conversoes INTEGER NOT NULL DEFAULT 0, quantidade INTEGER NOT NULL DEFAULT 0, comissao REAL NOT NULL DEFAULT 0, atualizado_em INTEGER NOT NULL, PRIMARY KEY(fonte,oferta_id))")
     con.execute("CREATE TABLE IF NOT EXISTS metricas_diarias (data TEXT NOT NULL, fonte TEXT NOT NULL, canal TEXT NOT NULL DEFAULT '', posts INTEGER NOT NULL DEFAULT 0, conversoes INTEGER NOT NULL DEFAULT 0, quantidade INTEGER NOT NULL DEFAULT 0, comissao REAL NOT NULL DEFAULT 0, canceladas INTEGER NOT NULL DEFAULT 0, cliques INTEGER NOT NULL DEFAULT 0, atualizado_em INTEGER NOT NULL, PRIMARY KEY(data,fonte,canal))")
@@ -115,12 +116,43 @@ def marcar_postada(oferta_id, preco=None, desconto=None, fonte=None, agora=None,
                      fonte, titulo, categoria, experimento, variante, loja))
 
 
+def posts_por_fonte_desde(inicio):
+    """Conta ofertas distintas da janela para equilibrar a distribuição."""
+    with _conn() as con:
+        return {fonte: int(total) for fonte, total in con.execute(
+            "SELECT fonte, COUNT(*) FROM postadas "
+            "WHERE postada_em >= ? AND fonte IS NOT NULL GROUP BY fonte",
+            (int(inicio),),
+        )}
+
+
 def registrar_entrega(oferta_id, canal, sucesso, preco=None, fonte=None, erro=None, agora=None):
     momento = int(agora or time.time())
     with _conn() as con:
         dados = (str(oferta_id), canal, int(bool(sucesso)), preco, fonte, erro, momento)
         con.execute("INSERT INTO entregas(id,canal,sucesso,preco,fonte,tentativas,erro,entregue_em) VALUES(?,?,?,?,?,1,?,?) ON CONFLICT(id,canal) DO UPDATE SET sucesso=excluded.sucesso,preco=excluded.preco,fonte=excluded.fonte,tentativas=entregas.tentativas+1,erro=excluded.erro,entregue_em=excluded.entregue_em", dados)
         con.execute("INSERT INTO entregas_log(id,canal,sucesso,preco,fonte,erro,entregue_em) VALUES(?,?,?,?,?,?,?)", dados)
+
+
+def buffer_post(oferta_id, canal):
+    with _conn() as con:
+        entregue = con.execute(
+            "SELECT sucesso,entregue_em FROM entregas WHERE id=? AND canal=?",
+            (str(oferta_id), canal),
+        ).fetchone()
+        row = con.execute("SELECT post_id,criado_em FROM buffer_posts WHERE id=? AND canal=?",
+                          (str(oferta_id), canal)).fetchone()
+    if not row or (entregue and entregue[0] and entregue[1] >= row[1]):
+        return None
+    return row[0]
+
+
+def registrar_buffer_post(oferta_id, canal, post_id):
+    with _conn() as con:
+        con.execute("INSERT INTO buffer_posts(id,canal,post_id,criado_em) VALUES(?,?,?,?) "
+                    "ON CONFLICT(id,canal) DO UPDATE SET post_id=excluded.post_id, "
+                    "criado_em=excluded.criado_em",
+                    (str(oferta_id), canal, str(post_id), int(time.time())))
 
 
 def registrar_evento(tipo, execucao_id, quantidade=1, oferta_id=None,

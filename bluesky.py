@@ -167,7 +167,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
     rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
-              f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}")
+              f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link_afiliado}")
     motivo_repeticao = ""
     anterior = oferta.get("_preco_publicacao_anterior")
     if oferta.get("_motivo") == "queda_preco" and anterior and preco:

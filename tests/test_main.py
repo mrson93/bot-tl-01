@@ -603,10 +603,33 @@ class MainTest(unittest.TestCase):
              patch.object(main, "publicar", return_value=1) as publicar, \
              patch.object(main.store, "marcar_postada"), \
              patch.object(main.config, "MAX_POSTS_PER_RUN", 1), \
-             patch.object(main.config, "peso_loja", return_value=1):
+             patch.object(main.config, "peso_loja", return_value=1), \
+             patch.object(main.config, "percentual_loja", return_value=0):
             self.assertEqual(1, main.rodar_uma_vez())
 
         self.assertEqual("AliExpress", publicar.call_args.args[0].NOME)
+
+    def test_percentuais_distribuem_vinte_ofertas_entre_as_quatro_fontes(self):
+        from collections import Counter
+        fontes = ("Shopee", "Mercado Livre", "Amazon", "AliExpress")
+        fila = []
+        for fonte_nome in fontes:
+            fonte = type("Fonte", (), {"NOME": fonte_nome})()
+            for indice in range(20):
+                fila.append({"_fonte_obj": fonte, "fonte": fonte_nome,
+                             "oferta_id": f"{fonte_nome}-{indice}",
+                             "productName": f"Produto {fonte_nome} {indice}",
+                             "categoria": "outros"})
+        with patch.object(main.store, "posts_por_fonte_desde", return_value={}), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.desempenho, "produtos_semelhantes", return_value=False), \
+             patch.object(main.config, "DELAY_BETWEEN_POSTS_SECONDS", 0):
+            self.assertEqual(20, main._publicar_fila(fila, 20))
+        totais = Counter(chamada.args[0].NOME for chamada in publicar.call_args_list)
+        self.assertEqual({"Shopee": 6, "Mercado Livre": 6,
+                          "Amazon": 5, "AliExpress": 3}, dict(totais))
 
     def test_rodada_espera_intervalo_configurado_entre_posts(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()

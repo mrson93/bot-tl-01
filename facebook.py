@@ -107,7 +107,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
             pass
 
     linhas.extend(("", f"🏬 Loja: {fmt.nome_plataforma(oferta)}",
-                   f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link_afiliado}"))
+                   f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link_afiliado}"))
     return "\n".join(linhas)
 
 
@@ -166,15 +166,17 @@ def postar(oferta: dict, link_afiliado: str) -> None:
               f"{seguranca.redigir_segredos(erro)}")
         card = None
     if buffer_facebook.esta_configurado():
-        try:
-            buffer_facebook.publicar(texto, card, oferta.get("imageUrl"))
-        except buffer_facebook.FalhaHospedagemCard as erro:
-            # Se a hospedagem temporária do card falhar, ainda tentamos a foto
-            # original da oferta. Uma falha da API não cai na integração direta
-            # da Meta, pois isso poderia criar dois posts.
-            print("   ⚠️  Facebook via Buffer sem card personalizado: "
-                  f"{seguranca.redigir_segredos(erro)}")
-            buffer_facebook.publicar(texto, None, oferta.get("imageUrl"))
+        def criar():
+            try:
+                return buffer_facebook.publicar(texto, card, oferta.get("imageUrl"))
+            except buffer_facebook.FalhaHospedagemCard as erro:
+                # Falha antes do envio: podemos tentar com a imagem original.
+                print("   ⚠️  Facebook via Buffer sem card personalizado: "
+                      f"{seguranca.redigir_segredos(erro)}")
+                return buffer_facebook.publicar(texto, None, oferta.get("imageUrl"))
+        buffer_facebook.publicar_confirmado(
+            str(oferta.get("oferta_id") or ""), NOME, criar,
+        )
         return
     if card:
         try:

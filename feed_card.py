@@ -80,8 +80,9 @@ def gerar(oferta: dict) -> bytes:
     draw.rounded_rectangle((42, 42, 1038, 1308), radius=48, fill="#FFFDF7")
     _desenhar_logo(canvas)
     loja = fmt.nome_plataforma(oferta).upper()
-    draw.text((540, 194), f"OFERTA • {loja}", font=base._fonte(32, True),
-              fill="#252525", anchor="mm")
+    draw.rounded_rectangle((270, 175, 810, 221), radius=23, fill="#202020")
+    draw.text((540, 198), loja, font=base._fonte(27, True),
+              fill="white", anchor="mm")
 
     draw.rounded_rectangle((113, 253, 977, 793), radius=36, fill="#E9DFCE")
     draw.rounded_rectangle((103, 243, 967, 783), radius=36, fill="white",
@@ -127,7 +128,7 @@ def gerar(oferta: dict) -> bytes:
                            radius=36, fill="#ED1C24")
     draw.text((540, cta_topo + 36), "CONFIRA O LINK NA LEGENDA",
               font=base._fonte(29, True), fill="white", anchor="mm")
-    draw.text((540, 1281), "#publi • preço pode mudar",
+    draw.text((540, 1281), "Publicidade • preço pode mudar",
               font=base._fonte(21), fill="#666666", anchor="mm")
 
     saida = BytesIO()

@@ -58,6 +58,7 @@ jobs:
       BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
       FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
       BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+      BUFFER_X_API_KEY: ${{ secrets.BUFFER_X_API_KEY }}
       SITE_API_TOKEN: ${{ secrets.SITE_API_TOKEN }}
       SHORTLINK_API_TOKEN: ${{ secrets.SHORTLINK_API_TOKEN }}
       AMAZON_CREDENTIAL_ID: ${{ secrets.AMAZON_CREDENTIAL_ID }}
@@ -102,25 +103,29 @@ jobs:
       AMAZON_FETCH_LIMIT: ${{ vars.AMAZON_FETCH_LIMIT || '100' }}
       AMAZON_MARKETPLACE: "www.amazon.com.br"
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
+      PERCENTUAL_AMAZON: ${{ vars.PERCENTUAL_AMAZON || '25' }}
       PESO_AMAZON: ${{ vars.PESO_AMAZON || '1' }}
       AMAZON_PAGES: ${{ vars.AMAZON_PAGES || '3' }}
       MERCADOLIVRE_LIST_URL: ${{ vars.MERCADOLIVRE_LIST_URL }}
       MERCADOLIVRE_ATIVA: ${{ vars.MERCADOLIVRE_ATIVA || 'true' }}
+      PERCENTUAL_MERCADOLIVRE: ${{ vars.PERCENTUAL_MERCADOLIVRE || '30' }}
       PESO_MERCADOLIVRE: ${{ vars.PESO_MERCADOLIVRE || '1' }}
       MERCADOLIVRE_FETCH_LIMIT: ${{ vars.MERCADOLIVRE_FETCH_LIMIT || '150' }}
       # 6 paginas por loja: com 3 o AliExpress chegava a ZERO ofertas ineditas
       # e o bot caia na repescagem. Nao suba muito: a busca ja leva ~28s e o
       # Actions cobra por minuto comecado.
       ALIEXPRESS_ATIVA: ${{ vars.ALIEXPRESS_ATIVA || 'true' }}
+      PERCENTUAL_ALIEXPRESS: ${{ vars.PERCENTUAL_ALIEXPRESS || '15' }}
       PESO_ALIEXPRESS: ${{ vars.PESO_ALIEXPRESS || '1' }}
       ALIEXPRESS_PAGES: ${{ vars.ALIEXPRESS_PAGES || '6' }}
       # a Shopee busca DUAS listas (padrao + mais vendidos), entao 3 paginas de
       # cada da o mesmo numero de chamadas que 6 de uma so
       SHOPEE_ATIVA: ${{ vars.SHOPEE_ATIVA || 'true' }}
+      PERCENTUAL_SHOPEE: ${{ vars.PERCENTUAL_SHOPEE || '30' }}
       PESO_SHOPEE: ${{ vars.PESO_SHOPEE || '1' }}
       SHOPEE_PAGES: ${{ vars.SHOPEE_PAGES || '3' }}
       SHOPEE_LIST_TYPES: "0,2"
-      PICO_PRIORIZA_MAIS_VENDIDOS: ${{ vars.PICO_PRIORIZA_MAIS_VENDIDOS || 'true' }}
+      PICO_PRIORIZA_MAIS_VENDIDOS: ${{ vars.PICO_PRIORIZA_MAIS_VENDIDOS || 'false' }}
       PICO_JANELA_VENDAS_DIAS: ${{ vars.PICO_JANELA_VENDAS_DIAS || '7' }}
       # dias que uma oferta fica de molho antes de poder repetir
       DIAS_ANTES_DE_REPETIR: ${{ vars.DIAS_ANTES_DE_REPETIR || '7' }}
@@ -131,7 +136,8 @@ jobs:
       DESEMPENHO_MAX_DIAS: ${{ vars.DESEMPENHO_MAX_DIAS || '14' }}
       DIVERSIDADE_JANELA_POSTS: ${{ vars.DIVERSIDADE_JANELA_POSTS || '3' }}
       SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.68' }}
-      AB_TEST_ATIVO: ${{ vars.AB_TEST_ATIVO || 'true' }}
+      AB_TEST_ATIVO: ${{ vars.AB_TEST_ATIVO || 'false' }}
+      CHAMADAS_HUMANAS_ATIVAS: ${{ vars.CHAMADAS_HUMANAS_ATIVAS || 'false' }}
       AB_TEST_NOME: "chamada_humana_v1"
       ALIEXPRESS_FETCH_LIMIT: "50"
       MIN_DISCOUNT: ${{ vars.MIN_DISCOUNT || '15' }}

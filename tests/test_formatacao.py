@@ -7,18 +7,20 @@ import telegram_poster as telegram
 
 
 class FormatacaoTest(unittest.TestCase):
-    def test_chamada_humana_vai_direto_para_o_produto_sem_oferta_generica(self):
+    def test_chamada_humana_fica_desligada_por_padrao(self):
         oferta = {
             "fonte": "Shopee", "productName": "Panela antiaderente",
             "price": 79.9, "priceDiscountRate": 50, "variante": "A",
         }
         legenda = telegram.montar_legenda(oferta, "https://shope.ee/x")
         chamada = desempenho.chamada_humana(oferta)
-        self.assertIn(f"{chamada}\n\n<b>Panela antiaderente</b>", legenda)
+        self.assertNotIn(chamada, legenda)
+        self.assertTrue(legenda.startswith("<b>Panela antiaderente</b>"))
         self.assertNotIn("OFERTA", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://shope.ee/x")
-        self.assertIn(f"{chamada}\n\nPanela antiaderente", texto)
+        self.assertNotIn(chamada, texto)
+        self.assertTrue(texto.startswith("Panela antiaderente"))
         self.assertNotIn("OFERTA", texto)
 
     def test_variante_b_comeca_objetiva_sem_chamada_de_categoria(self):
@@ -39,10 +41,8 @@ class FormatacaoTest(unittest.TestCase):
         self.assertNotIn("OFERTA", texto)
 
     def test_chamadas_respeitam_limites(self):
-        self.assertEqual("", telegram.abertura(39))
-        self.assertIn("OFERTA", telegram.abertura(40))
-        self.assertIn("OFERTA", telegram.abertura(70))
-        self.assertIn("BAIXOU MUITO", telegram.abertura(71))
+        for desconto in (39, 40, 70, 71, 90):
+            self.assertEqual("", telegram.abertura(desconto))
 
     def test_nao_inventa_preco_original_nem_parcelamento(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,
@@ -91,7 +91,8 @@ class FormatacaoTest(unittest.TestCase):
         legenda = telegram.montar_legenda(oferta, "https://amazon.test/x")
         self.assertIn("R$ 109,23", legenda)
         self.assertIn("COMPRAR NA AMAZON", legenda)
-        self.assertIn("#publi", legenda)
+        self.assertIn("Publicidade", legenda)
+        self.assertNotIn("#publi", legenda)
         self.assertNotIn("OFERTA", legenda)
 
     def test_bluesky_tambem_nao_inventa_preco_original(self):
@@ -123,7 +124,7 @@ class FormatacaoTest(unittest.TestCase):
         with patch.object(telegram.config, "LINK_COMPARTILHAR",
                           "https://t.me/CanalTaBarato"):
             legenda = telegram.montar_legenda(oferta, "https://oferta.test")
-        self.assertIn(desempenho.chamada_humana(oferta), legenda)
+        self.assertNotIn(desempenho.chamada_humana(oferta), legenda)
         self.assertEqual(1, legenda.count("COMPRAR"))
         self.assertNotIn("Compartilhe", legenda)
 
@@ -148,7 +149,7 @@ class FormatacaoTest(unittest.TestCase):
                   "shopName": "Dulojashoes", "variante": "B"}
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("🏬 Dulojashoes", texto)
-        self.assertLess(texto.index("🛒 Ver oferta"), texto.index("⭐ 4.3"))
+        self.assertLess(texto.index("🛒 Publicidade"), texto.index("⭐ 4.3"))
 
     def test_bluesky_preserva_preco_compra_e_link_em_texto_extremo(self):
         oferta = {"fonte": "AliExpress", "productName": "Produto longo " * 30,
@@ -160,7 +161,8 @@ class FormatacaoTest(unittest.TestCase):
         texto, _ = bluesky.montar_texto(oferta, link)
         self.assertLessEqual(len(texto), 300)
         self.assertIn("R$ 29,00 no app", texto)
-        self.assertIn("#publi", texto)
+        self.assertIn("Publicidade", texto)
+        self.assertNotIn("#publi", texto)
         self.assertIn(link, texto)
         self.assertLess(texto.index("R$ 29,00"), texto.index(link))
 
@@ -181,7 +183,7 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("42% OFF\n\n⭐ 4.3", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
-        self.assertIn("42% OFF\n\n🏬 Shopee\n🛒 Ver oferta", texto)
+        self.assertIn("42% OFF\n\n🏬 Shopee\n🛒 Publicidade · Ver oferta", texto)
         self.assertIn("https://oferta.test\n\n⭐ 4.3", texto)
 
     def test_plataforma_aparece_imediatamente_antes_do_link(self):
@@ -189,8 +191,8 @@ class FormatacaoTest(unittest.TestCase):
                   "price": 79, "variante": "B"}
         legenda = telegram.montar_legenda(oferta, "https://go.canaltabarato.com.br/x")
         texto, _ = bluesky.montar_texto(oferta, "https://go.canaltabarato.com.br/x")
-        self.assertIn("🏬 Loja: Mercado Livre\n🛒 <a", legenda)
-        self.assertIn("🏬 Mercado Livre\n🛒 Ver oferta", texto)
+        self.assertIn("🏬 Loja: Mercado Livre\nPublicidade\n🛒 <a", legenda)
+        self.assertIn("🏬 Mercado Livre\n🛒 Publicidade · Ver oferta", texto)
 
 
 if __name__ == "__main__":

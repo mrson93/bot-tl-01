@@ -13,6 +13,10 @@ def atribuir(oferta: dict) -> str:
 
 
 def aplicar(oferta: dict) -> dict:
+    if not config.AB_TEST_ATIVO:
+        oferta["experimento"] = None
+        oferta["variante"] = "controle"
+        return oferta
     # Sem categoria confiável não existe chamada humana para comparar. Não
     # contaminar o A/B com duas variantes visualmente idênticas.
     if oferta.get("categoria") == "outros":

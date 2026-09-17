@@ -851,18 +851,33 @@ def _publicar_fila(fila, limite):
     pendentes = list(fila)
     selecionadas = []
     lojas_hoje = store.posts_por_loja_hoje()
+    fontes_hoje = store.posts_por_fonte_desde(time.time() - 7 * 86400)
     while pendentes and postadas < limite:
-        indice = next(
-            (i for i, oferta in enumerate(pendentes)
+        elegiveis = [
+            (i, oferta) for i, oferta in enumerate(pendentes)
              if _oferta_diversa_da_rodada(oferta, selecionadas)
              and (not config.MAX_POSTS_POR_LOJA_DIA
                   or not str(oferta.get("shopName") or "").strip()
                   or lojas_hoje.get(str(oferta.get("shopName") or "").strip().casefold(), 0)
-                  < config.MAX_POSTS_POR_LOJA_DIA)),
-            None,
-        )
-        if indice is None:
+                  < config.MAX_POSTS_POR_LOJA_DIA)
+        ]
+        if not elegiveis:
             break
+        fontes_disponiveis = {o.get("fonte") for _, o in elegiveis}
+        pesos = {fonte: config.percentual_loja(fonte)
+                 for fonte in fontes_disponiveis}
+        soma_pesos = sum(pesos.values())
+        if soma_pesos:
+            total_janela = sum(fontes_hoje.get(f, 0) for f in fontes_disponiveis)
+            def deficit(par):
+                _, oferta = par
+                fonte = oferta.get("fonte")
+                meta = pesos[fonte] / soma_pesos
+                return ((total_janela + 1) * meta - fontes_hoje.get(fonte, 0),
+                        -par[0])
+            indice, _ = max(elegiveis, key=deficit)
+        else:
+            indice = elegiveis[0][0]
         oferta = pendentes.pop(indice)
         fonte = oferta["_fonte_obj"]
         oid = oferta["oferta_id"]
@@ -876,6 +891,7 @@ def _publicar_fila(fila, limite):
             loja=oferta.get("shopName")
         )
         postadas += 1
+        fontes_hoje[fonte.NOME] = fontes_hoje.get(fonte.NOME, 0) + 1
         selecionadas.append(oferta)
         loja = str(oferta.get("shopName") or "").strip().casefold()
         if loja:

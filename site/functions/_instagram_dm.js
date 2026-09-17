@@ -55,7 +55,7 @@ export function formatOfferMessage(story) {
   const priceText=Number.isFinite(price)&&price>0
     ? `R$ ${price.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`
     : 'Confira o preço na loja';
-  return `🔥 Aqui está a oferta que você pediu!\n\n🛍️ ${title}\n💰 Preço visto: ${priceText}\n\n👉 Ver oferta #publi: ${story.link}\n\n⚠️ Preço e estoque podem mudar. Confira na loja antes de finalizar.`;
+  return `🔥 Aqui está a oferta que você pediu!\n\n🛍️ ${title}\n💰 Preço visto: ${priceText}\n\n👉 Publicidade · Ver oferta: ${story.link}\n\n⚠️ Preço e estoque podem mudar. Confira na loja antes de finalizar.`;
 }
 
 async function eventHash(messageId) {

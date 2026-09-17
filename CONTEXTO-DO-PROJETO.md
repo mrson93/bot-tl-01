@@ -308,17 +308,17 @@ abertura objetiva.
 Todas as redes usam a mesma identidade editorial, adaptada aos limites de cada
 plataforma:
 
-- chamada inicial humana ou objetiva, conforme o teste A/B;
+- título direto, sem chamada humana enquanto o teste A/B está desligado;
 - título limpo, sem palavras promocionais redundantes;
 - preço atual e, quando confiável, preço anterior;
 - desconto;
 - nota, vendas e loja quando disponíveis;
 - cupom e condição quando oficiais;
 - ação de compra/resgate;
-- identificação compacta `#publi`.
+- identificação `Publicidade` próxima ao link, sem a hashtag `#publi`.
 
 A frase longa “link de afiliado” foi removida das ofertas sociais e substituída
-por `#publi`. O site mantém seus próprios avisos de transparência e termos. Não
+por `Publicidade`. O site mantém seus próprios avisos de transparência e termos. Não
 remover toda identificação publicitária sem uma revisão jurídica/comercial.
 
 Preços, estoque e condições podem mudar depois do post. Amazon e Mercado Livre
@@ -807,7 +807,7 @@ os testes de `tests/test_story_layout.py`.
 8. Não permitir URL longa do Mercado Livre no Story, Bluesky ou X.
 9. Manter legendas consistentes e adaptar pelo limite da rede, sem criar
    reticências desnecessárias.
-10. Manter `#publi` ou outra identificação aprovada de publicidade.
+10. Manter `Publicidade` junto ao link; não reintroduzir `#publi`.
 11. Revalidar ofertas curadas antes de publicar e nunca inventar preço,
     avaliação, vendas ou comissão.
 12. Ao adicionar marketplace, implementar: fonte, normalização, link afiliado,
@@ -847,3 +847,30 @@ Antes de dizer que o sistema está “todo funcionando”, verificar:
 Ao atualizar uma parte relevante da arquitetura, implantação ou operação,
 atualize também este arquivo e a data no topo. Ele deve continuar útil mesmo
 para alguém que nunca viu o projeto antes.
+
+## 25. Revisão operacional de 17/09/2026
+
+- O canal Facebook conectado na conta atualmente aberta do Buffer é o canal
+  configurado no bot. Parte dos posts ficou na fila e só saiu após reenvio
+  manual. A API devolvia apenas um ID e o bot considerava isso entrega; agora
+  consulta o status (`sent`, `scheduled`, `sending`, `error`) e guarda o ID para
+  conciliar sem duplicar. Ainda é necessário observar uma rodada real.
+- O X está em outra conta/organização do Buffer; com a chave do Facebook, a
+  API retorna `Channel not found`. O fluxo aceita `BUFFER_X_API_KEY` específico,
+  mas a credencial da conta que detém X precisa ser adicionada ao secret do
+  GitHub pelo proprietário. Não declarar X operacional até uma entrega real.
+- O agendador Cloudflare encaminha eventos, mas em pelo menos duas ocasiões
+  o horário de próximo disparo avançou sem uma execução aparecer no GitHub.
+  O controlador passou a confirmar a criação da execução no cron seguinte e
+  a tentar novamente com limite. Não declarar agendamento estável sem prova
+  de uma rodada automática real após a implantação.
+- Metas de mix: Shopee 30%, Mercado Livre 30%, Amazon 25%, AliExpress 15%
+  em janela de 7 dias. Fontes sem candidatos válidos são excluídas da soma,
+  então a porcentagem efetiva pode divergir das metas.
+- `AMAZON_LIST_URL` aponta para a vitrine pública do afiliado e funciona sem
+  API, mas a página retornou HTTP 503 em rodadas recentes. O bot só aceita
+  produto com tag de afiliado correta e revalida antes de publicar. Essa fonte
+  não é confiável o suficiente para prometer a meta de 25% numa campanha.
+- O AdSense mostra `Preparando` e revisão solicitada. O `ads.txt` está
+  publicado e responde HTTP 200, embora o painel ainda mostre `Não encontrado`.
+  Anúncios permanecem desativados até o painel indicar aprovação.

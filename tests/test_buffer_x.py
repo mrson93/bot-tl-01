@@ -22,8 +22,8 @@ class BufferXTest(unittest.TestCase):
         self.assertLessEqual(len(texto), 280)
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
-        self.assertIn("Ver oferta #publi", texto)
-        self.assertIn("🏬 Loja\n🛒 Ver oferta", texto)
+        self.assertIn("Publicidade · Ver oferta", texto)
+        self.assertIn("🏬 Loja\n🛒 Publicidade", texto)
         self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
 
@@ -46,11 +46,10 @@ class BufferXTest(unittest.TestCase):
                   "imageUrl": "https://imagem.test/produto.jpg"}
         with self.configuracao(), \
              patch.object(buffer_x.feed_card, "gerar", return_value=b"jpeg"), \
-             patch.object(buffer_x.buffer_api, "publicar_no_canal") as publicar:
+             patch.object(buffer_x.buffer_api, "publicar_confirmado") as publicar:
             buffer_x.postar(oferta, "https://oferta.test/comprar")
         publicar.assert_called_once()
-        self.assertEqual("6aa9ceb2ea19ca0bde50aefa", publicar.call_args.args[3])
-        self.assertNotIn("metadata", publicar.call_args.kwargs)
+        self.assertEqual("X", publicar.call_args.args[1])
 
     def test_configuracao_exige_id_valido(self):
         with patch.dict(os.environ, {

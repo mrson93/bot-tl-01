@@ -95,11 +95,24 @@ class BufferFacebookTest(unittest.TestCase):
         with patch.object(facebook.config, "FACEBOOK_ATIVO", True), \
              patch.object(facebook.buffer_facebook, "esta_configurado",
                           return_value=True), \
-             patch.object(facebook.buffer_facebook, "publicar") as publicar, \
+             patch.object(facebook.buffer_facebook, "publicar_confirmado") as publicar, \
              patch.object(facebook, "_publicar") as publicar_meta:
             facebook.postar(oferta, "https://oferta.test/comprar")
         publicar.assert_called_once()
         publicar_meta.assert_not_called()
+
+    def test_post_em_fila_nao_e_contado_como_entregue_nem_duplicado(self):
+        import tempfile
+        from pathlib import Path
+        import store
+        with tempfile.TemporaryDirectory() as pasta, \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"), \
+             patch.object(buffer_facebook, "consultar_status", return_value="scheduled"):
+            criar = unittest.mock.Mock(return_value="post_123")
+            for _ in range(2):
+                with self.assertRaisesRegex(RuntimeError, "scheduled"):
+                    buffer_facebook.publicar_confirmado("oferta-1", "Facebook", criar)
+            criar.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -19,6 +19,19 @@ class StoreTest(unittest.TestCase):
         self.db_patch.stop()
         self.tmp.cleanup()
 
+    def test_buffer_reutiliza_post_pendente_e_permite_nova_oferta_depois_de_entrega(self):
+        store.registrar_buffer_post("produto", "Facebook", "post-1")
+        self.assertEqual("post-1", store.buffer_post("produto", "Facebook"))
+        store.registrar_entrega("produto", "Facebook", True, agora=9999999999)
+        self.assertIsNone(store.buffer_post("produto", "Facebook"))
+
+    def test_posts_por_fonte_desde_conta_distintas(self):
+        store.marcar_postada("s1", fonte="Shopee", agora=100)
+        store.marcar_postada("s2", fonte="Shopee", agora=110)
+        store.marcar_postada("a1", fonte="Amazon", agora=120)
+        self.assertEqual({"Shopee": 1, "Amazon": 1},
+                         store.posts_por_fonte_desde(105))
+
     def test_migra_banco_antigo_sem_apagar_historico(self):
         con = sqlite3.connect(self.db)
         con.execute("CREATE TABLE postadas (id TEXT PRIMARY KEY, postada_em INTEGER)")

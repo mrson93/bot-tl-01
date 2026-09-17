@@ -39,10 +39,7 @@ _PREPOSICAO = {
 # Chamada por faixa de desconto, da mais forte para a mais fraca. Abaixo de
 # 40% o post vai direto ao produto: anunciar "OFERTA" num desconto pequeno
 # gasta a atencao de quem le e faz o canal parecer que exagera sempre.
-_ABERTURAS = [
-    (70.000001, "🚨 BAIXOU MUITO · {d}% OFF"),
-    (40, "🔥 OFERTA · {d}% OFF"),
-]
+_ABERTURAS = []
 
 def abertura(desconto: float) -> str:
     """Primeira linha do post. Devolve vazio quando o desconto nao merece
@@ -56,12 +53,13 @@ def abertura(desconto: float) -> str:
 def chamada_inicial(oferta: dict) -> str:
     """Usa a mesma abertura editorial em todas as redes sociais."""
     return (desempenho.chamada_humana(oferta)
-            if experimentos.usa_chamada_humana(oferta) else "")
+            if config.CHAMADAS_HUMANAS_ATIVAS
+            and experimentos.usa_chamada_humana(oferta) else "")
 
 
 def rotulo_publicidade() -> str:
     """Identifica publicidade sem ocupar uma frase inteira da legenda."""
-    return "#publi"
+    return "Publicidade"
 
 
 def nome_plataforma(oferta: dict) -> str:
@@ -203,9 +201,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     linhas.append(f"🏬 Loja: {html.escape(nome_plataforma(oferta))}")
     prep = _PREPOSICAO.get(fonte, "na")
     acao = "RESGATAR CUPOM" if oferta.get("cupomResgate") else "COMPRAR"
+    linhas.append(rotulo_publicidade())
     linhas.append(f'🛒 <a href="{link_html}">{acao} {prep.upper()} '
                   f'{fonte_html}</a>')
-    linhas.append(rotulo_publicidade())
 
     return "\n".join(linhas)
 

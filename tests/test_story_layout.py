@@ -13,9 +13,10 @@ class StoryLayoutTest(unittest.TestCase):
             story_card.gerar({"fonte": "Mercado Livre", "productName": "Produto",
                               "price": 50}, "https://go.canaltabarato.com.br/x")
         etiqueta = next(call for call in escrever.call_args_list
-                        if call.args[1] == "OFERTA • MERCADO LIVRE")
-        self.assertEqual((540, 247), etiqueta.args[0])
+                        if call.args[1] == "MERCADO LIVRE")
+        self.assertEqual((540, 243), etiqueta.args[0])
         self.assertEqual("mm", etiqueta.kwargs["anchor"])
+        self.assertEqual("white", etiqueta.kwargs["fill"])
 
     def test_titulo_de_quatro_linhas_nao_encosta_no_preco(self):
         titulo = (

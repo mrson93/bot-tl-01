@@ -19,7 +19,8 @@ def _canal() -> str:
 
 
 def esta_configurada() -> bool:
-    chave = os.getenv("BUFFER_API_KEY", "").strip()
+    chave = (os.getenv("BUFFER_X_API_KEY", "")
+             or os.getenv("BUFFER_API_KEY", "")).strip()
     return bool(len(chave) >= 20 and _CHANNEL_ID.fullmatch(_canal()))
 
 
@@ -53,7 +54,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     cupom = str(oferta.get("cupom") or "").strip()
     linha_cupom = f"🎟 Cupom: {cupom}" if cupom else ""
     rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
-              f"🛒 Ver oferta {fmt.rotulo_publicidade()}: {link}")
+              f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link}")
     abertura = fmt.chamada_inicial(oferta)
     fixos = "\n\n".join(parte for parte in
                          (abertura, linha_preco, linha_cupom, rodape) if parte)
@@ -97,13 +98,18 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         print("   ⚠️  X sem card personalizado: "
               f"{seguranca.redigir_segredos(erro)}")
         card = None
-    try:
-        buffer_api.publicar_no_canal(
-            texto, card, oferta.get("imageUrl"), _canal()
-        )
-    except buffer_api.FalhaHospedagemCard as erro:
-        print("   ⚠️  X via Buffer sem card personalizado: "
-              f"{seguranca.redigir_segredos(erro)}")
-        buffer_api.publicar_no_canal(
-            texto, None, oferta.get("imageUrl"), _canal()
-        )
+    chave = os.getenv("BUFFER_X_API_KEY", "").strip() or None
+    def criar():
+        try:
+            return buffer_api.publicar_no_canal(
+                texto, card, oferta.get("imageUrl"), _canal(), api_key=chave,
+            )
+        except buffer_api.FalhaHospedagemCard as erro:
+            print("   ⚠️  X via Buffer sem card personalizado: "
+                  f"{seguranca.redigir_segredos(erro)}")
+            return buffer_api.publicar_no_canal(
+                texto, None, oferta.get("imageUrl"), _canal(), api_key=chave,
+            )
+    buffer_api.publicar_confirmado(
+        str(oferta.get("oferta_id") or ""), NOME, criar, api_key=chave,
+    )

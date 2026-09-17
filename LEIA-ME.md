@@ -20,8 +20,10 @@ O bot busca ofertas da Shopee, AliExpress e Amazon, além dos produtos escolhido
 - Com o repositório privado, a rodada é limitada automaticamente a uma oferta
   para conter o consumo de minutos do GitHub Actions.
 - As lojas são consultadas em paralelo e todas as ofertas entram na mesma fila.
-- Desconto, comissão e conversão histórica escolhem a melhor oferta; não existe
-  mais uma proporção fixa entre Shopee e AliExpress.
+- A seleção equilibra as fontes em uma janela móvel de 7 dias: 30% Shopee,
+  30% Mercado Livre, 25% Amazon e 15% AliExpress. Se uma fonte estiver
+  indisponível ou sem oferta válida, sua fatia é redistribuída. Dentro de cada
+  fonte, desconto, comissão e conversão histórica escolhem a melhor oferta.
 - Dentro da mesma prioridade, uma categoria diferente e um título não semelhante
   vencem produtos repetitivos, mesmo que estes tenham uma nota comercial maior.
 - A influência histórica usa conversão por publicação, comissão, recência e
@@ -74,18 +76,24 @@ Novas variáveis:
 | `INSTAGRAM_MAX_STORIES_DIA` | `0` | Limite exclusivo dos Stories; `0` = ilimitado |
 | `SHOPEE_ATIVA` | `true` | Permite desligar a Shopee sem apagar credenciais |
 | `ALIEXPRESS_ATIVA` | `true` | Permite desligar o AliExpress sem apagar credenciais |
-| `AMAZON_ATIVA` | `false` | Ativa a Amazon depois que suas credenciais existirem |
+| `AMAZON_ATIVA` | `true` | Usa a lista pública de afiliado, sem credenciais de API, quando `AMAZON_LIST_URL` está preenchida |
 | `MERCADOLIVRE_ATIVA` | `true` | Ativa a fila da lista pública do Mercado Livre |
 | `MERCADOLIVRE_LIST_URL` | vazio | Link público de Minhas recomendações; os itens adicionados entram na fila |
 | `PESO_SHOPEE` | `1` | Preferência moderada da Shopee na fila global |
 | `PESO_ALIEXPRESS` | `1` | Preferência moderada do AliExpress na fila global |
 | `PESO_AMAZON` | `1` | Preferência moderada da Amazon na fila global |
 | `PESO_MERCADOLIVRE` | `1` | Preferência moderada da curadoria do Mercado Livre |
+| `PERCENTUAL_SHOPEE` | `30` | Meta percentual da Shopee |
+| `PERCENTUAL_MERCADOLIVRE` | `30` | Meta percentual do Mercado Livre |
+| `PERCENTUAL_AMAZON` | `25` | Meta percentual da Amazon |
+| `PERCENTUAL_ALIEXPRESS` | `15` | Meta percentual do AliExpress |
+| `BUFFER_X_API_KEY` | vazio | Chave privada da conta do Buffer à qual o canal X está vinculado, caso seja diferente da conta do Facebook |
 | `INTERVALO_ENTRE_POSTS_MINUTOS` | `3` | Espera entre posts da mesma rodada |
 | `DIVERSIDADE_JANELA_POSTS` | `3` | Publicações recentes consideradas na variedade |
 | `SIMILARIDADE_MAXIMA` | `0.55` | Limite de semelhança entre títulos |
 | `DESEMPENHO_MAX_DIAS` | `14` | Idade máxima dos dados usados na seleção |
-| `AB_TEST_ATIVO` | `true` | Compara chamada humana (A) com objetiva (B) |
+| `AB_TEST_ATIVO` | `false` | Mantém o teste de chamada humana desativado |
+| `CHAMADAS_HUMANAS_ATIVAS` | `false` | Desliga frases introdutórias em todas as redes |
 | `MIN_MINUTOS_FORA_PICO` | `30` | Menor intervalo fora dos horários de pico |
 | `MAX_MINUTOS_FORA_PICO` | `30` | Maior intervalo fora dos horários de pico |
 | `SHORTLINK_API_URL` | vazio | API opcional do redirecionador próprio |
@@ -141,9 +149,8 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 
 ## Formato das ofertas
 
-- Abaixo de 40%: sem chamada exagerada.
-- De 40% a 70%: `OFERTA`.
-- Acima de 70%: `BAIXOU MUITO`.
+- Sem chamadas automáticas como `OFERTA` ou `BAIXOU MUITO`; a legenda começa
+  diretamente pelo título do produto.
 - O preço anterior só aparece quando a plataforma o informa oficialmente.
 - Cupom e preço de aplicativo só aparecem quando a API os informa; atualmente o
   AliExpress oferece esses campos e a consulta de produtos da Shopee não.
@@ -151,7 +158,7 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   um alerta exclusivo de cupom e incluí-lo em um resumão de cupons ativos. A
   mensagem permanece no canal mesmo depois do vencimento; apenas deixa de entrar
   nos próximos resumos.
-- A primeira linha pode usar uma frase curta relacionada à categoria do produto.
+- A identificação `Publicidade` fica próxima ao link; não se usa `#publi`.
 - O Telegram mantém um único botão/caminho de compra; o convite para compartilhar
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.

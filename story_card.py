@@ -227,8 +227,9 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
 
     draw.rounded_rectangle((54, 54, 1026, 1866), radius=54, fill="#FFFDF7")
     _desenhar_logo(canvas, draw)
-    draw.text((540, 247), f"OFERTA • {fmt.nome_plataforma(oferta).upper()}",
-              font=_fonte(24, True), fill="#252525", anchor="mm")
+    draw.rounded_rectangle((260, 222, 820, 264), radius=21, fill="#202020")
+    draw.text((540, 243), fmt.nome_plataforma(oferta).upper(),
+              font=_fonte(24, True), fill="white", anchor="mm")
 
     produto = _baixar_imagem(oferta.get("imageUrl"))
     # Uma sombra curta separa a foto do fundo sem competir com o produto.
@@ -297,7 +298,7 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
     fonte = str(oferta.get("fonte") or "loja")
     draw.text((540, 1810), f"Oferta {fonte}", font=_fonte(25, True),
               fill="#555555", anchor="mm")
-    draw.text((540, 1844), "#publi • preço pode mudar", font=_fonte(22), fill="#6B6B6B", anchor="mm")
+    draw.text((540, 1844), "Publicidade • preço pode mudar", font=_fonte(22), fill="#6B6B6B", anchor="mm")
 
     saida = BytesIO()
     canvas.save(saida, format="JPEG", quality=86, optimize=True, progressive=True)

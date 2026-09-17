@@ -581,6 +581,21 @@ export async function runScheduledReport(controller, env, fetchImpl = fetch) {
 }
 
 const NEXT_AUTOMATIC_DISPATCH_AT = "NEXT_AUTOMATIC_DISPATCH_AT";
+const LAST_AUTOMATIC_DISPATCH_AT = "LAST_AUTOMATIC_DISPATCH_AT";
+const AUTOMATIC_DISPATCH_MISSING_COUNT = "AUTOMATIC_DISPATCH_MISSING_COUNT";
+
+async function automaticRunExists(env, attemptedAt, fetchImpl) {
+  const response = await githubRequest(
+    env, "/actions/workflows/bot.yml/runs?event=workflow_dispatch&per_page=20",
+    { method: "GET" }, fetchImpl,
+  );
+  if (!response.ok) throw new Error(`github_runs_read_${response.status}`);
+  const runs = (await response.json()).workflow_runs || [];
+  return runs.some((run) =>
+    Number.isFinite(Date.parse(run.created_at)) &&
+    Date.parse(run.created_at) >= attemptedAt - 15000
+  );
+}
 
 function integerVariable(variables, name, fallback) {
   const parsed = Number.parseInt(variables[name], 10);
@@ -632,10 +647,35 @@ export async function runScheduledAutomation(controller, env, fetchImpl = fetch)
   if (scheduledTime < nextAt) return false;
 
   const minutes = automaticIntervalMinutes(mode, hoursVariable(variables).includes(hour));
-  // Reservar o próximo horário antes do disparo impede duplicação caso o
-  // Cloudflare repita um evento de cron enquanto o GitHub responde.
-  await setVariable(env, NEXT_AUTOMATIC_DISPATCH_AT, scheduledTime + minutes * 60000, fetchImpl);
+  const previousAttempt = Number.parseInt(variables[LAST_AUTOMATIC_DISPATCH_AT], 10);
+  if (Number.isFinite(previousAttempt) && previousAttempt > 0) {
+    if (await automaticRunExists(env, previousAttempt, fetchImpl)) {
+      await setVariable(env, LAST_AUTOMATIC_DISPATCH_AT, 0, fetchImpl);
+      await setVariable(env, AUTOMATIC_DISPATCH_MISSING_COUNT, 0, fetchImpl);
+      await setVariable(env, NEXT_AUTOMATIC_DISPATCH_AT,
+        scheduledTime + minutes * 60000, fetchImpl);
+      console.log(JSON.stringify({ event: "automatic_dispatch_confirmed", previousAttempt }));
+      return false;
+    }
+  }
+  const misses = Number.parseInt(variables[AUTOMATIC_DISPATCH_MISSING_COUNT], 10) || 0;
+  if (previousAttempt > 0 && misses >= 3) {
+    await setVariable(env, LAST_AUTOMATIC_DISPATCH_AT, 0, fetchImpl);
+    await setVariable(env, AUTOMATIC_DISPATCH_MISSING_COUNT, 0, fetchImpl);
+    await setVariable(env, NEXT_AUTOMATIC_DISPATCH_AT,
+      scheduledTime + 30 * 60000, fetchImpl);
+    console.error(JSON.stringify({ event: "automatic_dispatch_missing", previousAttempt }));
+    return false;
+  }
   await dispatchBot(env, fetchImpl);
+  await setVariable(env, LAST_AUTOMATIC_DISPATCH_AT, scheduledTime, fetchImpl);
+  await setVariable(env, AUTOMATIC_DISPATCH_MISSING_COUNT,
+    previousAttempt > 0 ? misses + 1 : 0, fetchImpl);
+  // Confirmamos a criação de uma execução real no próximo cron. Um HTTP 204
+  // sozinho já avançou o relógio antes sem aparecer nenhuma rodada no GitHub.
+  await setVariable(env, NEXT_AUTOMATIC_DISPATCH_AT,
+    scheduledTime + 2 * 60000, fetchImpl);
+  console.log(JSON.stringify({ event: "automatic_dispatch_requested", scheduledTime }));
   return true;
 }
 

@@ -100,6 +100,7 @@ SHOPEE_SECRET = _get("SHOPEE_SECRET")
 SHOPEE_SUBID = _get("SHOPEE_SUBID") or "telegram"
 SHOPEE_ATIVA = _bool("SHOPEE_ATIVA", True)
 PESO_SHOPEE = _float("PESO_SHOPEE", 1.0)
+PERCENTUAL_SHOPEE = _float("PERCENTUAL_SHOPEE", 30)
 # Listas usadas na busca: 0 = padrao (mais variedade e comissao maior),
 # 2 = campeoes de venda (muito mais popular, comissao menor). Buscamos as duas
 # e deixamos a pontuacao escolher. SHOPEE_PAGES vale por lista.
@@ -111,7 +112,7 @@ SHOPEE_FETCH_LIMIT = _int("SHOPEE_FETCH_LIMIT", 50)
 SHOPEE_PAGES = _int("SHOPEE_PAGES", 3)
 # No pico, reserva a primeira vaga da rodada para um item da lista oficial de
 # campeões. O histórico local estima a aceleração de vendas em 1 e 7 dias.
-PICO_PRIORIZA_MAIS_VENDIDOS = _bool("PICO_PRIORIZA_MAIS_VENDIDOS", True)
+PICO_PRIORIZA_MAIS_VENDIDOS = _bool("PICO_PRIORIZA_MAIS_VENDIDOS", False)
 PICO_JANELA_VENDAS_DIAS = max(1, min(30, _int("PICO_JANELA_VENDAS_DIAS", 7)))
 
 # Campanha recorrente do programa Shopee VIP. O link ja vem pronto do painel
@@ -129,6 +130,7 @@ ALIEXPRESS_APP_SECRET = _get("ALIEXPRESS_APP_SECRET")
 ALIEXPRESS_TRACKING_ID = _get("ALIEXPRESS_TRACKING_ID") or "default"
 ALIEXPRESS_ATIVA = _bool("ALIEXPRESS_ATIVA", True)
 PESO_ALIEXPRESS = _float("PESO_ALIEXPRESS", 1.0)
+PERCENTUAL_ALIEXPRESS = _float("PERCENTUAL_ALIEXPRESS", 15)
 ALIEXPRESS_KEYWORD = _get("ALIEXPRESS_KEYWORD")
 ALIEXPRESS_SORT = _get("ALIEXPRESS_SORT") or "LAST_VOLUME_DESC"
 ALIEXPRESS_FETCH_LIMIT = _int("ALIEXPRESS_FETCH_LIMIT", 40)
@@ -145,6 +147,7 @@ AMAZON_ASSOCIATE_TAG = _get("AMAZON_ASSOCIATE_TAG")
 AMAZON_LIST_URL = _get("AMAZON_LIST_URL")
 AMAZON_ATIVA = _bool("AMAZON_ATIVA", False)
 PESO_AMAZON = _float("PESO_AMAZON", 1.0)
+PERCENTUAL_AMAZON = _float("PERCENTUAL_AMAZON", 25)
 AMAZON_MARKETPLACE = _get("AMAZON_MARKETPLACE") or "www.amazon.com.br"
 AMAZON_KEYWORD = _get("AMAZON_KEYWORD")
 AMAZON_SEARCH_INDEX = _get("AMAZON_SEARCH_INDEX")
@@ -156,6 +159,7 @@ AMAZON_FETCH_LIMIT = max(1, min(100, _int("AMAZON_FETCH_LIMIT", 100)))
 MERCADOLIVRE_LIST_URL = _get("MERCADOLIVRE_LIST_URL")
 MERCADOLIVRE_ATIVA = _bool("MERCADOLIVRE_ATIVA", True)
 PESO_MERCADOLIVRE = _float("PESO_MERCADOLIVRE", 1.0)
+PERCENTUAL_MERCADOLIVRE = _float("PERCENTUAL_MERCADOLIVRE", 30)
 MERCADOLIVRE_FETCH_LIMIT = max(1, min(150, _int("MERCADOLIVRE_FETCH_LIMIT", 150)))
 
 # --- Filtros ("o que e uma boa oferta") ---
@@ -191,7 +195,8 @@ VENDAS_EXCECAO_DESCONTO = max(0, _int("VENDAS_EXCECAO_DESCONTO", 1000))
 TITULO_MAX_CARACTERES = max(45, min(140, _int("TITULO_MAX_CARACTERES", 90)))
 
 # Experimento simples e rastreável: A usa chamada humana; B começa objetiva.
-AB_TEST_ATIVO = _bool("AB_TEST_ATIVO", True)
+AB_TEST_ATIVO = _bool("AB_TEST_ATIVO", False)
+CHAMADAS_HUMANAS_ATIVAS = _bool("CHAMADAS_HUMANAS_ATIVAS", False)
 AB_TEST_NOME = _get("AB_TEST_NOME") or "chamada_humana_v1"
 
 # --- Ritmo ---
@@ -327,6 +332,16 @@ def peso_loja(nome):
         "Amazon": PESO_AMAZON,
         "Mercado Livre": PESO_MERCADOLIVRE,
     }.get(nome, 1.0)))
+
+
+def percentual_loja(nome):
+    """Meta de participação da fonte, normalizada entre fontes disponíveis."""
+    return max(0.0, {
+        "Shopee": PERCENTUAL_SHOPEE,
+        "Mercado Livre": PERCENTUAL_MERCADOLIVRE,
+        "Amazon": PERCENTUAL_AMAZON,
+        "AliExpress": PERCENTUAL_ALIEXPRESS,
+    }.get(nome, 0.0))
 
 
 def validar():
