@@ -57,17 +57,10 @@ class _ParserLista(HTMLParser):
         self.card = None
         self.profundidade = 0
         self.campo = None
-        self.paginas = set()
 
     def handle_starttag(self, tag, attrs):
         valores = dict(attrs)
         classes = _classes(attrs)
-        if tag == "a" and self.card is None:
-            numeros = parse_qs(urlsplit(valores.get("href") or "").query).get("page", [])
-            if len(numeros) == 1 and numeros[0].isdigit():
-                pagina = int(numeros[0])
-                if 1 < pagina <= _MAX_PAGINAS:
-                    self.paginas.add(pagina)
         if tag == "div" and "lists-card" in classes and self.card is None:
             self.card = {}
             prazo = (valores.get("data-deal-end-date")
@@ -202,30 +195,36 @@ def buscar_ofertas() -> list:
     base = urlsplit(url_lista)
     parametros = [(chave, valor) for chave, valor in parse_qsl(base.query)
                   if chave != "page"]
-    pendentes = [(1, html)]
-    visitadas = {1}
     ofertas = {}
-    while pendentes and len(ofertas) < config.MERCADOLIVRE_FETCH_LIMIT:
-        _, pagina_html = pendentes.pop(0)
+    pagina = 1
+    while pagina <= _MAX_PAGINAS and len(ofertas) < config.MERCADOLIVRE_FETCH_LIMIT:
         parser = _ParserLista()
-        parser.feed(pagina_html)
+        parser.feed(html)
+        novos = 0
         for card in parser.ofertas:
             try:
                 oferta = _normalizar(card)
-                ofertas.setdefault(oferta["oferta_id"], oferta)
             except (TypeError, ValueError):
                 continue
+            if oferta["oferta_id"] not in ofertas:
+                ofertas[oferta["oferta_id"]] = oferta
+                novos += 1
             if len(ofertas) >= config.MERCADOLIVRE_FETCH_LIMIT:
                 break
-        for pagina in sorted(parser.paginas - visitadas):
-            if len(ofertas) >= config.MERCADOLIVRE_FETCH_LIMIT:
+        # A paginação pode ser criada pelo JavaScript do site e não existir no
+        # HTML que o bot recebe. Avançamos até uma página sem produtos novos.
+        if not novos or len(ofertas) >= config.MERCADOLIVRE_FETCH_LIMIT:
+            break
+        pagina += 1
+        consulta = urlencode([*parametros, ("page", str(pagina))])
+        url_pagina = urlunsplit((base.scheme, base.netloc, base.path,
+                               consulta, ""))
+        try:
+            html, _ = _baixar_html(url_pagina)
+        except requests.HTTPError as erro:
+            if erro.response is not None and erro.response.status_code == 404:
                 break
-            visitadas.add(pagina)
-            consulta = urlencode([*parametros, ("page", str(pagina))])
-            url_pagina = urlunsplit((base.scheme, base.netloc, base.path,
-                                   consulta, ""))
-            pagina_html, _ = _baixar_html(url_pagina)
-            pendentes.append((pagina, pagina_html))
+            raise
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
     return list(ofertas.values())

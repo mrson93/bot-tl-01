@@ -85,18 +85,19 @@ class MercadoLivreTest(unittest.TestCase):
         ))
 
     def test_importa_todas_as_paginas_da_lista(self):
-        primeira = HTML + '<nav aria-label="Paginação"><a href="?page=2#tracking_id=x">2</a></nav>'
         segunda = HTML.replace("MLB3340103325", "MLB1111111111").replace(
             "MLB7590894102", "MLB2222222222"
         )
         with patch.object(mercadolivre, "_baixar_html", side_effect=[
-            (primeira, URL_LISTA), (segunda, URL_LISTA + "?page=2")
+            (HTML, URL_LISTA), (segunda, URL_LISTA + "?page=2"),
+            (segunda, URL_LISTA + "?page=3"),
         ]) as baixar, patch.object(
             mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"
         ), patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
             ofertas = mercadolivre.buscar_ofertas()
         self.assertEqual(4, len(ofertas))
         self.assertEqual(URL_LISTA + "?page=2", baixar.call_args_list[1].args[0])
+        self.assertEqual(URL_LISTA + "?page=3", baixar.call_args_list[2].args[0])
 
 
 if __name__ == "__main__":
