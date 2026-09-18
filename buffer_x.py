@@ -18,9 +18,14 @@ def _canal() -> str:
     return os.getenv("BUFFER_X_CHANNEL_ID", "").strip()
 
 
+def _chave() -> str:
+    """Reaproveita a chave do Facebook quando ambos estão no mesmo Buffer."""
+    return (os.getenv("BUFFER_X_API_KEY", "").strip()
+            or os.getenv("BUFFER_API_KEY", "").strip())
+
+
 def esta_configurada() -> bool:
-    chave = os.getenv("BUFFER_X_API_KEY", "").strip()
-    return bool(len(chave) >= 20 and _CHANNEL_ID.fullmatch(_canal()))
+    return bool(len(_chave()) >= 20 and _CHANNEL_ID.fullmatch(_canal()))
 
 
 def _preco(valor) -> str:
@@ -67,7 +72,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         reputacao.append(f"🛍️ {fmt._milhar(oferta['sales'])} vendidos")
     if oferta.get("shopName"):
         reputacao.append(f"🏬 {str(oferta['shopName']).strip()}")
-    rodape = (f"🛒 {fmt.rotulo_publicidade()} · "
+    rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
               f"{fmt.chamada_compra(oferta)}: {link}")
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
@@ -115,7 +120,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         print("   ⚠️  X sem card personalizado: "
               f"{seguranca.redigir_segredos(erro)}")
         card = None
-    chave = os.getenv("BUFFER_X_API_KEY", "").strip()
+    chave = _chave()
     def criar():
         try:
             return buffer_api.publicar_no_canal(

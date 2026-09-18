@@ -166,7 +166,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         reputacao.append(f"🏬 {loja}")
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
-    rodape = (f"🛒 {fmt.rotulo_publicidade()} · "
+    rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
               f"{fmt.chamada_compra(oferta)}: {link_afiliado}")
 
     def montar(titulo, chamada=humana, itens_reputacao=reputacao,

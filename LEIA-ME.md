@@ -87,7 +87,7 @@ Novas variáveis:
 | `PERCENTUAL_MERCADOLIVRE` | `30` | Meta percentual do Mercado Livre |
 | `PERCENTUAL_AMAZON` | `25` | Meta percentual da Amazon |
 | `PERCENTUAL_ALIEXPRESS` | `15` | Meta percentual do AliExpress |
-| `BUFFER_X_API_KEY` | vazio | Chave privada da conta do Buffer à qual o canal X está vinculado, caso seja diferente da conta do Facebook |
+| `BUFFER_X_API_KEY` | vazio | Opcional; o X usa `BUFFER_API_KEY` quando está na mesma conta do Facebook |
 | `INTERVALO_ENTRE_POSTS_MINUTOS` | `3` | Espera entre posts da mesma rodada |
 | `DIVERSIDADE_JANELA_POSTS` | `3` | Publicações recentes consideradas na variedade |
 | `SIMILARIDADE_MAXIMA` | `0.55` | Limite de semelhança entre títulos |
@@ -154,7 +154,8 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 - O preço anterior só aparece quando a plataforma o informa oficialmente.
 - A ordem da legenda é título, preço, avaliação/vendas/vendedor, cupom e
   condição (quando disponíveis), seguido da compra com nome da plataforma.
-  A indicação discreta `Publicidade` permanece junto ao link de afiliado.
+  A indicação discreta fica junto ao link de afiliado: `#publi` na Amazon e
+  `Publicidade` nas demais lojas.
 - No Telegram, o preço anterior aparece riscado e o atual em negrito; Facebook,
   Bluesky e X usam texto simples. Redes com limite de caracteres encurtam o
   título e, se necessário, omitem detalhes opcionais sem cortar o link.
@@ -164,7 +165,8 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   um alerta exclusivo de cupom e incluí-lo em um resumão de cupons ativos. A
   mensagem permanece no canal mesmo depois do vencimento; apenas deixa de entrar
   nos próximos resumos.
-- A identificação `Publicidade` fica próxima ao link; não se usa `#publi`.
+- A identificação fica próxima ao link: `#publi` para Amazon e `Publicidade`
+  para as outras lojas.
 - O Telegram mantém um único botão/caminho de compra; o convite para compartilhar
   fica fora dos posts de oferta.
 - O Bluesky mostra avaliação e quantidade vendida quando esses dados existem.
@@ -218,7 +220,7 @@ Modelo equivalente para o Botize:
 🎟 Cupom: {{cupom}}
 ℹ️ {{condicao_cupom}}
 
-🛒 Publicidade · COMPRAR NA AMAZON: {{link_afiliado}}
+🛒 #publi · COMPRAR NA AMAZON: {{link_afiliado}}
 ```
 
 Se o Botize não fornecer preço anterior real, use apenas `💰 {{preco_atual}}`.

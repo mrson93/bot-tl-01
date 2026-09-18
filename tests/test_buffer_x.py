@@ -57,13 +57,19 @@ class BufferXTest(unittest.TestCase):
         }, clear=False):
             self.assertFalse(buffer_x.esta_configurada())
 
-    def test_nao_usa_chave_do_facebook_para_canal_x_de_outra_conta(self):
+    def test_reutiliza_chave_do_facebook_apos_conectar_x_na_mesma_conta(self):
         with patch.dict(os.environ, {
             "BUFFER_API_KEY": "buffer-chave-do-facebook-comprida",
             "BUFFER_X_API_KEY": "",
-            "BUFFER_X_CHANNEL_ID": "6aa9ceb2ea19ca0bde50aefa",
+            "BUFFER_X_CHANNEL_ID": "6aac89b3ea19ca0bde718fb6",
         }, clear=False):
-            self.assertFalse(buffer_x.esta_configurada())
+            self.assertTrue(buffer_x.esta_configurada())
+            self.assertEqual("buffer-chave-do-facebook-comprida", buffer_x._chave())
+
+    def test_publi_no_x_apenas_para_amazon(self):
+        oferta = {"fonte": "Amazon", "productName": "Produto", "price": 50}
+        texto = buffer_x.montar_texto(oferta, "https://oferta.test")
+        self.assertIn("🛒 #publi · COMPRAR NA AMAZON:", texto)
 
 
 if __name__ == "__main__":

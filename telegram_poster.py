@@ -57,9 +57,9 @@ def chamada_inicial(oferta: dict) -> str:
             and experimentos.usa_chamada_humana(oferta) else "")
 
 
-def rotulo_publicidade() -> str:
-    """Identifica publicidade sem ocupar uma frase inteira da legenda."""
-    return "Publicidade"
+def rotulo_publicidade(oferta: dict) -> str:
+    """Usa #publi na Amazon e aviso discreto nas demais plataformas."""
+    return "#publi" if nome_plataforma(oferta).lower() == "amazon" else "Publicidade"
 
 
 def nome_plataforma(oferta: dict) -> str:
@@ -188,7 +188,7 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         if condicao:
             linhas.append("ℹ️ " + html.escape(condicao[:140]))
     linhas.append("")
-    linhas.append(f'🛒 {rotulo_publicidade()} · <a href="{link_html}">'
+    linhas.append(f'🛒 {rotulo_publicidade(oferta)} · <a href="{link_html}">'
                   f'{html.escape(chamada_compra(oferta))}</a>')
 
     return "\n".join(linhas)

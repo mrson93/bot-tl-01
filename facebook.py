@@ -95,7 +95,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         condicao = str(oferta.get("cupomCondicao") or "").strip()
         if condicao:
             linhas.append("ℹ️ " + condicao[:180])
-    linhas.extend(("", f"🛒 {fmt.rotulo_publicidade()} · "
+    linhas.extend(("", f"🛒 {fmt.rotulo_publicidade(oferta)} · "
                    f"{fmt.chamada_compra(oferta)}: {link_afiliado}"))
     return "\n".join(linhas)
 

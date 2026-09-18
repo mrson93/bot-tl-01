@@ -313,14 +313,15 @@ plataforma:
 - nota, vendas e nome do vendedor quando disponíveis;
 - cupom e condição quando oficiais;
 - ação de compra/resgate com nome da plataforma;
-- identificação `Publicidade` na mesma linha do link, sem a hashtag `#publi`.
+- identificação na mesma linha do link: `#publi` na Amazon e `Publicidade`
+  nas demais lojas.
 
 O Telegram risca o preço anterior e destaca o atual em negrito. Facebook,
 Bluesky e X usam texto simples; Bluesky e X preservam preço e link e encurtam
 primeiro os detalhes opcionais para respeitar seus limites de caracteres.
 
-A frase longa “link de afiliado” foi removida das ofertas sociais e substituída
-por `Publicidade`. O site mantém seus próprios avisos de transparência e termos. Não
+A frase longa “link de afiliado” foi removida das ofertas sociais. O site
+mantém seus próprios avisos de transparência e termos. Não
 remover toda identificação publicitária sem uma revisão jurídica/comercial.
 
 Preços, estoque e condições podem mudar depois do post. Amazon e Mercado Livre
@@ -809,7 +810,8 @@ os testes de `tests/test_story_layout.py`.
 8. Não permitir URL longa do Mercado Livre no Story, Bluesky ou X.
 9. Manter legendas consistentes e adaptar pelo limite da rede, sem criar
    reticências desnecessárias.
-10. Manter `Publicidade` junto ao link; não reintroduzir `#publi`.
+10. Manter a identificação junto ao link: `#publi` na Amazon e
+    `Publicidade` nas demais lojas.
 11. Revalidar ofertas curadas antes de publicar e nunca inventar preço,
     avaliação, vendas ou comissão.
 12. Ao adicionar marketplace, implementar: fonte, normalização, link afiliado,
@@ -857,12 +859,10 @@ para alguém que nunca viu o projeto antes.
   manual. A API devolvia apenas um ID e o bot considerava isso entrega; agora
   consulta o status (`sent`, `scheduled`, `sending`, `error`) e guarda o ID para
   conciliar sem duplicar. Ainda é necessário observar uma rodada real.
-- O X está em outra conta/organização do Buffer; com a chave do Facebook, a
-  API retorna `Channel not found`. O fluxo aceita `BUFFER_X_API_KEY` específico,
-  mas a credencial da conta que detém X precisa ser adicionada ao secret do
-  GitHub pelo proprietário. Sem esse secret, X fica inativo para não gastar
-  chamadas da API em um canal inacessível. Não declarar X operacional até uma
-  entrega real.
+- Em 17/09, o X foi conectado à mesma organização do Buffer que contém o
+  Facebook, com novo ID de canal. O bot passa a usar `BUFFER_API_KEY` para ambos;
+  `BUFFER_X_API_KEY` continua disponível para uma conta separada. Confirmar a
+  entrega real no X antes de declarar o canal operacional.
 - Causa encontrada do agendamento: a API de variáveis do GitHub devolve
   páginas de 30; o controlador lia apenas a primeira. Com 57 variáveis,
   `NEXT_AUTOMATIC_DISPATCH_AT` estava na segunda página, parecia ausente e

@@ -91,14 +91,27 @@ class FormatacaoTest(unittest.TestCase):
         legenda = telegram.montar_legenda(oferta, "https://amazon.test/x")
         self.assertIn("R$ 109,23", legenda)
         self.assertIn("COMPRAR NA AMAZON", legenda)
-        self.assertIn("Publicidade", legenda)
-        self.assertNotIn("#publi", legenda)
+        self.assertIn("🛒 #publi ·", legenda)
+        self.assertNotIn("Publicidade", legenda)
         self.assertNotIn("OFERTA", legenda)
 
     def test_bluesky_tambem_nao_inventa_preco_original(self):
         texto, _ = bluesky.montar_texto({"fonte": "Shopee", "productName": "Produto",
             "price": 50, "priceDiscountRate": 50}, "https://x.test")
         self.assertNotIn("De R$", texto)
+
+    def test_publi_apenas_nas_ofertas_da_amazon(self):
+        for fonte in ("Shopee", "Mercado Livre", "AliExpress"):
+            oferta = {"fonte": fonte, "productName": "Produto", "price": 50}
+            legenda = telegram.montar_legenda(oferta, "https://oferta.test")
+            texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
+            self.assertIn("Publicidade", legenda)
+            self.assertIn("Publicidade", texto)
+            self.assertNotIn("#publi", legenda)
+            self.assertNotIn("#publi", texto)
+        amazon = {"fonte": "Amazon", "productName": "Produto", "price": 50}
+        texto, _ = bluesky.montar_texto(amazon, "https://oferta.test")
+        self.assertIn("🛒 #publi ·", texto)
 
     def test_link_do_telegram_e_escapado_no_html(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50}
@@ -204,7 +217,7 @@ class FormatacaoTest(unittest.TestCase):
         partes = ("<b>Mouse gamer</b>", "De <s>R$ 199,90</s> por <b>R$ 149,90</b>",
                   "⭐ 4.8 · 🛍️ 1.234 vendidos · 🏬 Loja Oficial",
                   "🎟 Cupom: <code>BARATO10</code>", "ℹ️ Acima de R$ 100",
-                  "🛒 Publicidade · <a")
+                  "🛒 #publi · <a")
         self.assertEqual(sorted(legenda.index(p) for p in partes),
                          [legenda.index(p) for p in partes])
         self.assertNotIn("🏬 Loja: Amazon", legenda)
