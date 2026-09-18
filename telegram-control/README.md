@@ -21,8 +21,9 @@ somente pela rota protegida `/telegram`.
 - `/retomar`: volta no modo econômico;
 - `/relatorio`: solicita o relatório privado imediatamente;
 - `/config`: abre lojas, filtros, horários, variedade, relatório e seleção;
+- `/distribuicao 30 30 25 15`: ajusta, nessa ordem, as metas percentuais de Shopee, Mercado Livre, Amazon e AliExpress;
 - `/historico`: mostra as últimas mudanças feitas pelo painel;
-- `/definir NOME VALOR`: alternativa avançada, limitada à mesma lista segura.
+- `/definir NOME VALOR`: alternativa avançada para outras configurações; percentuais são alterados juntos.
 
 Os mesmos controles aparecem como botões. A execução manual pede uma confirmação
 antes de chamar o GitHub, pois pode resultar em uma nova publicação. Comandos de grupos, canais ou usuários
@@ -86,7 +87,7 @@ Se a variável estiver ausente ou inválida, o modo Econômico é usado.
 
 O painel grava somente variáveis permitidas. É possível controlar:
 
-- ativação, preferência e páginas consultadas de cada loja;
+- ativação, distribuição percentual e páginas consultadas de cada loja;
 - desconto, nota, vendas, preço e comissão mínimos;
 - início, fim, horários de pico e ofertas por rodada;
 - intervalo de um a três minutos entre posts da mesma rodada;
@@ -97,3 +98,9 @@ O painel grava somente variáveis permitidas. É possível controlar:
 O Worker agendador verifica o relógio a cada minuto, mas o controlador inicia uma Action apenas quando
 chega a hora sorteada da próxima rodada ou do relatório. O botão **Restaurar
 padrões** preserva credenciais e o modo de ritmo atual.
+
+Em **Lojas → Ajustar distribuição**, envie quatro números inteiros que somem 100%.
+Os padrões são 30% Shopee, 30% Mercado Livre, 25% Amazon e 15% AliExpress.
+São metas da seleção, não uma garantia por rodada: quando uma loja não tem oferta
+elegível, as demais podem ocupar a vaga. Para desligar uma loja, use seu controle
+de ativação.

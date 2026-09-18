@@ -5,7 +5,7 @@ import worker, {
   authorizedUpdate, helpActionsText, helpCategoryText, helpModesText, helpText,
   parseCommand, runScheduledAutomation, runScheduledReport, selectFetch,
 } from "../src/index.js";
-import { CATEGORIES, SETTINGS, settingsForCategory, validateSetting } from "../src/settings.js";
+import { CATEGORIES, SETTINGS, settingsForCategory, validateDistribution, validateSetting } from "../src/settings.js";
 
 
 const env = {
@@ -307,6 +307,52 @@ test("todas as configuracoes expostas possuem padrao e validacao", () => {
   assert.deepEqual(validateSetting("FACEBOOK_MAX_POSTS_DIA", "4"), { ok: true, value: "4" });
   assert.deepEqual(validateSetting("FACEBOOK_MAX_POSTS_DIA", "0"), { ok: true, value: "0" });
   assert.equal(validateSetting("FACEBOOK_MAX_POSTS_DIA", "1000001").ok, false);
+});
+
+test("distribuicao exige quatro inteiros com soma de 100%", () => {
+  assert.equal(validateDistribution("30 30 25 15").ok, true);
+  for (const invalid of ["30 30 25", "30 30 25 20", "30.5 30 25 14.5", "-1 31 40 30", "1e2 0 0 0"]) {
+    assert.equal(validateDistribution(invalid).ok, false, invalid);
+  }
+});
+
+test("painel das lojas oferece ajuste percentual e impede alteracao isolada", async () => {
+  const calls = [];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/actions/variables?")) return Response.json({ variables: [] });
+    return Response.json({ ok: true });
+  };
+  await worker.fetch(request(callback("menu:lojas")), env, fakeFetch);
+  const menu = calls.filter((call) => call.url.includes("sendMessage")).at(-1);
+  assert.match(JSON.stringify(JSON.parse(menu.options.body).reply_markup), /distribution:prompt/);
+  assert.match(JSON.parse(menu.options.body).text, /Shopee \(%\): 30%/);
+  await worker.fetch(request(update("/definir PERCENTUAL_SHOPEE 40")), env, fakeFetch);
+  assert.equal(calls.some((call) => call.options.method === "PATCH"), false);
+  assert.match(JSON.parse(calls.filter((call) => call.url.includes("sendMessage")).at(-1).options.body).text, /quatro percentuais juntos/);
+});
+
+test("distribuicao valida, pede confirmacao e salva metas reais", async () => {
+  const calls = [];
+  const fakeFetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/actions/variables?")) return Response.json({ variables: [] });
+    if (String(url).includes("api.github.com")) return new Response(null, { status: 204 });
+    return Response.json({ ok: true });
+  };
+  await worker.fetch(request(update("/distribuicao 40 20 25 15")), env, fakeFetch);
+  assert.equal(calls.some((call) => call.options.method === "PATCH"), false);
+  const proposal = JSON.parse(calls.filter((call) => call.url.includes("sendMessage")).at(-1).options.body);
+  assert.match(JSON.stringify(proposal.reply_markup), /distribution:apply:40,20,25,15/);
+  await worker.fetch(request(callback("distribution:apply:40,20,25,15")), env, fakeFetch);
+  const patches = calls.filter((call) => call.options.method === "PATCH").map((call) => JSON.parse(call.options.body));
+  assert.deepEqual(patches.slice(0, 2), [
+    { name: "PERCENTUAL_SHOPEE", value: "40" },
+    { name: "PERCENTUAL_MERCADOLIVRE", value: "20" },
+  ]);
+  assert.equal(patches.at(-1).name, "BOT_CONFIG_AUDIT");
+  const final = JSON.parse(calls.filter((call) => call.url.includes("sendMessage")).at(-1).options.body);
+  assert.match(final.text, /Shopee \(%\): 40%/);
 });
 
 test("ajuda explica comandos modos e todas as configuracoes", () => {

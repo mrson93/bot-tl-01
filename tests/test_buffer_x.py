@@ -22,7 +22,7 @@ class BufferXTest(unittest.TestCase):
         self.assertLessEqual(len(texto), 280)
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
-        self.assertIn("🛒 #publi · COMPRAR NA LOJA:", texto)
+        self.assertIn("🛒 #ad · COMPRAR NA LOJA:", texto)
         self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
 
@@ -69,7 +69,7 @@ class BufferXTest(unittest.TestCase):
     def test_publi_no_x_apenas_para_amazon(self):
         oferta = {"fonte": "Amazon", "productName": "Produto", "price": 50}
         texto = buffer_x.montar_texto(oferta, "https://oferta.test")
-        self.assertIn("🛒 #publi · COMPRAR NA AMAZON:", texto)
+        self.assertIn("🛒 #ad · COMPRAR NA AMAZON:", texto)
 
 
 if __name__ == "__main__":

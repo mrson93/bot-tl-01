@@ -1,6 +1,6 @@
 export const CATEGORIES = Object.freeze({
   canais: { label: "📣 Canais", description: "Destinos de publicação e limites próprios" },
-  lojas: { label: "🏪 Lojas", description: "Ativação, preferência e profundidade das buscas" },
+  lojas: { label: "🏪 Lojas", description: "Ativação, distribuição percentual e profundidade das buscas" },
   filtros: { label: "🎯 Filtros", description: "Requisitos mínimos para uma oferta" },
   horarios: { label: "⏱ Horários", description: "Janela de publicação, pico e volume" },
   variedade: { label: "🔁 Variedade", description: "Repetição e produtos semelhantes" },
@@ -37,27 +37,27 @@ export const SETTINGS = Object.freeze({
   },
   AMAZON_ATIVA: {
     category: "lojas", label: "Amazon ativa", type: "boolean", default: "false",
-    hint: "Só terá efeito quando as credenciais da Amazon estiverem configuradas.",
+    hint: "Usa a vitrine pública de afiliado quando o link estiver configurado.",
   },
   MERCADOLIVRE_ATIVA: {
     category: "lojas", label: "Mercado Livre ativo", type: "boolean", default: "true",
     hint: "Publica os produtos escolhidos na sua lista pública de recomendações.",
   },
-  PESO_SHOPEE: {
-    category: "lojas", label: "Preferência Shopee", type: "float", default: "1", min: 0.5, max: 2,
-    hint: "1 é neutro; 1,2 aumenta a prioridade em 20%; 0,8 reduz em 20%.",
+  PERCENTUAL_SHOPEE: {
+    category: "lojas", label: "Shopee (%)", type: "distribution", default: "30", min: 0, max: 100,
+    hint: "Meta de 30% das ofertas. Ajuste os quatro percentuais juntos; a soma precisa ser 100%.",
   },
-  PESO_ALIEXPRESS: {
-    category: "lojas", label: "Preferência AliExpress", type: "float", default: "1", min: 0.5, max: 2,
-    hint: "1 é neutro; use apenas ajustes pequenos para preservar a qualidade.",
+  PERCENTUAL_MERCADOLIVRE: {
+    category: "lojas", label: "Mercado Livre (%)", type: "distribution", default: "30", min: 0, max: 100,
+    hint: "Meta de 30% das ofertas. Ajuste os quatro percentuais juntos; a soma precisa ser 100%.",
   },
-  PESO_AMAZON: {
-    category: "lojas", label: "Preferência Amazon", type: "float", default: "1", min: 0.5, max: 2,
-    hint: "1 é neutro; só terá efeito quando a Amazon estiver configurada.",
+  PERCENTUAL_AMAZON: {
+    category: "lojas", label: "Amazon (%)", type: "distribution", default: "25", min: 0, max: 100,
+    hint: "Meta de 25% das ofertas. Só vale quando há produtos elegíveis na vitrine.",
   },
-  PESO_MERCADOLIVRE: {
-    category: "lojas", label: "Preferência Mercado Livre", type: "float", default: "1", min: 0.5, max: 2,
-    hint: "1 é neutro; aumente um pouco para dar prioridade à sua curadoria manual.",
+  PERCENTUAL_ALIEXPRESS: {
+    category: "lojas", label: "AliExpress (%)", type: "distribution", default: "15", min: 0, max: 100,
+    hint: "Meta de 15% das ofertas. Ajuste os quatro percentuais juntos; a soma precisa ser 100%.",
   },
   SHOPEE_PAGES: {
     category: "lojas", label: "Páginas Shopee", type: "integer", default: "3", min: 1, max: 5,
@@ -234,6 +234,25 @@ export const SETTINGS = Object.freeze({
 
 export const AUDIT_VARIABLE = "BOT_CONFIG_AUDIT";
 export const STORE_KEYS = Object.freeze(["SHOPEE_ATIVA", "ALIEXPRESS_ATIVA", "AMAZON_ATIVA", "MERCADOLIVRE_ATIVA"]);
+export const DISTRIBUTION_KEYS = Object.freeze([
+  "PERCENTUAL_SHOPEE", "PERCENTUAL_MERCADOLIVRE",
+  "PERCENTUAL_AMAZON", "PERCENTUAL_ALIEXPRESS",
+]);
+
+export function validateDistribution(rawValue) {
+  const pieces = String(rawValue ?? "").trim().split(/[\s,;]+/).filter(Boolean);
+  if (pieces.length !== DISTRIBUTION_KEYS.length) {
+    return { ok: false, error: "Informe quatro percentuais na ordem: Shopee, Mercado Livre, Amazon, AliExpress." };
+  }
+  const values = pieces.map((piece) => Number(piece));
+  if (pieces.some((piece) => !/^\d+$/.test(piece)) || values.some((value) => !Number.isInteger(value) || value < 0 || value > 100)) {
+    return { ok: false, error: "Use quatro números inteiros entre 0 e 100." };
+  }
+  if (values.reduce((sum, value) => sum + value, 0) !== 100) {
+    return { ok: false, error: "A soma dos quatro percentuais precisa ser 100%." };
+  }
+  return { ok: true, values: Object.fromEntries(DISTRIBUTION_KEYS.map((key, index) => [key, String(values[index])])) };
+}
 
 export function settingsForCategory(category) {
   return Object.entries(SETTINGS).filter(([, setting]) => setting.category === category);
@@ -288,7 +307,7 @@ export function validateSetting(key, rawValue) {
 
   const value = Number(raw);
   if (!Number.isFinite(value)) return { ok: false, error: "Informe somente um número válido." };
-  if (setting.type === "integer" && !Number.isInteger(value)) return { ok: false, error: "Informe um número inteiro." };
+  if (["integer", "distribution"].includes(setting.type) && !Number.isInteger(value)) return { ok: false, error: "Informe um número inteiro." };
   if (setting.type === "startHour" && (!Number.isInteger(value) || value < 6 || value > 23)) {
     return { ok: false, error: "A hora inicial deve estar entre 6 e 23." };
   }
@@ -311,6 +330,7 @@ export function displayValue(key, value) {
   if (setting.type === "hours") return String(value).split(",").map((hour) => `${hour}h`).join(", ");
   if (key === "HORA_INICIO" || key === "HORA_FIM" || key === "RELATORIO_HORA") return `${String(value).padStart(2, "0")}h`;
   if (key === "RELATORIO_MINUTO") return `${String(value).padStart(2, "0")} min`;
+  if (setting.type === "distribution") return `${String(value)}%`;
   return String(value).replace(".", ",");
 }
 

@@ -74,5 +74,5 @@ test('envia título, preço e link uma única vez',async()=>{
 
 test('formatação não expõe dados do usuário',()=>{
   const text=formatOfferMessage({title:'Fone',price:49.5,link:'https://example.com/x'});
-  assert.equal(text,'🔥 Aqui está a oferta que você pediu!\n\n🛍️ Fone\n💰 Preço visto: R$ 49,50\n\n👉 #publi · Ver oferta: https://example.com/x\n\n⚠️ Preço e estoque podem mudar. Confira na loja antes de finalizar.');
+  assert.equal(text,'🔥 Aqui está a oferta que você pediu!\n\n🛍️ Fone\n💰 Preço visto: R$ 49,50\n\n👉 #ad · Ver oferta: https://example.com/x\n\n⚠️ Preço e estoque podem mudar. Confira na loja antes de finalizar.');
 });

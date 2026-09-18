@@ -154,7 +154,7 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 - O preço anterior só aparece quando a plataforma o informa oficialmente.
 - A ordem da legenda é título, preço, avaliação/vendas/vendedor, cupom e
   condição (quando disponíveis), seguido da compra com nome da plataforma.
-  A indicação discreta `#publi` fica junto ao link de afiliado em todas as lojas.
+  A indicação discreta `#ad` fica junto ao link de afiliado em todas as lojas.
 - No Telegram, o preço anterior aparece riscado e o atual em negrito; Facebook,
   Bluesky e X usam texto simples. Redes com limite de caracteres encurtam o
   título e, se necessário, omitem detalhes opcionais sem cortar o link.
@@ -164,7 +164,7 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
   um alerta exclusivo de cupom e incluí-lo em um resumão de cupons ativos. A
   mensagem permanece no canal mesmo depois do vencimento; apenas deixa de entrar
   nos próximos resumos.
-- A identificação `#publi` fica próxima ao link em todas as lojas; a palavra
+- A identificação `#ad` fica próxima ao link em todas as lojas; a palavra
   longa foi removida de legendas, cards e resposta automática do Story.
 - O Telegram mantém um único botão/caminho de compra; o convite para compartilhar
   fica fora dos posts de oferta.
@@ -219,7 +219,7 @@ Modelo equivalente para o Botize:
 🎟 Cupom: {{cupom}}
 ℹ️ {{condicao_cupom}}
 
-🛒 #publi · COMPRAR NA AMAZON: {{link_afiliado}}
+🛒 #ad · COMPRAR NA AMAZON: {{link_afiliado}}
 ```
 
 Se o Botize não fornecer preço anterior real, use apenas `💰 {{preco_atual}}`.

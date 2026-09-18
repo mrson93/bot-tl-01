@@ -298,7 +298,7 @@ def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
     fonte = str(oferta.get("fonte") or "loja")
     draw.text((540, 1810), f"Oferta {fonte}", font=_fonte(25, True),
               fill="#555555", anchor="mm")
-    draw.text((540, 1844), "#publi • preço pode mudar", font=_fonte(22), fill="#6B6B6B", anchor="mm")
+    draw.text((540, 1844), "#ad • preço pode mudar", font=_fonte(22), fill="#6B6B6B", anchor="mm")
 
     saida = BytesIO()
     canvas.save(saida, format="JPEG", quality=86, optimize=True, progressive=True)

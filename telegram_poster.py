@@ -59,7 +59,7 @@ def chamada_inicial(oferta: dict) -> str:
 
 def rotulo_publicidade(oferta: dict) -> str:
     """Identificação curta de afiliado, visível junto ao link em todas as lojas."""
-    return "#publi"
+    return "#ad"
 
 
 def nome_plataforma(oferta: dict) -> str:

@@ -1,6 +1,7 @@
 import {
   AUDIT_VARIABLE,
   CATEGORIES,
+  DISTRIBUTION_KEYS,
   SETTINGS,
   STORE_KEYS,
   defaultValues,
@@ -8,6 +9,7 @@ import {
   effectiveValue,
   settingsForCategory,
   validateSetting,
+  validateDistribution,
 } from "./settings.js";
 
 const MODES = Object.freeze({
@@ -368,10 +370,13 @@ async function dispatchCampaign(env, campaignId, fetchImpl) {
 }
 
 function categoryKeyboard(category, variables) {
-  const rows = settingsForCategory(category).map(([key, setting]) => [{
+  const rows = category === "lojas" ? [[{
+    text: "🎚 Ajustar distribuição das lojas (100%)", callback_data: "distribution:prompt",
+  }]] : [];
+  rows.push(...settingsForCategory(category).map(([key, setting]) => [{
     text: `${setting.label}: ${displayValue(key, effectiveValue(key, variables))}`.slice(0, 60),
     callback_data: `setting:${key}`,
-  }]);
+  }]));
   if (category === "campanhas") {
     for (const [campaignId, campaign] of Object.entries(CAMPAIGNS)) {
       rows.push([{
@@ -387,7 +392,9 @@ function categoryKeyboard(category, variables) {
 function settingKeyboard(key, value) {
   const setting = SETTINGS[key];
   const rows = [];
-  if (setting.type === "boolean") {
+  if (setting.type === "distribution") {
+    rows.push([{ text: "🎚 Ajustar os quatro percentuais", callback_data: "distribution:prompt" }]);
+  } else if (setting.type === "boolean") {
     rows.push([
       { text: "✅ Ativar", callback_data: `propose:${key}:true` },
       { text: "🚫 Desativar", callback_data: `propose:${key}:false` },
@@ -399,7 +406,7 @@ function settingKeyboard(key, value) {
   } else {
     rows.push([{ text: "✏️ Alterar valor", callback_data: `prompt:${key}` }]);
   }
-  if (value !== setting.default) {
+  if (setting.type !== "distribution" && value !== setting.default) {
     rows.push([{ text: "↩️ Usar padrão", callback_data: `propose:${key}:${setting.default}` }]);
   }
   rows.push([{ text: "⬅️ Voltar", callback_data: `menu:${setting.category}` }]);
@@ -459,6 +466,7 @@ async function showSetting(env, chatId, key, fetchImpl) {
 
 async function promptSetting(env, chatId, key, fetchImpl) {
   const setting = SETTINGS[key];
+  if (setting?.type === "distribution") return promptDistribution(env, chatId, fetchImpl);
   if (!setting || ["boolean", "choice"].includes(setting.type)) {
     return showSetting(env, chatId, key, fetchImpl);
   }
@@ -480,6 +488,10 @@ function storeSelectionIsSafe(key, value, variables) {
 async function proposeSetting(env, chatId, key, rawValue, fetchImpl) {
   if (!SETTINGS[key]) {
     return sendMessage(env, chatId, "⚠️ Configuração não permitida.", fetchImpl, settingsRootKeyboard());
+  }
+  if (SETTINGS[key].type === "distribution") {
+    return sendMessage(env, chatId, "⚠️ Ajuste os quatro percentuais juntos para somarem 100%.", fetchImpl,
+      { inline_keyboard: [[{ text: "🎚 Ajustar distribuição", callback_data: "distribution:prompt" }]] });
   }
   const result = validateSetting(key, rawValue);
   if (!result.ok) {
@@ -506,6 +518,9 @@ async function proposeSetting(env, chatId, key, rawValue, fetchImpl) {
 }
 
 async function applySetting(env, chatId, key, rawValue, callbackId, fetchImpl) {
+  if (SETTINGS[key]?.type === "distribution") {
+    return answerCallback(env, callbackId, "Ajuste os quatro percentuais juntos", fetchImpl);
+  }
   const result = validateSetting(key, rawValue);
   if (!result.ok) {
     await answerCallback(env, callbackId, result.error, fetchImpl);
@@ -528,6 +543,71 @@ async function applySetting(env, chatId, key, rawValue, callbackId, fetchImpl) {
     fetchImpl,
     categoryKeyboard(SETTINGS[key].category, updated),
   );
+}
+
+function distributionSummary(values) {
+  return DISTRIBUTION_KEYS.map((key) => `${SETTINGS[key].label}: ${effectiveValue(key, values)}%`).join("\n");
+}
+
+async function promptDistribution(env, chatId, fetchImpl) {
+  const variables = await getVariables(env, fetchImpl);
+  return sendMessage(env, chatId,
+    `✏️ Configurar DISTRIBUICAO\n\nEnvie quatro percentuais inteiros nesta ordem: Shopee, Mercado Livre, Amazon, AliExpress. A soma deve ser 100%.\n\nAtual:\n${distributionSummary(variables)}\n\nExemplo: 30 30 25 15\n\nSão metas: se uma loja não tiver oferta elegível, as outras podem ocupar a vaga. Para desligar uma loja, use o controle de ativação.`,
+    fetchImpl, { force_reply: true, selective: true, input_field_placeholder: "30 30 25 15" });
+}
+
+async function proposeDistribution(env, chatId, rawValue, fetchImpl) {
+  const result = validateDistribution(rawValue);
+  if (!result.ok) {
+    return sendMessage(env, chatId, `⚠️ ${result.error}\n\nUse /distribuicao 30 30 25 15 ou toque abaixo para tentar novamente.`,
+      fetchImpl, { inline_keyboard: [[{ text: "🎚 Tentar novamente", callback_data: "distribution:prompt" }]] });
+  }
+  const variables = await getVariables(env, fetchImpl);
+  if (DISTRIBUTION_KEYS.every((key) => effectiveValue(key, variables) === result.values[key])) {
+    return sendMessage(env, chatId, "ℹ️ Essa distribuição já está ativa.", fetchImpl, categoryKeyboard("lojas", variables));
+  }
+  const encoded = DISTRIBUTION_KEYS.map((key) => result.values[key]).join(",");
+  return sendMessage(env, chatId,
+    `Confirma a nova distribuição?\n\nAtual:\n${distributionSummary(variables)}\n\nNova:\n${distributionSummary(result.values)}\n\nTotal: 100%. A próxima execução usará estas metas.`,
+    fetchImpl, { inline_keyboard: [[
+      { text: "✅ Confirmar", callback_data: `distribution:apply:${encoded}` },
+      { text: "Cancelar", callback_data: "menu:lojas" },
+    ]] });
+}
+
+async function applyDistribution(env, chatId, rawValue, callbackId, fetchImpl) {
+  const result = validateDistribution(rawValue);
+  if (!result.ok) {
+    await answerCallback(env, callbackId, result.error, fetchImpl);
+    return promptDistribution(env, chatId, fetchImpl);
+  }
+  const variables = await getVariables(env, fetchImpl);
+  const changed = DISTRIBUTION_KEYS.filter((key) => effectiveValue(key, variables) !== result.values[key]);
+  const completed = [];
+  try {
+    for (const key of changed) {
+      await setVariable(env, key, result.values[key], fetchImpl);
+      completed.push(key);
+    }
+  } catch (error) {
+    const rollback = await Promise.allSettled(completed.map((key) => setVariable(env, key, effectiveValue(key, variables), fetchImpl)));
+    const rollbackFailed = rollback.some((item) => item.status === "rejected");
+    await answerCallback(env, callbackId, "Falha ao atualizar", fetchImpl);
+    return sendMessage(env, chatId,
+      rollbackFailed
+        ? "⚠️ A atualização falhou e não foi possível restaurar todos os valores. Confira os percentuais atuais antes da próxima execução."
+        : "⚠️ A atualização falhou. Os valores anteriores foram restaurados. Tente novamente.",
+      fetchImpl, { inline_keyboard: [[{ text: "🏪 Ver lojas", callback_data: "menu:lojas" }]] });
+  }
+  await recordAudit(env, {
+    key: "DISTRIBUICAO_LOJAS",
+    before: DISTRIBUTION_KEYS.map((key) => effectiveValue(key, variables)).join("/"),
+    after: DISTRIBUTION_KEYS.map((key) => result.values[key]).join("/"),
+  }, fetchImpl);
+  await answerCallback(env, callbackId, "Distribuição atualizada", fetchImpl);
+  const updated = { ...variables, ...result.values };
+  return sendMessage(env, chatId, `✅ Distribuição atualizada:\n\n${distributionSummary(updated)}\n\nA próxima execução usará estas metas.`,
+    fetchImpl, categoryKeyboard("lojas", updated));
 }
 
 async function showAudit(env, chatId, fetchImpl) {
@@ -755,12 +835,13 @@ export function helpActionsText() {
     "📄 Relatório (/relatorio): pede ao GitHub o relatório privado imediatamente. É uma execução separada da busca de ofertas.",
     "▶️ Executar agora (/executar): inicia uma rodada extra. Ela pode publicar, mas continua respeitando horário, filtros, repetição e limite diário.",
     "⚙️ Configurações (/config): abre os controles operacionais. A mudança é validada, pede confirmação, fica registrada e vale na próxima execução.",
+    "🏪 Distribuição (/distribuicao 30 30 25 15): define as metas percentuais de Shopee, Mercado Livre, Amazon e AliExpress; a soma deve ser 100%.",
     "🕘 Histórico (/historico): mostra as alterações recentes feitas por este painel.",
     "⏸ Pausar (/pausar): interrompe somente as rodadas automáticas. Configurações, histórico e relatório continuam disponíveis.",
     "▶️ Retomar (/retomar): reativa no modo Econômico; depois você pode escolher outro ritmo.",
     "↩️ Restaurar padrões: volta as configurações operacionais aos valores seguros, sem apagar credenciais nem trocar o modo.",
     "",
-    "Também é possível usar /definir NOME VALOR, mas os botões são mais seguros porque mostram a confirmação.",
+    "Também é possível usar /definir NOME VALOR para outras configurações. Os percentuais das lojas devem ser alterados juntos em /distribuicao.",
   ].join("\n");
 }
 
@@ -905,6 +986,13 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
     await answerCallback(env, callback.id, "Consultando…", fetchImpl);
     return showCategory(env, chatId, category, fetchImpl);
   }
+  if (callbackData === "distribution:prompt") {
+    await answerCallback(env, callback.id, "Envie os quatro percentuais", fetchImpl);
+    return promptDistribution(env, chatId, fetchImpl);
+  }
+  if (callbackData.startsWith("distribution:apply:")) {
+    return applyDistribution(env, chatId, callbackData.slice("distribution:apply:".length), callback.id, fetchImpl);
+  }
   if (callbackData.startsWith("setting:")) {
     const key = callbackData.slice(8);
     await answerCallback(env, callback.id, "Consultando…", fetchImpl);
@@ -946,6 +1034,9 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   }
 
   const replyText = String(update.message?.reply_to_message?.text || "");
+  if (replyText.startsWith("✏️ Configurar DISTRIBUICAO")) {
+    return proposeDistribution(env, chatId, update.message?.text, fetchImpl);
+  }
   const promptMatch = replyText.match(/^✏️ Configurar ([A-Z0-9_]+)/);
   if (promptMatch && SETTINGS[promptMatch[1]]) {
     return proposeSetting(env, chatId, promptMatch[1], update.message?.text, fetchImpl);
@@ -961,6 +1052,9 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   if (name === "status") return showStatus(env, chatId, fetchImpl);
   if (["config", "configuracoes", "configurações"].includes(name)) {
     return showConfigurationRoot(env, chatId, fetchImpl);
+  }
+  if (name === "distribuicao" || name === "distribuição") {
+    return args.length ? proposeDistribution(env, chatId, args.join(" "), fetchImpl) : promptDistribution(env, chatId, fetchImpl);
   }
   if (["historico", "histórico"].includes(name)) return showAudit(env, chatId, fetchImpl);
   if (name === "pausar") return chooseMode(env, chatId, "pausado", null, fetchImpl);
