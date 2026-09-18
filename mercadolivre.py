@@ -62,10 +62,18 @@ class _ParserLista(HTMLParser):
         classes = _classes(attrs)
         if tag == "div" and "lists-card" in classes and self.card is None:
             self.card = {}
+            prazo = (valores.get("data-deal-end-date")
+                     or valores.get("data-promotion-end-date"))
+            if prazo:
+                self.card["expira_em"] = prazo
             self.profundidade = 1
             return
         if self.card is None:
             return
+        prazo = (valores.get("data-deal-end-date")
+                 or valores.get("data-promotion-end-date"))
+        if prazo:
+            self.card["expira_em"] = prazo
         if tag == "div":
             self.profundidade += 1
         if tag == "img" and "poly-component__picture" in classes:
@@ -123,7 +131,7 @@ def _normalizar(card):
     if not produto_id or not preco or not card.get("productName"):
         raise ValueError("Produto incompleto na lista do Mercado Livre")
     vendedor = re.sub(r"^Por\s+", "", _texto(card.get("shopName")), flags=re.I)
-    return {
+    oferta = {
         "fonte": NOME,
         "oferta_id": f"mercadolivre_{produto_id}",
         "productName": _texto(card["productName"]),
@@ -140,6 +148,9 @@ def _normalizar(card):
         "curadoriaManual": True,
         "comissao": None,
     }
+    if card.get("expira_em"):
+        oferta["expira_em"] = card["expira_em"]
+    return oferta
 
 
 def _baixar_html(url):
@@ -178,15 +189,16 @@ def _baixar_html(url):
 def buscar_ofertas() -> list:
     parser = _ParserLista()
     parser.feed(_baixar_html(config.MERCADOLIVRE_LIST_URL))
-    ofertas = []
+    ofertas = {}
     for card in parser.ofertas[:config.MERCADOLIVRE_FETCH_LIMIT]:
         try:
-            ofertas.append(_normalizar(card))
+            oferta = _normalizar(card)
+            ofertas.setdefault(oferta["oferta_id"], oferta)
         except (TypeError, ValueError):
             continue
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
-    return ofertas
+    return list(ofertas.values())
 
 
 def consultar_produtos(ids) -> dict:

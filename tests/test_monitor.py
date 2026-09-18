@@ -4,9 +4,34 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import monitor
+import store
 
 
 class MonitorTest(unittest.TestCase):
+    def test_resumo_privado_identifica_sucesso_e_falha_por_canal(self):
+        resposta = Mock()
+        resposta.json.return_value = {"ok": True}
+        sessao = Mock(post=Mock(return_value=resposta))
+        with patch.object(monitor.config, "TELEGRAM_ADMIN_ID", "123"), \
+             patch.object(monitor.config, "TELEGRAM_BOT_TOKEN", "token"):
+            self.assertTrue(monitor.enviar_resumo_publicacao(
+                "Shopee", "Produto", {"Telegram": "✅ publicado", "Facebook": "❌ falhou"}, sessao))
+        mensagem = sessao.post.call_args.kwargs["json"]["text"]
+        self.assertIn("Telegram: ✅ publicado", mensagem)
+        self.assertIn("Facebook: ❌ falhou", mensagem)
+
+    def test_estoque_lista_alerta_uma_vez_e_rearma(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(monitor, "_enviar_privado", return_value=True) as enviar:
+            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 5))
+            self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 4))
+            self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 8))
+            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 5))
+            self.assertEqual(2, enviar.call_count)
+
     def test_alerta_uma_vez_apos_tres_falhas_e_rearma_com_sucesso(self):
         with patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
              patch.object(monitor.store, "falhas_consecutivas", return_value=3), \

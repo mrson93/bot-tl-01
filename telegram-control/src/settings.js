@@ -17,7 +17,7 @@ export const SETTINGS = Object.freeze({
   },
   FACEBOOK_MAX_POSTS_DIA: {
     category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 0, max: 1000000,
-    hint: "Use 0 para ilimitado. O limite geral de ofertas por dia continua valendo.",
+    hint: "Use 0 para não impor um limite extra. Via Buffer, a proteção de 25 posts por 24 horas continua obrigatória para todas as redes.",
   },
   INSTAGRAM_STORIES_ATIVO: {
     category: "canais", label: "Stories do Instagram", type: "boolean", default: "false",

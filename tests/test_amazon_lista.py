@@ -57,6 +57,13 @@ class AmazonListaTest(unittest.TestCase):
             ])
         self.assertEqual(["amazon_B0DPNHDC9B"], list(encontrados))
 
+    def test_prazo_explicito_da_lista_e_preservado(self):
+        html = HTML.replace('data-asin="B0F9Z2DV83"',
+                            'data-asin="B0F9Z2DV83" data-deal-end-date="2026-09-19T10:00:00Z"')
+        a, b, c = self._config()
+        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=html):
+            self.assertEqual("2026-09-19T10:00:00Z", amazon.buscar_ofertas()[0]["expira_em"])
+
     def test_descarta_produto_sem_tag_de_afiliado_correta(self):
         html = HTML.replace("tag=canaltabarato-20", "tag=outra-20")
         a, b, c = self._config()

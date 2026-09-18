@@ -25,6 +25,16 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("produto", "Facebook", True, agora=9999999999)
         self.assertIsNone(store.buffer_post("produto", "Facebook"))
 
+    def test_migra_buffer_antigo_sem_perder_post_pendente(self):
+        con = sqlite3.connect(self.db)
+        con.execute("CREATE TABLE buffer_posts (id TEXT NOT NULL, canal TEXT NOT NULL, post_id TEXT NOT NULL, criado_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
+        con.execute("INSERT INTO buffer_posts VALUES ('a','Facebook','post-1',100)")
+        con.commit()
+        con.close()
+        self.assertEqual("post-1", store.buffer_post_info("a", "Facebook")[0])
+        store.marcar_retry_buffer("a", "Facebook", agora=200)
+        self.assertEqual(200, store.buffer_post_info("a", "Facebook")[2])
+
     def test_posts_por_fonte_desde_conta_distintas(self):
         store.marcar_postada("s1", fonte="Shopee", agora=100)
         store.marcar_postada("s2", fonte="Shopee", agora=110)
@@ -59,6 +69,20 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("x", "Bluesky", False, 50, "Shopee", "timeout")
         self.assertFalse(store.canal_pendente("x", "Telegram", 50))
         self.assertTrue(store.canal_pendente("x", "Bluesky", 50))
+
+    def test_retomada_identifica_canal_sem_registro_e_nao_repete_lista_curada(self):
+        store.marcar_postada("ml1", preco=100, fonte="Mercado Livre")
+        store.registrar_entrega("ml1", "Telegram", True, 100, "Mercado Livre")
+        self.assertTrue(store.ha_canal_pendente("ml1", ["Telegram", "Facebook"], None))
+        store.registrar_entrega("ml1", "Facebook", True, 100, "Mercado Livre")
+        self.assertFalse(store.ha_canal_pendente("ml1", ["Telegram", "Facebook"], None))
+        self.assertFalse(store.canal_pendente("ml1", "Telegram", None))
+
+    def test_janela_movel_conta_ofertas_antes_e_depois_da_meia_noite(self):
+        store.marcar_postada("antiga", agora=100)
+        store.marcar_postada("nova", agora=86410)
+        self.assertEqual(2, store.posts_desde(10))
+        self.assertEqual(1, store.posts_desde(101))
 
     def test_repescagem_libera_entrega_antiga_sem_repetir_canal_recente(self):
         agora = int(datetime.now().timestamp())

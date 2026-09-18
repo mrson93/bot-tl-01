@@ -64,6 +64,10 @@ class _ParserLista(HTMLParser):
             return
         if self.card is None:
             return
+        prazo = (valores.get("data-deal-end-date")
+                 or valores.get("data-promotion-end-date"))
+        if prazo:
+            self.card["expira_em"] = prazo
         if tag not in _VOID_TAGS:
             self.depth += 1
         if valores.get("data-asin"):
@@ -124,7 +128,7 @@ def _normalizar_lista(card):
     titulo = _texto(card.get("productName"))
     if not preco or not titulo:
         raise ValueError("Produto incompleto na lista da Amazon")
-    return {
+    oferta = {
         "fonte": NOME,
         "oferta_id": f"amazon_{asin}",
         "productName": titulo,
@@ -139,6 +143,9 @@ def _normalizar_lista(card):
         "curadoriaManual": True,
         "comissao": None,
     }
+    if card.get("expira_em"):
+        oferta["expira_em"] = card["expira_em"]
+    return oferta
 
 
 def _baixar_lista(url):
@@ -157,9 +164,21 @@ def _baixar_lista(url):
         atual = seguranca.validar_url_https_em_hosts(
             atual, _HOSTS_LISTA, "Lista da Amazon"
         )
-        resposta = requests.get(
-            atual, headers=headers, timeout=30, allow_redirects=False, stream=True,
-        )
+        for tentativa in range(3):
+            try:
+                resposta = requests.get(
+                    atual, headers=headers, timeout=30,
+                    allow_redirects=False, stream=True,
+                )
+            except requests.RequestException:
+                if tentativa == 2:
+                    raise
+                time.sleep(tentativa + 1)
+                continue
+            if resposta.status_code not in {429, 500, 502, 503, 504} or tentativa == 2:
+                break
+            resposta.close()
+            time.sleep(tentativa + 1)
         try:
             if resposta.status_code in {301, 302, 303, 307, 308}:
                 destino = resposta.headers.get("Location")
@@ -186,15 +205,16 @@ def _baixar_lista(url):
 def _buscar_lista() -> list:
     parser = _ParserLista()
     parser.feed(_baixar_lista(config.AMAZON_LIST_URL))
-    ofertas = []
+    ofertas = {}
     for card in parser.ofertas[:config.AMAZON_FETCH_LIMIT]:
         try:
-            ofertas.append(_normalizar_lista(card))
+            oferta = _normalizar_lista(card)
+            ofertas.setdefault(oferta["oferta_id"], oferta)
         except (TypeError, ValueError):
             continue
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista da Amazon")
-    return ofertas
+    return list(ofertas.values())
 
 
 def _access_token() -> str:

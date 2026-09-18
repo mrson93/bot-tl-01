@@ -18,17 +18,58 @@ def _repositorio_valido(repositorio):
 
 
 def enviar_alerta(mensagem, sessao=requests):
+    return _enviar_privado(f"🚨 Alerta do bot\n{mensagem}", sessao)
+
+
+def _enviar_privado(mensagem, sessao=requests):
     if not config.TELEGRAM_ADMIN_ID or not config.TELEGRAM_BOT_TOKEN:
         return False
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     resposta = sessao.post(url, json={"chat_id": config.TELEGRAM_ADMIN_ID,
-        "text": f"🚨 Alerta do bot\n{mensagem}"}, timeout=30)
+        "text": mensagem}, timeout=30)
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(seguranca.redigir_segredos(
             f"Telegram recusou o alerta: {corpo}"
         ))
     return True
+
+
+def enviar_resumo_publicacao(loja, titulo, resultados, sessao=requests):
+    """Um aviso privado por oferta, com confirmação por destino."""
+    titulo = " ".join(str(titulo or "Oferta").split())[:100]
+    linhas = [f"📣 Publicação — {loja}", titulo, ""]
+    linhas.extend(f"{canal}: {resultado}" for canal, resultado in resultados.items())
+    return _enviar_privado("\n".join(linhas), sessao)
+
+
+def avisar_estoque_lista(loja, ineditas, sessao=requests):
+    """Notifica uma vez quando a lista curada fica com até cinco inéditas."""
+    chave = f"estoque_lista:{loja.lower().replace(' ', '_')}"
+    if ineditas > 5:
+        store._definir_estado(chave, "normal")
+        return False
+    if store._estado(chave) == "baixo":
+        return False
+    mensagem = (f"📦 Lista {loja}: restam {ineditas} ofertas inéditas e elegíveis. "
+                "Adicione novos produtos à lista para manter a publicação.")
+    if _enviar_privado(mensagem, sessao):
+        store._definir_estado(chave, "baixo")
+        return True
+    return False
+
+
+def avisar_falha_lista(loja, erro, sessao=requests):
+    """Avisa a primeira falha de leitura; rearma após uma leitura bem-sucedida."""
+    chave = f"falha_lista:{loja.lower().replace(' ', '_')}"
+    if store._estado(chave) == "falhou":
+        return False
+    detalhe = seguranca.redigir_segredos(erro)[:200]
+    if _enviar_privado(f"⚠️ Não consegui consultar a lista da {loja}. "
+                      f"Nenhuma oferta dessa loja será publicada nesta rodada. {detalhe}", sessao):
+        store._definir_estado(chave, "falhou")
+        return True
+    return False
 
 
 def registrar_resultado_canal(canal, sucesso, erro=""):

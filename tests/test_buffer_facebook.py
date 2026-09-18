@@ -114,6 +114,26 @@ class BufferFacebookTest(unittest.TestCase):
                     buffer_facebook.publicar_confirmado("oferta-1", "Facebook", criar)
             criar.assert_called_once()
 
+    def test_post_em_erro_e_retentado_no_mesmo_id_apos_24_horas(self):
+        import tempfile
+        from pathlib import Path
+        import store
+        with tempfile.TemporaryDirectory() as pasta, \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"), \
+             patch.object(buffer_facebook.time, "time", return_value=200000):
+            store.registrar_buffer_post("oferta-1", "Facebook", "post_123")
+            with store._conn() as con:
+                con.execute("UPDATE buffer_posts SET criado_em=100000")
+            criar = unittest.mock.Mock()
+            with patch.object(buffer_facebook, "consultar_status",
+                              side_effect=["error", "sent"]), \
+                 patch.object(buffer_facebook, "retentar_post_com_erro") as retentar:
+                self.assertEqual("post_123", buffer_facebook.publicar_confirmado(
+                    "oferta-1", "Facebook", criar))
+            criar.assert_not_called()
+            retentar.assert_called_once_with("post_123", None)
+            self.assertEqual(200000, store.buffer_post_info("oferta-1", "Facebook")[2])
+
 
 if __name__ == "__main__":
     unittest.main()

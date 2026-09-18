@@ -149,6 +149,22 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 
 ## Formato das ofertas
 
+O Facebook via Buffer tem limite externo de 35 posts por 24 horas móveis. O bot
+aplica um teto global conservador de 25 ofertas por 24 horas quando esse canal
+está ativo, para não publicar ofertas nas demais redes depois que o Facebook
+atingir o limite. Cada oferta gera um resumo no Telegram privado com o resultado
+de cada canal ativo; falhas continuam pendentes sem duplicar os canais que já
+receberam a publicação. Posts do Buffer que entrarem em erro são retomados no
+mesmo registro após 24 horas, nunca criando outra entrada automaticamente.
+
+As listas da Amazon e do Mercado Livre funcionam como filas de curadoria: uma
+oferta já publicada não é republicada só porque passaram alguns dias ou o preço
+mudou. A seleção prioriza o maior desconto e, quando a página informa um prazo
+explícito, ofertas com vencimento em até 48 horas. O bot avisa no Telegram
+privado quando restarem cinco ou menos produtos inéditos elegíveis na lista;
+também avisa se a consulta da lista falhar. A Amazon pode responder com erro
+temporário de acesso; o bot tenta novamente sem publicar preço não confirmado.
+
 - Sem chamadas automáticas como `OFERTA` ou `BAIXOU MUITO`; a legenda começa
   diretamente pelo título do produto.
 - O preço anterior só aparece quando a plataforma o informa oficialmente.

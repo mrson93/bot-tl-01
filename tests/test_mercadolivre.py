@@ -53,6 +53,13 @@ class MercadoLivreTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             mercadolivre.gerar_link("https://exemplo.com/produto")
 
+    def test_prazo_explicito_da_lista_e_preservado(self):
+        html = HTML.replace('class="andes-card lists-card poly-card"',
+                            'class="andes-card lists-card poly-card" data-deal-end-date="2026-09-19T10:00:00Z"', 1)
+        with patch.object(mercadolivre, "_baixar_html", return_value=html), \
+             patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"):
+            self.assertEqual("2026-09-19T10:00:00Z", mercadolivre.buscar_ofertas()[0]["expira_em"])
+
     def test_consulta_produtos_retorna_apenas_os_que_continuam_na_lista(self):
         with patch.object(mercadolivre, "_baixar_html", return_value=HTML), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \

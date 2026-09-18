@@ -33,6 +33,7 @@ import store
 import telegram_poster
 import bluesky
 import facebook
+import buffer_facebook
 import buffer_x
 import instagram_stories
 import relatorio
@@ -306,12 +307,15 @@ def publicar(fonte, oferta: dict) -> int:
     ok = 0
     oid = oferta["oferta_id"]
     preco = float(oferta.get("price") or 0)
+    preco_pendencia = None if oferta.get("curadoriaManual") and fonte.NOME in {"Amazon", "Mercado Livre"} else preco
+    resultados = {}
     repeticao = ({"repetir_apos_dias": config.DIAS_ANTES_DE_REPETIR}
                  if oferta.get("_motivo") == "repescagem" else {})
     for canal in canais_ativos():
-        if not store.canal_pendente(oid, canal.NOME, preco, **repeticao):
+        if not store.canal_pendente(oid, canal.NOME, preco_pendencia, **repeticao):
             observabilidade.evento("publicacao_ignorada", oferta_id=oid,
                                   canal=canal.NOME, motivo="entrega_ja_concluida")
+            resultados[canal.NOME] = "✅ já entregue"
             continue
         try:
             link = fonte.gerar_link(oferta.get("productUrl"),
@@ -337,6 +341,7 @@ def publicar(fonte, oferta: dict) -> int:
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                     canal=canal.NOME, fonte=fonte.NOME)
             ok += 1
+            resultados[canal.NOME] = "✅ publicado"
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, canal.NOME, False, preco, fonte.NOME, erro)
@@ -345,16 +350,18 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
+            resultados[canal.NOME] = "❌ falhou"
     # O site funciona como o feed próprio: toda oferta escolhida para uma
     # nova rodada deve atualizar sua data de publicação, mesmo que o produto
     # já exista no catálogo.
-    if site_publisher.esta_configurado():
+    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco_pendencia):
         try:
             site_publisher.publicar(fonte, oferta)
             store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
             _registrar_saude_canal("Site", True)
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                     canal="Site", fonte=fonte.NOME)
+            resultados["Site"] = "✅ publicado"
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)
@@ -363,6 +370,16 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal="Site", fonte=fonte.NOME,
                                     motivo="erro_site")
             print(f"   ⚠️  Site recusou: {erro}")
+            resultados["Site"] = "❌ falhou"
+    elif site_publisher.esta_configurado():
+        resultados["Site"] = "✅ já entregue"
+    if resultados:
+        try:
+            monitor.enviar_resumo_publicacao(
+                fonte.NOME, oferta.get("productName"), resultados)
+        except Exception as erro_alerta:
+            print("   ⚠️  Resumo privado indisponível: "
+                  f"{seguranca.redigir_segredos(erro_alerta)}")
     return ok
 
 
@@ -644,7 +661,16 @@ def buscar_candidatos(fonte) -> list:
     except Exception as e:
         erro = seguranca.redigir_segredos(e)
         print(f"   ❌ Erro ao buscar ofertas em {fonte.NOME}: {erro}")
+        if fonte.NOME in {"Amazon", "Mercado Livre"}:
+            try:
+                monitor.avisar_falha_lista(fonte.NOME, erro)
+            except Exception as erro_alerta:
+                print("   ⚠️  Aviso da lista indisponível: "
+                      f"{seguranca.redigir_segredos(erro_alerta)}")
         return []
+
+    if fonte.NOME in {"Amazon", "Mercado Livre"}:
+        store._definir_estado(f"falha_lista:{fonte.NOME.lower().replace(' ', '_')}", "normal")
 
     print(f"   {len(ofertas)} ofertas recebidas. Aplicando filtros...")
     for oferta in ofertas:
@@ -691,10 +717,13 @@ def buscar_candidatos(fonte) -> list:
         oferta["_vendas_janela"] = velocidade.get("janela")
         oid = oferta["oferta_id"]
         preco = float(oferta.get("price") or 0)
-        motivo = store.avaliar_elegibilidade(oid, preco,
-            config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT)
+        curada = bool(oferta.get("curadoriaManual")) and fonte.NOME in {"Amazon", "Mercado Livre"}
+        motivo = (None if curada and store.ja_postada(oid) else
+                  store.avaliar_elegibilidade(oid, preco,
+                      config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))
         # Uma entrega que falhou continua elegivel mesmo durante o cooldown.
-        if motivo or store.ha_canal_pendente(oid, nomes_canais, preco):
+        if motivo or store.ha_canal_pendente(oid, nomes_canais,
+                                             None if curada else preco):
             oferta["_motivo"] = motivo or "canal_pendente"
             if motivo == "queda_preco":
                 oferta["_preco_publicacao_anterior"] = store.preco_quando_postada(oid)
@@ -711,6 +740,13 @@ def buscar_candidatos(fonte) -> list:
         if total:
             observabilidade.evento("ofertas_rejeitadas", fonte=fonte.NOME,
                                     motivo=motivo, quantidade=total)
+    if fonte.NOME in {"Amazon", "Mercado Livre"}:
+        ineditas = sum(not store.ja_postada(o["oferta_id"]) for o in comerciais)
+        try:
+            monitor.avisar_estoque_lista(fonte.NOME, ineditas)
+        except Exception as erro_alerta:
+            print("   ⚠️  Aviso de estoque indisponível: "
+                  f"{seguranca.redigir_segredos(erro_alerta)}")
     return candidatos
 
 
@@ -789,7 +825,21 @@ def _ordenar_candidatos(candidatos):
             comercial = pontuacao(oferta)
         desconto = float(oferta.get("priceDiscountRate") or 0)
         cupom = bool(str(oferta.get("cupom") or "").strip())
-        return (prioridade.get(motivo, 0), cupom, comercial,
+        curada = oferta.get("fonte") in {"Amazon", "Mercado Livre"}
+        expira = oferta.get("expira_em")
+        try:
+            if isinstance(expira, str) and not expira.isdigit():
+                prazo = datetime.fromisoformat(expira.replace("Z", "+00:00")).timestamp()
+            else:
+                prazo = float(expira or 0)
+            if prazo > 10_000_000_000:
+                prazo /= 1000
+        except (TypeError, ValueError, OverflowError):
+            prazo = 0
+        restante = prazo - time.time() if prazo else 0
+        urgencia = (1, -restante) if 0 < restante <= 48 * 3600 else (0, 0)
+        return (prioridade.get(motivo, 0), urgencia if curada else (0, 0),
+                desconto if curada else 0, cupom, comercial,
                 oferta.get("_diversidade", 2), desconto)
 
     return sorted(candidatos, key=chave, reverse=True)
@@ -914,6 +964,19 @@ def rodar_uma_vez() -> int:
     observabilidade.evento("execucao_iniciada")
     sincronizar_shopee_vip_site()
     limite = config.limite_posts_por_rodada()
+    if config.FACEBOOK_ATIVO and buffer_facebook.esta_configurado():
+        # Buffer limita Facebook a 35 posts em 24 h móveis. Folga de dez
+        # publicações cobre posts manuais e evita ofertas só nas outras redes.
+        inicio_24h = time.time() - 86400
+        restantes_buffer = 25 - max(
+            store.posts_desde(inicio_24h),
+            store.posts_canal_desde("Facebook", inicio_24h),
+        )
+        if restantes_buffer <= 0:
+            print("🛑 Pausa global: margem de segurança do Facebook/Buffer atingida nas últimas 24 h.")
+            observabilidade.evento("execucao_concluida", motivo="limite_buffer", quantidade=0)
+            return 0
+        limite = min(limite, restantes_buffer)
     if config.MAX_POSTS_POR_DIA:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
         if restantes <= 0:

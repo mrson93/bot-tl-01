@@ -78,8 +78,8 @@ FACEBOOK_PAGE_ID = _get("FACEBOOK_PAGE_ID")
 FACEBOOK_PAGE_ACCESS_TOKEN = _get("FACEBOOK_PAGE_ACCESS_TOKEN")
 FACEBOOK_GRAPH_API_VERSION = _get("FACEBOOK_GRAPH_API_VERSION") or "v26.0"
 FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
-# Zero significa sem limite proprio do Facebook; os limites gerais do bot
-# continuam valendo para evitar que uma rodada publique em excesso.
+# Zero desativa apenas o limite configurável; a proteção obrigatória de
+# 25 publicações por 24 h no Buffer continua ativa.
 FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 4))
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---

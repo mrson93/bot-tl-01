@@ -32,6 +32,15 @@ query BufferPost($input: PostInput!) {
 }
 """.strip()
 
+_EDIT_POST = """
+mutation RetryBufferPost($input: EditPostInput!) {
+  editPost(input: $input) {
+    ... on PostActionSuccess { post { id status } }
+    ... on MutationError { message }
+  }
+}
+""".strip()
+
 
 class FalhaHospedagemCard(RuntimeError):
     """O card não chegou a ser enviado ao Buffer e pode usar outra imagem."""
@@ -164,17 +173,47 @@ def consultar_status(post_id: str, api_key: Optional[str] = None) -> str:
     return status
 
 
+def retentar_post_com_erro(post_id: str, api_key: Optional[str] = None) -> None:
+    """Reenvia o mesmo registro em erro, sem criar um segundo post na fila."""
+    chave = (api_key or os.getenv("BUFFER_API_KEY", "")).strip()
+    try:
+        resposta = requests.post(
+            API_URL,
+            headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
+            json={"query": _EDIT_POST,
+                  "variables": {"input": {"id": post_id, "mode": "shareNow"}}},
+            timeout=30, allow_redirects=False,
+        )
+        corpo = resposta.json() or {}
+    except (requests.RequestException, ValueError):
+        raise RuntimeError("Não foi possível reenviar o post em erro no Buffer") from None
+    resultado = (corpo.get("data") or {}).get("editPost") or {}
+    if (not 200 <= resposta.status_code < 300 or corpo.get("errors")
+            or str((resultado.get("post") or {}).get("id") or "") != post_id):
+        raise RuntimeError("Buffer recusou reenviar o post em erro")
+
+
 def publicar_confirmado(oferta_id: str, canal_nome: str, criar,
                         api_key: Optional[str] = None) -> str:
     """Evita duplicar posts em fila e só confirma entrega quando status=sent."""
-    post_id = store.buffer_post(oferta_id, canal_nome)
+    info = store.buffer_post_info(oferta_id, canal_nome)
+    post_id = info[0] if info else None
     if not post_id:
         post_id = str(criar())
         store.registrar_buffer_post(oferta_id, canal_nome, post_id)
+        info = store.buffer_post_info(oferta_id, canal_nome)
     for tentativa in range(3):
         status = consultar_status(post_id, api_key)
         if status == "sent":
             return post_id
+        if status == "error" and info:
+            criado_em, ultimo_retry = info[1], info[2]
+            agora = int(time.time())
+            if agora - criado_em >= 86400 and (not ultimo_retry or agora - ultimo_retry >= 86400):
+                store.marcar_retry_buffer(oferta_id, canal_nome, agora)
+                retentar_post_com_erro(post_id, api_key)
+                info = store.buffer_post_info(oferta_id, canal_nome)
+                continue
         if status not in {"sending"} or tentativa == 2:
             break
         time.sleep(2)

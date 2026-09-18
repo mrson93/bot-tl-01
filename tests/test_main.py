@@ -6,6 +6,86 @@ import main
 
 
 class MainTest(unittest.TestCase):
+    def test_lista_curada_nao_repete_mas_retoma_canal_pendente(self):
+        import tempfile
+        from pathlib import Path
+        class Fonte:
+            NOME = "Mercado Livre"
+            @staticmethod
+            def buscar_ofertas():
+                return [{"oferta_id": "mercadolivre_MLB1", "fonte": "Mercado Livre",
+                         "productName": "Produto útil", "price": 100,
+                         "priceDiscountRate": 40, "curadoriaManual": True}]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[
+                 unittest.mock.Mock(NOME="Telegram")]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "avisar_estoque_lista"):
+            main.store.marcar_postada("mercadolivre_MLB1", 100, 40, "Mercado Livre")
+            main.store.registrar_entrega("mercadolivre_MLB1", "Telegram", True, 100, "Mercado Livre")
+            self.assertEqual([], main.buscar_candidatos(Fonte))
+            with patch.object(main, "canais_ativos", return_value=[
+                    unittest.mock.Mock(NOME="Telegram"), unittest.mock.Mock(NOME="Facebook")]):
+                self.assertEqual(1, len(main.buscar_candidatos(Fonte)))
+
+    def test_buffer_limita_fila_global_em_janela_movel(self):
+        with patch.object(main.config, "FACEBOOK_ATIVO", True), \
+             patch.object(main.buffer_facebook, "esta_configurado", return_value=True), \
+             patch.object(main.store, "posts_desde", return_value=25), \
+             patch.object(main, "fontes_ativas") as fontes, \
+             patch.object(main, "sincronizar_shopee_vip_site"), \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(0, main.rodar_uma_vez())
+            fontes.assert_not_called()
+
+    def test_lista_curada_prioriza_desconto_e_prazo_oficial(self):
+        fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
+        candidatos = [
+            {"_fonte_obj": fonte, "_motivo": "inedita", "fonte": "Mercado Livre",
+             "oferta_id": "normal", "productName": "Café premium", "price": 80,
+             "priceDiscountRate": 80, "categoria": "alimentos"},
+            {"_fonte_obj": fonte, "_motivo": "inedita", "fonte": "Mercado Livre",
+             "oferta_id": "urgente", "productName": "Fone bluetooth", "price": 90,
+             "priceDiscountRate": 40, "categoria": "eletronicos",
+             "expira_em": datetime.now(timezone.utc).timestamp() + 3600},
+        ]
+        with patch.object(main.store, "ofertas_recentes", return_value=[]), \
+             patch.object(main.store, "ofertas_desde", return_value=[]), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "multiplicadores_desempenho", return_value={}):
+            self.assertEqual("urgente", main._ordenar_candidatos(candidatos)[0]["oferta_id"])
+            del candidatos[1]["expira_em"]
+            self.assertEqual("normal", main._ordenar_candidatos(candidatos)[0]["oferta_id"])
+
+    def test_resumo_mostra_mesma_oferta_por_canal_e_site_nao_duplica(self):
+        import tempfile
+        from pathlib import Path
+        fonte = unittest.mock.Mock(NOME="Shopee")
+        fonte.gerar_link.return_value = "https://oferta.test/link"
+        telegram = unittest.mock.Mock(NOME="Telegram", TRACKING_ID="telegram")
+        facebook = unittest.mock.Mock(NOME="Facebook", TRACKING_ID="facebook")
+        facebook.postar.side_effect = RuntimeError("limite")
+        oferta = {"oferta_id": "produto-1", "productName": "Produto 1",
+                  "productUrl": "https://oferta.test/item", "price": 50}
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[telegram, facebook]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "publicar") as site, \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "enviar_resumo_publicacao") as resumo, \
+             patch.object(main, "_registrar_saude_canal"), \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(1, main.publicar(fonte, oferta))
+            resultados = resumo.call_args.args[2]
+            self.assertEqual("✅ publicado", resultados["Telegram"])
+            self.assertEqual("❌ falhou", resultados["Facebook"])
+            self.assertEqual("✅ publicado", resultados["Site"])
+            self.assertEqual(0, main.publicar(fonte, oferta))
+            site.assert_called_once()
+            telegram.postar.assert_called_once()
+            self.assertEqual(2, facebook.postar.call_count)
     def test_revalida_preco_imediatamente_antes_de_publicar(self):
         class Fonte:
             NOME = "Mercado Livre"
