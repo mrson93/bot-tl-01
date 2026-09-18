@@ -861,8 +861,9 @@ para alguém que nunca viu o projeto antes.
   conciliar sem duplicar. Ainda é necessário observar uma rodada real.
 - Em 17/09, o X foi conectado à mesma organização do Buffer que contém o
   Facebook, com novo ID de canal. O bot passa a usar `BUFFER_API_KEY` para ambos;
-  `BUFFER_X_API_KEY` continua disponível para uma conta separada. Confirmar a
-  entrega real no X antes de declarar o canal operacional.
+  `BUFFER_X_API_KEY` continua disponível para uma conta separada. A rodada
+  automática de 21h53 publicou uma oferta no X: o Buffer confirmou `sent`,
+  mostrou um post na aba `Sent` e forneceu o link público da publicação.
 - Causa encontrada do agendamento: a API de variáveis do GitHub devolve
   páginas de 30; o controlador lia apenas a primeira. Com 57 variáveis,
   `NEXT_AUTOMATIC_DISPATCH_AT` estava na segunda página, parecia ausente e
