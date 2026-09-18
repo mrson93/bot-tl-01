@@ -145,6 +145,25 @@ def posts_por_fonte_desde(inicio):
         )}
 
 
+def sequencia_fonte_recente(limite=3):
+    """Devolve a plataforma mais recente e seu tamanho de sequência."""
+    limite = max(1, int(limite or 1))
+    with _conn() as con:
+        fontes = [linha[0] for linha in con.execute(
+            "SELECT fonte FROM postadas WHERE fonte IS NOT NULL "
+            "ORDER BY postada_em DESC, rowid DESC LIMIT ?", (limite,)
+        )]
+    if not fontes:
+        return None, 0
+    primeira = fontes[0]
+    consecutivas = 0
+    for fonte in fontes:
+        if fonte != primeira:
+            break
+        consecutivas += 1
+    return primeira, consecutivas
+
+
 def registrar_entrega(oferta_id, canal, sucesso, preco=None, fonte=None, erro=None, agora=None):
     momento = int(agora or time.time())
     with _conn() as con:

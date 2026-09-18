@@ -536,7 +536,9 @@ Grupos importantes:
   `DIAS_BLOQUEIO_PRODUTO_SEMELHANTE`;
 - ritmo: `BOT_MODE`, `HORAS_PICO`, `HORA_INICIO`, `HORA_FIM`,
   `MAX_POSTS_PER_RUN`, `MAX_POSTS_PER_RUN_FORA_PICO`,
-  `MAX_POSTS_POR_DIA`, `MAX_POSTS_POR_LOJA_DIA`;
+  `MAX_POSTS_POR_DIA`, `MAX_POSTS_POR_LOJA_DIA`,
+  `MAX_POSTS_CONSECUTIVOS_FONTE` (padrão `3`; depois disso prioriza outra
+  plataforma disponível e só mantém a atual quando não houver alternativa);
 - conteúdo: `TITULO_MAX_CARACTERES`, `AB_TEST_ATIVO`, `AB_TEST_NOME`;
 - site/cupons: `SITE_REFRESH_PER_RUN`, `CUPOM_*`, `SHOPEE_VIP_*`;
 - relatório: `RELATORIO_HORA`, `RELATORIO_MINUTO`,

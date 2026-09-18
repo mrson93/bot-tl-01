@@ -42,6 +42,19 @@ class StoreTest(unittest.TestCase):
         self.assertEqual({"Shopee": 1, "Amazon": 1},
                          store.posts_por_fonte_desde(105))
 
+    def test_identifica_sequencia_da_mesma_fonte(self):
+        store.marcar_postada("a1", fonte="Amazon", agora=100)
+        store.marcar_postada("s1", fonte="Shopee", agora=110)
+        store.marcar_postada("s2", fonte="Shopee", agora=120)
+        store.marcar_postada("s3", fonte="Shopee", agora=130)
+        self.assertEqual(("Shopee", 3), store.sequencia_fonte_recente(3))
+
+    def test_sequencia_para_na_primeira_fonte_diferente(self):
+        store.marcar_postada("s1", fonte="Shopee", agora=100)
+        store.marcar_postada("a1", fonte="Amazon", agora=110)
+        store.marcar_postada("s2", fonte="Shopee", agora=120)
+        self.assertEqual(("Shopee", 1), store.sequencia_fonte_recente(3))
+
     def test_migra_banco_antigo_sem_apagar_historico(self):
         con = sqlite3.connect(self.db)
         con.execute("CREATE TABLE postadas (id TEXT PRIMARY KEY, postada_em INTEGER)")

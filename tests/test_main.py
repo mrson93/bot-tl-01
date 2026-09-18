@@ -710,6 +710,41 @@ class MainTest(unittest.TestCase):
         self.assertEqual({"Shopee": 6, "Mercado Livre": 6,
                           "Amazon": 5, "AliExpress": 3}, dict(totais))
 
+    def test_apos_tres_posts_da_mesma_fonte_prioriza_outra_disponivel(self):
+        shopee = type("Fonte", (), {"NOME": "Shopee"})()
+        amazon = type("Fonte", (), {"NOME": "Amazon"})()
+        fila = [
+            {"_fonte_obj": shopee, "fonte": "Shopee", "oferta_id": "s4",
+             "productName": "Oferta Shopee", "categoria": "casa"},
+            {"_fonte_obj": amazon, "fonte": "Amazon", "oferta_id": "a1",
+             "productName": "Oferta Amazon", "categoria": "eletronicos"},
+        ]
+        with patch.object(main.store, "sequencia_fonte_recente",
+                          return_value=("Shopee", 3)), \
+             patch.object(main.store, "posts_por_fonte_desde", return_value={}), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.config, "MAX_POSTS_CONSECUTIVOS_FONTE", 3), \
+             patch.object(main.config, "percentual_loja",
+                          side_effect=lambda fonte: 100 if fonte == "Shopee" else 1):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+        self.assertEqual("Amazon", publicar.call_args.args[0].NOME)
+
+    def test_apos_tres_posts_continua_mesma_fonte_se_nao_ha_alternativa(self):
+        shopee = type("Fonte", (), {"NOME": "Shopee"})()
+        fila = [{"_fonte_obj": shopee, "fonte": "Shopee", "oferta_id": "s4",
+                 "productName": "Oferta Shopee", "categoria": "casa"}]
+        with patch.object(main.store, "sequencia_fonte_recente",
+                          return_value=("Shopee", 3)), \
+             patch.object(main.store, "posts_por_fonte_desde", return_value={}), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.config, "MAX_POSTS_CONSECUTIVOS_FONTE", 3):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+        self.assertEqual("Shopee", publicar.call_args.args[0].NOME)
+
     def test_rodada_espera_intervalo_configurado_entre_posts(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

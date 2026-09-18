@@ -165,6 +165,7 @@ jobs:
       INTERVALO_ENTRE_POSTS_MINUTOS: ${{ vars.INTERVALO_ENTRE_POSTS_MINUTOS || '3' }}
       MAX_POSTS_POR_DIA: ${{ vars.MAX_POSTS_POR_DIA || '60' }}
       MAX_POSTS_POR_LOJA_DIA: ${{ vars.MAX_POSTS_POR_LOJA_DIA || '3' }}
+      MAX_POSTS_CONSECUTIVOS_FONTE: ${{ vars.MAX_POSTS_CONSECUTIVOS_FONTE || '3' }}
       DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: ${{ vars.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE || '3' }}
       TITULO_MAX_CARACTERES: ${{ vars.TITULO_MAX_CARACTERES || '90' }}
       # As lojas são buscadas em paralelo e as ofertas entram numa fila única.

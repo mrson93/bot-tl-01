@@ -192,6 +192,7 @@ DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(
 # Limites editoriais. Zero desliga o respectivo limite.
 MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 60))
 MAX_POSTS_POR_LOJA_DIA = max(0, _int("MAX_POSTS_POR_LOJA_DIA", 3))
+MAX_POSTS_CONSECUTIVOS_FONTE = max(0, _int("MAX_POSTS_CONSECUTIVOS_FONTE", 3))
 # Abaixo deste desconto, a oferta so entra se tiver um sinal comercial forte.
 DESCONTO_PREFERIDO = _float("DESCONTO_PREFERIDO", 30)
 VENDAS_EXCECAO_DESCONTO = max(0, _int("VENDAS_EXCECAO_DESCONTO", 1000))

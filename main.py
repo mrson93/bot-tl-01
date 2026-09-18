@@ -900,12 +900,15 @@ def _priorizar_campeao_no_pico(fila, agora=None):
 
 
 def _publicar_fila(fila, limite):
-    """Publica a fila global, priorizando variedade dentro da própria rodada."""
+    """Publica a fila global, alternando a plataforma após uma sequência longa."""
     postadas = 0
     pendentes = list(fila)
     selecionadas = []
     lojas_hoje = store.posts_por_loja_hoje()
     fontes_hoje = store.posts_por_fonte_desde(time.time() - 7 * 86400)
+    ultima_fonte, fontes_consecutivas = store.sequencia_fonte_recente(
+        config.MAX_POSTS_CONSECUTIVOS_FONTE
+    )
     while pendentes and postadas < limite:
         elegiveis = [
             (i, oferta) for i, oferta in enumerate(pendentes)
@@ -917,6 +920,12 @@ def _publicar_fila(fila, limite):
         ]
         if not elegiveis:
             break
+        limite_fonte = config.MAX_POSTS_CONSECUTIVOS_FONTE
+        if limite_fonte and fontes_consecutivas >= limite_fonte:
+            alternativas = [par for par in elegiveis
+                            if par[1].get("fonte") != ultima_fonte]
+            if alternativas:
+                elegiveis = alternativas
         fontes_disponiveis = {o.get("fonte") for _, o in elegiveis}
         pesos = {fonte: config.percentual_loja(fonte)
                  for fonte in fontes_disponiveis}
@@ -946,6 +955,10 @@ def _publicar_fila(fila, limite):
         )
         postadas += 1
         fontes_hoje[fonte.NOME] = fontes_hoje.get(fonte.NOME, 0) + 1
+        if fonte.NOME == ultima_fonte:
+            fontes_consecutivas += 1
+        else:
+            ultima_fonte, fontes_consecutivas = fonte.NOME, 1
         selecionadas.append(oferta)
         loja = str(oferta.get("shopName") or "").strip().casefold()
         if loja:
