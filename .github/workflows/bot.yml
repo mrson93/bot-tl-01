@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      somente_pendentes:
+        description: "Listar produtos ineditos da Amazon e do Mercado Livre sem publicar"
+        required: false
+        default: false
+        type: boolean
       teste_facebook:
         description: "Publicar uma oferta real somente no Facebook"
         required: false
@@ -40,6 +45,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.executar_bot == true || inputs.somente_relatorio == true ||
+       inputs.somente_pendentes == true ||
        inputs.teste_facebook == true || inputs.campanha != '')
     runs-on: ubuntu-latest
     # Até três posts com intervalo de três minutos precisam de margem além da busca.
@@ -199,15 +205,19 @@ jobs:
         run: python estado_remoto.py restaurar
 
       - name: Procurar e postar ofertas
-        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true && inputs.teste_facebook != true && inputs.campanha == ''
+        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.teste_facebook != true && inputs.campanha == ''
         run: python main.py --once
 
+      - name: Conferir produtos ainda não publicados
+        if: github.ref == 'refs/heads/main' && inputs.somente_pendentes == true
+        run: python relatorio_pendentes_listas.py
+
       - name: Testar publicação somente no Facebook
-        if: github.ref == 'refs/heads/main' && inputs.teste_facebook == true
+        if: github.ref == 'refs/heads/main' && inputs.teste_facebook == true && inputs.somente_pendentes != true
         run: python main.py --teste-facebook-real
 
       - name: Publicar campanha Shopee VIP
-        if: github.ref == 'refs/heads/main' && inputs.campanha == 'shopee_vip'
+        if: github.ref == 'refs/heads/main' && inputs.campanha == 'shopee_vip' && inputs.somente_pendentes != true
         run: python main.py --campanha shopee_vip
 
       - name: Recusar campanha desconhecida
@@ -215,7 +225,7 @@ jobs:
         run: exit 1
 
       - name: Enviar somente o relatorio privado
-        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio == true
+        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio == true && inputs.somente_pendentes != true
         run: python main.py --relatorio
 
       - name: Verificar alteração do estado

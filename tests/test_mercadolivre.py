@@ -28,11 +28,12 @@ HTML = """
   <span class="poly-price__disc--pill">36% OFF</span>
 </div>
 """
+URL_LISTA = "https://www.mercadolivre.com.br/social/canal/lists/lista"
 
 
 class MercadoLivreTest(unittest.TestCase):
     def test_parseia_lista_e_preserva_link_rastreado(self):
-        with patch.object(mercadolivre, "_baixar_html", return_value=HTML), \
+        with patch.object(mercadolivre, "_baixar_html", return_value=(HTML, URL_LISTA)), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
             ofertas = mercadolivre.buscar_ofertas()
@@ -56,12 +57,12 @@ class MercadoLivreTest(unittest.TestCase):
     def test_prazo_explicito_da_lista_e_preservado(self):
         html = HTML.replace('class="andes-card lists-card poly-card"',
                             'class="andes-card lists-card poly-card" data-deal-end-date="2026-09-19T10:00:00Z"', 1)
-        with patch.object(mercadolivre, "_baixar_html", return_value=html), \
+        with patch.object(mercadolivre, "_baixar_html", return_value=(html, URL_LISTA)), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"):
             self.assertEqual("2026-09-19T10:00:00Z", mercadolivre.buscar_ofertas()[0]["expira_em"])
 
     def test_consulta_produtos_retorna_apenas_os_que_continuam_na_lista(self):
-        with patch.object(mercadolivre, "_baixar_html", return_value=HTML), \
+        with patch.object(mercadolivre, "_baixar_html", return_value=(HTML, URL_LISTA)), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
             encontrados = mercadolivre.consultar_produtos([
@@ -82,6 +83,20 @@ class MercadoLivreTest(unittest.TestCase):
         self.assertEqual(1234.56, mercadolivre._preco_por_rotulo(
             "Agora: 1.234 reais com 56 centavos"
         ))
+
+    def test_importa_todas_as_paginas_da_lista(self):
+        primeira = HTML + '<nav aria-label="Paginação"><a href="?page=2#tracking_id=x">2</a></nav>'
+        segunda = HTML.replace("MLB3340103325", "MLB1111111111").replace(
+            "MLB7590894102", "MLB2222222222"
+        )
+        with patch.object(mercadolivre, "_baixar_html", side_effect=[
+            (primeira, URL_LISTA), (segunda, URL_LISTA + "?page=2")
+        ]) as baixar, patch.object(
+            mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"
+        ), patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
+            ofertas = mercadolivre.buscar_ofertas()
+        self.assertEqual(4, len(ofertas))
+        self.assertEqual(URL_LISTA + "?page=2", baixar.call_args_list[1].args[0])
 
 
 if __name__ == "__main__":

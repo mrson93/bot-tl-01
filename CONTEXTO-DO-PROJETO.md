@@ -197,7 +197,11 @@ isso poderia criar uma publicação duplicada.
 - Tudo que o operador adiciona à lista pública pode entrar na fila.
 - O link capturado no cartão da lista é preservado, incluindo o rastreamento de
   afiliado fornecido pelo Mercado Livre.
+- A importação percorre as páginas da lista (não apenas a primeira), com limite
+  de 20 páginas e `MERCADOLIVRE_FETCH_LIMIT` produtos.
 - O produto precisa continuar presente na lista no instante anterior ao post.
+- A opção `somente_pendentes` do workflow do bot compara ambas as listas com o
+  estado remoto de publicações e gera um relatório sem publicar ofertas.
 - O link do Mercado Livre no Story, Bluesky e X precisa obrigatoriamente passar
   pelo domínio próprio. Se o encurtador falhar, esses canais são marcados como
   falha em vez de expor a URL longa.

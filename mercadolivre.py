@@ -1,7 +1,7 @@
 """Ofertas escolhidas na lista publica de recomendacoes do Mercado Livre."""
 from html.parser import HTMLParser
 import re
-from urllib.parse import parse_qs, urljoin, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import requests
 
@@ -14,6 +14,7 @@ _HOSTS_PAGINA = ("meli.la", "mercadolivre.com.br")
 _HOSTS_PRODUTO = ("mercadolivre.com.br",)
 _HOSTS_IMAGEM = ("mlstatic.com",)
 _MAX_HTML = 3_000_000
+_MAX_PAGINAS = 20
 
 
 def esta_configurada() -> bool:
@@ -56,10 +57,17 @@ class _ParserLista(HTMLParser):
         self.card = None
         self.profundidade = 0
         self.campo = None
+        self.paginas = set()
 
     def handle_starttag(self, tag, attrs):
         valores = dict(attrs)
         classes = _classes(attrs)
+        if tag == "a" and self.card is None:
+            numeros = parse_qs(urlsplit(valores.get("href") or "").query).get("page", [])
+            if len(numeros) == 1 and numeros[0].isdigit():
+                pagina = int(numeros[0])
+                if 1 < pagina <= _MAX_PAGINAS:
+                    self.paginas.add(pagina)
         if tag == "div" and "lists-card" in classes and self.card is None:
             self.card = {}
             prazo = (valores.get("data-deal-end-date")
@@ -180,22 +188,44 @@ def _baixar_html(url):
                 if total > _MAX_HTML:
                     raise RuntimeError("Lista do Mercado Livre excedeu o tamanho seguro")
                 partes.append(parte)
-            return b"".join(partes).decode(resposta.encoding or "utf-8", "replace")
+            return b"".join(partes).decode(resposta.encoding or "utf-8", "replace"), atual
         finally:
             resposta.close()
     raise RuntimeError("Lista do Mercado Livre redirecionou vezes demais")
 
 
 def buscar_ofertas() -> list:
-    parser = _ParserLista()
-    parser.feed(_baixar_html(config.MERCADOLIVRE_LIST_URL))
+    html, url_lista = _baixar_html(config.MERCADOLIVRE_LIST_URL)
+    url_lista = seguranca.validar_url_https_em_hosts(
+        url_lista, _HOSTS_PRODUTO, "Lista do Mercado Livre"
+    )
+    base = urlsplit(url_lista)
+    parametros = [(chave, valor) for chave, valor in parse_qsl(base.query)
+                  if chave != "page"]
+    pendentes = [(1, html)]
+    visitadas = {1}
     ofertas = {}
-    for card in parser.ofertas[:config.MERCADOLIVRE_FETCH_LIMIT]:
-        try:
-            oferta = _normalizar(card)
-            ofertas.setdefault(oferta["oferta_id"], oferta)
-        except (TypeError, ValueError):
-            continue
+    while pendentes and len(ofertas) < config.MERCADOLIVRE_FETCH_LIMIT:
+        _, pagina_html = pendentes.pop(0)
+        parser = _ParserLista()
+        parser.feed(pagina_html)
+        for card in parser.ofertas:
+            try:
+                oferta = _normalizar(card)
+                ofertas.setdefault(oferta["oferta_id"], oferta)
+            except (TypeError, ValueError):
+                continue
+            if len(ofertas) >= config.MERCADOLIVRE_FETCH_LIMIT:
+                break
+        for pagina in sorted(parser.paginas - visitadas):
+            if len(ofertas) >= config.MERCADOLIVRE_FETCH_LIMIT:
+                break
+            visitadas.add(pagina)
+            consulta = urlencode([*parametros, ("page", str(pagina))])
+            url_pagina = urlunsplit((base.scheme, base.netloc, base.path,
+                                   consulta, ""))
+            pagina_html, _ = _baixar_html(url_pagina)
+            pendentes.append((pagina, pagina_html))
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
     return list(ofertas.values())

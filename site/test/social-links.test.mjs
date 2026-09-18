@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
-import {head} from '../functions/_site.js';
+import {head,footer} from '../functions/_site.js';
 
 const links=[
   'https://www.facebook.com/canaltabarato',
@@ -37,4 +37,14 @@ test('publica a identificação oficial do AdSense',async()=>{
   assert.match(page,/google-adsense-account" content="ca-pub-5239970037930660"/);
   assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/google-adsense-account" content="ca-pub-5239970037930660"/);
   assert.equal(adsTxt,'google.com, pub-5239970037930660, DIRECT, f08c47fec0942fa0\n');
+});
+
+test('rodapé mantém o aviso legível e consistente nas páginas',async()=>{
+  const page=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  const css=await readFile(new URL('../public/styles.css',import.meta.url),'utf8');
+  const aviso='Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.';
+  assert.ok(page.includes(aviso));
+  assert.ok(footer().includes(aviso));
+  assert.match(css,/footer p\{grid-column:2;grid-row:1;/);
+  assert.match(css,/@media\(max-width:800px\)\{footer \.footer-brand,footer p,footer \.footer-links,footer small\{grid-column:1;grid-row:auto\}\}/);
 });
