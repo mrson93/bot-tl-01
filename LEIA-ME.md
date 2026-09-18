@@ -152,6 +152,12 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 - Sem chamadas automáticas como `OFERTA` ou `BAIXOU MUITO`; a legenda começa
   diretamente pelo título do produto.
 - O preço anterior só aparece quando a plataforma o informa oficialmente.
+- A ordem da legenda é título, preço, avaliação/vendas/vendedor, cupom e
+  condição (quando disponíveis), seguido da compra com nome da plataforma.
+  A indicação discreta `Publicidade` permanece junto ao link de afiliado.
+- No Telegram, o preço anterior aparece riscado e o atual em negrito; Facebook,
+  Bluesky e X usam texto simples. Redes com limite de caracteres encurtam o
+  título e, se necessário, omitem detalhes opcionais sem cortar o link.
 - Cupom e preço de aplicativo só aparecem quando a API os informa; atualmente o
   AliExpress oferece esses campos e a consulta de produtos da Shopee não.
 - Quando a API também informar uma página oficial de resgate, o bot pode publicar
@@ -207,13 +213,16 @@ Modelo equivalente para o Botize:
 
 💰 De {{preco_anterior}} por {{preco_atual}}
 
-🏬 Amazon
+⭐ {{avaliacao}} · 🛍️ {{vendas}} · 🏬 {{vendedor}}
 
-🛒 COMPRAR NA AMAZON
-{{link_afiliado}}
+🎟 Cupom: {{cupom}}
+ℹ️ {{condicao_cupom}}
+
+🛒 Publicidade · COMPRAR NA AMAZON: {{link_afiliado}}
 ```
 
 Se o Botize não fornecer preço anterior real, use apenas `💰 {{preco_atual}}`.
+Omita as linhas de avaliação, vendas, vendedor e cupom quando não houver dados.
 
 ## Comandos
 

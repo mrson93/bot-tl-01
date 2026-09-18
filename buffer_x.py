@@ -47,41 +47,59 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)
     linha_preco = f"💰 R$ {_preco(preco)}" if preco else ""
-    if desconto:
+    original = oferta.get("precoOriginal")
+    try:
+        if original and preco and float(original) > float(preco):
+            linha_preco = f"💰 De R$ {_preco(original)} por R$ {_preco(preco)}"
+        elif desconto:
+            linha_preco += f" · {int(round(desconto))}% OFF"
+    except (TypeError, ValueError):
         linha_preco += f" · {int(round(desconto))}% OFF"
 
     cupom = str(oferta.get("cupom") or "").strip()
     linha_cupom = f"🎟 Cupom: {cupom}" if cupom else ""
-    rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
-              f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link}")
-    abertura = fmt.chamada_inicial(oferta)
-    fixos = "\n\n".join(parte for parte in
-                         (abertura, linha_preco, linha_cupom, rodape) if parte)
-    espaco_titulo = max(1, _LIMITE_TEXTO - len(fixos) - 2)
+    condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
+    linha_condicao = f"ℹ️ {condicao}" if cupom and condicao else ""
+    reputacao = []
+    if oferta.get("ratingStar"):
+        reputacao.append(f"⭐ {float(oferta['ratingStar']):.1f}")
+    if oferta.get("sales"):
+        reputacao.append(f"🛍️ {fmt._milhar(oferta['sales'])} vendidos")
+    if oferta.get("shopName"):
+        reputacao.append(f"🏬 {str(oferta['shopName']).strip()}")
+    rodape = (f"🛒 {fmt.rotulo_publicidade()} · "
+              f"{fmt.chamada_compra(oferta)}: {link}")
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
-    titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip()
-    titulo = _cortar_palavras(titulo, espaco_titulo) or "Oferta"
-    texto = "\n\n".join(parte for parte in
-                         (abertura, titulo, linha_preco, linha_cupom, rodape)
-                         if parte)
-    if len(texto) > _LIMITE_TEXTO and abertura:
-        abertura = ""
-        fixos = "\n\n".join(parte for parte in
-                             (linha_preco, linha_cupom, rodape) if parte)
+    titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
+
+    def montar(titulo_atual):
+        return "\n\n".join(parte for parte in (
+            titulo_atual, linha_preco, " · ".join(reputacao),
+            "\n".join(parte for parte in (linha_cupom, linha_condicao) if parte),
+            rodape,
+        ) if parte)
+
+    texto = montar(titulo)
+    for reduzir in ("vendedor", "vendas", "avaliacao", "condicao", "cupom"):
+        if len(texto) <= _LIMITE_TEXTO:
+            break
+        if reduzir == "vendedor":
+            reputacao = [item for item in reputacao if not item.startswith("🏬")]
+        elif reduzir == "vendas":
+            reputacao = [item for item in reputacao if not item.startswith("🛍️")]
+        elif reduzir == "avaliacao":
+            reputacao = [item for item in reputacao if not item.startswith("⭐")]
+        elif reduzir == "condicao":
+            linha_condicao = ""
+        else:
+            linha_cupom = ""
+        texto = montar(titulo)
+    if len(texto) > _LIMITE_TEXTO:
+        fixos = montar("")
         titulo = _cortar_palavras(
-            fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0),
-            max(1, _LIMITE_TEXTO - len(fixos) - 2),
+            titulo, max(1, _LIMITE_TEXTO - len(fixos) - 2),
         ) or "Oferta"
-        texto = "\n\n".join(parte for parte in
-                             (titulo, linha_preco, linha_cupom, rodape) if parte)
-    if len(texto) > _LIMITE_TEXTO and linha_cupom:
-        linha_cupom = ""
-        fixos = "\n\n".join(parte for parte in (linha_preco, rodape) if parte)
-        titulo = _cortar_palavras(
-            fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0),
-            max(1, _LIMITE_TEXTO - len(fixos) - 2),
-        ) or "Oferta"
-        texto = "\n\n".join(parte for parte in (titulo, linha_preco, rodape) if parte)
+        texto = montar(titulo)
     if len(texto) > _LIMITE_TEXTO:
         raise RuntimeError("Não foi possível ajustar o texto do X ao limite")
     return texto

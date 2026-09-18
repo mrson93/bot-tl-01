@@ -67,6 +67,14 @@ def nome_plataforma(oferta: dict) -> str:
     return str(oferta.get("fonte") or "Loja").strip()[:30] or "Loja"
 
 
+def chamada_compra(oferta: dict) -> str:
+    """Identifica a plataforma no CTA com a preposição apropriada."""
+    fonte = nome_plataforma(oferta)
+    prep = _PREPOSICAO.get(fonte, "na")
+    acao = "RESGATAR CUPOM" if oferta.get("cupomResgate") else "COMPRAR"
+    return f"{acao} {prep.upper()} {fonte.upper()}"
+
+
 # separadores que os marketplaces usam antes de emendar palavra-chave
 _SEPARADORES = (" - ", " – ", " — ", " | ", " • ", ", ")
 # abaixo disso o primeiro pedaco nao e nome de produto, e so um prefixo solto
@@ -127,12 +135,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         link_afiliado, "Link de afiliado"
     )
     link_html = html.escape(link_afiliado, quote=True)
-    # A legenda de foto do Telegram tem limite menor que uma mensagem comum.
     titulo = html.escape(limpar_titulo(
-        oferta.get("productName", "Oferta"), config.TITULO_MAX_CARACTERES
+        oferta.get("productName", "Oferta"), 0
     ))
-    fonte = str(oferta.get("fonte") or "loja")
-    fonte_html = html.escape(fonte.upper())
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)
     rating = oferta.get("ratingStar")
@@ -163,19 +168,6 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         sufixo = " no app" if oferta.get("precoNoApp") else ""
         linhas.append(f"💰 <b>R$ {_preco(preco)}</b>{sufixo}" + (f" · {int(round(desconto))}% OFF" if desconto else ""))
 
-    anterior = oferta.get("_preco_publicacao_anterior")
-    if oferta.get("_motivo") == "queda_preco" and anterior and preco:
-        try:
-            queda_repeticao = 100 * (float(anterior) - float(preco)) / float(anterior)
-            if queda_repeticao > 0:
-                linhas.append("")
-                linhas.append(
-                    f"📉 Reapareceu porque caiu <b>{queda_repeticao:.0f}%</b> "
-                    "desde a última publicação"
-                )
-        except (TypeError, ValueError, ZeroDivisionError):
-            pass
-
     # linha de reputacao
     reput = []
     if rating:
@@ -195,15 +187,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
         condicao = str(oferta.get("cupomCondicao") or "").strip()
         if condicao:
             linhas.append("ℹ️ " + html.escape(condicao[:140]))
-        linhas.append("📱 Ative o cupom no aplicativo antes de finalizar")
-
     linhas.append("")
-    linhas.append(f"🏬 Loja: {html.escape(nome_plataforma(oferta))}")
-    prep = _PREPOSICAO.get(fonte, "na")
-    acao = "RESGATAR CUPOM" if oferta.get("cupomResgate") else "COMPRAR"
-    linhas.append(rotulo_publicidade())
-    linhas.append(f'🛒 <a href="{link_html}">{acao} {prep.upper()} '
-                  f'{fonte_html}</a>')
+    linhas.append(f'🛒 {rotulo_publicidade()} · <a href="{link_html}">'
+                  f'{html.escape(chamada_compra(oferta))}</a>')
 
     return "\n".join(linhas)
 

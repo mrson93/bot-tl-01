@@ -54,8 +54,7 @@ class FacebookTest(unittest.TestCase):
         self.assertTrue(feed.args[0].endswith("/123456/feed"))
         dados = feed.kwargs["data"]
         self.assertIn("Produto util", dados["message"])
-        self.assertIn("Publicidade · Ver oferta", dados["message"])
-        self.assertIn("🏬 Loja: Shopee\n🛒 Publicidade · Ver oferta", dados["message"])
+        self.assertIn("🛒 Publicidade · COMPRAR NA SHOPEE:", dados["message"])
         self.assertNotIn("Link de afiliado", dados["message"])
         self.assertEqual("true", dados["published"])
         self.assertEqual(
@@ -144,12 +143,12 @@ class FacebookTest(unittest.TestCase):
             feed.kwargs["data"]["attached_media[0]"],
         )
 
-    def test_exibe_motivo_quando_reposta_por_queda_real(self):
+    def test_repostagem_por_queda_mantem_padrao_objetivo(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 80,
                   "_motivo": "queda_preco", "_preco_publicacao_anterior": 100}
         with self.configuracao():
             texto = facebook.montar_texto(oferta, "https://oferta.test/comprar")
-        self.assertIn("Reapareceu porque caiu 20%", texto)
+        self.assertNotIn("Reapareceu", texto)
 
     def test_falha_de_rede_incerta_nao_cria_post_duplicado(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50,

@@ -95,19 +95,8 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         condicao = str(oferta.get("cupomCondicao") or "").strip()
         if condicao:
             linhas.append("ℹ️ " + condicao[:180])
-        linhas.append("📱 Ative o cupom no aplicativo antes de finalizar")
-
-    anterior = oferta.get("_preco_publicacao_anterior")
-    if oferta.get("_motivo") == "queda_preco" and anterior and preco:
-        try:
-            queda = 100 * (float(anterior) - float(preco)) / float(anterior)
-            if queda > 0:
-                linhas.extend(("", f"📉 Reapareceu porque caiu {queda:.0f}% desde a última publicação"))
-        except (TypeError, ValueError, ZeroDivisionError):
-            pass
-
-    linhas.extend(("", f"🏬 Loja: {fmt.nome_plataforma(oferta)}",
-                   f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link_afiliado}"))
+    linhas.extend(("", f"🛒 {fmt.rotulo_publicidade()} · "
+                   f"{fmt.chamada_compra(oferta)}: {link_afiliado}"))
     return "\n".join(linhas)
 
 

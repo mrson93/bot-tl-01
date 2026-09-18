@@ -57,14 +57,14 @@ class FormatacaoTest(unittest.TestCase):
                   "precoOriginal": 100, "priceDiscountRate": 50}
         self.assertIn("De <s>R$ 100,00</s>", telegram.montar_legenda(oferta, "https://x.test"))
 
-    def test_queda_que_antecipa_repeticao_e_explicada_nos_dois_canais(self):
+    def test_queda_que_antecipa_repeticao_preserva_padrao_da_legenda(self):
         oferta = {"fonte": "Shopee", "productName": "Panela antiaderente",
                   "price": 80, "_motivo": "queda_preco",
                   "_preco_publicacao_anterior": 100, "variante": "B"}
         legenda = telegram.montar_legenda(oferta, "https://shope.ee/x")
         texto, _ = bluesky.montar_texto(oferta, "https://shope.ee/x")
-        self.assertIn("Reapareceu porque caiu <b>20%</b>", legenda)
-        self.assertIn("Reapareceu porque caiu 20%", texto)
+        self.assertNotIn("Reapareceu", legenda)
+        self.assertNotIn("Reapareceu", texto)
 
     def test_post_normal_nao_recebe_aviso_de_repeticao(self):
         oferta = {"fonte": "Shopee", "productName": "Panela antiaderente",
@@ -135,21 +135,21 @@ class FormatacaoTest(unittest.TestCase):
         legenda = telegram.montar_legenda(oferta, "https://oferta.test")
         self.assertIn("R$ 79,90</b> no app", legenda)
         self.assertIn("<code>OFERTA20</code>", legenda)
-        self.assertIn("Ative o cupom no aplicativo", legenda)
+        self.assertIn("ℹ️ R$ 20 acima de R$ 100", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("R$ 79,90 no app", texto)
         self.assertIn("Cupom: OFERTA20", texto)
         self.assertIn("R$ 20 acima de R$ 100", texto)
-        self.assertIn("Ative no app antes de finalizar", texto)
+        self.assertNotIn("Ative no app antes de finalizar", texto)
 
-    def test_bluesky_coloca_compra_antes_da_reputacao_e_inclui_loja(self):
+    def test_bluesky_coloca_reputacao_antes_da_compra_e_inclui_loja(self):
         oferta = {"fonte": "Shopee", "productName": "Tênis esportivo",
                   "price": 29, "ratingStar": 4.3, "sales": 5327,
                   "shopName": "Dulojashoes", "variante": "B"}
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("🏬 Dulojashoes", texto)
-        self.assertLess(texto.index("🛒 Publicidade"), texto.index("⭐ 4.3"))
+        self.assertLess(texto.index("⭐ 4.3"), texto.index("🛒 Publicidade"))
 
     def test_bluesky_preserva_preco_compra_e_link_em_texto_extremo(self):
         oferta = {"fonte": "AliExpress", "productName": "Produto longo " * 30,
@@ -183,16 +183,35 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("42% OFF\n\n⭐ 4.3", legenda)
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
-        self.assertIn("42% OFF\n\n🏬 Shopee\n🛒 Publicidade · Ver oferta", texto)
-        self.assertIn("https://oferta.test\n\n⭐ 4.3", texto)
+        self.assertIn("42% OFF\n\n⭐ 4.3", texto)
+        self.assertIn("🏬 Loja\n\n🛒 Publicidade · COMPRAR NA SHOPEE", texto)
 
     def test_plataforma_aparece_imediatamente_antes_do_link(self):
         oferta = {"fonte": "Mercado Livre", "productName": "Produto",
                   "price": 79, "variante": "B"}
         legenda = telegram.montar_legenda(oferta, "https://go.canaltabarato.com.br/x")
         texto, _ = bluesky.montar_texto(oferta, "https://go.canaltabarato.com.br/x")
-        self.assertIn("🏬 Loja: Mercado Livre\nPublicidade\n🛒 <a", legenda)
-        self.assertIn("🏬 Mercado Livre\n🛒 Publicidade · Ver oferta", texto)
+        self.assertIn("🛒 Publicidade · <a", legenda)
+        self.assertIn("COMPRAR NO MERCADO LIVRE</a>", legenda)
+        self.assertIn("🛒 Publicidade · COMPRAR NO MERCADO LIVRE:", texto)
+
+    def test_nova_ordem_padrao_com_vendedor_e_cupom(self):
+        oferta = {"fonte": "Amazon", "productName": "Mouse gamer",
+                  "price": 149.9, "precoOriginal": 199.9,
+                  "ratingStar": 4.8, "sales": 1234, "shopName": "Loja Oficial",
+                  "cupom": "BARATO10", "cupomCondicao": "Acima de R$ 100"}
+        legenda = telegram.montar_legenda(oferta, "https://oferta.test")
+        partes = ("<b>Mouse gamer</b>", "De <s>R$ 199,90</s> por <b>R$ 149,90</b>",
+                  "⭐ 4.8 · 🛍️ 1.234 vendidos · 🏬 Loja Oficial",
+                  "🎟 Cupom: <code>BARATO10</code>", "ℹ️ Acima de R$ 100",
+                  "🛒 Publicidade · <a")
+        self.assertEqual(sorted(legenda.index(p) for p in partes),
+                         [legenda.index(p) for p in partes])
+        self.assertNotIn("🏬 Loja: Amazon", legenda)
+
+        texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
+        self.assertLess(texto.index("⭐"), texto.index("🎟"))
+        self.assertLess(texto.index("🎟"), texto.index("🛒"))
 
 
 if __name__ == "__main__":

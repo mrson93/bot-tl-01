@@ -308,14 +308,16 @@ abertura objetiva.
 Todas as redes usam a mesma identidade editorial, adaptada aos limites de cada
 plataforma:
 
-- título direto, sem chamada humana enquanto o teste A/B está desligado;
-- título limpo, sem palavras promocionais redundantes;
+- título limpo e direto, sem chamada humana;
 - preço atual e, quando confiável, preço anterior;
-- desconto;
-- nota, vendas e loja quando disponíveis;
+- nota, vendas e nome do vendedor quando disponíveis;
 - cupom e condição quando oficiais;
-- ação de compra/resgate;
-- identificação `Publicidade` próxima ao link, sem a hashtag `#publi`.
+- ação de compra/resgate com nome da plataforma;
+- identificação `Publicidade` na mesma linha do link, sem a hashtag `#publi`.
+
+O Telegram risca o preço anterior e destaca o atual em negrito. Facebook,
+Bluesky e X usam texto simples; Bluesky e X preservam preço e link e encurtam
+primeiro os detalhes opcionais para respeitar seus limites de caracteres.
 
 A frase longa “link de afiliado” foi removida das ofertas sociais e substituída
 por `Publicidade`. O site mantém seus próprios avisos de transparência e termos. Não

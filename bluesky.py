@@ -166,32 +166,19 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         reputacao.append(f"🏬 {loja}")
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
-    rodape = (f"🏬 {fmt.nome_plataforma(oferta)}\n"
-              f"🛒 {fmt.rotulo_publicidade()} · Ver oferta: {link_afiliado}")
-    motivo_repeticao = ""
-    anterior = oferta.get("_preco_publicacao_anterior")
-    if oferta.get("_motivo") == "queda_preco" and anterior and preco:
-        try:
-            queda = 100 * (float(anterior) - float(preco)) / float(anterior)
-            if queda > 0:
-                motivo_repeticao = f"📉 Reapareceu porque caiu {queda:.0f}% desde a última publicação"
-        except (TypeError, ValueError, ZeroDivisionError):
-            pass
+    rodape = (f"🛒 {fmt.rotulo_publicidade()} · "
+              f"{fmt.chamada_compra(oferta)}: {link_afiliado}")
 
     def montar(titulo, chamada=humana, itens_reputacao=reputacao,
-               detalhe_cupom=condicao, instrucao=True, incluir_cupom=True):
+               detalhe_cupom=condicao, incluir_cupom=True):
         cabecalho = f"{chamada}\n\n{titulo}" if chamada else titulo
         cupom_linhas = []
         if cupom and incluir_cupom:
             cupom_linhas.append(f"🎟 Cupom: {cupom}")
             if detalhe_cupom:
                 cupom_linhas.append(f"ℹ️ {detalhe_cupom}")
-            if instrucao:
-                cupom_linhas.append("📱 Ative no app antes de finalizar")
-        # O link é obrigatório e aparece antes da reputação.
-        blocos = [cabecalho, linha_preco, motivo_repeticao,
-                  "\n".join(cupom_linhas), rodape,
-                  " · ".join(itens_reputacao)]
+        blocos = [cabecalho, linha_preco, " · ".join(itens_reputacao),
+                  "\n".join(cupom_linhas), rodape]
         return "\n\n".join(bloco for bloco in blocos if bloco)
 
     titulo = fmt.limpar_titulo(
@@ -215,27 +202,24 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     if len(texto) > 300 and reputacao:
         reputacao = []
         texto = montar(titulo, chamada=humana, itens_reputacao=[])
-    if len(texto) > 300 and cupom:
-        texto = montar(titulo, chamada=humana, itens_reputacao=reputacao,
-                       instrucao=False)
     if len(texto) > 300 and condicao:
         limite = max(0, len(condicao) - (len(texto) - 300) - 1)
         condicao = fmt.limpar_titulo(condicao, limite) if limite else ""
         texto = montar(titulo, chamada=humana, itens_reputacao=reputacao,
-                       detalhe_cupom=condicao, instrucao=False)
+                       detalhe_cupom=condicao)
     if len(texto) > 300:
         excesso = len(texto) - 300
         titulo = fmt.limpar_titulo(titulo, max(5, len(titulo) - excesso - 1))
         texto = montar(titulo, chamada=humana, itens_reputacao=reputacao,
-                       detalhe_cupom=condicao, instrucao=False)
+                       detalhe_cupom=condicao)
     if len(texto) > 300 and cupom:
         texto = montar(titulo, chamada=humana, itens_reputacao=reputacao,
-                       instrucao=False, incluir_cupom=False)
+                       incluir_cupom=False)
     if len(texto) > 300:
         excesso = len(texto) - 300
         titulo = fmt.limpar_titulo(titulo, max(1, len(titulo) - excesso - 1))
         texto = montar(titulo, chamada="", itens_reputacao=[],
-                       instrucao=False, incluir_cupom=False)
+                       incluir_cupom=False)
     if len(texto) > 300:
         # O link nunca é cortado. Mantemos preço, chamada de compra e o
         # máximo de título que ainda cabe no limite da rede.
