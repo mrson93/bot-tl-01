@@ -10,6 +10,7 @@ import config
 import feed_card
 import seguranca
 import store
+import turnos
 import telegram_poster as fmt
 
 
@@ -29,10 +30,12 @@ def esta_configurada() -> bool:
 
 def pode_publicar() -> bool:
     limite = config.FACEBOOK_MAX_POSTS_DIA
+    turno, inicio, fim = turnos.janela()
     return (esta_configurada()
             and (limite == 0 or store.posts_canal_hoje(NOME) < limite)
+            and store.posts_canal_entre(NOME, inicio, fim) < turnos.COTAS[NOME][turno]
             and (not buffer_facebook.esta_configurado()
-                 or store.posts_canal_desde(NOME, time.time() - 86400) < 25))
+                 or store.posts_canal_desde(NOME, time.time() - 86400) < 30))
 
 
 def _endpoint(recurso: str) -> str:

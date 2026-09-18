@@ -16,16 +16,16 @@ export const SETTINGS = Object.freeze({
     hint: "Publica ofertas na Página quando o ID e o token protegido já estiverem configurados.",
   },
   FACEBOOK_MAX_POSTS_DIA: {
-    category: "canais", label: "Limite diário do Facebook", type: "integer", default: "4", min: 0, max: 1000000,
-    hint: "Use 0 para não impor um limite extra. Via Buffer, a proteção de 25 posts por 24 horas continua obrigatória para todas as redes.",
+    category: "canais", label: "Limite diário do Facebook", type: "integer", default: "30", min: 0, max: 30,
+    hint: "Via Buffer: até 5 pela manhã, 10 à tarde e 15 à noite, respeitando 30 por 24 horas móveis. Não reduz o teto das outras redes.",
   },
   INSTAGRAM_STORIES_ATIVO: {
     category: "canais", label: "Stories do Instagram", type: "boolean", default: "false",
     hint: "Publica um cartao vertical com QR code no Instagram profissional vinculado a Pagina.",
   },
   INSTAGRAM_MAX_STORIES_DIA: {
-    category: "canais", label: "Limite diario de Stories", type: "integer", default: "10", min: 0, max: 100,
-    hint: "Use 0 para ilimitado. Dez por dia evita cansar quem acompanha a conta.",
+    category: "canais", label: "Limite diario de Stories", type: "integer", default: "45", min: 0, max: 45,
+    hint: "Até 8 pela manhã, 15 à tarde e 22 à noite, com teto de 45 por 24 horas móveis.",
   },
   SHOPEE_ATIVA: {
     category: "lojas", label: "Shopee ativa", type: "boolean", default: "true",
@@ -134,8 +134,8 @@ export const SETTINGS = Object.freeze({
     hint: "Só vale quando a rodada tiver mais de uma oferta. Três minutos deixam o canal mais natural.",
   },
   MAX_POSTS_POR_DIA: {
-    category: "horarios", label: "Limite diário de ofertas", type: "integer", default: "50", min: 0, max: 150,
-    hint: "Zero desliga o limite. O recomendado é de 40 a 60 ofertas por dia.",
+    category: "horarios", label: "Limite diário de ofertas", type: "integer", default: "60", min: 0, max: 150,
+    hint: "Padrão 60: até 10 pela manhã, 20 à tarde e 30 à noite. Cada rede limitada também tem sua própria cota.",
   },
 
   DIAS_ANTES_DE_REPETIR: {

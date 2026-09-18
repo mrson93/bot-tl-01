@@ -149,13 +149,16 @@ Cloudflare. Se ele falhar, o bot usa automaticamente o link oficial de afiliado.
 
 ## Formato das ofertas
 
-O Facebook via Buffer tem limite externo de 35 posts por 24 horas móveis. O bot
-aplica um teto global conservador de 25 ofertas por 24 horas quando esse canal
-está ativo, para não publicar ofertas nas demais redes depois que o Facebook
-atingir o limite. Cada oferta gera um resumo no Telegram privado com o resultado
-de cada canal ativo; falhas continuam pendentes sem duplicar os canais que já
-receberam a publicação. Posts do Buffer que entrarem em erro são retomados no
-mesmo registro após 24 horas, nunca criando outra entrada automaticamente.
+O bot aceita até 60 ofertas por dia, distribuídas por turno no horário de
+Brasília: 10 de manhã (6h–11h59), 20 à tarde (12h–17h59) e 30 à noite
+(18h–00h59). Facebook via Buffer tem limite externo de 35 posts por 24 horas;
+usamos 5/10/15 por turno e teto de 30/24 h. X e Stories usam 8/15/22 e teto
+de 45/24 h. Telegram, Bluesky e site não são reduzidos por causa desses tetos.
+Logo, acima da cota de uma rede nem todas as 60 ofertas podem aparecer nela.
+Cada oferta gera um resumo no Telegram privado com os canais publicados,
+pendentes ou limitados. Falhas continuam pendentes sem duplicar os canais que
+já receberam a publicação. Posts do Buffer que entrarem em erro são retomados
+no mesmo registro após 24 horas, nunca criando outra entrada automaticamente.
 
 As listas da Amazon e do Mercado Livre funcionam como filas de curadoria: uma
 oferta já publicada não é republicada só porque passaram alguns dias ou o preço

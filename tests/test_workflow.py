@@ -74,7 +74,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}", workflow)
         self.assertIn("FACEBOOK_ATIVO: ${{ vars.FACEBOOK_ATIVO || 'false' }}", workflow)
         self.assertIn("FACEBOOK_PAGE_ID: ${{ vars.FACEBOOK_PAGE_ID }}", workflow)
-        self.assertIn("FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '4' }}", workflow)
+        self.assertIn("FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '30' }}", workflow)
 
         controle = Path("telegram-control/wrangler.jsonc").read_text(encoding="utf-8")
         self.assertIn('"name": "bot-tl-01"', controle)
@@ -85,7 +85,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}", workflow)
         self.assertIn('INSTAGRAM_TRACKING_ID: "instagram"', workflow)
         self.assertIn('INSTAGRAM_USERNAME: "ofertascanaltabarato"', workflow)
-        self.assertIn("INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '0' }}", workflow)
+        self.assertIn("INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '45' }}", workflow)
         self.assertIn("INSTAGRAM_DIRECT_ATIVO: ${{ vars.INSTAGRAM_DIRECT_ATIVO || 'false' }}", workflow)
         self.assertEqual(1, workflow.count("FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}"))
 

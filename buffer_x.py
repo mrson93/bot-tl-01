@@ -6,6 +6,9 @@ import buffer_facebook as buffer_api
 import feed_card
 import seguranca
 import telegram_poster as fmt
+import store
+import turnos
+import time
 
 
 NOME = "X"
@@ -26,6 +29,13 @@ def _chave() -> str:
 
 def esta_configurada() -> bool:
     return bool(len(_chave()) >= 20 and _CHANNEL_ID.fullmatch(_canal()))
+
+
+def pode_publicar() -> bool:
+    turno, inicio, fim = turnos.janela()
+    return (esta_configurada()
+            and store.posts_canal_entre(NOME, inicio, fim) < turnos.COTAS[NOME][turno]
+            and store.posts_canal_desde(NOME, time.time() - 86400) < 45)
 
 
 def _preco(valor) -> str:

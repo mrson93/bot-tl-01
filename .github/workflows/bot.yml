@@ -70,13 +70,13 @@ jobs:
       FACEBOOK_PAGE_ID: ${{ vars.FACEBOOK_PAGE_ID }}
       FACEBOOK_GRAPH_API_VERSION: "v26.0"
       FACEBOOK_TRACKING_ID: "facebook"
-      FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '4' }}
+      FACEBOOK_MAX_POSTS_DIA: ${{ vars.FACEBOOK_MAX_POSTS_DIA || '30' }}
       BUFFER_FACEBOOK_CHANNEL_ID: ${{ vars.BUFFER_FACEBOOK_CHANNEL_ID }}
       BUFFER_X_CHANNEL_ID: ${{ vars.BUFFER_X_CHANNEL_ID }}
       INSTAGRAM_STORIES_ATIVO: ${{ vars.INSTAGRAM_STORIES_ATIVO || 'false' }}
       INSTAGRAM_TRACKING_ID: "instagram"
       INSTAGRAM_USERNAME: "ofertascanaltabarato"
-      INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '0' }}
+      INSTAGRAM_MAX_STORIES_DIA: ${{ vars.INSTAGRAM_MAX_STORIES_DIA || '45' }}
       INSTAGRAM_DIRECT_ATIVO: ${{ vars.INSTAGRAM_DIRECT_ATIVO || 'false' }}
       SITE_ATIVO: ${{ vars.SITE_ATIVO || 'false' }}
       SITE_API_URL: ${{ vars.SITE_API_URL || 'https://canaltabarato.com.br/api/publish' }}
@@ -156,7 +156,7 @@ jobs:
       MAX_POSTS_PER_RUN: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN || '1' }}
       MAX_POSTS_PER_RUN_FORA_PICO: ${{ github.event.repository.visibility == 'private' && '1' || vars.MAX_POSTS_PER_RUN_FORA_PICO || '1' }}
       INTERVALO_ENTRE_POSTS_MINUTOS: ${{ vars.INTERVALO_ENTRE_POSTS_MINUTOS || '3' }}
-      MAX_POSTS_POR_DIA: ${{ vars.MAX_POSTS_POR_DIA || '50' }}
+      MAX_POSTS_POR_DIA: ${{ vars.MAX_POSTS_POR_DIA || '60' }}
       MAX_POSTS_POR_LOJA_DIA: ${{ vars.MAX_POSTS_POR_LOJA_DIA || '3' }}
       DIAS_BLOQUEIO_PRODUTO_SEMELHANTE: ${{ vars.DIAS_BLOQUEIO_PRODUTO_SEMELHANTE || '3' }}
       TITULO_MAX_CARACTERES: ${{ vars.TITULO_MAX_CARACTERES || '90' }}

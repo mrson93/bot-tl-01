@@ -6,6 +6,16 @@ import buffer_x
 
 
 class BufferXTest(unittest.TestCase):
+    def test_limite_do_x_por_turno_e_24_horas(self):
+        with patch.object(buffer_x, "esta_configurada", return_value=True), \
+             patch.object(buffer_x.turnos, "janela", return_value=("manha", 100, 200)), \
+             patch.object(buffer_x.store, "posts_canal_entre", return_value=8):
+            self.assertFalse(buffer_x.pode_publicar())
+        with patch.object(buffer_x, "esta_configurada", return_value=True), \
+             patch.object(buffer_x.turnos, "janela", return_value=("tarde", 100, 200)), \
+             patch.object(buffer_x.store, "posts_canal_entre", return_value=14), \
+             patch.object(buffer_x.store, "posts_canal_desde", return_value=44):
+            self.assertTrue(buffer_x.pode_publicar())
     def configuracao(self):
         return patch.dict(os.environ, {
             "BUFFER_X_API_KEY": "buffer-chave-secreta-comprida",

@@ -9,6 +9,8 @@ import seguranca
 import site_publisher
 import store
 import story_card
+import turnos
+import time
 
 
 NOME = "Instagram Stories"
@@ -27,9 +29,11 @@ def esta_configurada() -> bool:
 
 def pode_publicar() -> bool:
     limite = config.INSTAGRAM_MAX_STORIES_DIA
+    turno, inicio, fim = turnos.janela()
     return esta_configurada() and (
         limite == 0 or store.posts_canal_hoje(NOME) < limite
-    )
+    ) and (store.posts_canal_entre(NOME, inicio, fim) < turnos.COTAS[NOME][turno]
+           and store.posts_canal_desde(NOME, time.time() - 86400) < 45)
 
 
 def _endpoint(recurso: str) -> str:

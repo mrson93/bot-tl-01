@@ -79,8 +79,8 @@ FACEBOOK_PAGE_ACCESS_TOKEN = _get("FACEBOOK_PAGE_ACCESS_TOKEN")
 FACEBOOK_GRAPH_API_VERSION = _get("FACEBOOK_GRAPH_API_VERSION") or "v26.0"
 FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
 # Zero desativa apenas o limite configurável; a proteção obrigatória de
-# 25 publicações por 24 h no Buffer continua ativa.
-FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 4))
+# 30 publicações por 24 h e as cotas por turno no Buffer continuam ativas.
+FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 30))
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro
@@ -88,7 +88,7 @@ FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 4))
 INSTAGRAM_STORIES_ATIVO = _bool("INSTAGRAM_STORIES_ATIVO", False)
 INSTAGRAM_TRACKING_ID = _get("INSTAGRAM_TRACKING_ID") or "instagram"
 INSTAGRAM_USERNAME = (_get("INSTAGRAM_USERNAME") or "ofertascanaltabarato").lstrip("@").lower()
-INSTAGRAM_MAX_STORIES_DIA = max(0, _int("INSTAGRAM_MAX_STORIES_DIA", 0))
+INSTAGRAM_MAX_STORIES_DIA = max(0, _int("INSTAGRAM_MAX_STORIES_DIA", 45))
 INSTAGRAM_DIRECT_ATIVO = _bool("INSTAGRAM_DIRECT_ATIVO", False)
 INSTAGRAM_CONTAINER_TENTATIVAS = max(
     1, min(30, _int("INSTAGRAM_CONTAINER_TENTATIVAS", 15))
@@ -186,7 +186,7 @@ DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(
     "DIAS_BLOQUEIO_PRODUTO_SEMELHANTE", 3
 )
 # Limites editoriais. Zero desliga o respectivo limite.
-MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 50))
+MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 60))
 MAX_POSTS_POR_LOJA_DIA = max(0, _int("MAX_POSTS_POR_LOJA_DIA", 3))
 # Abaixo deste desconto, a oferta so entra se tiver um sinal comercial forte.
 DESCONTO_PREFERIDO = _float("DESCONTO_PREFERIDO", 30)

@@ -70,6 +70,14 @@ def posts_desde(inicio):
         ).fetchone()[0])
 
 
+def posts_entre(inicio, fim):
+    with _conn() as con:
+        return int(con.execute(
+            "SELECT COUNT(*) FROM postadas WHERE postada_em>=? AND postada_em<?",
+            (int(inicio), int(fim))
+        ).fetchone()[0])
+
+
 def postada_hoje(oferta_id, agora=None):
     with _conn() as con:
         return con.execute("SELECT 1 FROM postadas WHERE id=? AND postada_em>=?", (str(oferta_id), _inicio_do_dia(agora))).fetchone() is not None
@@ -435,6 +443,15 @@ def posts_canal_desde(canal, inicio):
         return int(con.execute(
             "SELECT COUNT(DISTINCT id) FROM entregas_log WHERE canal=? "
             "AND sucesso=1 AND entregue_em>=?", (str(canal), int(inicio))
+        ).fetchone()[0])
+
+
+def posts_canal_entre(canal, inicio, fim):
+    with _conn() as con:
+        return int(con.execute(
+            "SELECT COUNT(DISTINCT id) FROM entregas_log WHERE canal=? "
+            "AND sucesso=1 AND entregue_em>=? AND entregue_em<?",
+            (str(canal), int(inicio), int(fim))
         ).fetchone()[0])
 
 

@@ -33,8 +33,8 @@ import store
 import telegram_poster
 import bluesky
 import facebook
-import buffer_facebook
 import buffer_x
+import turnos
 import instagram_stories
 import relatorio
 import seguranca
@@ -311,7 +311,11 @@ def publicar(fonte, oferta: dict) -> int:
     resultados = {}
     repeticao = ({"repetir_apos_dias": config.DIAS_ANTES_DE_REPETIR}
                  if oferta.get("_motivo") == "repescagem" else {})
-    for canal in canais_ativos():
+    ativos = canais_ativos()
+    for canal in CANAIS:
+        if canal not in ativos and canal.esta_configurada():
+            resultados[canal.NOME] = "⏸ limite do turno ou de 24 h"
+    for canal in ativos:
         if not store.canal_pendente(oid, canal.NOME, preco_pendencia, **repeticao):
             observabilidade.evento("publicacao_ignorada", oferta_id=oid,
                                   canal=canal.NOME, motivo="entrega_ja_concluida")
@@ -964,19 +968,13 @@ def rodar_uma_vez() -> int:
     observabilidade.evento("execucao_iniciada")
     sincronizar_shopee_vip_site()
     limite = config.limite_posts_por_rodada()
-    if config.FACEBOOK_ATIVO and buffer_facebook.esta_configurado():
-        # Buffer limita Facebook a 35 posts em 24 h móveis. Folga de dez
-        # publicações cobre posts manuais e evita ofertas só nas outras redes.
-        inicio_24h = time.time() - 86400
-        restantes_buffer = 25 - max(
-            store.posts_desde(inicio_24h),
-            store.posts_canal_desde("Facebook", inicio_24h),
-        )
-        if restantes_buffer <= 0:
-            print("🛑 Pausa global: margem de segurança do Facebook/Buffer atingida nas últimas 24 h.")
-            observabilidade.evento("execucao_concluida", motivo="limite_buffer", quantidade=0)
-            return 0
-        limite = min(limite, restantes_buffer)
+    turno, inicio_turno, fim_turno = turnos.janela()
+    restantes_turno = turnos.COTAS["Ofertas"][turno] - store.posts_entre(inicio_turno, fim_turno)
+    if restantes_turno <= 0:
+        print(f"🛑 Cota do turno {turno} atingida. Outras redes continuam até o limite diário.")
+        observabilidade.evento("execucao_concluida", motivo="limite_turno", quantidade=0)
+        return 0
+    limite = min(limite, restantes_turno)
     if config.MAX_POSTS_POR_DIA:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
         if restantes <= 0:

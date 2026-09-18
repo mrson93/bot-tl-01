@@ -29,10 +29,9 @@ class MainTest(unittest.TestCase):
                     unittest.mock.Mock(NOME="Telegram"), unittest.mock.Mock(NOME="Facebook")]):
                 self.assertEqual(1, len(main.buscar_candidatos(Fonte)))
 
-    def test_buffer_limita_fila_global_em_janela_movel(self):
-        with patch.object(main.config, "FACEBOOK_ATIVO", True), \
-             patch.object(main.buffer_facebook, "esta_configurado", return_value=True), \
-             patch.object(main.store, "posts_desde", return_value=25), \
+    def test_cota_da_tarde_pausa_rodada_sem_bloquear_outros_turnos(self):
+        with patch.object(main.turnos, "janela", return_value=("tarde", 100, 200)), \
+             patch.object(main.store, "posts_entre", return_value=20), \
              patch.object(main, "fontes_ativas") as fontes, \
              patch.object(main, "sincronizar_shopee_vip_site"), \
              patch.object(main.observabilidade, "evento"):

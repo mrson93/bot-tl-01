@@ -20,6 +20,14 @@ class Resposta:
 
 
 class FacebookTest(unittest.TestCase):
+    def test_facebook_respeita_cota_do_turno_sem_parar_outras_redes(self):
+        with patch.object(facebook, "esta_configurada", return_value=True), \
+             patch.object(facebook.config, "FACEBOOK_MAX_POSTS_DIA", 30), \
+             patch.object(facebook.turnos, "janela", return_value=("noite", 100, 200)), \
+             patch.object(facebook.store, "posts_canal_hoje", return_value=12), \
+             patch.object(facebook.store, "posts_canal_entre", return_value=15), \
+             patch.object(facebook.buffer_facebook, "esta_configurado", return_value=True):
+            self.assertFalse(facebook.pode_publicar())
     def configuracao(self):
         return patch.multiple(
             facebook.config,
