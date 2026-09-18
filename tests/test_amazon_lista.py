@@ -32,11 +32,12 @@ class AmazonListaTest(unittest.TestCase):
             patch.object(amazon.config, "AMAZON_LIST_URL", "https://amzn.to/lista"),
             patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"),
             patch.object(amazon.config, "AMAZON_FETCH_LIMIT", 100),
+            patch.object(amazon.config, "AMAZON_LIST_SOURCE_TAGS", ("emersonpettor-20",)),
         )
 
     def test_importa_lista_com_preco_desconto_e_tag_de_afiliado(self):
-        a, b, c = self._config()
-        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=HTML):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=HTML):
             ofertas = amazon.buscar_ofertas()
 
         self.assertEqual(2, len(ofertas))
@@ -50,8 +51,8 @@ class AmazonListaTest(unittest.TestCase):
         self.assertTrue(robo["curadoriaManual"])
 
     def test_revalidacao_retorna_apenas_produto_ainda_presente(self):
-        a, b, c = self._config()
-        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=HTML):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=HTML):
             encontrados = amazon.consultar_produtos([
                 "amazon_B0DPNHDC9B", "amazon_B000000000"
             ])
@@ -60,14 +61,30 @@ class AmazonListaTest(unittest.TestCase):
     def test_prazo_explicito_da_lista_e_preservado(self):
         html = HTML.replace('data-asin="B0F9Z2DV83"',
                             'data-asin="B0F9Z2DV83" data-deal-end-date="2026-09-19T10:00:00Z"')
-        a, b, c = self._config()
-        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=html):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=html):
             self.assertEqual("2026-09-19T10:00:00Z", amazon.buscar_ofertas()[0]["expira_em"])
 
     def test_descarta_produto_sem_tag_de_afiliado_correta(self):
         html = HTML.replace("tag=canaltabarato-20", "tag=outra-20")
-        a, b, c = self._config()
-        with a, b, c, patch.object(amazon, "_baixar_lista", return_value=html):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=html):
+            with self.assertRaisesRegex(RuntimeError, "Nenhuma oferta válida"):
+                amazon.buscar_ofertas()
+
+    def test_aceita_tag_da_vitrine_e_publica_com_tag_do_bot(self):
+        html = HTML.replace("tag=canaltabarato-20", "tag=emersonpettor-20")
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=html):
+            ofertas = amazon.buscar_ofertas()
+        self.assertEqual(2, len(ofertas))
+        self.assertIn("tag=canaltabarato-20", ofertas[0]["productUrl"])
+        self.assertNotIn("tag=emersonpettor-20", ofertas[0]["productUrl"])
+
+    def test_rejeita_multiplas_tags_mesmo_se_uma_for_autorizada(self):
+        html = HTML.replace("tag=canaltabarato-20", "tag=emersonpettor-20&amp;tag=outra-20")
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=html):
             with self.assertRaisesRegex(RuntimeError, "Nenhuma oferta válida"):
                 amazon.buscar_ofertas()
 

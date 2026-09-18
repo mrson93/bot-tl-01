@@ -168,16 +168,22 @@ isso poderia criar uma publicação duplicada.
 | --- | --- | --- | --- |
 | Shopee | API oficial de afiliados | Implementada | Busca listas padrão e mais vendidos, consulta campanhas/cupons e gera link com `subid`. |
 | AliExpress | API de afiliados | Implementada | Busca, normaliza, gera link com tracking por canal e usa relatório de conversões. |
-| Amazon | Lista pública de curadoria e, opcionalmente, Creators API | Implementada | Exige a tag afiliada configurada no link do produto e revalida a lista antes do post. |
+| Amazon | Lista pública de curadoria e, opcionalmente, Creators API | Implementada | Aceita apenas tags de origem autorizadas e publica com a tag do bot; revalida a lista antes do post. |
 | Mercado Livre | Lista pública de recomendações | Implementada | Preserva o link rastreado da própria lista e revalida preço/vigência antes do post. |
 | Magalu | Nenhuma integração disponível no projeto | Não implementada | Só deve ser adicionada com fonte e método de afiliação autorizados. |
 
 ### Amazon
 
-- Lista atualmente usada: `https://amzn.to/4cJaUFK`.
+- Lista de ofertas escolhida pelo operador: `https://www.amazon.com.br/shop/emersonpettor/list/2ZUSMM2BR8LVZ?ref_=aipsflist`.
 - Tag configurada no workflow: `canaltabarato-20`.
+- A vitrine `https://www.amazon.com.br/shop/emersonpettor/list/2ZUSMM2BR8LVZ?ref_=aipsflist`
+  usa `emersonpettor-20`, outro ID de rastreamento da mesma conta confirmado pelo
+  operador. O workflow autoriza esse ID como origem via `AMAZON_LIST_SOURCE_TAGS`;
+  os links publicados recebem `canaltabarato-20`.
+- A URL da lista ativa ainda é controlada pela variável `AMAZON_LIST_URL` do
+  GitHub Actions; autorizar a tag não muda automaticamente qual lista é lida.
 - Tudo que o operador adiciona à lista pública pode entrar na fila.
-- A importação rejeita cartões incompletos, links sem a tag afiliada esperada,
+- A importação rejeita cartões incompletos, links sem uma tag de origem autorizada,
   ASIN inválido, imagem fora dos hosts oficiais ou preço ausente.
 - Se as credenciais da Creators API estiverem presentes, o projeto também pode
   pesquisar e consultar produtos pela API.

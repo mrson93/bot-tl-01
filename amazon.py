@@ -114,8 +114,12 @@ def _normalizar_lista(card):
     )
     tags = [valor for chave, valor in parse_qsl(urlsplit(url).query)
             if chave == "tag"]
-    if tags != [config.AMAZON_ASSOCIATE_TAG]:
-        raise ValueError("Produto da Amazon não contém a tag de afiliado configurada")
+    if len(tags) != 1 or tags[0] not in (
+        config.AMAZON_ASSOCIATE_TAG, *config.AMAZON_LIST_SOURCE_TAGS
+    ):
+        raise ValueError("Produto da Amazon não contém uma tag de afiliado autorizada")
+    # A vitrine pode usar outro ID da mesma conta. Publicamos sempre com o ID do bot.
+    url = gerar_link(url)
     imagem = seguranca.validar_url_https_em_hosts(
         card.get("imageUrl"), _HOSTS_IMAGEM, "Imagem da Amazon"
     )
