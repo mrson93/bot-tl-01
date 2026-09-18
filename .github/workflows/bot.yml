@@ -251,5 +251,5 @@ jobs:
           compression-level: 9
 
       - name: Alertar falha da execução
-        if: failure()
+        if: failure() && inputs.somente_pendentes != true
         run: python monitor.py --workflow-failure
