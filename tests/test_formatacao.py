@@ -100,18 +100,15 @@ class FormatacaoTest(unittest.TestCase):
             "price": 50, "priceDiscountRate": 50}, "https://x.test")
         self.assertNotIn("De R$", texto)
 
-    def test_publi_apenas_nas_ofertas_da_amazon(self):
-        for fonte in ("Shopee", "Mercado Livre", "AliExpress"):
+    def test_publi_em_todas_as_ofertas_sem_palavra_publicidade(self):
+        for fonte in ("Shopee", "Mercado Livre", "AliExpress", "Amazon"):
             oferta = {"fonte": fonte, "productName": "Produto", "price": 50}
             legenda = telegram.montar_legenda(oferta, "https://oferta.test")
             texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
-            self.assertIn("Publicidade", legenda)
-            self.assertIn("Publicidade", texto)
-            self.assertNotIn("#publi", legenda)
-            self.assertNotIn("#publi", texto)
-        amazon = {"fonte": "Amazon", "productName": "Produto", "price": 50}
-        texto, _ = bluesky.montar_texto(amazon, "https://oferta.test")
-        self.assertIn("🛒 #publi ·", texto)
+            self.assertIn("🛒 #publi ·", legenda)
+            self.assertIn("🛒 #publi ·", texto)
+            self.assertNotIn("Publicidade", legenda)
+            self.assertNotIn("Publicidade", texto)
 
     def test_link_do_telegram_e_escapado_no_html(self):
         oferta = {"fonte": "Shopee", "productName": "Produto", "price": 50}
@@ -162,7 +159,7 @@ class FormatacaoTest(unittest.TestCase):
                   "shopName": "Dulojashoes", "variante": "B"}
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("🏬 Dulojashoes", texto)
-        self.assertLess(texto.index("⭐ 4.3"), texto.index("🛒 Publicidade"))
+        self.assertLess(texto.index("⭐ 4.3"), texto.index("🛒 #publi"))
 
     def test_bluesky_preserva_preco_compra_e_link_em_texto_extremo(self):
         oferta = {"fonte": "AliExpress", "productName": "Produto longo " * 30,
@@ -174,8 +171,8 @@ class FormatacaoTest(unittest.TestCase):
         texto, _ = bluesky.montar_texto(oferta, link)
         self.assertLessEqual(len(texto), 300)
         self.assertIn("R$ 29,00 no app", texto)
-        self.assertIn("Publicidade", texto)
-        self.assertNotIn("#publi", texto)
+        self.assertIn("#publi", texto)
+        self.assertNotIn("Publicidade", texto)
         self.assertIn(link, texto)
         self.assertLess(texto.index("R$ 29,00"), texto.index(link))
 
@@ -197,16 +194,16 @@ class FormatacaoTest(unittest.TestCase):
 
         texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
         self.assertIn("42% OFF\n\n⭐ 4.3", texto)
-        self.assertIn("🏬 Loja\n\n🛒 Publicidade · COMPRAR NA SHOPEE", texto)
+        self.assertIn("🏬 Loja\n\n🛒 #publi · COMPRAR NA SHOPEE", texto)
 
     def test_plataforma_aparece_imediatamente_antes_do_link(self):
         oferta = {"fonte": "Mercado Livre", "productName": "Produto",
                   "price": 79, "variante": "B"}
         legenda = telegram.montar_legenda(oferta, "https://go.canaltabarato.com.br/x")
         texto, _ = bluesky.montar_texto(oferta, "https://go.canaltabarato.com.br/x")
-        self.assertIn("🛒 Publicidade · <a", legenda)
+        self.assertIn("🛒 #publi · <a", legenda)
         self.assertIn("COMPRAR NO MERCADO LIVRE</a>", legenda)
-        self.assertIn("🛒 Publicidade · COMPRAR NO MERCADO LIVRE:", texto)
+        self.assertIn("🛒 #publi · COMPRAR NO MERCADO LIVRE:", texto)
 
     def test_nova_ordem_padrao_com_vendedor_e_cupom(self):
         oferta = {"fonte": "Amazon", "productName": "Mouse gamer",

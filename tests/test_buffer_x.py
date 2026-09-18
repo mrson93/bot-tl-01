@@ -22,7 +22,7 @@ class BufferXTest(unittest.TestCase):
         self.assertLessEqual(len(texto), 280)
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
-        self.assertIn("🛒 Publicidade · COMPRAR NA LOJA:", texto)
+        self.assertIn("🛒 #publi · COMPRAR NA LOJA:", texto)
         self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
 

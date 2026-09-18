@@ -54,7 +54,7 @@ class FacebookTest(unittest.TestCase):
         self.assertTrue(feed.args[0].endswith("/123456/feed"))
         dados = feed.kwargs["data"]
         self.assertIn("Produto util", dados["message"])
-        self.assertIn("🛒 Publicidade · COMPRAR NA SHOPEE:", dados["message"])
+        self.assertIn("🛒 #publi · COMPRAR NA SHOPEE:", dados["message"])
         self.assertNotIn("Link de afiliado", dados["message"])
         self.assertEqual("true", dados["published"])
         self.assertEqual(

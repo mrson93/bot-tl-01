@@ -313,8 +313,7 @@ plataforma:
 - nota, vendas e nome do vendedor quando disponíveis;
 - cupom e condição quando oficiais;
 - ação de compra/resgate com nome da plataforma;
-- identificação na mesma linha do link: `#publi` na Amazon e `Publicidade`
-  nas demais lojas.
+- identificação `#publi` na mesma linha do link em todas as lojas.
 
 O Telegram risca o preço anterior e destaca o atual em negrito. Facebook,
 Bluesky e X usam texto simples; Bluesky e X preservam preço e link e encurtam
@@ -810,8 +809,8 @@ os testes de `tests/test_story_layout.py`.
 8. Não permitir URL longa do Mercado Livre no Story, Bluesky ou X.
 9. Manter legendas consistentes e adaptar pelo limite da rede, sem criar
    reticências desnecessárias.
-10. Manter a identificação junto ao link: `#publi` na Amazon e
-    `Publicidade` nas demais lojas.
+10. Manter `#publi` junto ao link em todas as lojas; não remover toda
+    identificação comercial das ofertas.
 11. Revalidar ofertas curadas antes de publicar e nunca inventar preço,
     avaliação, vendas ou comissão.
 12. Ao adicionar marketplace, implementar: fonte, normalização, link afiliado,

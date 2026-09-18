@@ -58,8 +58,8 @@ def chamada_inicial(oferta: dict) -> str:
 
 
 def rotulo_publicidade(oferta: dict) -> str:
-    """Usa #publi na Amazon e aviso discreto nas demais plataformas."""
-    return "#publi" if nome_plataforma(oferta).lower() == "amazon" else "Publicidade"
+    """Identificação curta de afiliado, visível junto ao link em todas as lojas."""
+    return "#publi"
 
 
 def nome_plataforma(oferta: dict) -> str:
