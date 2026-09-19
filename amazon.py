@@ -24,6 +24,8 @@ _HOSTS_LISTA = ("amzn.to", "amazon.com.br")
 _HOSTS_PRODUTO = ("amazon.com.br",)
 _HOSTS_IMAGEM = ("media-amazon.com", "ssl-images-amazon.com")
 _MAX_HTML = 4_000_000
+_STATUS_TRANSITORIOS = {429, 500, 502, 503, 504}
+_ATRASOS_RETRY = (2, 5, 10)
 _VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input",
               "link", "meta", "param", "source", "track", "wbr"}
 
@@ -164,45 +166,50 @@ def _baixar_lista(url):
         "Sec-Fetch-Site": "none",
         "Upgrade-Insecure-Requests": "1",
     }
-    for _ in range(6):
-        atual = seguranca.validar_url_https_em_hosts(
-            atual, _HOSTS_LISTA, "Lista da Amazon"
-        )
-        for tentativa in range(3):
+    # A vitrine usa cookies de sessão e devolve 503 de forma intermitente para
+    # datacenters. Preservar a sessão entre redirecionamentos e espaçar as
+    # tentativas evita transformar uma oscilação curta em falha da rodada.
+    with requests.Session() as sessao:
+        sessao.headers.update(headers)
+        for _ in range(6):
+            atual = seguranca.validar_url_https_em_hosts(
+                atual, _HOSTS_LISTA, "Lista da Amazon"
+            )
+            for tentativa in range(len(_ATRASOS_RETRY) + 1):
+                try:
+                    resposta = sessao.get(
+                        atual, timeout=30, allow_redirects=False, stream=True,
+                    )
+                except requests.RequestException:
+                    if tentativa == len(_ATRASOS_RETRY):
+                        raise
+                    time.sleep(_ATRASOS_RETRY[tentativa])
+                    continue
+                if (resposta.status_code not in _STATUS_TRANSITORIOS
+                        or tentativa == len(_ATRASOS_RETRY)):
+                    break
+                resposta.close()
+                time.sleep(_ATRASOS_RETRY[tentativa])
             try:
-                resposta = requests.get(
-                    atual, headers=headers, timeout=30,
-                    allow_redirects=False, stream=True,
-                )
-            except requests.RequestException:
-                if tentativa == 2:
-                    raise
-                time.sleep(tentativa + 1)
-                continue
-            if resposta.status_code not in {429, 500, 502, 503, 504} or tentativa == 2:
-                break
-            resposta.close()
-            time.sleep(tentativa + 1)
-        try:
-            if resposta.status_code in {301, 302, 303, 307, 308}:
-                destino = resposta.headers.get("Location")
-                if not destino:
-                    raise RuntimeError("Amazon redirecionou sem destino")
-                atual = urljoin(atual, destino)
-                continue
-            resposta.raise_for_status()
-            tamanho = int(resposta.headers.get("Content-Length") or 0)
-            if tamanho > _MAX_HTML:
-                raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
-            partes, total = [], 0
-            for parte in resposta.iter_content(64 * 1024):
-                total += len(parte)
-                if total > _MAX_HTML:
+                if resposta.status_code in {301, 302, 303, 307, 308}:
+                    destino = resposta.headers.get("Location")
+                    if not destino:
+                        raise RuntimeError("Amazon redirecionou sem destino")
+                    atual = urljoin(atual, destino)
+                    continue
+                resposta.raise_for_status()
+                tamanho = int(resposta.headers.get("Content-Length") or 0)
+                if tamanho > _MAX_HTML:
                     raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
-                partes.append(parte)
-            return b"".join(partes).decode(resposta.encoding or "utf-8", "replace")
-        finally:
-            resposta.close()
+                partes, total = [], 0
+                for parte in resposta.iter_content(64 * 1024):
+                    total += len(parte)
+                    if total > _MAX_HTML:
+                        raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
+                    partes.append(parte)
+                return b"".join(partes).decode(resposta.encoding or "utf-8", "replace")
+            finally:
+                resposta.close()
     raise RuntimeError("Lista da Amazon redirecionou vezes demais")
 
 

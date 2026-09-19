@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 from unittest.mock import patch
 
 import amazon
@@ -97,6 +98,23 @@ class AmazonListaTest(unittest.TestCase):
         self.assertNotIn("tag=antiga-20", link)
         with self.assertRaises(ValueError):
             amazon.gerar_link("https://exemplo.com/produto")
+
+    def test_lista_reutiliza_sessao_e_repete_503_com_espera(self):
+        indisponivel = Mock(status_code=503, headers={})
+        indisponivel.raise_for_status.side_effect = RuntimeError("503")
+        sucesso = Mock(status_code=200, headers={}, encoding="utf-8")
+        sucesso.iter_content.return_value = [HTML.encode()]
+        sessao = Mock()
+        sessao.__enter__ = Mock(return_value=sessao)
+        sessao.__exit__ = Mock(return_value=False)
+        sessao.get.side_effect = [indisponivel, sucesso]
+        with patch.object(amazon.requests, "Session", return_value=sessao), \
+             patch.object(amazon.time, "sleep") as esperar:
+            self.assertIn("single-product-item-link", amazon._baixar_lista(
+                "https://www.amazon.com.br/shop/teste/list/123"
+            ))
+        self.assertEqual(2, sessao.get.call_count)
+        esperar.assert_called_once_with(2)
 
 
 if __name__ == "__main__":

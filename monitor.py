@@ -60,14 +60,24 @@ def avisar_estoque_lista(loja, ineditas, sessao=requests):
 
 
 def avisar_falha_lista(loja, erro, sessao=requests):
-    """Avisa a primeira falha de leitura; rearma após uma leitura bem-sucedida."""
+    """Avisa só após falhas seguidas; rearma após uma leitura bem-sucedida."""
     chave = f"falha_lista:{loja.lower().replace(' ', '_')}"
-    if store._estado(chave) == "falhou":
+    estado = store._estado(chave)
+    if estado == "alertada":
+        return False
+    try:
+        falhas = int(estado or 0) + 1
+    except ValueError:
+        falhas = 1
+    store._definir_estado(chave, falhas)
+    limite = max(1, config.FALHAS_CONSECUTIVAS_ALERTA)
+    if falhas < limite:
         return False
     detalhe = seguranca.redigir_segredos(erro)[:200]
-    if _enviar_privado(f"⚠️ Não consegui consultar a lista da {loja}. "
-                      f"Nenhuma oferta dessa loja será publicada nesta rodada. {detalhe}", sessao):
-        store._definir_estado(chave, "falhou")
+    if _enviar_privado(f"⚠️ A lista da {loja} falhou em {falhas} rodadas "
+                      "consecutivas. Nenhuma oferta dessa loja será publicada "
+                      f"nesta rodada. {detalhe}", sessao):
+        store._definir_estado(chave, "alertada")
         return True
     return False
 

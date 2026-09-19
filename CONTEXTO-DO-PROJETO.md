@@ -886,9 +886,12 @@ para alguém que nunca viu o projeto antes.
   em janela de 7 dias. Fontes sem candidatos válidos são excluídas da soma,
   então a porcentagem efetiva pode divergir das metas.
 - `AMAZON_LIST_URL` aponta para a vitrine pública do afiliado e funciona sem
-  API, mas a página retornou HTTP 503 em rodadas recentes. O bot só aceita
-  produto com tag de afiliado correta e revalida antes de publicar. Essa fonte
-  não é confiável o suficiente para prometer a meta de 25% numa campanha.
+  API, mas a página retorna HTTP 503 de forma intermitente nos servidores do
+  GitHub. A leitura preserva cookies da sessão e repete erros transitórios com
+  esperas de 2, 5 e 10 segundos. O alerta privado só é enviado após três falhas
+  consecutivas. O bot só aceita produto com tag de afiliado correta e revalida
+  antes de publicar; sem Creators API, a fonte ainda não é confiável o
+  suficiente para prometer a meta de 25% numa campanha.
 - O AdSense mostra `Preparando` e revisão solicitada. O `ads.txt` está
   publicado e responde HTTP 200, embora o painel ainda mostre `Não encontrado`.
   Anúncios permanecem desativados até o painel indicar aprovação.

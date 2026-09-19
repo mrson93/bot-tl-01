@@ -32,6 +32,19 @@ class MonitorTest(unittest.TestCase):
             self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 5))
             self.assertEqual(2, enviar.call_count)
 
+    def test_lista_alerta_apenas_apos_tres_falhas_consecutivas(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
+             patch.object(monitor, "_enviar_privado", return_value=True) as enviar:
+            self.assertFalse(monitor.avisar_falha_lista("Amazon", "503"))
+            self.assertFalse(monitor.avisar_falha_lista("Amazon", "503"))
+            self.assertTrue(monitor.avisar_falha_lista("Amazon", "503"))
+            self.assertFalse(monitor.avisar_falha_lista("Amazon", "503"))
+        enviar.assert_called_once()
+
     def test_alerta_uma_vez_apos_tres_falhas_e_rearma_com_sucesso(self):
         with patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
              patch.object(monitor.store, "falhas_consecutivas", return_value=3), \
