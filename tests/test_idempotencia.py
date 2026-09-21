@@ -9,20 +9,21 @@ import idempotencia
 class IdempotenciaTest(unittest.TestCase):
     def _sessao(self, valor=None):
         sessao = Mock()
-        resposta = Mock(status_code=200 if valor is not None else 404)
-        resposta.json.return_value = {"value": json.dumps(valor)} if valor else {}
+        resposta = Mock(status_code=200)
+        resposta.json.return_value = {"body": json.dumps(valor or {
+            "v": 1, "ofertas": {}, "bom_dia": {},
+        })}
         resposta.raise_for_status.return_value = None
         sessao.get.return_value = resposta
         sessao.patch.return_value = Mock(status_code=204)
         sessao.patch.return_value.raise_for_status.return_value = None
-        sessao.post.return_value = Mock(status_code=201)
-        sessao.post.return_value.raise_for_status.return_value = None
         return sessao
 
     def _ambiente(self):
         return patch.dict(os.environ, {
             "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
             "IDEMPOTENCIA_REMOTA_ATIVA": "true",
+            "BOT_JOURNAL_ISSUE": "1",
         }, clear=False)
 
     def test_reserva_antes_da_publicacao_e_recusa_repeticao(self):
@@ -32,7 +33,7 @@ class IdempotenciaTest(unittest.TestCase):
             self.assertTrue(idempotencia.reservar_oferta(
                 "produto", "Telegram", 49.9, "Shopee", sessao
             ))
-        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["value"])
+        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
         sessao = self._sessao(salvo)
         with self._ambiente():
             self.assertFalse(idempotencia.reservar_oferta(

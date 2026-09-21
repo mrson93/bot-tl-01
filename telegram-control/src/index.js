@@ -92,7 +92,8 @@ export function parseCommand(rawText) {
   return { name, args: parts.map((part) => part.toLowerCase()) };
 }
 
-function panelKeyboard() {
+function panelKeyboard(mode = "economico") {
+  const paused = mode === "pausado";
   return {
     inline_keyboard: [
       [{ text: CATEGORIES.canais.label, callback_data: "menu:canais" }],
@@ -101,7 +102,10 @@ function panelKeyboard() {
         { text: "⚡ Normal", callback_data: "mode:normal" },
       ],
       [{ text: "🚀 Rápido", callback_data: "mode:rapido" }],
-      [{ text: "⏸ Pausar", callback_data: "mode:pausado" }],
+      [{
+        text: paused ? "▶️ Ativar" : "⏸ Pausar",
+        callback_data: paused ? "mode:economico" : "mode:pausado",
+      }],
       [
         { text: "📊 Status", callback_data: "action:status" },
         { text: "📄 Relatório", callback_data: "action:relatorio" },
@@ -782,7 +786,13 @@ async function showStatus(env, chatId, fetchImpl) {
   const lastRun = run?.created_at
     ? `\nÚltima execução bem-sucedida: ${run.created_at}`
     : "\nAinda não encontrei uma execução bem-sucedida.";
-  await sendMessage(env, chatId, `🤖 Bot de ofertas\n${modeText(mode)}${lastRun}`, fetchImpl);
+  await sendMessage(env, chatId, `🤖 Bot de ofertas\n${modeText(mode)}${lastRun}`,
+    fetchImpl, panelKeyboard(mode));
+}
+
+async function showPanel(env, chatId, fetchImpl) {
+  const mode = await getMode(env, fetchImpl);
+  return sendMessage(env, chatId, panelText(), fetchImpl, panelKeyboard(mode));
 }
 
 async function chooseMode(env, chatId, mode, callbackId, fetchImpl) {
@@ -803,6 +813,7 @@ async function chooseMode(env, chatId, mode, callbackId, fetchImpl) {
     chatId,
     `✅ Configuração atualizada no GitHub.\n${modeText(mode)}`,
     fetchImpl,
+    panelKeyboard(mode),
   );
 }
 
@@ -958,7 +969,7 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   }
   if (callbackData === "menu:panel") {
     await answerCallback(env, callback.id, "Painel principal", fetchImpl);
-    return sendMessage(env, chatId, panelText(), fetchImpl);
+    return showPanel(env, chatId, fetchImpl);
   }
   if (callbackData === "menu:root") {
     await answerCallback(env, callback.id, "Configurações", fetchImpl);
@@ -1047,7 +1058,7 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
     return sendMessage(env, chatId, helpText(), fetchImpl, helpKeyboard());
   }
   if (["start", "painel"].includes(name)) {
-    return sendMessage(env, chatId, panelText(), fetchImpl);
+    return showPanel(env, chatId, fetchImpl);
   }
   if (name === "status") return showStatus(env, chatId, fetchImpl);
   if (["config", "configuracoes", "configurações"].includes(name)) {

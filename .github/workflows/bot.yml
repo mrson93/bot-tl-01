@@ -34,6 +34,7 @@ on:
 permissions:
   contents: read
   actions: write
+  issues: write
 
 concurrency:                  # evita duas rodadas ao mesmo tempo
   group: bot-ofertas
@@ -56,6 +57,7 @@ jobs:
       BOT_STATE_KEY: ${{ secrets.BOT_STATE_KEY }}
       GH_TOKEN: ${{ github.token }}
       IDEMPOTENCIA_REMOTA_ATIVA: "true"
+      BOT_JOURNAL_ISSUE: "1"
       # --- segredos (configurados em Settings > Secrets > Actions) ---
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
@@ -208,7 +210,7 @@ jobs:
         run: python estado_remoto.py restaurar
 
       - name: Procurar e postar ofertas
-        if: github.ref == 'refs/heads/main' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.teste_facebook != true && inputs.campanha == ''
+        if: github.ref == 'refs/heads/main' && env.BOT_MODE != 'pausado' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.teste_facebook != true && inputs.campanha == ''
         run: python main.py --once
 
       - name: Conferir produtos ainda não publicados

@@ -204,6 +204,28 @@ test("modo rapido usa a opcao fechada e informa o novo ritmo", async () => {
   assert.match(message, /82 Actions\/dia/);
 });
 
+test("painel mostra Ativar quando pausado e Pausar quando ativo", async () => {
+  for (const [mode, label, callbackData] of [
+    ["pausado", "▶️ Ativar", "mode:economico"],
+    ["normal", "⏸ Pausar", "mode:pausado"],
+  ]) {
+    const calls = [];
+    const fakeFetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/actions/variables/BOT_MODE")) {
+        return Response.json({ value: mode });
+      }
+      return Response.json({ ok: true });
+    };
+    const response = await worker.fetch(request(update("/painel")), env, fakeFetch);
+    assert.equal(response.status, 200);
+    const telegram = calls.find((call) => call.url.includes("api.telegram.org"));
+    const buttons = JSON.parse(telegram.options.body).reply_markup.inline_keyboard.flat();
+    assert.ok(buttons.some((button) =>
+      button.text === label && button.callback_data === callbackData));
+  }
+});
+
 test("relatorio dispara somente o workflow existente", async () => {
   const calls = [];
   const fakeFetch = async (url, options = {}) => {
