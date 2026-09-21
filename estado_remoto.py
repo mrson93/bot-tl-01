@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import os
+import re
 import sqlite3
 import tempfile
 import time
@@ -29,9 +30,19 @@ SEM_REMOTO = Path(__file__).parent / ".estado-sem-remoto"
 MAX_BANCO = 32 * 1024 * 1024
 MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
 MAX_ARTEFATOS_TENTADOS = 10
+TAMANHO_PARTE_ISSUE = 50_000
+MAX_PARTES_ISSUE = 128
+MAX_PAGINAS_COMENTARIOS = 10
 MAGIA = b"DEAL-SIGNAL-STATE-1\x00"
 MAGIA_COMPACTADA = b"DEAL-SIGNAL-STATE-2\x00"
 CONTEXTO = b"bot-state:v1"
+PADRAO_MANIFESTO = re.compile(
+    r"<!-- bot-state-manifest:v1:([0-9a-f]{64}):(\d+):(\d+) -->"
+)
+PADRAO_PARTE = re.compile(
+    r"\A<!-- bot-state-part:v1:([0-9a-f]{64}):(\d+)/(\d+) -->\n"
+    r"([A-Za-z0-9+/=]+)\Z"
+)
 
 
 def _hash(caminho=DB):
@@ -182,6 +193,142 @@ def preparar_upload():
     return True
 
 
+def _configuracao_github():
+    repositorio = os.getenv("GITHUB_REPOSITORY", "").strip()
+    token = os.getenv("GH_TOKEN", "").strip()
+    if not repositorio or not token:
+        return None
+    if (repositorio.count("/") != 1 or not all(
+            parte and parte.replace("-", "").replace("_", "").isalnum()
+            for parte in repositorio.split("/"))):
+        raise RuntimeError("GITHUB_REPOSITORY invalido")
+    return repositorio, token
+
+
+def _numero_issue_estado():
+    valor = os.getenv("BOT_STATE_ISSUE", "").strip()
+    if not valor:
+        return None
+    if not valor.isdigit() or int(valor) <= 0:
+        raise RuntimeError("BOT_STATE_ISSUE invalido")
+    return int(valor)
+
+
+def _listar_comentarios_issue(api_issue, sessao, token):
+    comentarios = []
+    for pagina in range(1, MAX_PAGINAS_COMENTARIOS + 1):
+        resposta = sessao.get(
+            f"{api_issue}/comments", headers=_headers(token),
+            params={"per_page": 100, "page": pagina}, timeout=30,
+            allow_redirects=False,
+        )
+        resposta.raise_for_status()
+        lote = resposta.json() or []
+        comentarios.extend(lote)
+        if len(lote) < 100:
+            return comentarios
+    raise RuntimeError("Estado remoto possui comentarios demais")
+
+
+def _restaurar_de_issue(sessao, repositorio, token, numero_issue):
+    api_issue = f"https://api.github.com/repos/{repositorio}/issues/{numero_issue}"
+    resposta = sessao.get(
+        api_issue, headers=_headers(token), timeout=30, allow_redirects=False
+    )
+    if resposta.status_code == 404:
+        return None
+    resposta.raise_for_status()
+    corpo = str((resposta.json() or {}).get("body") or "")
+    manifesto = PADRAO_MANIFESTO.search(corpo)
+    if not manifesto:
+        return None
+    identificador, total_texto, tamanho_texto = manifesto.groups()
+    total = int(total_texto)
+    tamanho = int(tamanho_texto)
+    if total <= 0 or total > MAX_PARTES_ISSUE or tamanho > MAX_DOWNLOAD:
+        raise RuntimeError("Manifesto do estado remoto invalido")
+    partes = {}
+    for comentario in _listar_comentarios_issue(api_issue, sessao, token):
+        encontrado = PADRAO_PARTE.fullmatch(str(comentario.get("body") or ""))
+        if not encontrado or encontrado.group(1) != identificador:
+            continue
+        indice = int(encontrado.group(2))
+        if int(encontrado.group(3)) != total or not 1 <= indice <= total:
+            continue
+        partes[indice] = encontrado.group(4)
+    if len(partes) != total:
+        raise RuntimeError("Snapshot do estado remoto esta incompleto")
+    try:
+        protegido = base64.b64decode(
+            "".join(partes[i] for i in range(1, total + 1)), validate=True
+        )
+    except (ValueError, TypeError) as erro:
+        raise RuntimeError("Snapshot do estado remoto possui base64 invalido") from erro
+    if len(protegido) != tamanho or hashlib.sha256(protegido).hexdigest() != identificador:
+        raise RuntimeError("Snapshot do estado remoto falhou na verificacao")
+    return _descriptografar(protegido)
+
+
+def salvar_issue(sessao=requests):
+    """Salva um snapshot criptografado numa issue, sem consumir Actions Storage."""
+    configuracao = _configuracao_github()
+    numero_issue = _numero_issue_estado()
+    if not configuracao or not numero_issue:
+        raise RuntimeError("Armazenamento remoto por issue nao configurado")
+    preparar_upload()
+    protegido = DB_CRIPTOGRAFADO.read_bytes()
+    codificado = base64.b64encode(protegido).decode("ascii")
+    partes = [codificado[i:i + TAMANHO_PARTE_ISSUE]
+              for i in range(0, len(codificado), TAMANHO_PARTE_ISSUE)]
+    if not partes or len(partes) > MAX_PARTES_ISSUE:
+        raise RuntimeError("Estado remoto excedeu a capacidade segura da issue")
+    repositorio, token = configuracao
+    api_issue = f"https://api.github.com/repos/{repositorio}/issues/{numero_issue}"
+    antigos = _listar_comentarios_issue(api_issue, sessao, token)
+    identificador = hashlib.sha256(protegido).hexdigest()
+    total = len(partes)
+    novos_ids = set()
+    for indice, parte in enumerate(partes, 1):
+        corpo = (
+            f"<!-- bot-state-part:v1:{identificador}:{indice}/{total} -->\n{parte}"
+        )
+        resposta = sessao.post(
+            f"{api_issue}/comments", headers=_headers(token), json={"body": corpo},
+            timeout=30, allow_redirects=False,
+        )
+        resposta.raise_for_status()
+        comentario_id = (resposta.json() or {}).get("id")
+        if comentario_id:
+            novos_ids.add(int(comentario_id))
+    manifesto = (
+        f"<!-- bot-state-manifest:v1:{identificador}:{total}:{len(protegido)} -->\n"
+        "Snapshot criptografado do bot. Conteudo tecnico; nao editar."
+    )
+    resposta = sessao.patch(
+        api_issue, headers=_headers(token), json={"body": manifesto},
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    removidos = 0
+    for comentario in antigos:
+        comentario_id = comentario.get("id")
+        if not comentario_id or int(comentario_id) in novos_ids:
+            continue
+        try:
+            exclusao = sessao.delete(
+                f"https://api.github.com/repos/{repositorio}/issues/comments/{comentario_id}",
+                headers=_headers(token), timeout=30, allow_redirects=False,
+            )
+            if exclusao.status_code not in {204, 404}:
+                exclusao.raise_for_status()
+            removidos += 1
+        except Exception as erro:
+            print(f"⚠️ Comentario antigo do estado nao removido: {type(erro).__name__}")
+    print(f"✅ Estado remoto salvo sem Actions Storage ({total} parte(s), "
+          f"{removidos} antiga(s) removida(s)).")
+    return True
+
+
 def _baixar_e_validar(artefato, sessao, token):
     """Baixa um snapshot e devolve o SQLite autenticado, ainda em memória."""
     url_arquivo = str(artefato.get("archive_download_url") or "")
@@ -228,14 +375,30 @@ def _baixar_e_validar(artefato, sessao, token):
 
 
 def restaurar(obrigatorio=False, sessao=requests):
-    repositorio = os.getenv("GITHUB_REPOSITORY", "").strip()
-    token = os.getenv("GH_TOKEN", "").strip()
-    if not repositorio or not token:
+    configuracao = _configuracao_github()
+    if not configuracao:
         HASH_INICIAL.write_text(_hash(), encoding="ascii")
         return False
-    if not all(parte and parte.replace("-", "").replace("_", "").isalnum()
-               for parte in repositorio.split("/")) or repositorio.count("/") != 1:
-        raise RuntimeError("GITHUB_REPOSITORY invalido")
+    repositorio, token = configuracao
+    numero_issue = _numero_issue_estado()
+    if numero_issue:
+        dados_issue = _restaurar_de_issue(
+            sessao, repositorio, token, numero_issue
+        )
+        if dados_issue is not None:
+            with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
+                temporario.write(dados_issue)
+                caminho_temporario = Path(temporario.name)
+            try:
+                _validar_sqlite(caminho_temporario)
+                caminho_temporario.replace(DB)
+            finally:
+                caminho_temporario.unlink(missing_ok=True)
+            SEM_REMOTO.unlink(missing_ok=True)
+            HASH_INICIAL.write_text(_hash(), encoding="ascii")
+            print("✅ Estado remoto restaurado da issue e validado.")
+            return True
+    # Migração: enquanto existir, o último artefato válido inicializa a issue.
     api = f"https://api.github.com/repos/{repositorio}/actions/artifacts"
     resposta = sessao.get(api, headers=_headers(token),
                           params={"name": "bot-state", "per_page": 100},
@@ -323,13 +486,17 @@ def limpar_artefatos_antigos(manter=2, sessao=requests):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("acao", choices=("restaurar", "alterado", "preparar", "limpar"))
+    parser.add_argument(
+        "acao", choices=("restaurar", "alterado", "preparar", "salvar", "limpar")
+    )
     parser.add_argument("--obrigatorio", action="store_true")
     args = parser.parse_args()
     if args.acao == "restaurar":
         restaurar(args.obrigatorio)
     elif args.acao == "preparar":
         preparar_upload()
+    elif args.acao == "salvar":
+        salvar_issue()
     elif args.acao == "limpar":
         limpar_artefatos_antigos()
     else:

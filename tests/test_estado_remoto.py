@@ -78,6 +78,54 @@ class EstadoRemotoTest(unittest.TestCase):
             self.assertNotIn(b"SQLite format 3", protegido)
             self.assertEqual(estado_remoto.DB.read_bytes(), estado_remoto._descriptografar(protegido))
 
+    def test_salva_snapshot_em_issue_sem_actions_storage(self):
+        estado_remoto.DB.write_bytes(self._sqlite())
+        lista = Mock()
+        lista.json.return_value = []
+        lista.raise_for_status.return_value = None
+        criado = Mock()
+        criado.json.return_value = {"id": 123}
+        criado.raise_for_status.return_value = None
+        atualizado = Mock()
+        atualizado.raise_for_status.return_value = None
+        sessao = Mock(get=Mock(return_value=lista),
+                      post=Mock(return_value=criado),
+                      patch=Mock(return_value=atualizado))
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave, "BOT_STATE_ISSUE": "2",
+        }):
+            self.assertTrue(estado_remoto.salvar_issue(sessao))
+        self.assertGreaterEqual(sessao.post.call_count, 1)
+        self.assertIn("bot-state-manifest:v1", sessao.patch.call_args.kwargs["json"]["body"])
+        sessao.delete.assert_not_called()
+
+    def test_restaura_snapshot_da_issue_antes_do_artefato(self):
+        bruto = self._sqlite()
+        with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
+            protegido = estado_remoto._criptografar(bruto)
+        identificador = estado_remoto.hashlib.sha256(protegido).hexdigest()
+        codificado = base64.b64encode(protegido).decode("ascii")
+        issue = Mock(status_code=200)
+        issue.json.return_value = {"body": (
+            f"<!-- bot-state-manifest:v1:{identificador}:1:{len(protegido)} -->"
+        )}
+        issue.raise_for_status.return_value = None
+        comentarios = Mock()
+        comentarios.json.return_value = [{"body": (
+            f"<!-- bot-state-part:v1:{identificador}:1/1 -->\n{codificado}"
+        )}]
+        comentarios.raise_for_status.return_value = None
+        sessao = Mock()
+        sessao.get.side_effect = [issue, comentarios]
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave, "BOT_STATE_ISSUE": "2",
+        }):
+            self.assertTrue(estado_remoto.restaurar(True, sessao))
+        self.assertEqual(bruto, estado_remoto.DB.read_bytes())
+        self.assertEqual(2, sessao.get.call_count)
+
     def test_compacta_antes_de_criptografar_e_aceita_formato_anterior(self):
         bruto = self._sqlite() + b"repeticao" * 100_000
         with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
