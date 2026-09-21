@@ -22,14 +22,36 @@ def _top(contadores, limite=3):
 
 
 def _somar_cliques(resumos):
-    total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {}, "por_oferta": {}, "por_origem": {}}
+    total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {},
+             "por_fonte_canal": {}, "por_oferta": {}, "por_origem": {}}
     for resumo in resumos:
         total["total"] += int(resumo.get("total") or 0)
         total["visitas"] += int(resumo.get("visitas") or 0)
         for campo in ("por_canal", "por_fonte", "por_oferta", "por_origem"):
             for chave, valor in (resumo.get(campo) or {}).items():
                 total[campo][chave] = total[campo].get(chave, 0) + int(valor or 0)
+        for fonte, canais in (resumo.get("por_fonte_canal") or {}).items():
+            destino = total["por_fonte_canal"].setdefault(fonte, {})
+            for canal, quantidade in canais.items():
+                destino[canal] = destino.get(canal, 0) + int(quantidade or 0)
     return total
+
+
+def _cliques_marketplaces(resumo):
+    """Resume cliques de Amazon e Mercado Livre e os canais conhecidos."""
+    if not resumo:
+        return []
+    linhas = []
+    por_fonte = resumo.get("por_fonte") or {}
+    por_fonte_canal = resumo.get("por_fonte_canal") or {}
+    for fonte in ("Amazon", "Mercado Livre"):
+        quantidade = int(por_fonte.get(fonte) or 0)
+        canais = por_fonte_canal.get(fonte) or {}
+        detalhe = " · ".join(
+            f"{canal} {qtd}" for canal, qtd in sorted(canais.items()) if qtd
+        )
+        linhas.append(f"{fonte}: {quantidade}" + (f" ({detalhe})" if detalhe else ""))
+    return linhas
 
 
 def _detalhes(blocos, conversoes):
@@ -247,15 +269,20 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
     total_cliques = str(cliques_dia["total"]) if cliques_dia is not None else "indisponível"
     total_visitas = (str(cliques_dia.get("visitas", 0))
                      if cliques_dia is not None else "indisponível")
+    cliques_lojas_dia = _cliques_marketplaces(cliques_dia)
     blocos = [f"📊 RELATÓRIO DIÁRIO · {data}", "━━━━━━━━━━━━━━",
               "📈 RESULTADOS DE ONTEM · 00h–23h59",
               f"👁 Visitas no site: {total_visitas}",
-              f"🔗 Cliques: {total_cliques} (saídas para lojas)", f"🛒 Vendas: {total_vendas}",
+              f"🔗 Cliques: {total_cliques} (saídas para lojas)",
+              f"🛒 Vendas: {total_vendas} (Shopee + AliExpress)",
               " · ".join(f"{fonte}: {valor if valor is not None else 'indisponível'}"
                          for fonte, valor in vendas_dia.items()),
+              "Amazon e Mercado Livre: vendas não incluídas (painéis sem API de relatório).",
               "Vendas = conversões válidas; inclui pendentes, exclui canceladas.",
               "", "📮 OPERAÇÃO DE ONTEM",
               f"✅ {sucessos} entregas · ⚠️ {falhas} falhas"]
+    if cliques_lojas_dia:
+        blocos.insert(6, "Cliques por loja: " + " · ".join(cliques_lojas_dia))
     if por_canal:
         blocos.append("Canais: " + " · ".join(f"{nome} {qtd}" for nome, qtd in sorted(por_canal.items())))
     if por_loja:
@@ -335,6 +362,9 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
 
     if cliques:
         blocos.extend(["", f"🔗 CLIQUES · {cliques['total']} nos últimos 7 dias"])
+        cliques_lojas = _cliques_marketplaces(cliques)
+        if cliques_lojas:
+            blocos.append("Por loja: " + " · ".join(cliques_lojas))
         if cliques.get("por_canal"):
             blocos.append("Por canal: " + " · ".join(
                 f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_canal"].items())

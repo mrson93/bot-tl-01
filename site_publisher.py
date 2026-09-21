@@ -331,6 +331,11 @@ def resumo_cliques(inicio, fim):
                       (dados.get("by_channel") or {}).items()},
         "por_fonte": {str(k): int(v) for k, v in
                       (dados.get("by_source") or {}).items()},
+        "por_fonte_canal": {
+            str(fonte): {str(canal): int(qtd) for canal, qtd in canais.items()}
+            for fonte, canais in (dados.get("by_channel_source") or {}).items()
+            if isinstance(canais, dict)
+        },
         "por_oferta": {str(k): int(v) for k, v in
                        (dados.get("by_offer") or {}).items()},
         "por_origem": {str(k): int(v) for k, v in

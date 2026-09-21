@@ -79,3 +79,20 @@ test('rejeita destino não autorizado e intervalo inválido',async()=>{
     {headers:{Authorization:`Bearer ${'a'.repeat(32)}`}});
   assert.equal((await worker.fetch(stats,env())).status,400);
 });
+
+test('relatório cruza loja e canal sem guardar dados pessoais',async()=>{
+  const DB={prepare(sql){return {bind(){return this;},async all(){
+    if(sql.includes('GROUP BY l.channel,l.source')) return {results:[
+      {channel:'Telegram',source:'Amazon',quantity:2},
+      {channel:'X',source:'Mercado Livre',quantity:1},
+    ]};
+    return {results:[{offer_id:'amazon_A123',quantity:2}]};
+  }};}};
+  const request=new Request('https://go.canaltabarato.com.br/api/stats?start=1&end=2',
+    {headers:{Authorization:`Bearer ${'a'.repeat(32)}`}});
+  const body=await (await worker.fetch(request,env({DB}))).json();
+  assert.deepEqual(body.by_channel_source,{
+    Amazon:{Telegram:2},'Mercado Livre':{X:1},
+  });
+  assert.equal(JSON.stringify(body).includes('ip'),false);
+});

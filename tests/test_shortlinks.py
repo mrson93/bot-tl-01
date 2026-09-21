@@ -42,6 +42,7 @@ class ShortlinksTest(unittest.TestCase):
     def test_relatorio_de_cliques_e_somente_agregado(self):
         resposta = Resposta({"total": 3, "by_channel": {"Telegram": 2},
                              "by_source": {"Shopee": 3},
+                             "by_channel_source": {"Shopee": {"Telegram": 2}},
                              "by_offer": {"shopee_1_2": 3}})
         with patch.object(shortlinks.config, "SHORTLINK_API_URL",
                           "https://oferta.example"), \
@@ -51,6 +52,8 @@ class ShortlinksTest(unittest.TestCase):
                                                 datetime(2026, 8, 2))
         self.assertEqual(3, resumo["total"])
         self.assertEqual({"shopee_1_2": 3}, resumo["por_oferta"])
+        self.assertEqual({"Shopee": {"Telegram": 2}},
+                         resumo["por_fonte_canal"])
         self.assertNotIn("ip", repr(resumo).lower())
 
 

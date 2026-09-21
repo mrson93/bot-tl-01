@@ -12,12 +12,14 @@ class RelatorioTest(unittest.TestCase):
              "por_fonte": {"Shopee": 2}, "por_oferta": {"a": 2}},
             {"total": 3, "por_canal": {"site": 3},
              "por_fonte": {"Shopee": 1, "Amazon": 2},
+             "por_fonte_canal": {"Amazon": {"site": 2}},
              "por_oferta": {"a": 1, "b": 2},
              "por_origem": {"instagram": 3}},
         ])
         self.assertEqual(5, total["total"])
         self.assertEqual(3, total["por_oferta"]["a"])
         self.assertEqual(3, total["por_fonte"]["Shopee"])
+        self.assertEqual(2, total["por_fonte_canal"]["Amazon"]["site"])
         self.assertEqual(3, total["por_origem"]["instagram"])
 
     def setUp(self):
@@ -62,7 +64,23 @@ class RelatorioTest(unittest.TestCase):
         self.assertIn("🔗 Cliques: 42", inicio)
         self.assertIn("🛒 Vendas: 9", inicio)
         self.assertIn("AliExpress: 3 · Shopee: 6", inicio)
+        self.assertIn("Amazon e Mercado Livre: vendas não incluídas", inicio)
         self.assertNotIn("999", inicio)
+
+    def test_relatorio_separa_cliques_amazon_e_mercado_livre_por_canal(self):
+        cliques = {
+            "total": 9,
+            "por_fonte": {"Amazon": 4, "Mercado Livre": 3, "Shopee": 2},
+            "por_fonte_canal": {
+                "Amazon": {"Telegram": 3, "Facebook": 1},
+                "Mercado Livre": {"Site": 2, "X": 1},
+            },
+        }
+        texto = relatorio._texto([], "02/09/2026", cliques=cliques,
+                                 cliques_dia=cliques)
+        self.assertIn("Cliques por loja: Amazon: 4 (Facebook 1 · Telegram 3)", texto)
+        self.assertIn("Mercado Livre: 3 (Site 2 · X 1)", texto)
+        self.assertIn("Por loja: Amazon: 4", texto)
 
     def test_resultado_diario_indisponivel_nao_vira_zero(self):
         texto = relatorio._texto([], "02/09/2026")

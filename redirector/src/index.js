@@ -105,6 +105,7 @@ async function stats(request, env) {
   ).bind(start, end).all();
   const byChannel = {};
   const bySource = {};
+  const byChannelSource = {};
   const byOffer = {};
   let total = 0;
   for (const row of rows.results || []) {
@@ -112,11 +113,15 @@ async function stats(request, env) {
     total += quantity;
     byChannel[row.channel] = (byChannel[row.channel] || 0) + quantity;
     bySource[row.source] = (bySource[row.source] || 0) + quantity;
+    byChannelSource[row.source] ||= {};
+    byChannelSource[row.source][row.channel] =
+      (byChannelSource[row.source][row.channel] || 0) + quantity;
   }
   for (const row of offerRows.results || []) {
     byOffer[row.offer_id] = Number(row.quantity || 0);
   }
   return json({ total, by_channel: byChannel, by_source: bySource,
+    by_channel_source: byChannelSource,
     by_offer: byOffer });
 }
 
