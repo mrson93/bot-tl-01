@@ -126,6 +126,60 @@ class EstadoRemotoTest(unittest.TestCase):
         self.assertEqual(bruto, estado_remoto.DB.read_bytes())
         self.assertEqual(2, sessao.get.call_count)
 
+    def test_salva_snapshot_em_release_rascunho_sem_notificacoes(self):
+        estado_remoto.DB.write_bytes(self._sqlite())
+        lista = Mock()
+        lista.json.return_value = [{"id": 7, "tag_name": "bot-state-v1", "assets": []}]
+        lista.raise_for_status.return_value = None
+        upload = Mock()
+        upload.json.return_value = {"id": 9, "name": "novo.enc"}
+        upload.raise_for_status.return_value = None
+        atualizado = Mock()
+        atualizado.raise_for_status.return_value = None
+        sessao = Mock(get=Mock(return_value=lista),
+                      post=Mock(return_value=upload),
+                      patch=Mock(return_value=atualizado))
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave,
+            "BOT_STATE_RELEASE_TAG": "bot-state-v1",
+        }):
+            self.assertTrue(estado_remoto.salvar_release(sessao))
+        self.assertIn("uploads.github.com", sessao.post.call_args.args[0])
+        manifesto = sessao.patch.call_args.kwargs["json"]["body"]
+        self.assertIn("bot-state-release:v1", manifesto)
+        self.assertTrue(sessao.patch.call_args.kwargs["json"]["draft"])
+
+    def test_restaura_snapshot_da_release_rascunho(self):
+        bruto = self._sqlite()
+        with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
+            protegido = estado_remoto._criptografar(bruto)
+        identificador = estado_remoto.hashlib.sha256(protegido).hexdigest()
+        nome = f"bot-state-{identificador[:16]}.enc"
+        lista = Mock()
+        lista.json.return_value = [{
+            "id": 7, "tag_name": "bot-state-v1",
+            "body": f"<!-- bot-state-release:v1:{identificador}:{len(protegido)}:{nome} -->",
+            "assets": [{"id": 9, "name": nome,
+                        "url": "https://api.github.com/repos/dono/repo/releases/assets/9"}],
+        }]
+        lista.raise_for_status.return_value = None
+        redirecao = Mock(status_code=302, headers={
+            "Location": "https://objects.githubusercontent.com/estado.enc"
+        })
+        download = Mock()
+        download.iter_content.return_value = [protegido]
+        download.raise_for_status.return_value = None
+        sessao = Mock()
+        sessao.get.side_effect = [lista, redirecao, download]
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave,
+            "BOT_STATE_RELEASE_TAG": "bot-state-v1",
+        }):
+            self.assertTrue(estado_remoto.restaurar(True, sessao))
+        self.assertEqual(bruto, estado_remoto.DB.read_bytes())
+
     def test_compacta_antes_de_criptografar_e_aceita_formato_anterior(self):
         bruto = self._sqlite() + b"repeticao" * 100_000
         with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):

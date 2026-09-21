@@ -32,7 +32,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   actions: read
   issues: write
 
@@ -55,7 +55,7 @@ jobs:
       TZ: America/Sao_Paulo
       BOT_MODE: ${{ vars.BOT_MODE || 'economico' }}
       BOT_STATE_KEY: ${{ secrets.BOT_STATE_KEY }}
-      BOT_STATE_ISSUE: "2"
+      BOT_STATE_RELEASE_TAG: "bot-state-v1"
       GH_TOKEN: ${{ github.token }}
       IDEMPOTENCIA_REMOTA_ATIVA: "true"
       BOT_JOURNAL_ISSUE: "1"

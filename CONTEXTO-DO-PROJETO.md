@@ -89,7 +89,7 @@ flowchart LR
     G --> R[Worker de links curtos]
     P --> D1[(D1 do catálogo)]
     R --> D2[(D1 dos links)]
-    G --> E[(SQLite local<br/>snapshot criptografado na issue #2)]
+    G --> E[(SQLite local<br/>release rascunho criptografada)]
 ```
 
 ### Componentes
@@ -122,7 +122,7 @@ flowchart LR
 
 6. **Estado operacional do bot**
    - SQLite local `postadas.db` durante a execução;
-   - enviado de forma compactada e criptografada à issue técnica `#2`;
+   - enviado de forma compactada e criptografada a uma release rascunho técnica;
    - criptografia autenticada usando `BOT_STATE_KEY`;
    - gravação atômica por manifesto, restauração e validação em `estado_remoto.py`;
    - não consome o limite de Actions Storage.
@@ -156,10 +156,9 @@ site é uma vitrine pública; escritas administrativas exigem tokens de serviço
     o registro.
 13. Cupons oficiais, atalhos de loja, catálogo antigo e relatório também são
     atualizados quando aplicável.
-14. O SQLite é limpo, compactado antes da criptografia e salvo em partes na
-    issue técnica `#2`. O manifesto só aponta para o snapshot novo depois que
-    todas as partes foram gravadas; o artefato antigo permanece como fallback
-    durante a migração.
+14. O SQLite é limpo, compactado antes da criptografia e salvo como asset de uma
+    release rascunho. O manifesto só aponta para o snapshot novo depois que o
+    upload termina; assets antigos são removidos em seguida.
 
 Uma falha de um canal não desfaz os sucessos dos outros canais. Falhas de
 transporte sem confirmação não são repetidas dentro da mesma chamada quando
@@ -785,7 +784,7 @@ os testes de `tests/test_story_layout.py`.
 | `monitor.py` | Saúde do workflow e dos canais. |
 | `observabilidade.py` | Eventos técnicos sem conteúdo sensível. |
 | `seguranca.py` | Validação de URLs, hosts e redação de segredos. |
-| `estado_remoto.py` | Criptografia e snapshot do SQLite na issue técnica. |
+| `estado_remoto.py` | Criptografia e snapshot do SQLite em release rascunho. |
 | `site/` | Frontend, Functions, schema, migrations e testes do site. |
 | `redirector/` | Worker, D1 e testes dos links curtos. |
 | `telegram-control/` | Painel administrativo e scheduler. |

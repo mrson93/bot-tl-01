@@ -43,6 +43,9 @@ PADRAO_PARTE = re.compile(
     r"\A<!-- bot-state-part:v1:([0-9a-f]{64}):(\d+)/(\d+) -->\n"
     r"([A-Za-z0-9+/=]+)\Z"
 )
+PADRAO_RELEASE = re.compile(
+    r"<!-- bot-state-release:v1:([0-9a-f]{64}):(\d+):([A-Za-z0-9._-]+) -->"
+)
 
 
 def _hash(caminho=DB):
@@ -214,6 +217,151 @@ def _numero_issue_estado():
     return int(valor)
 
 
+def _tag_release_estado():
+    valor = os.getenv("BOT_STATE_RELEASE_TAG", "").strip()
+    if not valor:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", valor):
+        raise RuntimeError("BOT_STATE_RELEASE_TAG invalida")
+    return valor
+
+
+def _obter_release(sessao, repositorio, token, tag, criar=False):
+    api = f"https://api.github.com/repos/{repositorio}/releases"
+    resposta = sessao.get(
+        api, headers=_headers(token), params={"per_page": 100}, timeout=30,
+        allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    for release in resposta.json() or []:
+        if release.get("tag_name") == tag:
+            return release
+    if not criar:
+        return None
+    resposta = sessao.post(
+        api, headers=_headers(token), json={
+            "tag_name": tag,
+            "target_commitish": "main",
+            "name": "Estado remoto criptografado",
+            "body": "Snapshot técnico criptografado; não publicar nem editar.",
+            "draft": True,
+            "prerelease": True,
+        }, timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
+
+
+def _baixar_asset_release(asset, sessao, token):
+    url = str(asset.get("url") or "")
+    origem = urlparse(url)
+    if origem.scheme != "https" or origem.netloc.lower() != "api.github.com":
+        raise RuntimeError("GitHub devolveu uma origem inesperada para o estado")
+    headers = _headers(token)
+    headers["Accept"] = "application/octet-stream"
+    primeira = sessao.get(
+        url, headers=headers, timeout=30, allow_redirects=False
+    )
+    if primeira.status_code not in {301, 302, 303, 307, 308}:
+        primeira.raise_for_status()
+        raise RuntimeError("GitHub nao forneceu o download seguro do estado")
+    destino = seguranca.validar_url_https_publica(
+        primeira.headers.get("Location"), "Download do estado"
+    )
+    download = sessao.get(destino, timeout=30, allow_redirects=False, stream=True)
+    download.raise_for_status()
+    conteudo = bytearray()
+    try:
+        for pedaco in download.iter_content(chunk_size=64 * 1024):
+            conteudo.extend(pedaco)
+            if len(conteudo) > MAX_DOWNLOAD:
+                raise RuntimeError("Estado remoto excedeu o limite de seguranca")
+    finally:
+        download.close()
+    return bytes(conteudo)
+
+
+def _restaurar_de_release(sessao, repositorio, token, tag):
+    release = _obter_release(sessao, repositorio, token, tag)
+    if not release:
+        return None
+    manifesto = PADRAO_RELEASE.search(str(release.get("body") or ""))
+    if not manifesto:
+        return None
+    identificador, tamanho_texto, nome = manifesto.groups()
+    tamanho = int(tamanho_texto)
+    if tamanho <= 0 or tamanho > MAX_DOWNLOAD:
+        raise RuntimeError("Manifesto da release de estado invalido")
+    asset = next((item for item in release.get("assets") or []
+                  if item.get("name") == nome), None)
+    if not asset:
+        raise RuntimeError("Asset do estado remoto nao encontrado")
+    protegido = _baixar_asset_release(asset, sessao, token)
+    if len(protegido) != tamanho or hashlib.sha256(protegido).hexdigest() != identificador:
+        raise RuntimeError("Asset do estado remoto falhou na verificacao")
+    return _descriptografar(protegido)
+
+
+def salvar_release(sessao=requests):
+    """Salva o snapshot em uma release rascunho, sem e-mails ou Actions Storage."""
+    configuracao = _configuracao_github()
+    tag = _tag_release_estado()
+    if not configuracao or not tag:
+        raise RuntimeError("Armazenamento remoto por release nao configurado")
+    preparar_upload()
+    protegido = DB_CRIPTOGRAFADO.read_bytes()
+    if len(protegido) > MAX_DOWNLOAD:
+        raise RuntimeError("Estado remoto excedeu o limite de seguranca")
+    repositorio, token = configuracao
+    release = _obter_release(sessao, repositorio, token, tag, criar=True)
+    release_id = release.get("id")
+    if not release_id:
+        raise RuntimeError("Release do estado remoto invalida")
+    identificador = hashlib.sha256(protegido).hexdigest()
+    nome = f"bot-state-{identificador[:16]}.enc"
+    assets = release.get("assets") or []
+    novo = next((asset for asset in assets if asset.get("name") == nome), None)
+    if not novo:
+        upload = (
+            f"https://uploads.github.com/repos/{repositorio}/releases/"
+            f"{release_id}/assets"
+        )
+        headers = _headers(token)
+        headers["Content-Type"] = "application/octet-stream"
+        resposta = sessao.post(
+            upload, headers=headers, params={"name": nome}, data=protegido,
+            timeout=60, allow_redirects=False,
+        )
+        resposta.raise_for_status()
+        novo = resposta.json()
+    manifesto = (
+        f"<!-- bot-state-release:v1:{identificador}:{len(protegido)}:{nome} -->\n"
+        "Snapshot técnico criptografado; não publicar nem editar."
+    )
+    resposta = sessao.patch(
+        f"https://api.github.com/repos/{repositorio}/releases/{release_id}",
+        headers=_headers(token), json={"body": manifesto, "draft": True},
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    novo_id = novo.get("id")
+    for asset in assets:
+        asset_id = asset.get("id")
+        if not asset_id or asset_id == novo_id:
+            continue
+        try:
+            exclusao = sessao.delete(
+                f"https://api.github.com/repos/{repositorio}/releases/assets/{asset_id}",
+                headers=_headers(token), timeout=30, allow_redirects=False,
+            )
+            if exclusao.status_code not in {204, 404}:
+                exclusao.raise_for_status()
+        except Exception as erro:
+            print(f"⚠️ Asset antigo do estado nao removido: {type(erro).__name__}")
+    print(f"✅ Estado remoto salvo na release rascunho ({len(protegido)} bytes).")
+    return True
+
+
 def _listar_comentarios_issue(api_issue, sessao, token):
     comentarios = []
     for pagina in range(1, MAX_PAGINAS_COMENTARIOS + 1):
@@ -380,6 +528,24 @@ def restaurar(obrigatorio=False, sessao=requests):
         HASH_INICIAL.write_text(_hash(), encoding="ascii")
         return False
     repositorio, token = configuracao
+    tag_release = _tag_release_estado()
+    if tag_release:
+        dados_release = _restaurar_de_release(
+            sessao, repositorio, token, tag_release
+        )
+        if dados_release is not None:
+            with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
+                temporario.write(dados_release)
+                caminho_temporario = Path(temporario.name)
+            try:
+                _validar_sqlite(caminho_temporario)
+                caminho_temporario.replace(DB)
+            finally:
+                caminho_temporario.unlink(missing_ok=True)
+            SEM_REMOTO.unlink(missing_ok=True)
+            HASH_INICIAL.write_text(_hash(), encoding="ascii")
+            print("✅ Estado remoto restaurado da release e validado.")
+            return True
     numero_issue = _numero_issue_estado()
     if numero_issue:
         dados_issue = _restaurar_de_issue(
@@ -496,7 +662,7 @@ def main():
     elif args.acao == "preparar":
         preparar_upload()
     elif args.acao == "salvar":
-        salvar_issue()
+        salvar_release()
     elif args.acao == "limpar":
         limpar_artefatos_antigos()
     else:

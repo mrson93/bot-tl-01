@@ -213,12 +213,10 @@ cada programa.
 
 ### Estado remoto e automações
 
-O banco `postadas.db` é restaurado de um snapshot criptografado mantido na issue
-técnica `#2`, validado com `PRAGMA integrity_check` e salvo novamente somente
-quando mudar. O conteúdo é compactado e criptografado antes de ser dividido em
-comentários; o manifesto só muda depois que todas as partes foram enviadas. Isso
-evita consumir o Actions Storage. Durante a migração, o último artefato antigo
-continua aceito como fallback e inicializa automaticamente o novo armazenamento.
+O banco `postadas.db` é restaurado de um asset criptografado mantido numa release
+rascunho técnica, validado com `PRAGMA integrity_check` e salvo novamente somente
+quando mudar. O novo asset é enviado antes da troca do manifesto e os antigos são
+removidos depois, sem gerar notificações e sem consumir o Actions Storage.
 
 Os testes Python e os testes do controlador rodam no workflow `Testes` apenas
 quando o código muda. O GitHub usa a grade selecionada em `BOT_MODE`. O workflow
