@@ -8,6 +8,15 @@ import store
 
 
 class MonitorTest(unittest.TestCase):
+    def test_alerta_distingue_falha_posterior_de_falha_na_publicacao(self):
+        posterior = monitor.mensagem_falha_workflow("123", "success", "failure")
+        self.assertIn("publicou a oferta", posterior)
+        self.assertIn("Nao execute", posterior)
+        self.assertIn("salvar o estado", posterior)
+        publicacao = monitor.mensagem_falha_workflow("456", "failure", "skipped")
+        self.assertIn("durante a publicacao", publicacao)
+        self.assertNotIn("publicou a oferta", publicacao)
+
     def test_resumo_privado_identifica_sucesso_e_falha_por_canal(self):
         resposta = Mock()
         resposta.json.return_value = {"ok": True}

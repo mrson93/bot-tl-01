@@ -12,6 +12,8 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("python estado_remoto.py salvar", workflow)
         self.assertIn('BOT_STATE_ISSUE: "2"', workflow)
         self.assertIn("actions: read", workflow)
+        self.assertIn("PUBLICACAO_RESULTADO: ${{ steps.publicar.outcome }}", workflow)
+        self.assertIn("ESTADO_RESULTADO: ${{ steps.salvar_estado.outcome }}", workflow)
         self.assertIn("GH_TOKEN: ${{ github.token }}", workflow)
         self.assertIn('IDEMPOTENCIA_REMOTA_ATIVA: "true"', workflow)
         self.assertIn('BOT_JOURNAL_ISSUE: "1"', workflow)

@@ -211,6 +211,7 @@ jobs:
         run: python estado_remoto.py restaurar
 
       - name: Procurar e postar ofertas
+        id: publicar
         if: github.ref == 'refs/heads/main' && env.BOT_MODE != 'pausado' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.teste_facebook != true && inputs.campanha == ''
         run: python main.py --once
 
@@ -240,9 +241,13 @@ jobs:
         run: python estado_remoto.py alterado
 
       - name: Salvar estado remoto
+        id: salvar_estado
         if: always() && steps.estado.outputs.changed == 'true'
         run: python estado_remoto.py salvar
 
       - name: Alertar falha da execução
         if: failure() && inputs.somente_pendentes != true
+        env:
+          PUBLICACAO_RESULTADO: ${{ steps.publicar.outcome }}
+          ESTADO_RESULTADO: ${{ steps.salvar_estado.outcome }}
         run: python monitor.py --workflow-failure

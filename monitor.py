@@ -131,13 +131,28 @@ def verificar_execucoes(agora=None, sessao=requests, limite_minutos=20):
     return ""
 
 
+def mensagem_falha_workflow(run, publicacao_resultado="", estado_resultado=""):
+    """Distingue falha de publicação de erro técnico posterior à postagem."""
+    if publicacao_resultado == "success":
+        if estado_resultado == "failure":
+            return (f"A execucao {run} publicou a oferta, mas falhou ao salvar "
+                    "o estado. Nao execute a rodada novamente para evitar duplicacao.")
+        return (f"A execucao {run} publicou a oferta, mas encontrou uma falha "
+                "tecnica ao finalizar. Nao execute a rodada novamente.")
+    return f"A execucao {run} falhou durante a publicacao."
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--workflow-failure", action="store_true")
     args = parser.parse_args()
     if args.workflow_failure:
         run = os.getenv("GITHUB_RUN_ID", "desconhecida")
-        enviar_alerta(f"A execucao {run} falhou antes de concluir.")
+        enviar_alerta(mensagem_falha_workflow(
+            run,
+            os.getenv("PUBLICACAO_RESULTADO", ""),
+            os.getenv("ESTADO_RESULTADO", ""),
+        ))
         return
     alerta = verificar_execucoes()
     if alerta:
