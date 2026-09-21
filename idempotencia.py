@@ -13,7 +13,7 @@ import requests
 
 import store
 
-MAX_OFERTAS = 240
+MAX_OFERTAS = 180
 
 
 def _configuracao():
@@ -112,14 +112,19 @@ def sincronizar(sessao=requests):
             store.registrar_entrega(oid, str(canal), True, preco, fonte,
                                     agora=momento)
             total += 1
-        store.marcar_postada(oid, preco=preco, fonte=fonte, agora=momento)
+        store.marcar_postada(
+            oid, preco=preco, fonte=fonte, agora=momento,
+            titulo=str(item.get("n") or "") or None,
+            categoria=str(item.get("g") or "") or None,
+            loja=str(item.get("l") or "") or None,
+        )
     for data, canais in diario.get("bom_dia", {}).items():
         for canal in canais or []:
             store.marcar_bom_dia_enviado(data, str(canal))
     return total
 
 
-def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests):
+def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None):
     """Reserva antes do POST externo; False significa que ja foi reservado."""
     diario, contexto = _ler(sessao)
     if diario is None:
@@ -130,9 +135,13 @@ def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests):
     if canal in canais:
         return False
     canais.append(canal)
+    oferta = oferta or {}
     diario["ofertas"][chave] = {
         "i": str(oferta_id), "f": str(fonte), "p": float(preco or 0),
         "t": int(time.time()), "c": canais,
+        "n": " ".join(str(oferta.get("productName") or "").split())[:100],
+        "g": str(oferta.get("categoria") or "")[:30],
+        "l": " ".join(str(oferta.get("shopName") or "").split())[:50],
     }
     _salvar(diario, contexto, sessao)
     return True

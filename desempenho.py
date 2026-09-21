@@ -93,7 +93,9 @@ _REGRAS = (
     ),
      ("fone", "headset", "teclado", "mouse", "carregador", "cabo",
       "smartwatch", "caixa de som", "bluetooth", "camera", "monitor",
-      "echo", "alexa", "smart speaker", "alto falante", "ipad", "tablet")),
+      "echo", "alexa", "smart speaker", "alto falante", "ipad", "tablet",
+      "smartphone", "celular", "telefone", "relogio inteligente",
+      "smart watch", "filtro de linha", "extensao eletrica", "tomada")),
     ("beleza", (
      "Um cuidado a mais sem pesar no bolso ✨",
      "Pra reservar um momento de autocuidado na rotina ✨",
@@ -163,7 +165,7 @@ _REGRAS = (
      "Pra acompanhar seus objetivos de saúde e movimento 🏃",
     ),
      ("academia", "fitness", "esporte", "halter", "corrida", "bicicleta",
-      "tenis", "mochila")),
+      "tenis", "mochila", "creatina", "suplemento", "whey", "proteina")),
     ("moda", (
      "Uma peça versátil pra renovar o visual sem exagerar 💫",
      "Pra dar uma atualizada no guarda-roupa com praticidade 💫",
@@ -218,6 +220,13 @@ def classificar_produto(produto) -> tuple:
         "livro", "livros", "brochura", "capa dura",
     )):
         return "livros", 0.98
+    # Nomes de linhas como "Moto G35" não transformam um celular em item
+    # automotivo. Tipos digitais inequívocos vencem palavras incidentais.
+    if any(_contem_termo(normalizado, termo) for termo in (
+        "smartphone", "celular", "telefone", "smartwatch",
+        "relogio inteligente", "smart watch",
+    )):
+        return "eletronicos", 0.98
     if isinstance(produto, dict):
         categoria_pronta = str(produto.get("categoria") or "")
         if categoria_pronta in {regra[0] for regra in _REGRAS}:

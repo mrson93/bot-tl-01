@@ -55,7 +55,7 @@ jobs:
       TZ: America/Sao_Paulo
       BOT_MODE: ${{ vars.BOT_MODE || 'economico' }}
       BOT_STATE_KEY: ${{ secrets.BOT_STATE_KEY }}
-      BOT_STATE_RELEASE_TAG: "bot-state-v1"
+      BOT_STATE_REF: "bot-state"
       GH_TOKEN: ${{ github.token }}
       IDEMPOTENCIA_REMOTA_ATIVA: "true"
       BOT_JOURNAL_ISSUE: "1"
@@ -146,8 +146,9 @@ jobs:
       # 1 = comissao de 40% multiplica a nota da oferta por 1.4.
       PESO_COMISSAO: ${{ vars.PESO_COMISSAO || '1' }}
       DESEMPENHO_MAX_DIAS: ${{ vars.DESEMPENHO_MAX_DIAS || '14' }}
-      DIVERSIDADE_JANELA_POSTS: ${{ vars.DIVERSIDADE_JANELA_POSTS || '3' }}
-      SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.68' }}
+      DIVERSIDADE_JANELA_POSTS: ${{ vars.DIVERSIDADE_JANELA_POSTS || '6' }}
+      MAX_POSTS_CATEGORIA_NA_JANELA: ${{ vars.MAX_POSTS_CATEGORIA_NA_JANELA || '2' }}
+      SIMILARIDADE_MAXIMA: ${{ vars.SIMILARIDADE_MAXIMA || '0.55' }}
       AB_TEST_ATIVO: ${{ vars.AB_TEST_ATIVO || 'false' }}
       CHAMADAS_HUMANAS_ATIVAS: ${{ vars.CHAMADAS_HUMANAS_ATIVAS || 'false' }}
       AB_TEST_NOME: "chamada_humana_v1"

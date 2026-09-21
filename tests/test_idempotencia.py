@@ -54,9 +54,25 @@ class IdempotenciaTest(unittest.TestCase):
             self.assertEqual(2, idempotencia.sincronizar(sessao))
         self.assertEqual(2, entrega.call_count)
         postada.assert_called_once_with(
-            "produto", preco=100.0, fonte="Amazon", agora=123
+            "produto", preco=100.0, fonte="Amazon", agora=123,
+            titulo=None, categoria=None, loja=None,
         )
         bom_dia.assert_called_once_with("2026-09-21", "Telegram")
+
+    def test_diario_preserva_metadados_para_variedade_entre_execucoes(self):
+        inicial = {"v": 1, "ofertas": {}, "bom_dia": {}}
+        sessao = self._sessao(inicial)
+        oferta = {"productName": "Creatina monohidratada 1kg",
+                  "categoria": "esporte", "shopName": "Loja Fitness"}
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=123):
+            self.assertTrue(idempotencia.reservar_oferta(
+                "produto", "Telegram", 49.9, "Shopee", sessao, oferta=oferta
+            ))
+        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+        item = next(iter(salvo["ofertas"].values()))
+        self.assertEqual("Creatina monohidratada 1kg", item["n"])
+        self.assertEqual("esporte", item["g"])
+        self.assertEqual("Loja Fitness", item["l"])
 
     def test_actions_falha_fechado_sem_credenciais(self):
         with patch.dict(os.environ, {"IDEMPOTENCIA_REMOTA_ATIVA": "true",

@@ -89,7 +89,7 @@ flowchart LR
     G --> R[Worker de links curtos]
     P --> D1[(D1 do catálogo)]
     R --> D2[(D1 dos links)]
-    G --> E[(SQLite local<br/>release rascunho criptografada)]
+    G --> E[(SQLite local<br/>branch técnica criptografada)]
 ```
 
 ### Componentes
@@ -122,9 +122,9 @@ flowchart LR
 
 6. **Estado operacional do bot**
    - SQLite local `postadas.db` durante a execução;
-   - enviado de forma compactada e criptografada a uma release rascunho técnica;
+   - enviado de forma compactada e criptografada à branch técnica `bot-state`;
    - criptografia autenticada usando `BOT_STATE_KEY`;
-   - gravação atômica por manifesto, restauração e validação em `estado_remoto.py`;
+   - gravação atômica por referência Git, restauração e validação em `estado_remoto.py`;
    - não consome o limite de Actions Storage.
 
 Não há cadastro de usuários, login público, organizações ou multi-tenancy. O
@@ -156,9 +156,9 @@ site é uma vitrine pública; escritas administrativas exigem tokens de serviço
     o registro.
 13. Cupons oficiais, atalhos de loja, catálogo antigo e relatório também são
     atualizados quando aplicável.
-14. O SQLite é limpo, compactado antes da criptografia e salvo como asset de uma
-    release rascunho. O manifesto só aponta para o snapshot novo depois que o
-    upload termina; assets antigos são removidos em seguida.
+14. O SQLite é limpo, compactado antes da criptografia e salvo como blob de uma
+    branch técnica. A referência só aponta para o snapshot novo depois que o
+    upload termina; cada atualização cria um commit raiz sem histórico crescente.
 
 Uma falha de um canal não desfaz os sucessos dos outros canais. Falhas de
 transporte sem confirmação não são repetidas dentro da mesma chamada quando
@@ -534,7 +534,8 @@ Grupos importantes:
   `MIN_GANHO`, `DESCONTO_PREFERIDO`, `VENDAS_EXCECAO_DESCONTO`,
   `PESO_COMISSAO`, `DESEMPENHO_MAX_DIAS`;
 - variedade: `DIAS_ANTES_DE_REPETIR`, `QUEDA_PRECO_REPOST_PERCENT`,
-  `DIVERSIDADE_JANELA_POSTS`, `SIMILARIDADE_MAXIMA`,
+  `DIVERSIDADE_JANELA_POSTS`, `MAX_POSTS_CATEGORIA_NA_JANELA`,
+  `SIMILARIDADE_MAXIMA`,
   `DIAS_BLOQUEIO_PRODUTO_SEMELHANTE`;
 - ritmo: `BOT_MODE`, `HORAS_PICO`, `HORA_INICIO`, `HORA_FIM`,
   `MAX_POSTS_PER_RUN`, `MAX_POSTS_PER_RUN_FORA_PICO`,
@@ -784,7 +785,7 @@ os testes de `tests/test_story_layout.py`.
 | `monitor.py` | Saúde do workflow e dos canais. |
 | `observabilidade.py` | Eventos técnicos sem conteúdo sensível. |
 | `seguranca.py` | Validação de URLs, hosts e redação de segredos. |
-| `estado_remoto.py` | Criptografia e snapshot do SQLite em release rascunho. |
+| `estado_remoto.py` | Criptografia e snapshot do SQLite em branch técnica sem histórico crescente. |
 | `site/` | Frontend, Functions, schema, migrations e testes do site. |
 | `redirector/` | Worker, D1 e testes dos links curtos. |
 | `telegram-control/` | Painel administrativo e scheduler. |

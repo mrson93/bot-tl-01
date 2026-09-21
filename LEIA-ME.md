@@ -89,7 +89,8 @@ Novas variáveis:
 | `PERCENTUAL_ALIEXPRESS` | `15` | Meta percentual do AliExpress |
 | `BUFFER_X_API_KEY` | vazio | Opcional; o X usa `BUFFER_API_KEY` quando está na mesma conta do Facebook |
 | `INTERVALO_ENTRE_POSTS_MINUTOS` | `3` | Espera entre posts da mesma rodada |
-| `DIVERSIDADE_JANELA_POSTS` | `3` | Publicações recentes consideradas na variedade |
+| `DIVERSIDADE_JANELA_POSTS` | `6` | Publicações recentes consideradas na variedade |
+| `MAX_POSTS_CATEGORIA_NA_JANELA` | `2` | Máximo preferido da mesma categoria nessa janela; só excede sem alternativa |
 | `SIMILARIDADE_MAXIMA` | `0.55` | Limite de semelhança entre títulos |
 | `DESEMPENHO_MAX_DIAS` | `14` | Idade máxima dos dados usados na seleção |
 | `AB_TEST_ATIVO` | `false` | Mantém o teste de chamada humana desativado |
@@ -213,10 +214,10 @@ cada programa.
 
 ### Estado remoto e automações
 
-O banco `postadas.db` é restaurado de um asset criptografado mantido numa release
-rascunho técnica, validado com `PRAGMA integrity_check` e salvo novamente somente
-quando mudar. O novo asset é enviado antes da troca do manifesto e os antigos são
-removidos depois, sem gerar notificações e sem consumir o Actions Storage.
+O banco `postadas.db` é restaurado de um blob criptografado mantido na branch
+técnica `bot-state`, validado com `PRAGMA integrity_check` e salvo novamente somente
+quando mudar. O novo blob é enviado antes da troca atômica da referência; cada
+snapshot usa um commit raiz, sem histórico crescente, notificações ou Actions Storage.
 
 Os testes Python e os testes do controlador rodam no workflow `Testes` apenas
 quando o código muda. O GitHub usa a grade selecionada em `BOT_MODE`. O workflow

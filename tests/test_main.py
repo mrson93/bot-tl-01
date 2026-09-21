@@ -745,6 +745,29 @@ class MainTest(unittest.TestCase):
             self.assertEqual(1, main._publicar_fila(fila, 1))
         self.assertEqual("Shopee", publicar.call_args.args[0].NOME)
 
+    def test_categoria_saturada_na_janela_da_lugar_a_outra(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        fila = [
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "celular",
+             "productName": "Smartphone premium", "categoria": "eletronicos"},
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "panela",
+             "productName": "Panela antiaderente", "categoria": "cozinha"},
+        ]
+        recentes = [
+            {"categoria": "eletronicos"}, {"categoria": "casa"},
+            {"categoria": "eletronicos"},
+        ]
+        with patch.object(main.store, "ofertas_recentes", return_value=recentes), \
+             patch.object(main.store, "sequencia_fonte_recente", return_value=(None, 0)), \
+             patch.object(main.store, "posts_por_fonte_desde", return_value={}), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.config, "DIVERSIDADE_JANELA_POSTS", 6), \
+             patch.object(main.config, "MAX_POSTS_CATEGORIA_NA_JANELA", 2):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+        self.assertEqual("panela", publicar.call_args.args[1]["oferta_id"])
+
     def test_rodada_espera_intervalo_configurado_entre_posts(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

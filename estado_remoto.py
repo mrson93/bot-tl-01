@@ -46,6 +46,7 @@ PADRAO_PARTE = re.compile(
 PADRAO_RELEASE = re.compile(
     r"<!-- bot-state-release:v1:([0-9a-f]{64}):(\d+):([A-Za-z0-9._-]+) -->"
 )
+ARQUIVO_BRANCH = "postadas.db.enc"
 
 
 def _hash(caminho=DB):
@@ -224,6 +225,127 @@ def _tag_release_estado():
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", valor):
         raise RuntimeError("BOT_STATE_RELEASE_TAG invalida")
     return valor
+
+
+def _ref_estado():
+    valor = os.getenv("BOT_STATE_REF", "").strip()
+    if not valor:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._/-]{1,120}", valor) or ".." in valor:
+        raise RuntimeError("BOT_STATE_REF invalida")
+    return valor.removeprefix("refs/heads/")
+
+
+def _api_git(repositorio, caminho):
+    return f"https://api.github.com/repos/{repositorio}/git/{caminho}"
+
+
+def _restaurar_de_branch(sessao, repositorio, token, ref):
+    headers = _headers(token)
+    resposta = sessao.get(
+        _api_git(repositorio, f"ref/heads/{ref}"), headers=headers,
+        timeout=30, allow_redirects=False,
+    )
+    if resposta.status_code == 404:
+        return None
+    resposta.raise_for_status()
+    commit_sha = str((resposta.json().get("object") or {}).get("sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit_sha):
+        raise RuntimeError("Referencia do estado remoto invalida")
+    resposta = sessao.get(
+        _api_git(repositorio, f"commits/{commit_sha}"), headers=headers,
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    tree_sha = str((resposta.json().get("tree") or {}).get("sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{40}", tree_sha):
+        raise RuntimeError("Commit do estado remoto invalido")
+    resposta = sessao.get(
+        _api_git(repositorio, f"trees/{tree_sha}"), headers=headers,
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    item = next((entrada for entrada in resposta.json().get("tree") or []
+                 if entrada.get("path") == ARQUIVO_BRANCH
+                 and entrada.get("type") == "blob"), None)
+    blob_sha = str((item or {}).get("sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{40}", blob_sha):
+        raise RuntimeError("Arquivo do estado remoto nao encontrado na branch")
+    resposta = sessao.get(
+        _api_git(repositorio, f"blobs/{blob_sha}"), headers=headers,
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    blob = resposta.json() or {}
+    if blob.get("encoding") != "base64" or int(blob.get("size") or 0) > MAX_DOWNLOAD:
+        raise RuntimeError("Blob do estado remoto invalido")
+    try:
+        protegido = base64.b64decode(
+            str(blob.get("content") or "").replace("\n", ""), validate=True
+        )
+    except (ValueError, TypeError) as erro:
+        raise RuntimeError("Blob do estado remoto possui base64 invalido") from erro
+    if len(protegido) != int(blob.get("size") or -1):
+        raise RuntimeError("Blob do estado remoto esta incompleto")
+    return _descriptografar(protegido)
+
+
+def salvar_branch(sessao=requests):
+    """Substitui um snapshot criptografado numa branch técnica sem histórico."""
+    configuracao = _configuracao_github()
+    ref = _ref_estado()
+    if not configuracao or not ref:
+        raise RuntimeError("Armazenamento remoto por branch nao configurado")
+    preparar_upload()
+    protegido = DB_CRIPTOGRAFADO.read_bytes()
+    if len(protegido) > MAX_DOWNLOAD:
+        raise RuntimeError("Estado remoto excedeu o limite de seguranca")
+    repositorio, token = configuracao
+    headers = _headers(token)
+    resposta = sessao.post(
+        _api_git(repositorio, "blobs"), headers=headers,
+        json={"content": base64.b64encode(protegido).decode("ascii"),
+              "encoding": "base64"}, timeout=60, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    blob_sha = str(resposta.json().get("sha") or "")
+    resposta = sessao.post(
+        _api_git(repositorio, "trees"), headers=headers,
+        json={"tree": [{"path": ARQUIVO_BRANCH, "mode": "100644",
+                         "type": "blob", "sha": blob_sha}]},
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    tree_sha = str(resposta.json().get("sha") or "")
+    resposta = sessao.post(
+        _api_git(repositorio, "commits"), headers=headers,
+        json={"message": "Atualiza estado criptografado do bot",
+              "tree": tree_sha},
+        timeout=30, allow_redirects=False,
+    )
+    resposta.raise_for_status()
+    commit_sha = str(resposta.json().get("sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit_sha):
+        raise RuntimeError("GitHub nao confirmou o commit do estado")
+    api_ref = _api_git(repositorio, f"refs/heads/{ref}")
+    atual = sessao.get(api_ref, headers=headers, timeout=30,
+                       allow_redirects=False)
+    if atual.status_code == 404:
+        resposta = sessao.post(
+            _api_git(repositorio, "refs"), headers=headers,
+            json={"ref": f"refs/heads/{ref}", "sha": commit_sha},
+            timeout=30, allow_redirects=False,
+        )
+    else:
+        atual.raise_for_status()
+        resposta = sessao.patch(
+            api_ref, headers=headers,
+            json={"sha": commit_sha, "force": True},
+            timeout=30, allow_redirects=False,
+        )
+    resposta.raise_for_status()
+    print(f"✅ Estado remoto salvo na branch criptografada ({len(protegido)} bytes).")
+    return True
 
 
 def _obter_release(sessao, repositorio, token, tag, criar=False):
@@ -528,6 +650,24 @@ def restaurar(obrigatorio=False, sessao=requests):
         HASH_INICIAL.write_text(_hash(), encoding="ascii")
         return False
     repositorio, token = configuracao
+    ref = _ref_estado()
+    if ref:
+        dados_branch = _restaurar_de_branch(
+            sessao, repositorio, token, ref
+        )
+        if dados_branch is not None:
+            with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
+                temporario.write(dados_branch)
+                caminho_temporario = Path(temporario.name)
+            try:
+                _validar_sqlite(caminho_temporario)
+                caminho_temporario.replace(DB)
+            finally:
+                caminho_temporario.unlink(missing_ok=True)
+            SEM_REMOTO.unlink(missing_ok=True)
+            HASH_INICIAL.write_text(_hash(), encoding="ascii")
+            print("✅ Estado remoto restaurado da branch e validado.")
+            return True
     tag_release = _tag_release_estado()
     if tag_release:
         dados_release = _restaurar_de_release(
@@ -662,7 +802,10 @@ def main():
     elif args.acao == "preparar":
         preparar_upload()
     elif args.acao == "salvar":
-        salvar_release()
+        if _ref_estado():
+            salvar_branch()
+        else:
+            salvar_release()
     elif args.acao == "limpar":
         limpar_artefatos_antigos()
     else:

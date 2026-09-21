@@ -80,6 +80,17 @@ class DesempenhoTest(unittest.TestCase):
         self.assertEqual("40% a 69%", desempenho.faixa_desconto(40))
         self.assertEqual("70% ou mais", desempenho.faixa_desconto(70))
 
+    def test_classifica_celulares_smartwatch_e_suplementos(self):
+        self.assertEqual("eletronicos", desempenho.categoria_produto(
+            "Smartphone Motorola Moto G35 5G"
+        ))
+        self.assertEqual("eletronicos", desempenho.categoria_produto(
+            "Relógio Inteligente Smart Watch T800"
+        ))
+        self.assertEqual("esporte", desempenho.categoria_produto(
+            "Creatina suplemento monohidratada 100% pura"
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()

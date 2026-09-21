@@ -180,6 +180,56 @@ class EstadoRemotoTest(unittest.TestCase):
             self.assertTrue(estado_remoto.restaurar(True, sessao))
         self.assertEqual(bruto, estado_remoto.DB.read_bytes())
 
+    def test_salva_snapshot_em_branch_orfa_sem_historico_crescente(self):
+        estado_remoto.DB.write_bytes(self._sqlite())
+        respostas = []
+        for sha in ("a" * 40, "b" * 40, "c" * 40):
+            resposta = Mock()
+            resposta.json.return_value = {"sha": sha}
+            resposta.raise_for_status.return_value = None
+            respostas.append(resposta)
+        ref_inexistente = Mock(status_code=404)
+        ref_criada = Mock()
+        ref_criada.raise_for_status.return_value = None
+        sessao = Mock()
+        sessao.post.side_effect = [*respostas, ref_criada]
+        sessao.get.return_value = ref_inexistente
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave, "BOT_STATE_REF": "bot-state",
+        }):
+            self.assertTrue(estado_remoto.salvar_branch(sessao))
+        commit = sessao.post.call_args_list[2].kwargs["json"]
+        self.assertNotIn("parents", commit)
+        ref = sessao.post.call_args_list[3].kwargs["json"]
+        self.assertEqual("refs/heads/bot-state", ref["ref"])
+
+    def test_restaura_snapshot_da_branch_criptografada(self):
+        bruto = self._sqlite()
+        with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
+            protegido = estado_remoto._criptografar(bruto)
+        respostas = []
+        for corpo in (
+            {"object": {"sha": "a" * 40}},
+            {"tree": {"sha": "b" * 40}},
+            {"tree": [{"path": "postadas.db.enc", "type": "blob",
+                       "sha": "c" * 40}]},
+            {"encoding": "base64", "size": len(protegido),
+             "content": base64.b64encode(protegido).decode("ascii")},
+        ):
+            resposta = Mock(status_code=200)
+            resposta.json.return_value = corpo
+            resposta.raise_for_status.return_value = None
+            respostas.append(resposta)
+        sessao = Mock()
+        sessao.get.side_effect = respostas
+        with patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "dono/repo", "GH_TOKEN": "segredo",
+            "BOT_STATE_KEY": self.chave, "BOT_STATE_REF": "bot-state",
+        }):
+            self.assertTrue(estado_remoto.restaurar(True, sessao))
+        self.assertEqual(bruto, estado_remoto.DB.read_bytes())
+
     def test_compacta_antes_de_criptografar_e_aceita_formato_anterior(self):
         bruto = self._sqlite() + b"repeticao" * 100_000
         with patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):

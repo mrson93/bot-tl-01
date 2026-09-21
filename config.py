@@ -182,8 +182,11 @@ PESO_COMISSAO = _float("PESO_COMISSAO", 1.0)
 # O histórico só influencia a fila enquanto estiver recente.
 DESEMPENHO_MAX_DIAS = _int("DESEMPENHO_MAX_DIAS", 14)
 # Quantas publicações recentes entram na proteção de variedade.
-DIVERSIDADE_JANELA_POSTS = _int("DIVERSIDADE_JANELA_POSTS", 3)
-SIMILARIDADE_MAXIMA = _float("SIMILARIDADE_MAXIMA", 0.68)
+DIVERSIDADE_JANELA_POSTS = max(1, _int("DIVERSIDADE_JANELA_POSTS", 6))
+MAX_POSTS_CATEGORIA_NA_JANELA = max(
+    0, _int("MAX_POSTS_CATEGORIA_NA_JANELA", 2)
+)
+SIMILARIDADE_MAXIMA = _float("SIMILARIDADE_MAXIMA", 0.55)
 # Protecao adicional contra o mesmo produto reaparecer com outro itemId, URL
 # ou vendedor. A comparacao respeita a excecao de queda real de preco.
 DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(

@@ -345,7 +345,7 @@ def publicar(fonte, oferta: dict) -> int:
                     "para ofertas do Mercado Livre"
                 )
             if not idempotencia.reservar_oferta(
-                    oid, canal.NOME, preco, fonte.NOME):
+                    oid, canal.NOME, preco, fonte.NOME, oferta=oferta):
                 store.registrar_entrega(
                     oid, canal.NOME, True, preco, fonte.NOME
                 )
@@ -374,7 +374,7 @@ def publicar(fonte, oferta: dict) -> int:
     if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco_pendencia):
         try:
             reservado = idempotencia.reservar_oferta(
-                oid, "Site", preco, fonte.NOME
+                oid, "Site", preco, fonte.NOME, oferta=oferta
             )
             if not reservado:
                 store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
@@ -930,6 +930,10 @@ def _publicar_fila(fila, limite):
     ultima_fonte, fontes_consecutivas = store.sequencia_fonte_recente(
         config.MAX_POSTS_CONSECUTIVOS_FONTE
     )
+    categorias_recentes = [
+        str(item.get("categoria") or "outros")
+        for item in store.ofertas_recentes(config.DIVERSIDADE_JANELA_POSTS)
+    ]
     while pendentes and postadas < limite:
         elegiveis = [
             (i, oferta) for i, oferta in enumerate(pendentes)
@@ -941,6 +945,20 @@ def _publicar_fila(fila, limite):
         ]
         if not elegiveis:
             break
+        max_categoria = config.MAX_POSTS_CATEGORIA_NA_JANELA
+        if max_categoria:
+            contagens = {
+                categoria: categorias_recentes.count(categoria)
+                for categoria in set(categorias_recentes)
+            }
+            alternativas = [
+                par for par in elegiveis
+                if str(par[1].get("categoria") or "outros") == "outros"
+                or contagens.get(str(par[1].get("categoria") or "outros"), 0)
+                < max_categoria
+            ]
+            if alternativas:
+                elegiveis = alternativas
         limite_fonte = config.MAX_POSTS_CONSECUTIVOS_FONTE
         if limite_fonte and fontes_consecutivas >= limite_fonte:
             alternativas = [par for par in elegiveis
@@ -981,6 +999,8 @@ def _publicar_fila(fila, limite):
         else:
             ultima_fonte, fontes_consecutivas = fonte.NOME, 1
         selecionadas.append(oferta)
+        categorias_recentes.append(str(oferta.get("categoria") or "outros"))
+        categorias_recentes = categorias_recentes[-config.DIVERSIDADE_JANELA_POSTS:]
         loja = str(oferta.get("shopName") or "").strip().casefold()
         if loja:
             lojas_hoje[loja] = lojas_hoje.get(loja, 0) + 1
