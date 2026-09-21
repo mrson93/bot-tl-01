@@ -179,3 +179,19 @@ class EstadoRemotoTest(unittest.TestCase):
                                      "GH_TOKEN": "segredo",
                                      "BOT_STATE_KEY": self.chave}):
             self.assertTrue(estado_remoto.restaurar(True, sessao))
+
+    def test_limpeza_preserva_os_dois_snapshots_mais_novos(self):
+        lista = Mock()
+        lista.json.return_value = {"artifacts": [
+            {"id": 1, "created_at": "2026-09-21T10:00:00Z"},
+            {"id": 2, "created_at": "2026-09-21T09:00:00Z"},
+            {"id": 3, "created_at": "2026-09-21T08:00:00Z"},
+        ]}
+        lista.raise_for_status.return_value = None
+        exclusao = Mock(status_code=204)
+        sessao = Mock(get=Mock(return_value=lista),
+                      delete=Mock(return_value=exclusao))
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "dono/repo",
+                                     "GH_TOKEN": "segredo"}):
+            self.assertEqual(1, estado_remoto.limpar_artefatos_antigos(2, sessao))
+        self.assertTrue(sessao.delete.call_args.args[0].endswith("/3"))

@@ -291,15 +291,47 @@ def verificar_alteracao():
     return alterado
 
 
+def limpar_artefatos_antigos(manter=2, sessao=requests):
+    """Remove snapshots redundantes; preserva os mais novos para recuperacao."""
+    repositorio = os.getenv("GITHUB_REPOSITORY", "").strip()
+    token = os.getenv("GH_TOKEN", "").strip()
+    if not repositorio or not token:
+        return 0
+    api = f"https://api.github.com/repos/{repositorio}/actions/artifacts"
+    resposta = sessao.get(api, headers=_headers(token),
+                          params={"name": "bot-state", "per_page": 100},
+                          timeout=30, allow_redirects=False)
+    resposta.raise_for_status()
+    artefatos = [a for a in resposta.json().get("artifacts", [])
+                 if not a.get("expired")]
+    artefatos.sort(key=lambda a: a.get("created_at") or "", reverse=True)
+    removidos = 0
+    for artefato in artefatos[max(1, int(manter)):]:
+        identificador = artefato.get("id")
+        if not identificador:
+            continue
+        exclusao = sessao.delete(
+            f"{api}/{identificador}", headers=_headers(token), timeout=30,
+            allow_redirects=False,
+        )
+        if exclusao.status_code not in {204, 404}:
+            exclusao.raise_for_status()
+        removidos += 1
+    print(f"🧹 {removidos} snapshot(s) redundante(s) removido(s).")
+    return removidos
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("acao", choices=("restaurar", "alterado", "preparar"))
+    parser.add_argument("acao", choices=("restaurar", "alterado", "preparar", "limpar"))
     parser.add_argument("--obrigatorio", action="store_true")
     args = parser.parse_args()
     if args.acao == "restaurar":
         restaurar(args.obrigatorio)
     elif args.acao == "preparar":
         preparar_upload()
+    elif args.acao == "limpar":
+        limpar_artefatos_antigos()
     else:
         verificar_alteracao()
 

@@ -42,6 +42,7 @@ import shortlinks
 import site_publisher
 import observabilidade
 import monitor
+import idempotencia
 
 # Lojas de onde vem as ofertas.
 FONTES = [shopee, aliexpress, amazon, mercadolivre]
@@ -239,6 +240,10 @@ def enviar_bom_dia_se_preciso(agora=None) -> bool:
         if not canal.esta_configurada() or store.bom_dia_enviado(data, canal.NOME):
             continue
         try:
+            if not idempotencia.reservar_bom_dia(data, canal.NOME):
+                store.marcar_bom_dia_enviado(data, canal.NOME)
+                print(f"☀️ Bom dia já reservado no {canal.NOME}; repetição evitada.")
+                continue
             canal.postar_bom_dia(mensagem)
             publicou = True
             store.marcar_bom_dia_enviado(data, canal.NOME)
@@ -339,6 +344,14 @@ def publicar(fonte, oferta: dict) -> int:
                     f"{canal.NOME} exige o link curto do domínio próprio "
                     "para ofertas do Mercado Livre"
                 )
+            if not idempotencia.reservar_oferta(
+                    oid, canal.NOME, preco, fonte.NOME):
+                store.registrar_entrega(
+                    oid, canal.NOME, True, preco, fonte.NOME
+                )
+                resultados[canal.NOME] = "✅ já entregue"
+                print(f"   🛡️  {canal.NOME}: repetição evitada pelo diário remoto.")
+                continue
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
             _registrar_saude_canal(canal.NOME, True)
@@ -360,12 +373,20 @@ def publicar(fonte, oferta: dict) -> int:
     # já exista no catálogo.
     if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco_pendencia):
         try:
-            site_publisher.publicar(fonte, oferta)
-            store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
-            _registrar_saude_canal("Site", True)
-            observabilidade.evento("publicacao_sucesso", oferta_id=oid,
-                                    canal="Site", fonte=fonte.NOME)
-            resultados["Site"] = "✅ publicado"
+            reservado = idempotencia.reservar_oferta(
+                oid, "Site", preco, fonte.NOME
+            )
+            if not reservado:
+                store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
+                resultados["Site"] = "✅ já entregue"
+                print("   🛡️  Site: repetição evitada pelo diário remoto.")
+            else:
+                site_publisher.publicar(fonte, oferta)
+                store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
+                _registrar_saude_canal("Site", True)
+                observabilidade.evento("publicacao_sucesso", oferta_id=oid,
+                                        canal="Site", fonte=fonte.NOME)
+                resultados["Site"] = "✅ publicado"
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)
@@ -1165,6 +1186,17 @@ def main():
         sys.exit(1)
 
     if not checar():
+        sys.exit(1)
+
+    # O diário é independente do snapshot completo. Se o Actions falhou depois
+    # de publicar, ele recompõe as entregas antes de qualquer nova tentativa.
+    try:
+        restauradas = idempotencia.sincronizar()
+        if restauradas:
+            print(f"🛡️ Diário remoto restaurou {restauradas} entrega(s).")
+    except Exception as erro:
+        print("❌ Não foi possível validar o diário anti-duplicação: "
+              f"{seguranca.redigir_segredos(erro)}")
         sys.exit(1)
 
     if "--once" in args:
