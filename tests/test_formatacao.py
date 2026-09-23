@@ -161,6 +161,16 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("🏬 Dulojashoes", texto)
         self.assertLess(texto.index("⭐ 4.3"), texto.index("🛒 #ad"))
 
+    def test_bluesky_separa_link_de_compra_com_linha_em_branco(self):
+        oferta = {"fonte": "Amazon", "productName": "Mouse gamer",
+                  "price": 149.9}
+        texto, inicio = bluesky.montar_texto(oferta, "https://oferta.test/x")
+        self.assertIn(":\n\nhttps://oferta.test/x", texto)
+        self.assertEqual(
+            b"https://oferta.test/x",
+            texto.encode("utf-8")[inicio:inicio + len("https://oferta.test/x")],
+        )
+
     def test_bluesky_preserva_preco_compra_e_link_em_texto_extremo(self):
         oferta = {"fonte": "AliExpress", "productName": "Produto longo " * 30,
                   "price": 29, "precoNoApp": True, "ratingStar": 4.9,
