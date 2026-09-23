@@ -220,7 +220,7 @@ def _quebrar_link(draw, texto, largura, max_linhas=3, altura=None):
 
 
 def gerar(oferta: dict, link: str, direct_ativo=False) -> bytes:
-    """Devolve JPEG 9:16 com o endereço curto exato da oferta."""
+    """Devolve JPEG 9:16 com o endereço rastreado da oferta."""
     link = seguranca.validar_url_https_publica(link, "Link do Story")
     canvas = Image.new("RGB", (LARGURA, ALTURA), "#FFC400")
     draw = ImageDraw.Draw(canvas)

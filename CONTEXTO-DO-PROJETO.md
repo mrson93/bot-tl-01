@@ -2,7 +2,7 @@
 
 > Documento de continuidade para humanos e assistentes de IA.
 >
-> Última revisão: **17/09/2026**, fuso `America/Sao_Paulo`.
+> Última revisão: **22/09/2026**, fuso `America/Sao_Paulo`.
 >
 > Este arquivo não contém valores de tokens, senhas, chaves privadas ou IDs
 > administrativos. Nunca inclua esses valores aqui.
@@ -204,9 +204,9 @@ isso poderia criar uma publicação duplicada.
 - O produto precisa continuar presente na lista no instante anterior ao post.
 - A opção `somente_pendentes` do workflow do bot compara ambas as listas com o
   estado remoto de publicações e gera um relatório sem publicar ofertas.
-- O link do Mercado Livre no Story, Bluesky e X precisa obrigatoriamente passar
-  pelo domínio próprio. Se o encurtador falhar, esses canais são marcados como
-  falha em vez de expor a URL longa.
+- O link do Mercado Livre é publicado diretamente no domínio oficial, sem
+  encurtador externo, para preservar `matt_tool` e o `tracking_id` fornecidos
+  pela lista. Essa regra vale para todos os canais e para o site.
 - O site **não mostra um atalho genérico direto para a loja Mercado Livre**;
   somente ofertas individuais podem apontar para produtos da plataforma.
 
@@ -301,8 +301,8 @@ abertura objetiva.
 - O card é 1080 × 1920 (9:16).
 - O layout calcula dinamicamente título, preço, desconto e painel inferior;
   títulos com quatro linhas ou mais não sobrepõem o preço.
-- A API não permite ao projeto criar Link Sticker. Por isso o endereço curto
-  exato aparece escrito no cartão.
+- A API não permite ao projeto criar Link Sticker. Por isso o endereço da
+  oferta aparece escrito no cartão, ajustado ao espaço disponível.
 - O JPEG é hospedado temporariamente pelo site, validado e então buscado pela
   Meta.
 - Uma falha após `media_publish` não é repetida automaticamente para evitar um
@@ -363,8 +363,8 @@ Amazon e Mercado Livre. A allowlist precisa continuar sincronizada entre:
 - validações do código e respectivos testes.
 
 Fallback normal: se o serviço de links curtos falhar, o bot usa o link oficial
-de afiliado. Exceção: Mercado Livre em Bluesky, X e Instagram Stories exige o
-link próprio por legibilidade e consistência.
+de afiliado. O Mercado Livre não usa o serviço de links curtos: o endereço
+oficial rastreado é sempre entregue diretamente.
 
 ## 11. Site e catálogo
 
@@ -731,8 +731,8 @@ como o canal está publicando no Buffer.
 - confirmar que `/api/publish` está implantado e o D1 está vinculado;
 - verificar a oferta pelo endpoint/listagem, pois filtros do frontend podem
   esconder um item que está no banco;
-- lembrar que o site registra o destino afiliado próprio, não o mesmo link curto
-  de todas as redes.
+- lembrar que o site registra o destino afiliado próprio; no Mercado Livre,
+  esse é o mesmo endereço oficial rastreado entregue às redes.
 
 ### Story não publica
 
@@ -740,7 +740,8 @@ como o canal está publicando no Buffer.
 - verificar token e versão da Graph API;
 - confirmar que o site consegue hospedar e devolver o JPEG publicamente;
 - verificar tamanho, Content-Type e expiração do asset;
-- para Mercado Livre, confirmar que o redirecionador próprio está funcionando;
+- para Mercado Livre, confirmar que o cartão recebeu o endereço oficial com
+  `matt_tool` e `tracking_id` preservados;
 - não repetir cegamente depois de uma falha incerta em `media_publish`.
 
 ### Título e preço se sobrepõem
@@ -821,7 +822,8 @@ os testes de `tests/test_story_layout.py`.
    antes de repetir.
 6. Preservar a idempotência por canal.
 7. Não reintroduzir o link direto genérico do Mercado Livre no site.
-8. Não permitir URL longa do Mercado Livre no Story, Bluesky ou X.
+8. Não passar links do Mercado Livre por encurtador externo; preservar o
+   endereço oficial com `matt_tool` e `tracking_id` em todos os canais.
 9. Manter legendas consistentes e adaptar pelo limite da rede, sem criar
    reticências desnecessárias.
 10. Manter `#ad` junto ao link em todas as lojas; não remover toda
@@ -850,10 +852,10 @@ Antes de dizer que o sistema está “todo funcionando”, verificar:
 - [ ] Bluesky publicou;
 - [ ] Facebook apareceu no feed principal;
 - [ ] X publicou pelo Buffer;
-- [ ] Story publicou sem sobreposição e com link curto;
+- [ ] Story publicou sem sobreposição e com endereço legível;
 - [ ] Direct respondeu, se habilitado e aprovado pela Meta;
 - [ ] oferta apareceu no site;
-- [ ] link curto redirecionou para o destino correto;
+- [ ] links curtos das demais lojas redirecionaram para o destino correto;
 - [ ] site não mostra atalho genérico do Mercado Livre;
 - [ ] cupons vencidos não aparecem;
 - [ ] métricas não armazenam dados pessoais em claro;

@@ -183,8 +183,9 @@ def postar(oferta: dict, link_afiliado: str) -> None:
             print("   ⚠️  Story será publicado, mas não foi possível ativar "
                   "o recebimento do Direct automático: "
                   f"{seguranca.redigir_segredos(erro)}")
-    # O link curto já identifica o canal e abre exatamente esta oferta. Ele é
-    # impresso no cartão porque a API do Instagram não aceita Link Sticker.
+    # O link identifica o canal e abre exatamente esta oferta. Ele é impresso
+    # no cartão porque a API não oferece Link Sticker. Para o Mercado Livre,
+    # o endereço oficial preserva os marcadores de afiliação.
     imagem = story_card.gerar(oferta, link_afiliado)
     imagem_publica = site_publisher.publicar_imagem_story(imagem)
     # A Meta faz o download por conta própria, sem cookies. Faça a mesma
