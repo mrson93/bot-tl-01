@@ -22,7 +22,9 @@ test('página inicial apresenta todos os canais oficiais',async()=>{
 
 test('atalhos das lojas usam ícones de marca',async()=>{
   const app=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
-  for(const store of ['shopee','aliexpress','amazon']) assert.ok(app.includes(`simpleicons.org/${store}/`));
+  for(const store of ['shopee','aliexpress']) assert.ok(app.includes(`simpleicons.org/${store}/`));
+  assert.ok(app.includes("amazon:'/icons/amazon.svg'"));
+  assert.match(await readFile(new URL('../public/icons/amazon.svg',import.meta.url),'utf8'),/<svg/);
 });
 
 test('reserva somente dois espaços discretos para publicidade',async()=>{
@@ -36,6 +38,8 @@ test('publica a identificação oficial do AdSense',async()=>{
   const adsTxt=await readFile(new URL('../public/ads.txt',import.meta.url),'utf8');
   assert.match(page,/google-adsense-account" content="ca-pub-5239970037930660"/);
   assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/google-adsense-account" content="ca-pub-5239970037930660"/);
+  assert.match(page,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
+  assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
   assert.equal(adsTxt,'google.com, pub-5239970037930660, DIRECT, f08c47fec0942fa0\n');
 });
 

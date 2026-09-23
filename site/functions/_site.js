@@ -1,6 +1,7 @@
 export const SITE='https://canaltabarato.com.br';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js" defer></script>';
+const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
 
 export function html(value='') {
   return String(value).replace(/[&<>'\"]/g,char=>({
@@ -79,7 +80,7 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
   return new Response(body,{status,headers:{
     'Content-Type':'text/html; charset=utf-8',
     'Cache-Control':status===200?cache:'no-store',
-    'Content-Security-Policy':"default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' https:; connect-src 'self' https://cloudflareinsights.com https://*.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none'",
+    'Content-Security-Policy':"default-src 'self'; script-src 'self' https: https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https: https://cloudflareinsights.com https://*.google-analytics.com; frame-src https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'none'",
     'Referrer-Policy':'strict-origin-when-cross-origin',
     'Strict-Transport-Security':'max-age=31536000',
     'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
@@ -97,7 +98,38 @@ export function head({title,description,canonical,structured='',image=''}) {
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
   <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
-  <link rel="stylesheet" href="/styles.css"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
+  <link rel="stylesheet" href="/styles.css"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${GOOGLE_ADSENSE}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
+}
+
+export function productStructuredData(offer,canonical) {
+  const productName=shorten(offer.title,150);
+  const publishedAt=Number(offer.published_at)||Number(offer.last_checked_at)||Math.floor(Date.now()/1000);
+  const checkedAt=Number(offer.last_checked_at)||publishedAt;
+  const rawId=String(offer.id||'');
+  const sku=rawId.replace(/^(amazon_|mercadolivre_|shopee_|aliexpress_)/,'').slice(0,100);
+  const product={
+    '@type':'Product',name:productName,image:[String(offer.image_url)],
+    description:shorten(`${productName} por ${money(offer.price)}. Confira preço e condições.`,500),
+    url:canonical,sku,
+  };
+  if(offer.source==='Amazon'&&offer.shop&&String(offer.shop).toLowerCase()!=='amazon') {
+    product.brand={'@type':'Brand',name:shorten(offer.shop,70)};
+  }
+  product.offers={
+    '@type':'Offer',url:`${SITE}/go/${encodeURIComponent(offer.id)}`,
+    priceCurrency:'BRL',price:Number(offer.price),
+    availability:offer.availability==='unavailable'?'https://schema.org/OutOfStock':'https://schema.org/InStock',
+    validFrom:new Date(publishedAt*1000).toISOString(),
+    priceValidUntil:new Date((checkedAt+2*86400)*1000).toISOString().slice(0,10),
+    seller:{'@type':'Organization',name:String(offer.shop||offer.source)},
+  };
+  return {'@context':'https://schema.org','@graph':[product,{
+    '@type':'BreadcrumbList',itemListElement:[
+      {'@type':'ListItem',position:1,name:'Ofertas',item:`${SITE}/`},
+      {'@type':'ListItem',position:2,name:label(offer.category||'outros'),item:`${SITE}/categorias/${slugify(offer.category||'outros')}`},
+      {'@type':'ListItem',position:3,name:productName,item:canonical},
+    ],
+  }]};
 }
 
 export function header(active='offers') {

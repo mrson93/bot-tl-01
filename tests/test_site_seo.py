@@ -66,10 +66,12 @@ class SiteSeoTest(unittest.TestCase):
     def test_ofertas_possuem_paginas_descobríveis(self):
         app = (PUBLIC / "app.js").read_text()
         detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
+        helper = (ROOT / "site" / "functions" / "_site.js").read_text()
         sitemap = (ROOT / "site" / "functions" / "sitemap.xml.js").read_text()
         self.assertIn("/oferta/${slug(o.title)}--${encodeURIComponent(o.id)}", app)
-        self.assertIn("'@type':'Product'", detail)
-        self.assertIn("'@type':'BreadcrumbList'", detail)
+        self.assertIn("productStructuredData(offer,canonical)", detail)
+        self.assertIn("'@type':'Product'", helper)
+        self.assertIn("'@type':'BreadcrumbList'", helper)
         self.assertIn("<urlset", sitemap)
 
     def test_catalogo_tem_paginas_dinamicas_e_cupons(self):
