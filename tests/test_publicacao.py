@@ -240,6 +240,23 @@ class PublicacaoTest(unittest.TestCase):
             record["facets"][0]["features"][0]["uri"],
         )
 
+    def test_bluesky_exibe_dominio_mas_facet_aponta_para_link_oficial_longo(self):
+        oferta = {"fonte": "Mercado Livre", "productName": "Produto", "price": 50}
+        link = (
+            "https://www.mercadolivre.com.br/produto/p/MLB123"
+            "?matt_tool=71195511#source=lists&tracking_id=canal&wid=MLB123"
+        )
+        with patch.object(bluesky, "_sessao", return_value={"accessJwt": "jwt", "did": "did:x"}), \
+             patch.object(bluesky, "_upload_imagem", return_value=None), \
+             patch.object(bluesky.requests, "post", return_value=Resposta({})) as postar:
+            bluesky.postar(oferta, link)
+        record = postar.call_args.kwargs["json"]["record"]
+        facet = record["facets"][0]
+        texto_bytes = record["text"].encode("utf-8")
+        exibido = texto_bytes[facet["index"]["byteStart"]:facet["index"]["byteEnd"]]
+        self.assertEqual(b"mercadolivre.com.br", exibido)
+        self.assertEqual(link, facet["features"][0]["uri"])
+
 
 if __name__ == "__main__":
     unittest.main()

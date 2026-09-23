@@ -4,6 +4,7 @@ Diferente do Telegram: limite de 300 caracteres, a imagem precisa ser enviada
 (upload) e o link vira um "facet" pra ficar clicavel.
 """
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 import requests
 
@@ -14,6 +15,14 @@ import observabilidade
 NOME = "Bluesky"
 TRACKING_ID = config.BLUESKY_TRACKING_ID  # vazio = usa o padrao da loja
 MAX_IMAGEM_BYTES = 1_000_000
+
+
+def _link_exibivel(link: str) -> str:
+    """Mantém links curtos; em URLs longas, mostra só o domínio clicável."""
+    if len(link) <= 100:
+        return link
+    host = urlsplit(link).netloc.removeprefix("www.")
+    return host or link
 
 
 def _imagem_omitida(motivo: str, codigo="indisponivel", oferta=None):
@@ -134,6 +143,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, "Link de afiliado"
     )
+    link_exibido = _link_exibivel(link_afiliado)
     preco = oferta.get("price") or oferta.get("priceMin")
     desconto = float(oferta.get("priceDiscountRate") or 0)
 
@@ -167,7 +177,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
     rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
-              f"{fmt.chamada_compra(oferta)}: {link_afiliado}")
+              f"{fmt.chamada_compra(oferta)}: {link_exibido}")
 
     def montar(titulo, chamada=humana, itens_reputacao=reputacao,
                detalhe_cupom=condicao, incluir_cupom=True):
@@ -230,7 +240,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         texto = "\n\n".join(parte for parte in (titulo, essenciais) if parte)
     if len(texto) > 300:
         raise RuntimeError("O link da oferta é longo demais para o Bluesky")
-    inicio_link = len(texto[: texto.rindex(link_afiliado)].encode("utf-8"))
+    inicio_link = len(texto[: texto.rindex(link_exibido)].encode("utf-8"))
     return texto, inicio_link
 
 
@@ -241,6 +251,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     sess = _sessao()
     jwt, did = sess["accessJwt"], sess["did"]
     texto, inicio_link = montar_texto(oferta, link_afiliado)
+    link_exibido = _link_exibivel(link_afiliado)
 
     record = {
         "$type": "app.bsky.feed.post",
@@ -248,7 +259,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         "createdAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "facets": [{
             "index": {"byteStart": inicio_link,
-                      "byteEnd": inicio_link + len(link_afiliado.encode("utf-8"))},
+                      "byteEnd": inicio_link + len(link_exibido.encode("utf-8"))},
             "features": [{"$type": "app.bsky.richtext.facet#link", "uri": link_afiliado}],
         }],
     }

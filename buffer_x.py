@@ -15,6 +15,18 @@ NOME = "X"
 TRACKING_ID = "x"
 _CHANNEL_ID = re.compile(r"^[0-9a-f]{24}$", re.IGNORECASE)
 _LIMITE_TEXTO = 280
+_URL = re.compile(r"https://[^\s]+", re.IGNORECASE)
+_TCO_TAMANHO = 23
+
+
+def _comprimento_x(texto: str) -> int:
+    """Conta URLs como o X depois do encurtamento automático por t.co."""
+    total = 0
+    inicio = 0
+    for encontrado in _URL.finditer(texto):
+        total += len(texto[inicio:encontrado.start()]) + _TCO_TAMANHO
+        inicio = encontrado.end()
+    return total + len(texto[inicio:])
 
 
 def _canal() -> str:
@@ -96,7 +108,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
 
     texto = montar(titulo)
     for reduzir in ("vendedor", "vendas", "avaliacao", "condicao", "cupom"):
-        if len(texto) <= _LIMITE_TEXTO:
+        if _comprimento_x(texto) <= _LIMITE_TEXTO:
             break
         if reduzir == "vendedor":
             reputacao = [item for item in reputacao if not item.startswith("🏬")]
@@ -109,13 +121,13 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         else:
             linha_cupom = ""
         texto = montar(titulo)
-    if len(texto) > _LIMITE_TEXTO:
+    if _comprimento_x(texto) > _LIMITE_TEXTO:
         fixos = montar("")
         titulo = _cortar_palavras(
-            titulo, max(1, _LIMITE_TEXTO - len(fixos) - 2),
+            titulo, max(1, _LIMITE_TEXTO - _comprimento_x(fixos) - 2),
         ) or "Oferta"
         texto = montar(titulo)
-    if len(texto) > _LIMITE_TEXTO:
+    if _comprimento_x(texto) > _LIMITE_TEXTO:
         raise RuntimeError("Não foi possível ajustar o texto do X ao limite")
     return texto
 

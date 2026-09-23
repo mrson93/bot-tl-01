@@ -29,7 +29,7 @@ class BufferXTest(unittest.TestCase):
             "priceDiscountRate": 45,
         }
         texto = buffer_x.montar_texto(oferta, "https://go.canaltabarato.com.br/abc")
-        self.assertLessEqual(len(texto), 280)
+        self.assertLessEqual(buffer_x._comprimento_x(texto), 280)
         self.assertIn("https://go.canaltabarato.com.br/abc", texto)
         self.assertIn("R$ 129,90", texto)
         self.assertIn("🛒 #ad · COMPRAR NA LOJA:", texto)
@@ -49,6 +49,21 @@ class BufferXTest(unittest.TestCase):
         self.assertIn("R$ 79,90", texto)
         self.assertIn("BARATO20", texto)
         self.assertIn("https://go.canaltabarato.com.br/abcdefgh", texto)
+
+    def test_link_oficial_longo_conta_como_tco_sem_perder_atribuicao(self):
+        oferta = {
+            "fonte": "Mercado Livre", "productName": "Produto " * 100,
+            "price": 79.90, "priceDiscountRate": 50,
+        }
+        link = (
+            "https://www.mercadolivre.com.br/produto/p/MLB123"
+            "?matt_tool=71195511#source=lists&tracking_id=canal&wid=MLB123"
+        )
+        texto = buffer_x.montar_texto(oferta, link)
+        self.assertLessEqual(buffer_x._comprimento_x(texto), 280)
+        self.assertIn(link, texto)
+        self.assertIn("matt_tool=71195511", texto)
+        self.assertIn("tracking_id=canal", texto)
 
     def test_publica_card_no_canal_x_do_buffer(self):
         oferta = {"productName": "Produto", "price": 50,

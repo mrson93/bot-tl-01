@@ -173,8 +173,22 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("R$ 29,00 no app", texto)
         self.assertIn("#ad", texto)
         self.assertNotIn("Publicidade", texto)
-        self.assertIn(link, texto)
-        self.assertLess(texto.index("R$ 29,00"), texto.index(link))
+        self.assertNotIn(link, texto)
+        self.assertIn("oferta.test", texto)
+        self.assertLess(texto.index("R$ 29,00"), texto.index("oferta.test"))
+
+    def test_bluesky_link_longo_exibe_dominio_e_preserva_destino_no_facet(self):
+        oferta = {"fonte": "Mercado Livre", "productName": "Produto", "price": 79}
+        link = (
+            "https://www.mercadolivre.com.br/produto/p/MLB123"
+            "?matt_tool=71195511#source=lists&tracking_id=canal&wid=MLB123"
+        )
+        texto, inicio = bluesky.montar_texto(oferta, link)
+        exibido = "mercadolivre.com.br"
+        self.assertIn(exibido, texto)
+        self.assertNotIn("matt_tool", texto)
+        trecho = texto.encode("utf-8")[inicio:inicio + len(exibido)]
+        self.assertEqual(exibido.encode("utf-8"), trecho)
 
     def test_bluesky_inclui_reputacao_e_respeita_300_caracteres(self):
         oferta = {"fonte": "Shopee", "productName": "Fone Bluetooth " * 30,
