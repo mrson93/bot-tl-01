@@ -330,20 +330,16 @@ def publicar(fonte, oferta: dict) -> int:
             link = fonte.gerar_link(oferta.get("productUrl"),
                                     getattr(canal, "TRACKING_ID", "") or None,
                                     etiquetas(oferta))
-            if shortlinks.esta_configurado():
+            # O programa de afiliados do Mercado Livre exige que o endereço
+            # oficial seja compartilhado sem encurtador externo. Além de
+            # cumprir essa regra, isso preserva matt_tool/tracking_id até o
+            # navegador do comprador e evita perder a atribuição do clique.
+            if fonte.NOME != "Mercado Livre" and shortlinks.esta_configurado():
                 try:
                     link = shortlinks.criar(link, oid, canal.NOME, fonte.NOME)
                 except Exception as erro_link:
                     print("   ⚠️  Link proprio indisponivel; usando afiliado oficial: "
                           f"{seguranca.redigir_segredos(erro_link)}")
-            exige_curto = (fonte.NOME == "Mercado Livre" and canal.NOME in {
-                "Bluesky", "X", "Instagram Stories",
-            })
-            if exige_curto and not shortlinks.eh_proprio(link):
-                raise RuntimeError(
-                    f"{canal.NOME} exige o link curto do domínio próprio "
-                    "para ofertas do Mercado Livre"
-                )
             if not idempotencia.reservar_oferta(
                     oid, canal.NOME, preco, fonte.NOME, oferta=oferta):
                 store.registrar_entrega(
@@ -1144,7 +1140,7 @@ def publicar_teste_facebook_real() -> int:
         link = fonte.gerar_link(
             oferta.get("productUrl"), facebook.TRACKING_ID, etiquetas(oferta)
         )
-        if shortlinks.esta_configurado():
+        if fonte.NOME != "Mercado Livre" and shortlinks.esta_configurado():
             try:
                 link = shortlinks.criar(link, oid, facebook.NOME, fonte.NOME)
             except Exception as erro_link:

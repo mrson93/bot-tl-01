@@ -115,10 +115,27 @@ class _ParserLista(HTMLParser):
         )
 
 
-def _normalizar(card):
+def _adicionar_marcadores_lista(url_produto, url_lista):
+    """Mantém no produto os marcadores oficiais recebidos na vitrine social."""
+    produto = urlsplit(url_produto)
+    lista = urlsplit(url_lista or "")
+    parametros = list(parse_qsl(produto.query, keep_blank_values=True))
+    chaves = {chave for chave, _ in parametros}
+    for chave, valor in parse_qsl(lista.query, keep_blank_values=True):
+        # matt_tool identifica a ferramenta oficial que originou o link. Os
+        # demais parâmetros da lista (por exemplo, forceInApp e page) não são
+        # atributos do produto e não devem ser copiados.
+        if chave == "matt_tool" and chave not in chaves and valor:
+            parametros.append((chave, valor))
+    return urlunsplit((produto.scheme, produto.netloc, produto.path,
+                       urlencode(parametros), produto.fragment))
+
+
+def _normalizar(card, url_lista=None):
     url = seguranca.validar_url_https_em_hosts(
         card.get("productUrl"), _HOSTS_PRODUTO, "Link de produto do Mercado Livre"
     )
+    url = _adicionar_marcadores_lista(url, url_lista)
     imagem = seguranca.validar_url_https_em_hosts(
         card.get("imageUrl"), _HOSTS_IMAGEM, "Imagem do Mercado Livre"
     )
@@ -203,7 +220,7 @@ def buscar_ofertas() -> list:
         novos = 0
         for card in parser.ofertas:
             try:
-                oferta = _normalizar(card)
+                oferta = _normalizar(card, url_lista)
             except (TypeError, ValueError):
                 continue
             if oferta["oferta_id"] not in ofertas:

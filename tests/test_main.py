@@ -448,13 +448,13 @@ class MainTest(unittest.TestCase):
             self.assertEqual(1, main.publicar(Fonte, oferta))
         self.assertEqual("https://shope.ee/oficial", postar.call_args.args[1])
 
-    def test_story_do_mercado_livre_nunca_recebe_link_direto(self):
+    def test_mercado_livre_nao_usa_encurtador_externo(self):
         class Fonte:
             NOME = "Mercado Livre"
 
             @staticmethod
             def gerar_link(*args):
-                return "https://www.mercadolivre.com.br/produto"
+                return "https://www.mercadolivre.com.br/produto?matt_tool=71195511"
 
         class Canal:
             NOME = "Instagram Stories"
@@ -468,26 +468,27 @@ class MainTest(unittest.TestCase):
                   "price": 50}
         with patch.object(main, "canais_ativos", return_value=[Canal]), \
              patch.object(main.store, "canal_pendente", return_value=True), \
-             patch.object(main.store, "registrar_entrega") as registrar, \
+             patch.object(main.store, "registrar_entrega"), \
              patch.object(main.shortlinks, "esta_configurado", return_value=True), \
-             patch.object(main.shortlinks, "criar", side_effect=RuntimeError("fora")), \
-             patch.object(main.shortlinks, "eh_proprio", return_value=False), \
+             patch.object(main.shortlinks, "criar") as criar, \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
              patch.object(Canal, "postar") as postar:
-            self.assertEqual(0, main.publicar(Fonte, oferta))
-        postar.assert_not_called()
-        self.assertFalse(registrar.call_args.args[2])
+            self.assertEqual(1, main.publicar(Fonte, oferta))
+        criar.assert_not_called()
+        postar.assert_called_once_with(
+            oferta, "https://www.mercadolivre.com.br/produto?matt_tool=71195511"
+        )
 
-    def test_story_do_mercado_livre_usa_dominio_curto(self):
+    def test_outras_lojas_continuam_usando_dominio_curto(self):
         class Fonte:
-            NOME = "Mercado Livre"
+            NOME = "Shopee"
 
             @staticmethod
             def gerar_link(*args):
-                return "https://www.mercadolivre.com.br/produto"
+                return "https://shopee.com.br/produto"
 
         canal = unittest.mock.Mock(NOME="Instagram Stories", TRACKING_ID="instagram")
-        oferta = {"oferta_id": "mercadolivre_MLB1", "productUrl": "https://produto.test",
+        oferta = {"oferta_id": "shopee_1", "productUrl": "https://produto.test",
                   "price": 50}
         curto = "https://go.canaltabarato.com.br/abcdefgh"
         with patch.object(main, "canais_ativos", return_value=[canal]), \

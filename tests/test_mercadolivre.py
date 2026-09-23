@@ -33,7 +33,8 @@ URL_LISTA = "https://www.mercadolivre.com.br/social/canal/lists/lista"
 
 class MercadoLivreTest(unittest.TestCase):
     def test_parseia_lista_e_preserva_link_rastreado(self):
-        with patch.object(mercadolivre, "_baixar_html", return_value=(HTML, URL_LISTA)), \
+        lista_rastreada = URL_LISTA + "?matt_tool=71195511&forceInApp=true"
+        with patch.object(mercadolivre, "_baixar_html", return_value=(HTML, lista_rastreada)), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
              patch.object(mercadolivre.config, "MERCADOLIVRE_FETCH_LIMIT", 150):
             ofertas = mercadolivre.buscar_ofertas()
@@ -47,12 +48,23 @@ class MercadoLivreTest(unittest.TestCase):
         self.assertEqual(4.9, cafe["ratingStar"])
         self.assertEqual("3 Corações", cafe["shopName"])
         self.assertIn("tracking_id=abc", cafe["productUrl"])
+        self.assertIn("matt_tool=71195511", cafe["productUrl"])
+        self.assertIn("matt_tool=71195511", ofertas[1]["productUrl"])
+        self.assertNotIn("forceInApp", ofertas[1]["productUrl"])
         self.assertTrue(cafe["curadoriaManual"])
         self.assertEqual("iPhone 17 256 gb", ofertas[1]["productName"])
 
     def test_gerar_link_rejeita_dominio_estranho(self):
         with self.assertRaises(ValueError):
             mercadolivre.gerar_link("https://exemplo.com/produto")
+
+    def test_marcador_existente_do_produto_nao_e_substituido(self):
+        url = mercadolivre._adicionar_marcadores_lista(
+            "https://www.mercadolivre.com.br/p/MLB1?matt_tool=original#tracking_id=x",
+            URL_LISTA + "?matt_tool=lista",
+        )
+        self.assertIn("matt_tool=original", url)
+        self.assertNotIn("matt_tool=lista", url)
 
     def test_prazo_explicito_da_lista_e_preservado(self):
         html = HTML.replace('class="andes-card lists-card poly-card"',
