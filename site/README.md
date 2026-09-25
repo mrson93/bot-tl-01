@@ -76,6 +76,20 @@ compara essas visualizações com os cliques de saída para as lojas.
 7. No GitHub, cadastrar `SITE_API_URL=https://canaltabarato.com.br/api/publish`,
    `SITE_ATIVO=true`, `SITE_REFRESH_PER_RUN=6` e `SITE_API_TOKEN` como segredo.
 
+## Blog e painel editorial
+
+O blog público fica em `/blog` e cada matéria em `/blog/:slug`. Os artigos são
+salvos no D1, entram no sitemap e podem relacionar até oito produtos do catálogo.
+Os botões usam `/go/:id`, portanto mantêm o rastreamento e o destino afiliado já
+atualizado pelo bot. O conteúdo aceita subtítulos com `##`, negrito com `**texto**`
+e listas iniciadas por `-`; HTML arbitrário não é aceito.
+
+Execute a migração `0013_blog.sql` antes de usar o painel. Proteja `/admin*` e
+`/api/admin/*` com um aplicativo self-hosted do Cloudflare Access. Configure
+`ADMIN_EMAILS`, `CF_ACCESS_TEAM_DOMAIN` e `CF_ACCESS_AUD` no Pages. O servidor
+valida a assinatura, emissor, audiência, validade e e-mail do JWT do Access; sem
+essas variáveis o painel falha fechado. O painel não possui senha própria.
+
 ## Direct automático do Instagram
 
 O endpoint `https://canaltabarato.com.br/api/meta-webhook` recebe respostas a

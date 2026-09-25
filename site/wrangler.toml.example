@@ -24,5 +24,8 @@ namespace_id = "1002"
 
 [vars]
 ALLOWED_DESTINATION_HOSTS = "shope.ee,s.shopee.com.br,shopee.com.br,s.click.aliexpress.com,aliexpress.com,amzn.to,amazon.com.br,meli.la,mercadolivre.com.br,go.canaltabarato.com.br"
+ADMIN_EMAILS = "seu-email@exemplo.com"
+CF_ACCESS_TEAM_DOMAIN = "sua-equipe.cloudflareaccess.com"
+CF_ACCESS_AUD = "audiencia-do-aplicativo-access"
 
 # PUBLISH_TOKEN e ABUSE_HASH_SECRET são segredos: configure no painel da Cloudflare.
