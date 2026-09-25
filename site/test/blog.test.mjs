@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {renderArticleBody} from '../functions/_blog.js';
+import {comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
@@ -25,6 +25,19 @@ test('conteúdo editorial insere apenas blocos cadastrados',()=>{
   });
   assert.match(rendered,/<aside>Oferta segura<\/aside>/);
   assert.match(rendered,/\{\{offer:desconhecida\}\}/);
+});
+
+test('tabela compara preço, reputação e especificações anunciadas',()=>{
+  const specs=extractProductSpecs('Power Bank 20000mAh 33W USB-C Bluetooth 5.3');
+  assert.deepEqual(specs,{battery:'20000 mAh',power:'33 W',features:'Bluetooth 5.3, USB-C'});
+  const table=comparisonTable([
+    {id:'a',title:'Power Bank 20000mAh 33W USB-C',price:120,discount:40,rating:4.8,sales:1500,shop:'Loja A',source:'Shopee'},
+    {id:'b',title:'Power Bank 5000 mAh sem fio',price:70,discount:0,rating:null,sales:null,shop:'Loja B',source:'Mercado Livre'},
+  ]);
+  assert.match(table,/Capacidade/);assert.match(table,/Potência/);assert.match(table,/Recursos/);
+  assert.match(table,/20000 mAh/);assert.match(table,/33 W/);assert.match(table,/Sem fio/);
+  assert.match(table,/R\$\s*70,00/);assert.match(table,/Menor preço/);assert.match(table,/1,5\s*mil vendas/);
+  assert.match(table,/Não informado/);assert.match(table,/Confirme todos os detalhes/);
 });
 
 test('automação escolhe produtos comparáveis e cria somente rascunho factual',()=>{

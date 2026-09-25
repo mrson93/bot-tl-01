@@ -1,14 +1,8 @@
 import {SITE,footer,head,header,html,money,notFound,responseHtml,shorten} from '../_site.js';
-import {renderArticleBody} from '../_blog.js';
+import {comparisonTable,renderArticleBody} from '../_blog.js';
 
 function relatedOffer(offer) {
   return `<article class="article-offer"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"><div><span>${html(offer.source)}</span><h3>${html(offer.title)}</h3><strong>${html(money(offer.price))}</strong><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver preço atual ↗</a></div></article>`;
-}
-
-function comparisonTable(offers) {
-  if(!offers.length) return '';
-  const rows=offers.map(offer=>`<tr><th scope="row">${html(offer.title)}</th><td>${html(money(offer.price))}</td><td>${html(offer.shop||offer.source)}</td><td><a href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></td></tr>`).join('');
-  return `<div class="article-table-wrap"><table class="article-comparison"><thead><tr><th>Produto</th><th>Preço atual</th><th>Loja</th><th>Link</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export async function onRequestGet({params,env}) {
@@ -19,7 +13,7 @@ export async function onRequestGet({params,env}) {
       WHERE slug=? AND status='published' AND published_at<=?`).bind(String(params.slug||''),Math.floor(Date.now()/1000)).first();
   } catch { return notFound('Matéria não encontrada'); }
   if(!post) return notFound('Matéria não encontrada');
-  const result=await env.DB.prepare(`SELECT o.id,o.title,o.price,o.image_url,o.source,o.shop
+  const result=await env.DB.prepare(`SELECT o.id,o.title,o.price,o.original_price,o.discount,o.rating,o.sales,o.image_url,o.source,o.shop
     FROM blog_post_offers b JOIN offers o ON o.id=b.offer_id
     WHERE b.post_id=? AND o.availability!='unavailable' ORDER BY b.position LIMIT 8`).bind(post.id).all();
   const offers=result.results||[],canonical=`${SITE}/blog/${post.slug}`;
