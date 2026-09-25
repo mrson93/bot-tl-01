@@ -17,6 +17,14 @@ test('conteúdo editorial formata texto e bloqueia HTML arbitrário',()=>{
   assert.match(rendered,/&lt;script&gt;/);
 });
 
+test('conteúdo editorial insere apenas blocos cadastrados',()=>{
+  const rendered=renderArticleBody('Texto.\n\n{{offer:abc}}\n\n{{offer:desconhecida}}',{
+    '{{offer:abc}}':'<aside>Oferta segura</aside>',
+  });
+  assert.match(rendered,/<aside>Oferta segura<\/aside>/);
+  assert.match(rendered,/\{\{offer:desconhecida\}\}/);
+});
+
 test('blog abre com estado vazio antes da primeira matéria',async()=>{
   const env={DB:{prepare(){throw new Error('table missing');}}};
   const response=await blogIndex({env});
