@@ -224,6 +224,32 @@ def atualizar_catalogo_site(lojas):
         return 0
 
 
+def gerar_rascunho_blog_seguro():
+    """Gera no máximo um rascunho diário, sem afetar a rodada de ofertas."""
+    if not config.BLOG_RASCUNHO_AUTOMATICO or not site_publisher.esta_configurado():
+        return False
+    try:
+        resultado = site_publisher.gerar_rascunho_blog()
+        if not resultado.get("created"):
+            return False
+        post = resultado.get("post") or {}
+        titulo = str(post.get("title") or "Nova matéria")
+        print(f"📝 Rascunho automático criado: {titulo}")
+        try:
+            monitor.enviar_mensagem_privada(
+                "📝 Novo rascunho no blog\n"
+                f"{titulo}\n\nRevise e publique em: https://canaltabarato.com.br/admin"
+            )
+        except Exception as erro:
+            print("   ⚠️ Rascunho criado, mas o aviso privado falhou: "
+                  f"{seguranca.redigir_segredos(erro)}")
+        return True
+    except Exception as erro:
+        print("⚠️ Geração do rascunho do blog adiada: "
+              f"{seguranca.redigir_segredos(erro)}")
+        return False
+
+
 def enviar_bom_dia_se_preciso(agora=None) -> bool:
     """Envia uma saudacao por dia, na primeira execucao da manha."""
     agora = agora or datetime.now(FUSO_BRASILIA)
@@ -1017,6 +1043,7 @@ def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
     observabilidade.evento("execucao_iniciada")
     sincronizar_shopee_vip_site()
+    gerar_rascunho_blog_seguro()
     limite = config.limite_posts_por_rodada()
     turno, inicio_turno, fim_turno = turnos.janela()
     restantes_turno = turnos.COTAS["Ofertas"][turno] - store.posts_entre(inicio_turno, fim_turno)

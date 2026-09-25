@@ -35,6 +35,11 @@ def _enviar_privado(mensagem, sessao=requests):
     return True
 
 
+def enviar_mensagem_privada(mensagem, sessao=requests):
+    """Envia uma atualização administrativa sem o prefixo de alerta."""
+    return _enviar_privado(str(mensagem), sessao)
+
+
 def enviar_resumo_publicacao(loja, titulo, resultados, sessao=requests):
     """Um aviso privado por oferta, com confirmação por destino."""
     titulo = " ".join(str(titulo or "Oferta").split())[:100]

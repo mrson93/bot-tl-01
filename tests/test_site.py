@@ -6,6 +6,26 @@ import site_publisher
 
 
 class SitePublisherTest(unittest.TestCase):
+    def test_solicita_rascunho_automatico_sem_publicar(self):
+        resposta = type("Resposta", (), {
+            "status_code": 200,
+            "json": lambda self: {"created": True, "post": {
+                "status": "draft", "title": "Comparativo"
+            }},
+        })()
+        with patch.object(site_publisher.config, "SITE_ATIVO", True), \
+             patch.object(site_publisher.config, "BLOG_RASCUNHO_AUTOMATICO", True), \
+             patch.object(site_publisher.config, "SITE_API_URL",
+                          "https://canaltabarato.com.br/api/publish"), \
+             patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
+             patch.object(site_publisher.requests, "post", return_value=resposta) as post:
+            resultado = site_publisher.gerar_rascunho_blog()
+        self.assertTrue(resultado["created"])
+        self.assertEqual("draft", resultado["post"]["status"])
+        self.assertEqual("https://canaltabarato.com.br/api/blog-drafts",
+                         post.call_args.args[0])
+        self.assertNotIn("json", post.call_args.kwargs)
+
     def test_hospeda_jpeg_temporario_para_story(self):
         jpeg = b"\xff\xd8\xff" + b"imagem"
         resposta = type("Resposta", (), {

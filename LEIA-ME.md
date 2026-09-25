@@ -109,6 +109,7 @@ Novas variáveis:
 | `SHOPEE_VIP_ATIVO` | `true` | Ativa banner no site e divulgação recorrente no Telegram |
 | `SHOPEE_VIP_DIAS` | `0,2,5` | Segunda, quarta e sábado (`0` é segunda e `6` é domingo) |
 | `SHOPEE_VIP_HORAS` | `10,11,19,20` | Janelas da manhã e da noite para divulgar o VIP |
+| `BLOG_RASCUNHO_AUTOMATICO` | `true` | Cria no máximo um comparativo diário no painel, sempre como rascunho |
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.
 
@@ -121,6 +122,16 @@ Guarde `FACEBOOK_PAGE_ACCESS_TOKEN` em GitHub Secrets e o ID numérico em
 `FACEBOOK_PAGE_ID`, nas variáveis do GitHub. O código deve ser implantado primeiro
 com `FACEBOOK_ATIVO=false`; depois de uma validação manual, o canal pode ser ligado
 pelo painel privado. O limite inicial recomendado é quatro ofertas por dia.
+
+### Blog automático
+
+Quando o site está ativo, o bot procura no catálogo três ofertas recentes do
+mesmo tipo de produto e cria uma matéria comparativa no painel. O texto usa
+somente preço, desconto, avaliação e vendas informados pelas lojas, inclui os
+cards e a tabela de produtos e nunca afirma que houve teste físico. A matéria
+permanece como **rascunho** até um administrador revisar e mudar o status para
+publicado. O botão **Gerar comparativo** permite executar a mesma seleção pelo
+painel; no máximo um rascunho automático é criado por dia de Brasília.
 
 ### Relatório privado
 

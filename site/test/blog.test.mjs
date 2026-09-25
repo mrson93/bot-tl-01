@@ -5,6 +5,8 @@ import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
 import {adminIdentity} from '../functions/_admin.js';
+import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
+import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
 
 const base64Url=value=>Buffer.from(value).toString('base64url');
 
@@ -25,6 +27,27 @@ test('conteúdo editorial insere apenas blocos cadastrados',()=>{
   assert.match(rendered,/\{\{offer:desconhecida\}\}/);
 });
 
+test('automação escolhe produtos comparáveis e cria somente rascunho factual',()=>{
+  const offers=[
+    {id:'a',title:'Power Bank 10000 mAh',price:80,discount:20,rating:4.8,sales:900,shop:'Loja A',image_url:'https://img/a.jpg',category:'eletronicos',last_checked_at:30},
+    {id:'b',title:'Carregador portátil 20000 mAh',price:110,discount:35,rating:4.6,sales:500,shop:'Loja B',image_url:'https://img/b.jpg',category:'eletronicos',last_checked_at:20},
+    {id:'c',title:'Power Bank compacto',price:60,discount:10,rating:4.4,sales:200,shop:'Loja C',image_url:'https://img/c.jpg',category:'eletronicos',last_checked_at:10},
+    {id:'x',title:'Fone Bluetooth',price:30,last_checked_at:40},
+  ];
+  assert.equal(comparisonType('Smart TV 50 polegadas'),'televisor');
+  const selected=selectComparableOffers(offers);
+  assert.equal(selected.type,'power-bank');
+  assert.equal(selected.offers.length,3);
+  const draft=buildComparisonDraft(selected.type,selected.offers,new Date('2026-09-25T12:00:00Z'));
+  assert.equal(draft.status,'draft');
+  assert.deepEqual(new Set(draft.offer_ids),new Set(['a','b','c']));
+  assert.match(draft.body_markdown,/## Qual é a melhor escolha\?/);
+  assert.match(draft.body_markdown,/\{\{comparison-table\}\}/);
+  assert.match(draft.body_markdown,/não realizamos teste físico/i);
+  assert.doesNotMatch(draft.body_markdown,/excelente qualidade|testamos|recomendamos sem ressalvas/i);
+  assert.equal(brazilDateKey(new Date('2026-09-26T01:30:00Z')),'2026-09-25');
+});
+
 test('blog abre com estado vazio antes da primeira matéria',async()=>{
   const env={DB:{prepare(){throw new Error('table missing');}}};
   const response=await blogIndex({env});
@@ -41,6 +64,8 @@ test('painel e API administrativa falham fechados sem Cloudflare Access',async()
   assert.match(page.headers.get('X-Robots-Tag'),/noindex/);
   const api=await adminPosts({request,env:{}});
   assert.equal(api.status,401);
+  const automation=await automaticDraft({request:new Request('https://canaltabarato.com.br/api/blog-drafts',{method:'POST'}),env:{}});
+  assert.equal(automation.status,401);
 });
 
 test('painel valida assinatura, audiência e e-mail do Cloudflare Access',async()=>{

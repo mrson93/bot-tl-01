@@ -259,6 +259,7 @@ SITE_ATIVO = _bool("SITE_ATIVO", False)
 SITE_API_URL = _get("SITE_API_URL")
 SITE_API_TOKEN = _get("SITE_API_TOKEN")
 SITE_TRACKING_ID = _get("SITE_TRACKING_ID") or "site"
+BLOG_RASCUNHO_AUTOMATICO = _bool("BLOG_RASCUNHO_AUTOMATICO", True)
 # Produtos antigos sao revistos aos poucos dentro das rodadas que ja existem.
 # Isso nao cria novas execucoes do GitHub Actions.
 SITE_REFRESH_PER_RUN = max(0, min(20, _int("SITE_REFRESH_PER_RUN", 6)))

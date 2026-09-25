@@ -222,6 +222,22 @@ def publicar_shopee_vip(link_afiliado):
         raise RuntimeError(f"Site recusou o Shopee VIP ({resposta.status_code})")
 
 
+def gerar_rascunho_blog():
+    """Pede ao site um comparativo diário, sempre salvo como rascunho."""
+    if not esta_configurado() or not config.BLOG_RASCUNHO_AUTOMATICO:
+        return {"created": False, "reason": "disabled"}
+    resposta = requests.post(
+        _api_path("/api/blog-drafts"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        timeout=20, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(
+            f"Site recusou a geração do rascunho ({resposta.status_code})"
+        )
+    return resposta.json() or {}
+
+
 def link_publico_loja(slug):
     """Cria a URL pública rastreável usando a mesma origem da API do site."""
     partes = urlsplit(seguranca.validar_url_https_publica(

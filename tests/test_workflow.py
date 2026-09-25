@@ -33,6 +33,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('MIN_MINUTOS_FORA_PICO: "0"', workflow)
         self.assertIn('MAX_MINUTOS_FORA_PICO: "0"', workflow)
         self.assertIn("AMAZON_LIST_URL: ${{ vars.AMAZON_LIST_URL }}", workflow)
+        self.assertIn("BLOG_RASCUNHO_AUTOMATICO: ${{ vars.BLOG_RASCUNHO_AUTOMATICO || 'true' }}", workflow)
 
     def test_testes_rodam_em_ci_separado(self):
         workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
