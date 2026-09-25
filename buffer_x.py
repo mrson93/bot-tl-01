@@ -95,7 +95,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     if oferta.get("shopName"):
         reputacao.append(f"🏬 {str(oferta['shopName']).strip()}")
     rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
-              f"{fmt.chamada_compra(oferta)}: {link}")
+              f"{fmt.chamada_compra(oferta)}:\n\n{link}")
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
 

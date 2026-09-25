@@ -187,18 +187,28 @@ class FormatacaoTest(unittest.TestCase):
         self.assertIn("oferta.test", texto)
         self.assertLess(texto.index("R$ 29,00"), texto.index("oferta.test"))
 
-    def test_bluesky_link_longo_exibe_dominio_e_preserva_destino_no_facet(self):
+    def test_bluesky_exibe_link_completo_do_mercado_livre_quando_cabe(self):
         oferta = {"fonte": "Mercado Livre", "productName": "Produto", "price": 79}
         link = (
             "https://www.mercadolivre.com.br/produto/p/MLB123"
             "?matt_tool=71195511#source=lists&tracking_id=canal&wid=MLB123"
         )
         texto, inicio = bluesky.montar_texto(oferta, link)
+        self.assertIn(link, texto)
+        trecho = texto.encode("utf-8")[inicio:inicio + len(link.encode("utf-8"))]
+        self.assertEqual(link.encode("utf-8"), trecho)
+
+    def test_bluesky_reduz_link_do_mercado_livre_quando_nao_cabe(self):
+        oferta = {"fonte": "Mercado Livre", "productName": "Produto", "price": 79}
+        link = "https://www.mercadolivre.com.br/produto?matt_tool=" + "x" * 280
+        texto, inicio = bluesky.montar_texto(oferta, link)
         exibido = "mercadolivre.com.br"
-        self.assertIn(exibido, texto)
-        self.assertNotIn("matt_tool", texto)
-        trecho = texto.encode("utf-8")[inicio:inicio + len(exibido)]
-        self.assertEqual(exibido.encode("utf-8"), trecho)
+        self.assertNotIn(link, texto)
+        self.assertLessEqual(len(texto), 300)
+        self.assertEqual(
+            exibido.encode("utf-8"),
+            texto.encode("utf-8")[inicio:inicio + len(exibido.encode("utf-8"))],
+        )
 
     def test_bluesky_inclui_reputacao_e_respeita_300_caracteres(self):
         oferta = {"fonte": "Shopee", "productName": "Fone Bluetooth " * 30,

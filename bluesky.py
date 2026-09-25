@@ -25,6 +25,11 @@ def _link_exibivel(link: str) -> str:
     return host or link
 
 
+def _eh_link_mercado_livre(link: str) -> bool:
+    host = urlsplit(link).netloc.lower().split(":", 1)[0]
+    return host == "mercadolivre.com.br" or host.endswith(".mercadolivre.com.br")
+
+
 def _imagem_omitida(motivo: str, codigo="indisponivel", oferta=None):
     """Registra o fallback sem expor URL, conteúdo remoto ou credenciais."""
     print(f"   ⚠️  Bluesky publicado sem imagem: {motivo}.")
@@ -176,8 +181,16 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
         reputacao.append(f"🏬 {loja}")
     cupom = str(oferta.get("cupom") or "").strip()
     condicao = str(oferta.get("cupomCondicao") or "").strip()[:80]
-    rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
-              f"{fmt.chamada_compra(oferta)}:\n\n{link_exibido}")
+    rodape_prefixo = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
+                      f"{fmt.chamada_compra(oferta)}:\n\n")
+    if _eh_link_mercado_livre(link_afiliado):
+        essenciais_com_link_completo = "\n\n".join(
+            parte for parte in (linha_preco, rodape_prefixo + link_afiliado)
+            if parte
+        )
+        if len(essenciais_com_link_completo) <= 300:
+            link_exibido = link_afiliado
+    rodape = rodape_prefixo + link_exibido
 
     def montar(titulo, chamada=humana, itens_reputacao=reputacao,
                detalhe_cupom=condicao, incluir_cupom=True):
@@ -251,7 +264,6 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     sess = _sessao()
     jwt, did = sess["accessJwt"], sess["did"]
     texto, inicio_link = montar_texto(oferta, link_afiliado)
-    link_exibido = _link_exibivel(link_afiliado)
 
     record = {
         "$type": "app.bsky.feed.post",
@@ -259,7 +271,7 @@ def postar(oferta: dict, link_afiliado: str) -> None:
         "createdAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "facets": [{
             "index": {"byteStart": inicio_link,
-                      "byteEnd": inicio_link + len(link_exibido.encode("utf-8"))},
+                      "byteEnd": len(texto.encode("utf-8"))},
             "features": [{"$type": "app.bsky.richtext.facet#link", "uri": link_afiliado}],
         }],
     }

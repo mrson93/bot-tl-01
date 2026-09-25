@@ -240,7 +240,7 @@ class PublicacaoTest(unittest.TestCase):
             record["facets"][0]["features"][0]["uri"],
         )
 
-    def test_bluesky_exibe_dominio_mas_facet_aponta_para_link_oficial_longo(self):
+    def test_bluesky_exibe_e_aponta_para_link_oficial_longo_quando_cabe(self):
         oferta = {"fonte": "Mercado Livre", "productName": "Produto", "price": 50}
         link = (
             "https://www.mercadolivre.com.br/produto/p/MLB123"
@@ -254,7 +254,7 @@ class PublicacaoTest(unittest.TestCase):
         facet = record["facets"][0]
         texto_bytes = record["text"].encode("utf-8")
         exibido = texto_bytes[facet["index"]["byteStart"]:facet["index"]["byteEnd"]]
-        self.assertEqual(b"mercadolivre.com.br", exibido)
+        self.assertEqual(link.encode("utf-8"), exibido)
         self.assertEqual(link, facet["features"][0]["uri"])
 
 

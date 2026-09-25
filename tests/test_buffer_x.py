@@ -35,6 +35,7 @@ class BufferXTest(unittest.TestCase):
         self.assertIn("🛒 #ad · COMPRAR NA LOJA:", texto)
         self.assertNotIn("Link de afiliado", texto)
         self.assertNotIn("…", texto)
+        self.assertIn(":\n\nhttps://go.canaltabarato.com.br/abc", texto)
 
     def test_prioriza_preco_link_e_cupom_quando_precisa_encurtar(self):
         oferta = {
