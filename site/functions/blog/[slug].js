@@ -18,6 +18,7 @@ export async function onRequestGet({params,env}) {
     WHERE b.post_id=? AND o.availability!='unavailable' ORDER BY b.position LIMIT 8`).bind(post.id).all();
   const offers=result.results||[];let editorialProducts=[];
   try {const productResult=await env.DB.prepare('SELECT id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position FROM blog_post_products WHERE post_id=? ORDER BY position').bind(post.id).all();editorialProducts=productResult.results||[];}catch{}
+  try {const linkResult=await env.DB.prepare('SELECT product_id,id,store,label,affiliate_url,position FROM blog_product_links WHERE post_id=? ORDER BY product_id,position').bind(post.id).all();const linksByProduct=new Map();for(const link of linkResult.results||[]){const list=linksByProduct.get(link.product_id)||[];list.push(link);linksByProduct.set(link.product_id,list);}editorialProducts=editorialProducts.map(product=>({...product,links:linksByProduct.get(product.id)||[]}));}catch{}
   const canonical=`${SITE}/blog/${post.slug}`;
   const title=shorten(post.meta_title||`${post.title} | Tá Barato`,65);
   const description=shorten(post.meta_description||post.excerpt,155);

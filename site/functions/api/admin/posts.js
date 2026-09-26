@@ -15,7 +15,9 @@ export async function onRequestGet({request,env}) {
       p.created_at,p.updated_at,GROUP_CONCAT(b.offer_id) offer_ids FROM blog_posts p
       LEFT JOIN blog_post_offers b ON b.post_id=p.id GROUP BY p.id ORDER BY p.updated_at DESC`).all();
     const productResult=await env.DB.prepare('SELECT post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position FROM blog_post_products ORDER BY post_id,position').all();
-    const productsByPost=new Map();for(const product of productResult.results||[]){const list=productsByPost.get(product.post_id)||[];list.push({...product,specs:productSpecs(product.specs_json)});productsByPost.set(product.post_id,list);}
+    const linkResult=await env.DB.prepare('SELECT post_id,product_id,id,store,label,affiliate_url,position FROM blog_product_links ORDER BY post_id,product_id,position').all();
+    const linksByProduct=new Map();for(const link of linkResult.results||[]){const key=`${link.post_id}\0${link.product_id}`,list=linksByProduct.get(key)||[];list.push(link);linksByProduct.set(key,list);}
+    const productsByPost=new Map();for(const product of productResult.results||[]){const list=productsByPost.get(product.post_id)||[],links=linksByProduct.get(`${product.post_id}\0${product.id}`)||[];list.push({...product,specs:productSpecs(product.specs_json),links:links.length?links:(product.affiliate_url?[{id:'legacy',store:'outro',label:'Ver produto',affiliate_url:product.affiliate_url,position:0}]:[])});productsByPost.set(product.post_id,list);}
     return json({posts:(result.results||[]).map(post=>({...post,offer_ids:post.offer_ids?post.offer_ids.split(','):[],products:productsByPost.get(post.id)||[]}))});
   } catch { return json({error:'blog_not_configured'},503); }
 }
@@ -35,9 +37,18 @@ export async function onRequestPost(context) {
   const requestedOffers=[...new Set((Array.isArray(body.offer_ids)?body.offer_ids:[]).map(value=>String(value).slice(0,100)))].slice(0,8);
   const requestedProducts=[];
   for(const [index,item] of (Array.isArray(body.products)?body.products:[]).slice(0,12).entries()){
-    const name=String(item?.name||'').trim().slice(0,180),affiliateUrl=safeUrl(item?.affiliate_url),imageUrl=item?.image_url?safeUrl(item.image_url):null;
-    if(!name||!affiliateUrl||item?.image_url&&!imageUrl)return json({error:'invalid_product'},400);
-    requestedProducts.push({id:String(item.id||crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||crypto.randomUUID(),name,brand:String(item.brand||'').trim().slice(0,80)||null,summary:String(item.summary||'').trim().slice(0,500)||null,image_url:imageUrl,affiliate_url:affiliateUrl,price_label:String(item.price_label||'').trim().slice(0,60)||null,specs:productSpecs(item.specs),position:index});
+    const name=String(item?.name||'').trim().slice(0,180),imageUrl=item?.image_url?safeUrl(item.image_url):null;
+    if(!name||item?.image_url&&!imageUrl)return json({error:'invalid_product'},400);
+    let rawLinks=Array.isArray(item.links)?item.links:[];
+    if(!rawLinks.length&&item.affiliate_url)rawLinks=[{store:'outro',label:'Ver produto',affiliate_url:item.affiliate_url}];
+    const links=[];
+    for(const [linkIndex,link] of rawLinks.slice(0,5).entries()){
+      const affiliateUrl=safeUrl(link?.affiliate_url);if(!affiliateUrl)return json({error:'invalid_product_link'},400);
+      const store=['amazon','mercado-livre','outro'].includes(link?.store)?link.store:'outro';
+      const defaultLabel=store==='amazon'?'Amazon':store==='mercado-livre'?'Mercado Livre':'Ver produto';
+      links.push({id:String(link.id||crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||crypto.randomUUID(),store,label:String(link.label||defaultLabel).trim().slice(0,50)||defaultLabel,affiliate_url:affiliateUrl,position:linkIndex});
+    }
+    requestedProducts.push({id:String(item.id||crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||crypto.randomUUID(),name,brand:String(item.brand||'').trim().slice(0,80)||null,summary:String(item.summary||'').trim().slice(0,500)||null,image_url:imageUrl,affiliate_url:links[0]?.affiliate_url||'',price_label:String(item.price_label||'').trim().slice(0,60)||null,specs:productSpecs(item.specs),position:index,links});
   }
   try {
     await ensureBlogProducts(env);
@@ -50,7 +61,7 @@ export async function onRequestPost(context) {
     const publishedAt=status==='published'?(Number(current?.published_at)||now):null;
     const statements=[env.DB.prepare(`INSERT INTO blog_posts(id,slug,title,excerpt,body_markdown,cover_image_url,category,status,meta_title,meta_description,published_at,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET slug=excluded.slug,title=excluded.title,excerpt=excluded.excerpt,body_markdown=excluded.body_markdown,cover_image_url=excluded.cover_image_url,category=excluded.category,status=excluded.status,meta_title=excluded.meta_title,meta_description=excluded.meta_description,published_at=excluded.published_at,updated_at=excluded.updated_at`).bind(id,slug,title,excerpt,content,cover,category,status,metaTitle,metaDescription,publishedAt,Number(current?.created_at)||now,now),env.DB.prepare('DELETE FROM blog_post_offers WHERE post_id=?').bind(id),...existingIds.map((offerId,index)=>env.DB.prepare('INSERT INTO blog_post_offers(post_id,offer_id,position) VALUES(?,?,?)').bind(id,offerId,index))];
-    statements.push(env.DB.prepare('DELETE FROM blog_post_products WHERE post_id=?').bind(id),...requestedProducts.map(product=>env.DB.prepare(`INSERT INTO blog_post_products(post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,product.id,product.name,product.brand,product.summary,product.image_url,product.affiliate_url,product.price_label,JSON.stringify(product.specs),product.position)));
+    statements.push(env.DB.prepare('DELETE FROM blog_product_links WHERE post_id=?').bind(id),env.DB.prepare('DELETE FROM blog_post_products WHERE post_id=?').bind(id),...requestedProducts.map(product=>env.DB.prepare(`INSERT INTO blog_post_products(post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,product.id,product.name,product.brand,product.summary,product.image_url,product.affiliate_url,product.price_label,JSON.stringify(product.specs),product.position)),...requestedProducts.flatMap(product=>product.links.map(link=>env.DB.prepare(`INSERT INTO blog_product_links(post_id,product_id,id,store,label,affiliate_url,position) VALUES(?,?,?,?,?,?,?)`).bind(id,product.id,link.id,link.store,link.label,link.affiliate_url,link.position))));
     await env.DB.batch(statements);
     if(status==='published') context.waitUntil(notifyIndexNow([`/blog/${slug}`,'/blog']));
     return json({ok:true,id,slug,status,published_at:publishedAt,offer_ids:existingIds,product_ids:requestedProducts.map(product=>product.id)},current?200:201);

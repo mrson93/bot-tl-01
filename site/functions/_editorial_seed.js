@@ -1,4 +1,7 @@
+import {ensureBlogProducts} from './_blog_products.js';
+
 export const EDITORIAL_SEED_ID='celulares-editorial-2026-v1';
+export const EDITORIAL_MODELS_SEED_ID='celulares-modelos-2026-v1';
 
 export const EDITORIAL_ARTICLES=[
   {
@@ -772,6 +775,34 @@ O S26 Ultra é o mais versátil entre os exemplos. Um iPhone Pro é mais indicad
   }
 ];
 
+const MODELS={
+  'galaxy-a07':{name:'Samsung Galaxy A07',brand:'Samsung',summary:'Modelo básico para tarefas cotidianas, com armazenamento expansível e política longa de atualizações.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Rede:'4G'}},
+  'galaxy-a07-5g':{name:'Samsung Galaxy A07 5G',brand:'Samsung',summary:'Opção de entrada com 5G, tela de 120 Hz, bateria grande e suporte prolongado de software.',specs:{Tela:'6,7″, 120 Hz',Armazenamento:'128 GB',Bateria:'6.000 mAh',Rede:'5G'}},
+  'moto-g05':{name:'Motorola Moto g05',brand:'Motorola',summary:'Modelo básico com bateria de 5.200 mAh, entrada para microSD e foco em uso cotidiano.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'256 GB + microSD',Bateria:'5.200 mAh',Rede:'4G'}},
+  'moto-g56-5g':{name:'Motorola Moto g56 5G',brand:'Motorola',summary:'Intermediário acessível que combina 5G, bateria, carregamento de 33 W e construção resistente.',specs:{Tela:'6,72″, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh',Rede:'5G'}},
+  'galaxy-a26-5g':{name:'Samsung Galaxy A26 5G',brand:'Samsung',summary:'Intermediário equilibrado com tela AMOLED, câmera principal com OIS e proteção IP67.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
+  'galaxy-a56-5g':{name:'Samsung Galaxy A56 5G',brand:'Samsung',summary:'Intermediário premium com tela AMOLED, proteção IP67, câmeras versáteis e suporte longo.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
+  'edge-60-fusion':{name:'Motorola Edge 60 Fusion',brand:'Motorola',summary:'Modelo com tela pOLED de alta resolução, carregamento rápido e câmera principal estabilizada.',specs:{Tela:'6,7″ pOLED 1220p, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh, 68 W',Câmera:'50 MP com OIS'}},
+  'redmi-note-14':{name:'Xiaomi Redmi Note 14 4G',brand:'Xiaomi',summary:'Opção focada em tela AMOLED e armazenamento, indicada para quem não precisa de 5G.',specs:{Tela:'6,67″ AMOLED, 120 Hz',Armazenamento:'Até 256 GB + microSD',Bateria:'5.500 mAh',Rede:'4G'}},
+  'redmi-note-15-5g':{name:'Xiaomi Redmi Note 15 5G',brand:'Xiaomi',summary:'Intermediário com tela AMOLED, 5G e bateria grande; confirme a variante nacional antes da compra.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'6.000 mAh',Rede:'5G'}},
+  'galaxy-s26-ultra':{name:'Samsung Galaxy S26 Ultra',brand:'Samsung',summary:'Topo de linha voltado a desempenho, zoom e versatilidade de câmeras.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'A partir de 256 GB',Câmera:'Principal de 200 MP',Rede:'5G'}},
+};
+
+const MODEL_SELECTIONS={
+  'editorial-melhor-celular-2026':['galaxy-a07-5g','moto-g56-5g','galaxy-a56-5g','edge-60-fusion','galaxy-s26-ultra'],
+  'editorial-celular-bateria':['galaxy-a07-5g','moto-g05','edge-60-fusion','redmi-note-15-5g'],
+  'editorial-samsung-motorola':['galaxy-a07','moto-g05','galaxy-a56-5g','edge-60-fusion'],
+  'editorial-128-256':['galaxy-a07','moto-g56-5g','galaxy-a56-5g','edge-60-fusion'],
+  'editorial-5g-vale-pena':['galaxy-a07-5g','moto-g56-5g','galaxy-a26-5g','redmi-note-15-5g'],
+  'editorial-como-escolher-celular':['galaxy-a07-5g','moto-g56-5g','galaxy-a56-5g','galaxy-s26-ultra'],
+  'editorial-celular-ate-1000':['galaxy-a07','moto-g05','redmi-note-14'],
+  'editorial-celular-ate-1500':['galaxy-a07-5g','moto-g56-5g','redmi-note-15-5g'],
+  'editorial-celular-ate-2000':['galaxy-a26-5g','moto-g56-5g','edge-60-fusion','redmi-note-15-5g'],
+  'editorial-celular-fotos':['galaxy-a56-5g','edge-60-fusion','galaxy-s26-ultra'],
+};
+
+export const EDITORIAL_MODELS=Object.entries(MODEL_SELECTIONS).flatMap(([post_id,ids])=>ids.map((id,position)=>({post_id,id,...MODELS[id],position})));
+
 const RELATED={
   'qual-melhor-celular-comprar-2026':['melhor-celular-ate-1000-reais','melhor-celular-ate-1500-reais','melhor-celular-ate-2000-reais'],
   'melhor-celular-ate-1000-reais':['como-escolher-celular','celular-128gb-ou-256gb','celular-5g-vale-a-pena'],
@@ -798,10 +829,22 @@ async function ensureMigrationTable(env){
 export async function ensureEditorialSeed(env,now=Math.floor(Date.now()/1000)){
   await ensureMigrationTable(env);
   const applied=await env.DB.prepare('SELECT id FROM site_migrations WHERE id=?').bind(EDITORIAL_SEED_ID).first();
-  if(applied)return {created:0};
-  const statements=EDITORIAL_ARTICLES.map((article,index)=>env.DB.prepare(`INSERT OR IGNORE INTO blog_posts
-    (id,slug,title,excerpt,body_markdown,cover_image_url,category,status,meta_title,meta_description,published_at,created_at,updated_at)
-    VALUES(?,?,?,?,?,NULL,?,'published',?,?,?,?,?)`).bind(article.id,article.slug,article.title,article.excerpt,editorialBody(article),article.category,article.meta_title,article.meta_description,now-index,now-index,now-index));
-  statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_SEED_ID,now));
-  await env.DB.batch(statements);return {created:EDITORIAL_ARTICLES.length};
+  let created=0,productsCreated=0;
+  if(!applied){
+    const statements=EDITORIAL_ARTICLES.map((article,index)=>env.DB.prepare(`INSERT OR IGNORE INTO blog_posts
+      (id,slug,title,excerpt,body_markdown,cover_image_url,category,status,meta_title,meta_description,published_at,created_at,updated_at)
+      VALUES(?,?,?,?,?,NULL,?,'published',?,?,?,?,?)`).bind(article.id,article.slug,article.title,article.excerpt,editorialBody(article),article.category,article.meta_title,article.meta_description,now-index,now-index,now-index));
+    statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_SEED_ID,now));
+    await env.DB.batch(statements);created=EDITORIAL_ARTICLES.length;
+  }
+  await ensureBlogProducts(env);
+  const modelsApplied=await env.DB.prepare('SELECT id FROM site_migrations WHERE id=?').bind(EDITORIAL_MODELS_SEED_ID).first();
+  if(!modelsApplied){
+    const statements=EDITORIAL_MODELS.map(model=>env.DB.prepare(`INSERT OR IGNORE INTO blog_post_products
+      (post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position)
+      VALUES(?,?,?,?,?,NULL,'',NULL,?,?)`).bind(model.post_id,model.id,model.name,model.brand,model.summary,JSON.stringify(model.specs),model.position));
+    statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_MODELS_SEED_ID,now));
+    await env.DB.batch(statements);productsCreated=EDITORIAL_MODELS.length;
+  }
+  return {created,products_created:productsCreated};
 }

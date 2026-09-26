@@ -7,7 +7,7 @@ import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
 import {adminIdentity} from '../functions/_admin.js';
 import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
 import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
-import {EDITORIAL_ARTICLES,editorialBody} from '../functions/_editorial_seed.js';
+import {EDITORIAL_ARTICLES,EDITORIAL_MODELS,editorialBody} from '../functions/_editorial_seed.js';
 
 const base64Url=value=>Buffer.from(value).toString('base64url');
 
@@ -21,6 +21,16 @@ test('coleção editorial tem dez matérias originais e completas sobre celulare
     assert.equal(article.meta_title.length<=60,true,article.slug);
     assert.equal(article.meta_description.length<=155,true,article.slug);
     assert.match(editorialBody(article),/## Leia também/);
+  }
+});
+
+test('todas as matérias de celulares recebem uma seleção de modelos descritos',()=>{
+  const articleIds=new Set(EDITORIAL_ARTICLES.map(article=>article.id));
+  assert.equal(new Set(EDITORIAL_MODELS.map(model=>model.post_id)).size,EDITORIAL_ARTICLES.length);
+  for(const articleId of articleIds){
+    const models=EDITORIAL_MODELS.filter(model=>model.post_id===articleId);
+    assert.equal(models.length>=3,true,articleId);
+    for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.equal(Object.keys(model.specs).length>=3,true);}
   }
 });
 
@@ -70,12 +80,18 @@ test('extrai especificações técnicas relevantes de calçados',()=>{
   });
 });
 
-test('produto editorial aceita link afiliado fora do catálogo de ofertas',()=>{
-  const product={id:'celular-a',name:'Celular A',brand:'Marca',summary:'Bom para fotos.',image_url:'https://img.example/a.jpg',affiliate_url:'https://amazon.com.br/dp/abc?tag=canaltabarato-20',price_label:'Até R$ 2.000',specs:{Tela:'6,5 polegadas',Memória:'256 GB'}};
+test('produto editorial aceita vários links afiliados fora do catálogo de ofertas',()=>{
+  const product={id:'celular-a',name:'Celular A',brand:'Marca',summary:'Bom para fotos.',image_url:'https://img.example/a.jpg',price_label:'Até R$ 2.000',specs:{Tela:'6,5 polegadas',Memória:'256 GB'},links:[{store:'amazon',label:'Amazon',affiliate_url:'https://amazon.com.br/dp/abc?tag=canaltabarato-20'},{store:'mercado-livre',label:'Mercado Livre',affiliate_url:'https://mercadolivre.com.br/item?matt_tool=abc'}]};
   const card=editorialProductCard(product),table=editorialComparisonTable([product]);
   assert.match(card,/Bom para fotos/);assert.match(card,/amazon\.com\.br\/dp\/abc\?tag=canaltabarato-20/);
+  assert.match(card,/Mercado Livre/);assert.match(table,/Onde comprar/);
   assert.match(table,/Tela/);assert.match(table,/6,5 polegadas/);assert.match(table,/Até R\$ 2\.000/);
   assert.doesNotMatch(`${card}${table}`,/\/go\//);
+});
+
+test('modelo editorial pode ser exibido antes de receber link afiliado',()=>{
+  const card=editorialProductCard({name:'Modelo sem link',summary:'Descrição pronta.',specs:{Tela:'OLED'}});
+  assert.match(card,/Modelo analisado/);assert.match(card,/OLED/);assert.doesNotMatch(card,/<a /);
 });
 
 test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{
