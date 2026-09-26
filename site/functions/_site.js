@@ -1,4 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
+export const STYLESHEET='/styles.css?v=20260926-2';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -98,7 +99,7 @@ export function head({title,description,canonical,structured='',image=''}) {
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
   <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
-  <link rel="stylesheet" href="/styles.css"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${GOOGLE_ADSENSE}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
+  <link rel="stylesheet" href="${STYLESHEET}"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${GOOGLE_ADSENSE}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
 }
 
 export function productStructuredData(offer,canonical) {
@@ -158,5 +159,5 @@ export function offerCard(offer) {
 }
 
 export function notFound(title='Página não encontrada') {
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${html(title)} | Tá Barato</title><link rel="stylesheet" href="/styles.css"></head><body>${header()}<main class="not-found"><p class="eyebrow">TÁ BARATO</p><h1>${html(title)}</h1><p>Este conteúdo pode ter saído do catálogo ou o endereço está incorreto.</p><a class="buy" href="/">Ver ofertas recentes</a></main>${footer()}</body></html>`,404);
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${html(title)} | Tá Barato</title><link rel="stylesheet" href="${STYLESHEET}"></head><body>${header()}<main class="not-found"><p class="eyebrow">TÁ BARATO</p><h1>${html(title)}</h1><p>Este conteúdo pode ter saído do catálogo ou o endereço está incorreto.</p><a class="buy" href="/">Ver ofertas recentes</a></main>${footer()}</body></html>`,404);
 }
