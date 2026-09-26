@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {articleSidebarAd,articleTableOfContents,comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
+import {articleSidebarAd,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
@@ -53,6 +53,14 @@ test('extrai especificações técnicas relevantes de calçados',()=>{
   assert.deepEqual(extractProductSpecs('Tênis corrida maratona malha respirável placa de carbono'),{
     purpose:'Corrida, Maratona',upper:'Malha/mesh, Respirável',sole:'Placa de carbono anunciada',
   });
+});
+
+test('produto editorial aceita link afiliado fora do catálogo de ofertas',()=>{
+  const product={id:'celular-a',name:'Celular A',brand:'Marca',summary:'Bom para fotos.',image_url:'https://img.example/a.jpg',affiliate_url:'https://amazon.com.br/dp/abc?tag=canaltabarato-20',price_label:'Até R$ 2.000',specs:{Tela:'6,5 polegadas',Memória:'256 GB'}};
+  const card=editorialProductCard(product),table=editorialComparisonTable([product]);
+  assert.match(card,/Bom para fotos/);assert.match(card,/amazon\.com\.br\/dp\/abc\?tag=canaltabarato-20/);
+  assert.match(table,/Tela/);assert.match(table,/6,5 polegadas/);assert.match(table,/Até R\$ 2\.000/);
+  assert.doesNotMatch(`${card}${table}`,/\/go\//);
 });
 
 test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{
@@ -116,6 +124,11 @@ test('painel e API administrativa falham fechados sem Cloudflare Access',async()
   assert.equal(api.status,401);
   const automation=await automaticDraft({request:new Request('https://canaltabarato.com.br/api/blog-drafts',{method:'POST'}),env:{}});
   assert.equal(automation.status,401);
+});
+
+test('geração automática por ofertas permanece desativada',async()=>{
+  const response=await automaticDraft({request:new Request('https://canaltabarato.com.br/api/blog-drafts',{method:'POST',headers:{Authorization:'Bearer segredo'}}),env:{PUBLISH_TOKEN:'segredo'}});
+  assert.equal(response.status,410);assert.equal((await response.json()).reason,'editorial_topic_required');
 });
 
 test('painel valida assinatura, audiência e e-mail do Cloudflare Access',async()=>{

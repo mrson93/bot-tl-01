@@ -78,13 +78,17 @@ compara essas visualizações com os cliques de saída para as lojas.
 
 ## Blog e painel editorial
 
-O blog público fica em `/blog` e cada matéria em `/blog/:slug`. Os artigos são
-salvos no D1, entram no sitemap e podem relacionar até oito produtos do catálogo.
-Os botões usam `/go/:id`, portanto mantêm o rastreamento e o destino afiliado já
-atualizado pelo bot. O conteúdo aceita subtítulos com `##`, negrito com `**texto**`
-e listas iniciadas por `-`; HTML arbitrário não é aceito.
+O blog público fica em `/blog` e cada matéria em `/blog/:slug`. As pautas nascem
+de dúvidas de busca e não do catálogo de promoções. Cada artigo pode cadastrar até
+12 produtos editoriais independentes, com ficha técnica e URL afiliada própria,
+além de opcionalmente relacionar itens do catálogo. Use `{{product:ID}}` para um
+card e `{{editorial-comparison-table}}` para a tabela. O conteúdo aceita subtítulos
+com `##`, negrito com `**texto**` e listas iniciadas por `-`; HTML arbitrário não
+é aceito.
 
-Execute a migração `0013_blog.sql` antes de usar o painel. Proteja `/admin*` e
+Execute as migrações `0013_blog.sql` e `0014_blog_produtos_editoriais.sql` antes
+de usar o painel. A API administrativa também cria a nova tabela de forma
+idempotente. Proteja `/admin*` e
 `/api/admin/*` com um aplicativo self-hosted do Cloudflare Access. Configure
 `ADMIN_EMAILS`, `CF_ACCESS_TEAM_DOMAIN` e `CF_ACCESS_AUD` no Pages. O servidor
 valida a assinatura, emissor, audiência, validade e e-mail do JWT do Access; sem

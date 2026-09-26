@@ -31,3 +31,5 @@ CREATE TABLE IF NOT EXISTS blog_posts (id TEXT PRIMARY KEY,slug TEXT NOT NULL UN
 CREATE INDEX IF NOT EXISTS idx_blog_posts_status_published ON blog_posts(status,published_at DESC);
 CREATE TABLE IF NOT EXISTS blog_post_offers (post_id TEXT NOT NULL,offer_id TEXT NOT NULL,position INTEGER NOT NULL DEFAULT 0,PRIMARY KEY (post_id,offer_id),FOREIGN KEY (post_id) REFERENCES blog_posts(id) ON DELETE CASCADE,FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_blog_post_offers_post ON blog_post_offers(post_id,position);
+CREATE TABLE IF NOT EXISTS blog_post_products (post_id TEXT NOT NULL,id TEXT NOT NULL,name TEXT NOT NULL,brand TEXT,summary TEXT,image_url TEXT,affiliate_url TEXT NOT NULL,price_label TEXT,specs_json TEXT NOT NULL DEFAULT '{}',position INTEGER NOT NULL DEFAULT 0,PRIMARY KEY (post_id,id),FOREIGN KEY (post_id) REFERENCES blog_posts(id) ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS idx_blog_post_products_post ON blog_post_products(post_id,position);
