@@ -2,6 +2,8 @@ import {ensureBlogProducts} from './_blog_products.js';
 
 export const EDITORIAL_SEED_ID='celulares-editorial-2026-v1';
 export const EDITORIAL_MODELS_SEED_ID='celulares-modelos-2026-v1';
+export const EDITORIAL_COVERS_SEED_ID='celulares-capas-2026-v1';
+export const CELLULAR_GUIDES_COVER='https://canaltabarato.com.br/images/blog/guia-celulares-2026.jpg';
 
 export const EDITORIAL_ARTICLES=[
   {
@@ -775,6 +777,8 @@ O S26 Ultra é o mais versátil entre os exemplos. Um iPhone Pro é mais indicad
   }
 ];
 
+for(const article of EDITORIAL_ARTICLES)article.cover_image_url=CELLULAR_GUIDES_COVER;
+
 const MODELS={
   'galaxy-a07':{name:'Samsung Galaxy A07',brand:'Samsung',summary:'Modelo básico para tarefas cotidianas, com armazenamento expansível e política longa de atualizações.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Rede:'4G'}},
   'galaxy-a07-5g':{name:'Samsung Galaxy A07 5G',brand:'Samsung',summary:'Opção de entrada com 5G, tela de 120 Hz, bateria grande e suporte prolongado de software.',specs:{Tela:'6,7″, 120 Hz',Armazenamento:'128 GB',Bateria:'6.000 mAh',Rede:'5G'}},
@@ -833,7 +837,7 @@ export async function ensureEditorialSeed(env,now=Math.floor(Date.now()/1000)){
   if(!applied){
     const statements=EDITORIAL_ARTICLES.map((article,index)=>env.DB.prepare(`INSERT OR IGNORE INTO blog_posts
       (id,slug,title,excerpt,body_markdown,cover_image_url,category,status,meta_title,meta_description,published_at,created_at,updated_at)
-      VALUES(?,?,?,?,?,NULL,?,'published',?,?,?,?,?)`).bind(article.id,article.slug,article.title,article.excerpt,editorialBody(article),article.category,article.meta_title,article.meta_description,now-index,now-index,now-index));
+      VALUES(?,?,?,?,?,?,?,'published',?,?,?,?,?)`).bind(article.id,article.slug,article.title,article.excerpt,editorialBody(article),article.cover_image_url,article.category,article.meta_title,article.meta_description,now-index,now-index,now-index));
     statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_SEED_ID,now));
     await env.DB.batch(statements);created=EDITORIAL_ARTICLES.length;
   }
@@ -846,5 +850,13 @@ export async function ensureEditorialSeed(env,now=Math.floor(Date.now()/1000)){
     statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_MODELS_SEED_ID,now));
     await env.DB.batch(statements);productsCreated=EDITORIAL_MODELS.length;
   }
-  return {created,products_created:productsCreated};
+  const coversApplied=await env.DB.prepare('SELECT id FROM site_migrations WHERE id=?').bind(EDITORIAL_COVERS_SEED_ID).first();
+  let coversUpdated=0;
+  if(!coversApplied){
+    const ids=EDITORIAL_ARTICLES.map(article=>article.id),placeholders=ids.map(()=>'?').join(',');
+    const result=await env.DB.prepare(`UPDATE blog_posts SET cover_image_url=?,updated_at=? WHERE id IN (${placeholders}) AND (cover_image_url IS NULL OR cover_image_url='')`).bind(CELLULAR_GUIDES_COVER,now,...ids).run();
+    coversUpdated=Number(result.meta?.changes)||0;
+    await env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_COVERS_SEED_ID,now).run();
+  }
+  return {created,products_created:productsCreated,covers_updated:coversUpdated};
 }

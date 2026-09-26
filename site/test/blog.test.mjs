@@ -7,7 +7,7 @@ import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
 import {adminIdentity} from '../functions/_admin.js';
 import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
 import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
-import {EDITORIAL_ARTICLES,EDITORIAL_MODELS,editorialBody} from '../functions/_editorial_seed.js';
+import {CELLULAR_GUIDES_COVER,EDITORIAL_ARTICLES,EDITORIAL_MODELS,editorialBody} from '../functions/_editorial_seed.js';
 
 const base64Url=value=>Buffer.from(value).toString('base64url');
 
@@ -20,6 +20,8 @@ test('coleção editorial tem dez matérias originais e completas sobre celulare
     assert.doesNotMatch(article.body_markdown,/\{\{offer:|\{\{product:/);
     assert.equal(article.meta_title.length<=60,true,article.slug);
     assert.equal(article.meta_description.length<=155,true,article.slug);
+    assert.equal(article.cover_image_url,CELLULAR_GUIDES_COVER,article.slug);
+    assert.match(article.cover_image_url,/^https:\/\/canaltabarato\.com\.br\/images\/blog\/[^?]+\.jpg$/);
     assert.match(editorialBody(article),/## Leia também/);
   }
 });
