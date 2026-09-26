@@ -74,6 +74,37 @@ class IdempotenciaTest(unittest.TestCase):
         self.assertEqual("esporte", item["g"])
         self.assertEqual("Loja Fitness", item["l"])
 
+    def test_compacta_por_tamanho_e_preserva_reserva_mais_recente(self):
+        ofertas = {
+            str(indice): {"i": f"produto-{indice}", "f": "Shopee", "p": 10,
+                          "t": indice, "c": ["Telegram", "Bluesky", "Site"],
+                          "n": "Produto com nome grande " * 8,
+                          "g": "eletronicos", "l": "Loja com nome grande"}
+            for indice in range(180)
+        }
+        sessao = self._sessao({"v": 1, "ofertas": ofertas, "bom_dia": {}})
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=999):
+            self.assertTrue(idempotencia.reservar_oferta(
+                "produto-novo", "Telegram", 49.9, "Shopee", sessao,
+                oferta={"productName": "Novo"}
+            ))
+        corpo = sessao.patch.call_args.kwargs["json"]["body"]
+        salvo = json.loads(corpo)
+        self.assertLessEqual(len(corpo.encode("utf-8")), idempotencia.MAX_BYTES)
+        self.assertIn(idempotencia._chave("produto-novo", "Shopee"),
+                      salvo["ofertas"])
+        self.assertLess(len(salvo["ofertas"]), len(ofertas))
+
+    def test_falha_do_diario_tem_tipo_sistemico(self):
+        sessao = self._sessao()
+        sessao.get.side_effect = RuntimeError("fora")
+        with self._ambiente():
+            with self.assertRaisesRegex(idempotencia.DiarioRemotoIndisponivel,
+                                        "fora"):
+                idempotencia.reservar_oferta(
+                    "produto", "Telegram", 49.9, "Shopee", sessao
+                )
+
     def test_actions_falha_fechado_sem_credenciais(self):
         with patch.dict(os.environ, {"IDEMPOTENCIA_REMOTA_ATIVA": "true",
                                      "GITHUB_REPOSITORY": "", "GH_TOKEN": ""}):

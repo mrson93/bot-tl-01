@@ -381,6 +381,8 @@ def publicar(fonte, oferta: dict) -> int:
                                     canal=canal.NOME, fonte=fonte.NOME)
             ok += 1
             resultados[canal.NOME] = "✅ publicado"
+        except idempotencia.DiarioRemotoIndisponivel:
+            raise
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, canal.NOME, False, preco, fonte.NOME, erro)
@@ -409,6 +411,8 @@ def publicar(fonte, oferta: dict) -> int:
                 observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                         canal="Site", fonte=fonte.NOME)
                 resultados["Site"] = "✅ publicado"
+        except idempotencia.DiarioRemotoIndisponivel:
+            raise
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)

@@ -14,6 +14,11 @@ import requests
 import store
 
 MAX_OFERTAS = 180
+MAX_BYTES = 40_000
+
+
+class DiarioRemotoIndisponivel(RuntimeError):
+    """Falha sistêmica que deve interromper a rodada antes de publicar."""
 
 
 def _configuracao():
@@ -81,8 +86,18 @@ def _salvar(diario, contexto, sessao=requests):
         if data >= hoje
     }
     valor = json.dumps(diario, ensure_ascii=False, separators=(",", ":"))
-    if len(valor.encode("utf-8")) > 45_000:
-        raise RuntimeError("Diario remoto excedeu o limite seguro")
+    # A quantidade fixa não basta: títulos, lojas e a lista de canais tornam
+    # cada registro variável. Remove os mais antigos pelo tamanho serializado,
+    # preservando a reserva recém-criada e espaço para a próxima atualização.
+    if len(valor.encode("utf-8")) > MAX_BYTES:
+        recentes = sorted(diario["ofertas"].items(),
+                           key=lambda item: item[1].get("t", 0), reverse=True)
+        while recentes and len(valor.encode("utf-8")) > MAX_BYTES:
+            recentes.pop()
+            diario["ofertas"] = dict(recentes)
+            valor = json.dumps(diario, ensure_ascii=False, separators=(",", ":"))
+    if len(valor.encode("utf-8")) > MAX_BYTES:
+        raise DiarioRemotoIndisponivel("Diario remoto excedeu o limite seguro")
     headers = _headers(token)
     resposta = sessao.patch(_url(repositorio, issue), headers=headers,
                             json={"body": valor}, timeout=20,
@@ -126,7 +141,10 @@ def sincronizar(sessao=requests):
 
 def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None):
     """Reserva antes do POST externo; False significa que ja foi reservado."""
-    diario, contexto = _ler(sessao)
+    try:
+        diario, contexto = _ler(sessao)
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
     if diario is None:
         return True
     chave = _chave(oferta_id, fonte)
@@ -143,12 +161,20 @@ def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None
         "g": str(oferta.get("categoria") or "")[:30],
         "l": " ".join(str(oferta.get("shopName") or "").split())[:50],
     }
-    _salvar(diario, contexto, sessao)
+    try:
+        _salvar(diario, contexto, sessao)
+    except DiarioRemotoIndisponivel:
+        raise
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
     return True
 
 
 def reservar_bom_dia(data, canal, sessao=requests):
-    diario, contexto = _ler(sessao)
+    try:
+        diario, contexto = _ler(sessao)
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
     if diario is None:
         return True
     canais = list(diario["bom_dia"].get(str(data)) or [])
@@ -156,5 +182,10 @@ def reservar_bom_dia(data, canal, sessao=requests):
         return False
     canais.append(canal)
     diario["bom_dia"][str(data)] = canais
-    _salvar(diario, contexto, sessao)
+    try:
+        _salvar(diario, contexto, sessao)
+    except DiarioRemotoIndisponivel:
+        raise
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
     return True

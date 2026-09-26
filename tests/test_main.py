@@ -421,6 +421,29 @@ class MainTest(unittest.TestCase):
         self.assertNotIn("123456:ABC-def", erro)
         self.assertIn("[SEGREDO]", erro)
 
+    def test_falha_sistemica_do_diario_interrompe_sem_tentar_outros_canais(self):
+        class Fonte:
+            NOME = "Shopee"
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://oferta.test"
+
+        primeiro = unittest.mock.Mock(NOME="Telegram", TRACKING_ID="telegram")
+        segundo = unittest.mock.Mock(NOME="Bluesky", TRACKING_ID="bsky")
+        oferta = {"oferta_id": "x", "productUrl": "https://produto.test",
+                  "price": 50}
+        with patch.object(main, "canais_ativos", return_value=[primeiro, segundo]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.idempotencia, "reservar_oferta",
+                          side_effect=main.idempotencia.DiarioRemotoIndisponivel("fora")):
+            with self.assertRaisesRegex(main.idempotencia.DiarioRemotoIndisponivel,
+                                        "fora"):
+                main.publicar(Fonte, oferta)
+        primeiro.postar.assert_not_called()
+        segundo.postar.assert_not_called()
+
     def test_falha_do_link_proprio_usa_afiliado_oficial(self):
         class Fonte:
             NOME = "Shopee"
