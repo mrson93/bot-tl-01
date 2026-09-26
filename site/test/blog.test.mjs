@@ -84,7 +84,7 @@ test('automação escolhe produtos comparáveis e cria somente rascunho factual'
   assert.match(draft.body_markdown,/\{\{comparison-table\}\}/);
   assert.match(draft.body_markdown,/não realizamos teste físico/i);
   assert.doesNotMatch(draft.body_markdown,/excelente qualidade|testamos|recomendamos sem ressalvas/i);
-  assert.doesNotMatch(draft.body_markdown,/oferta|menor preço|desconto informado|vendas informadas/i);
+  assert.doesNotMatch(draft.body_markdown,/oferta|preço|desconto|vendas informadas/i);
   assert.match(draft.slug,/comparativo-produtos/);
   assert.equal(brazilDateKey(new Date('2026-09-26T01:30:00Z')),'2026-09-25');
 });
