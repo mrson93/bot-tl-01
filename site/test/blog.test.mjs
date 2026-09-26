@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {articleSidebarAd,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
+import {articleSidebarAd,articleSummary,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
@@ -33,8 +33,14 @@ test('todas as matérias de celulares recebem uma seleção de modelos descritos
   for(const articleId of articleIds){
     const models=EDITORIAL_MODELS.filter(model=>model.post_id===articleId);
     assert.equal(models.length>=3,true,articleId);
-    for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.equal(Object.keys(model.specs).length>=3,true);}
+    for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.match(model.image_url,/^https:\/\/canaltabarato\.com\.br\/images\/blog\/produtos\//);assert.equal(Object.keys(model.specs).length>=3,true);}
   }
+});
+
+test('resumo da matéria aparece antes do conteúdo com texto seguro',()=>{
+  const summary=articleSummary({excerpt:'Compare bateria, câmera e <desempenho>.'});
+  assert.match(summary,/RESUMO DA MATÉRIA/);assert.match(summary,/O que você encontrará/);
+  assert.match(summary,/&lt;desempenho&gt;/);assert.doesNotMatch(summary,/<desempenho>/);
 });
 
 test('matéria de celular sem capa usa a imagem editorial sem substituir capa própria',()=>{

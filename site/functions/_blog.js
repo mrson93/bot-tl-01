@@ -42,6 +42,12 @@ export function articleSidebarAd() {
   return `<aside class="article-ad-sidebar" aria-label="Publicidade"><span>Publicidade</span><ins class="adsbygoogle" data-ad-client="ca-pub-5239970037930660" data-ad-slot="3688125182" data-ad-format="auto" data-full-width-responsive="true"></ins></aside>`;
 }
 
+export function articleSummary(post={}) {
+  const summary=String(post.excerpt||'').trim();
+  if(!summary)return '';
+  return `<section class="article-summary" aria-labelledby="article-summary-title"><p class="eyebrow">RESUMO DA MATÉRIA</p><h2 id="article-summary-title">O que você encontrará</h2><p>${html(summary)}</p></section>`;
+}
+
 function inline(value='') {
   const links=[];
   const text=String(value).replace(/\[([^\]\n]+)\]\((https:\/\/[^\s)]+)\)/g,(match,label,url)=>{

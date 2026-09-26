@@ -4,6 +4,7 @@ import {CELLULAR_GUIDES_COVER} from './_blog_covers.js';
 export const EDITORIAL_SEED_ID='celulares-editorial-2026-v1';
 export const EDITORIAL_MODELS_SEED_ID='celulares-modelos-2026-v1';
 export const EDITORIAL_COVERS_SEED_ID='celulares-capas-2026-v1';
+export const EDITORIAL_MODEL_IMAGES_SEED_ID='celulares-imagens-modelos-2026-v1';
 export {CELLULAR_GUIDES_COVER} from './_blog_covers.js';
 
 export const EDITORIAL_ARTICLES=[
@@ -781,16 +782,16 @@ O S26 Ultra é o mais versátil entre os exemplos. Um iPhone Pro é mais indicad
 for(const article of EDITORIAL_ARTICLES)article.cover_image_url=CELLULAR_GUIDES_COVER;
 
 const MODELS={
-  'galaxy-a07':{name:'Samsung Galaxy A07',brand:'Samsung',summary:'Modelo básico para tarefas cotidianas, com armazenamento expansível e política longa de atualizações.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Rede:'4G'}},
-  'galaxy-a07-5g':{name:'Samsung Galaxy A07 5G',brand:'Samsung',summary:'Opção de entrada com 5G, tela de 120 Hz, bateria grande e suporte prolongado de software.',specs:{Tela:'6,7″, 120 Hz',Armazenamento:'128 GB',Bateria:'6.000 mAh',Rede:'5G'}},
-  'moto-g05':{name:'Motorola Moto g05',brand:'Motorola',summary:'Modelo básico com bateria de 5.200 mAh, entrada para microSD e foco em uso cotidiano.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'256 GB + microSD',Bateria:'5.200 mAh',Rede:'4G'}},
-  'moto-g56-5g':{name:'Motorola Moto g56 5G',brand:'Motorola',summary:'Intermediário acessível que combina 5G, bateria, carregamento de 33 W e construção resistente.',specs:{Tela:'6,72″, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh',Rede:'5G'}},
-  'galaxy-a26-5g':{name:'Samsung Galaxy A26 5G',brand:'Samsung',summary:'Intermediário equilibrado com tela AMOLED, câmera principal com OIS e proteção IP67.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
-  'galaxy-a56-5g':{name:'Samsung Galaxy A56 5G',brand:'Samsung',summary:'Intermediário premium com tela AMOLED, proteção IP67, câmeras versáteis e suporte longo.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
-  'edge-60-fusion':{name:'Motorola Edge 60 Fusion',brand:'Motorola',summary:'Modelo com tela pOLED de alta resolução, carregamento rápido e câmera principal estabilizada.',specs:{Tela:'6,7″ pOLED 1220p, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh, 68 W',Câmera:'50 MP com OIS'}},
-  'redmi-note-14':{name:'Xiaomi Redmi Note 14 4G',brand:'Xiaomi',summary:'Opção focada em tela AMOLED e armazenamento, indicada para quem não precisa de 5G.',specs:{Tela:'6,67″ AMOLED, 120 Hz',Armazenamento:'Até 256 GB + microSD',Bateria:'5.500 mAh',Rede:'4G'}},
-  'redmi-note-15-5g':{name:'Xiaomi Redmi Note 15 5G',brand:'Xiaomi',summary:'Intermediário com tela AMOLED, 5G e bateria grande; confirme a variante nacional antes da compra.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'6.000 mAh',Rede:'5G'}},
-  'galaxy-s26-ultra':{name:'Samsung Galaxy S26 Ultra',brand:'Samsung',summary:'Topo de linha voltado a desempenho, zoom e versatilidade de câmeras.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'A partir de 256 GB',Câmera:'Principal de 200 MP',Rede:'5G'}},
+  'galaxy-a07':{name:'Samsung Galaxy A07',brand:'Samsung',image_url:'https://canaltabarato.com.br/images/blog/produtos/galaxy-a07.png',summary:'Modelo básico para tarefas cotidianas, com armazenamento expansível e política longa de atualizações.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Rede:'4G'}},
+  'galaxy-a07-5g':{name:'Samsung Galaxy A07 5G',brand:'Samsung',image_url:'https://canaltabarato.com.br/images/blog/produtos/galaxy-a07-5g.png',summary:'Opção de entrada com 5G, tela de 120 Hz, bateria grande e suporte prolongado de software.',specs:{Tela:'6,7″, 120 Hz',Armazenamento:'128 GB',Bateria:'6.000 mAh',Rede:'5G'}},
+  'moto-g05':{name:'Motorola Moto g05',brand:'Motorola',image_url:'https://canaltabarato.com.br/images/blog/produtos/moto-g05.png',summary:'Modelo básico com bateria de 5.200 mAh, entrada para microSD e foco em uso cotidiano.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'256 GB + microSD',Bateria:'5.200 mAh',Rede:'4G'}},
+  'moto-g56-5g':{name:'Motorola Moto g56 5G',brand:'Motorola',image_url:'https://canaltabarato.com.br/images/blog/produtos/moto-g56-5g.png',summary:'Intermediário acessível que combina 5G, bateria, carregamento de 33 W e construção resistente.',specs:{Tela:'6,72″, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh',Rede:'5G'}},
+  'galaxy-a26-5g':{name:'Samsung Galaxy A26 5G',brand:'Samsung',image_url:'https://canaltabarato.com.br/images/blog/produtos/galaxy-a26-5g.png',summary:'Intermediário equilibrado com tela AMOLED, câmera principal com OIS e proteção IP67.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
+  'galaxy-a56-5g':{name:'Samsung Galaxy A56 5G',brand:'Samsung',image_url:'https://canaltabarato.com.br/images/blog/produtos/galaxy-a56-5g.png',summary:'Intermediário premium com tela AMOLED, proteção IP67, câmeras versáteis e suporte longo.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
+  'edge-60-fusion':{name:'Motorola Edge 60 Fusion',brand:'Motorola',image_url:'https://canaltabarato.com.br/images/blog/produtos/edge-60-fusion.png',summary:'Modelo com tela pOLED de alta resolução, carregamento rápido e câmera principal estabilizada.',specs:{Tela:'6,7″ pOLED 1220p, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh, 68 W',Câmera:'50 MP com OIS'}},
+  'redmi-note-14':{name:'Xiaomi Redmi Note 14 4G',brand:'Xiaomi',image_url:'https://canaltabarato.com.br/images/blog/produtos/redmi-note-14.png',summary:'Opção focada em tela AMOLED e armazenamento, indicada para quem não precisa de 5G.',specs:{Tela:'6,67″ AMOLED, 120 Hz',Armazenamento:'Até 256 GB + microSD',Bateria:'5.500 mAh',Rede:'4G'}},
+  'redmi-note-15-5g':{name:'Xiaomi Redmi Note 15 5G',brand:'Xiaomi',image_url:'https://canaltabarato.com.br/images/blog/produtos/redmi-note-15-5g.png',summary:'Intermediário com tela AMOLED, 5G e bateria grande; confirme a variante nacional antes da compra.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'6.000 mAh',Rede:'5G'}},
+  'galaxy-s26-ultra':{name:'Samsung Galaxy S26 Ultra',brand:'Samsung',image_url:'https://canaltabarato.com.br/images/blog/produtos/galaxy-s26-ultra.jpg',summary:'Topo de linha voltado a desempenho, zoom e versatilidade de câmeras.',specs:{Tela:'AMOLED, 120 Hz',Armazenamento:'A partir de 256 GB',Câmera:'Principal de 200 MP',Rede:'5G'}},
 };
 
 const MODEL_SELECTIONS={
@@ -847,7 +848,7 @@ export async function ensureEditorialSeed(env,now=Math.floor(Date.now()/1000)){
   if(!modelsApplied){
     const statements=EDITORIAL_MODELS.map(model=>env.DB.prepare(`INSERT OR IGNORE INTO blog_post_products
       (post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position)
-      VALUES(?,?,?,?,?,NULL,'',NULL,?,?)`).bind(model.post_id,model.id,model.name,model.brand,model.summary,JSON.stringify(model.specs),model.position));
+      VALUES(?,?,?,?,?,?,'',NULL,?,?)`).bind(model.post_id,model.id,model.name,model.brand,model.summary,model.image_url,JSON.stringify(model.specs),model.position));
     statements.push(env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_MODELS_SEED_ID,now));
     await env.DB.batch(statements);productsCreated=EDITORIAL_MODELS.length;
   }
@@ -859,5 +860,14 @@ export async function ensureEditorialSeed(env,now=Math.floor(Date.now()/1000)){
     coversUpdated=Number(result.meta?.changes)||0;
     await env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_COVERS_SEED_ID,now).run();
   }
-  return {created,products_created:productsCreated,covers_updated:coversUpdated};
+  const imagesApplied=await env.DB.prepare('SELECT id FROM site_migrations WHERE id=?').bind(EDITORIAL_MODEL_IMAGES_SEED_ID).first();
+  let imagesUpdated=0;
+  if(!imagesApplied){
+    for(const model of EDITORIAL_MODELS){
+      const result=await env.DB.prepare(`UPDATE blog_post_products SET image_url=? WHERE post_id=? AND id=? AND (image_url IS NULL OR image_url='')`).bind(model.image_url,model.post_id,model.id).run();
+      imagesUpdated+=Number(result.meta?.changes)||0;
+    }
+    await env.DB.prepare('INSERT INTO site_migrations(id,applied_at) VALUES(?,?)').bind(EDITORIAL_MODEL_IMAGES_SEED_ID,now).run();
+  }
+  return {created,products_created:productsCreated,covers_updated:coversUpdated,images_updated:imagesUpdated};
 }
