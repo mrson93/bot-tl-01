@@ -2,6 +2,7 @@ import {html,money,shorten,slugify} from './_site.js';
 import {safeUrl} from './_lib.js';
 import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
 import {productLinks,productSpecs as editorialSpecs} from './_blog_products.js';
+import {imageForProduct} from './_blog_product_images.js';
 import {coverForPost} from './_blog_covers.js';
 export {extractProductSpecs} from './_product_specs.js';
 
@@ -18,7 +19,8 @@ export function comparisonTable(offers=[]) {
 }
 
 export function editorialProductCard(product) {
-  const image=product.image_url?`<img src="${html(product.image_url)}" alt="${html(product.name)}" loading="lazy">`:'<span class="article-product-placeholder" aria-hidden="true">✦</span>';
+  const imageUrl=imageForProduct(product);
+  const image=imageUrl?`<img src="${html(imageUrl)}" alt="${html(product.name)}" loading="lazy" decoding="async">`:'<span class="article-product-placeholder" aria-hidden="true">✦</span>';
   const brand=product.brand?`<span>${html(product.brand)}</span>`:'';
   const summary=product.summary?`<p>${html(product.summary)}</p>`:'';
   const specs=Object.entries(editorialSpecs(product.specs_json||product.specs)).slice(0,4);

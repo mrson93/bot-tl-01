@@ -105,8 +105,9 @@ test('produto editorial aceita vários links afiliados fora do catálogo de ofer
 });
 
 test('modelo editorial pode ser exibido antes de receber link afiliado',()=>{
-  const card=editorialProductCard({name:'Modelo sem link',summary:'Descrição pronta.',specs:{Tela:'OLED'}});
+  const card=editorialProductCard({id:'galaxy-a56-5g',name:'Modelo sem link',summary:'Descrição pronta.',specs:{Tela:'OLED'}});
   assert.match(card,/Modelo analisado/);assert.match(card,/OLED/);assert.doesNotMatch(card,/<a /);
+  assert.match(card,/images\/blog\/produtos\/galaxy-a56-5g\.png/);
 });
 
 test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{
