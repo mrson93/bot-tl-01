@@ -1,9 +1,10 @@
 import {ensureBlogProducts} from './_blog_products.js';
+import {CELLULAR_GUIDES_COVER} from './_blog_covers.js';
 
 export const EDITORIAL_SEED_ID='celulares-editorial-2026-v1';
 export const EDITORIAL_MODELS_SEED_ID='celulares-modelos-2026-v1';
 export const EDITORIAL_COVERS_SEED_ID='celulares-capas-2026-v1';
-export const CELLULAR_GUIDES_COVER='https://canaltabarato.com.br/images/blog/guia-celulares-2026.jpg';
+export {CELLULAR_GUIDES_COVER} from './_blog_covers.js';
 
 export const EDITORIAL_ARTICLES=[
   {

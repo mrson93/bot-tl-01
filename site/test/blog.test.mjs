@@ -8,6 +8,7 @@ import {adminIdentity} from '../functions/_admin.js';
 import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
 import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
 import {CELLULAR_GUIDES_COVER,EDITORIAL_ARTICLES,EDITORIAL_MODELS,editorialBody} from '../functions/_editorial_seed.js';
+import {coverForPost} from '../functions/_blog_covers.js';
 
 const base64Url=value=>Buffer.from(value).toString('base64url');
 
@@ -34,6 +35,12 @@ test('todas as matérias de celulares recebem uma seleção de modelos descritos
     assert.equal(models.length>=3,true,articleId);
     for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.equal(Object.keys(model.specs).length>=3,true);}
   }
+});
+
+test('matéria de celular sem capa usa a imagem editorial sem substituir capa própria',()=>{
+  assert.equal(coverForPost({category:'Guia de compra · Celulares'}),CELLULAR_GUIDES_COVER);
+  assert.equal(coverForPost({category:'Celulares',cover_image_url:'https://img.example/capa.jpg'}),'https://img.example/capa.jpg');
+  assert.equal(coverForPost({category:'Casa'}),'');
 });
 
 test('conteúdo editorial formata texto, links seguros e bloqueia HTML arbitrário',()=>{

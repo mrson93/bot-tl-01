@@ -2,6 +2,7 @@ import {html,money,shorten,slugify} from './_site.js';
 import {safeUrl} from './_lib.js';
 import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
 import {productLinks,productSpecs as editorialSpecs} from './_blog_products.js';
+import {coverForPost} from './_blog_covers.js';
 export {extractProductSpecs} from './_product_specs.js';
 
 export function comparisonTable(offers=[]) {
@@ -91,7 +92,8 @@ export function renderArticleBody(markdown='',blocks={}) {
 }
 
 export function blogCard(post) {
-  const image=post.cover_image_url?`<img src="${html(post.cover_image_url)}" alt="" loading="lazy">`:'<span aria-hidden="true">✦</span>';
+  const cover=coverForPost(post);
+  const image=cover?`<img src="${html(cover)}" alt="" loading="lazy">`:'<span aria-hidden="true">✦</span>';
   const date=post.published_at?new Date(Number(post.published_at)*1000).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
   return `<article class="blog-card"><a class="blog-card-media" href="/blog/${html(post.slug)}">${image}</a><div><p class="eyebrow">${html(post.category||'GUIA DE COMPRA')}</p><h2><a href="/blog/${html(post.slug)}">${html(post.title)}</a></h2><p>${html(shorten(post.excerpt,190))}</p><small>${html(date)}</small><a class="blog-read" href="/blog/${html(post.slug)}">Ler matéria →</a></div></article>`;
 }
