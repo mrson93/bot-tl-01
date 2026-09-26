@@ -38,6 +38,10 @@ export function comparisonTable(offers=[]) {
   return `<p class="article-table-note">Especificações extraídas do título dos anúncios. Confirme todos os detalhes na página do produto antes da compra.</p><div class="article-table-wrap"><table class="article-comparison"><thead><tr><th>Produto</th><th>Preço atual</th><th>Desconto</th><th>Nota e vendas</th>${specHeaders}<th>Loja</th><th>Link</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+export function articleSidebarAd() {
+  return `<aside class="article-ad-sidebar" aria-label="Publicidade"><span>Publicidade</span><ins class="adsbygoogle" data-ad-client="ca-pub-5239970037930660" data-ad-slot="3688125182" data-ad-format="auto" data-full-width-responsive="true"></ins></aside>`;
+}
+
 function inline(value='') {
   return html(value)
     .replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>')

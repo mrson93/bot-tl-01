@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
+import {articleSidebarAd,comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
@@ -38,6 +38,13 @@ test('tabela compara preço, reputação e especificações anunciadas',()=>{
   assert.match(table,/20000 mAh/);assert.match(table,/33 W/);assert.match(table,/Sem fio/);
   assert.match(table,/R\$\s*70,00/);assert.match(table,/Menor preço/);assert.match(table,/1,5\s*mil vendas/);
   assert.match(table,/Não informado/);assert.match(table,/Confirme todos os detalhes/);
+});
+
+test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{
+  const ad=articleSidebarAd();
+  assert.match(ad,/article-ad-sidebar/);assert.match(ad,/Publicidade/);
+  assert.match(ad,/data-ad-slot="3688125182"/);assert.match(ad,/data-ad-format="auto"/);
+  assert.doesNotMatch(ad,/<script|style=/);
 });
 
 test('automação escolhe produtos comparáveis e cria somente rascunho factual',()=>{
