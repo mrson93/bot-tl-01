@@ -1,4 +1,5 @@
 import {html,money,shorten,slugify} from './_site.js';
+import {safeUrl} from './_lib.js';
 import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
 import {productSpecs as editorialSpecs} from './_blog_products.js';
 export {extractProductSpecs} from './_product_specs.js';
@@ -37,9 +38,16 @@ export function articleSidebarAd() {
 }
 
 function inline(value='') {
-  return html(value)
+  const links=[];
+  const text=String(value).replace(/\[([^\]\n]+)\]\((https:\/\/[^\s)]+)\)/g,(match,label,url)=>{
+    const safe=safeUrl(url);if(!safe)return match;
+    const token=`BLOGMARK${links.length}TOKEN`;
+    links.push(`<a href="${html(safe)}" rel="noopener noreferrer">${html(label)}</a>`);return token;
+  });
+  return html(text)
     .replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>')
-    .replace(/_([^_\n]+)_/g,'<em>$1</em>');
+    .replace(/_([^_\n]+)_/g,'<em>$1</em>')
+    .replace(/BLOGMARK(\d+)TOKEN/g,(_,index)=>links[Number(index)]||'');
 }
 
 function headingId(value,seen) {

@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20260926-3';
+export const STYLESHEET='/styles.css?v=20260926-4';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -90,7 +90,7 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
   }});
 }
 
-export function head({title,description,canonical,structured='',image=''}) {
+export function head({title,description,canonical,structured='',image='',ads=false}) {
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${html(title)}</title><meta name="description" content="${html(description)}">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
@@ -99,7 +99,7 @@ export function head({title,description,canonical,structured='',image=''}) {
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
   <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
-  <link rel="stylesheet" href="${STYLESHEET}"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${GOOGLE_ADSENSE}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
+  <link rel="stylesheet" href="${STYLESHEET}"><script src="/analytics.js" defer></script>${GOOGLE_ANALYTICS}${ads?GOOGLE_ADSENSE:''}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
 }
 
 export function productStructuredData(offer,canonical) {
@@ -138,7 +138,7 @@ export function header(active='offers') {
 }
 
 export function footer() {
-  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><nav class="footer-links"><a href="/blog">Blog</a><a href="/stories">Ofertas dos Stories</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
+  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><nav class="footer-links"><a href="/blog">Blog</a><a href="/stories">Ofertas dos Stories</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
 }
 
 export function infoPage({slug,title,eyebrow,description,content,structured=''}) {

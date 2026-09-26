@@ -7,13 +7,28 @@ import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
 import {adminIdentity} from '../functions/_admin.js';
 import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
 import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
+import {EDITORIAL_ARTICLES,editorialBody} from '../functions/_editorial_seed.js';
 
 const base64Url=value=>Buffer.from(value).toString('base64url');
 
-test('conteúdo editorial formata texto e bloqueia HTML arbitrário',()=>{
-  const rendered=renderArticleBody('## Comparativo\n\nProduto **bom**.\n\n- Seguro\n- Barato\n\n<script>alert(1)</script>');
+test('coleção editorial tem dez matérias originais e completas sobre celulares',()=>{
+  assert.equal(EDITORIAL_ARTICLES.length,10);
+  assert.equal(new Set(EDITORIAL_ARTICLES.map(article=>article.slug)).size,10);
+  for(const article of EDITORIAL_ARTICLES){
+    assert.equal(article.body_markdown.trim().split(/\s+/).length>=500,true,article.slug);
+    assert.match(article.body_markdown,/## Fontes/);
+    assert.doesNotMatch(article.body_markdown,/\{\{offer:|\{\{product:/);
+    assert.equal(article.meta_title.length<=60,true,article.slug);
+    assert.equal(article.meta_description.length<=155,true,article.slug);
+    assert.match(editorialBody(article),/## Leia também/);
+  }
+});
+
+test('conteúdo editorial formata texto, links seguros e bloqueia HTML arbitrário',()=>{
+  const rendered=renderArticleBody('## Comparativo\n\nProduto **bom** com [fonte](https://example.com/ficha).\n\n- Seguro\n- Barato\n\n<script>alert(1)</script>');
   assert.match(rendered,/<h2 id="comparativo">Comparativo<\/h2>/);
   assert.match(rendered,/<strong>bom<\/strong>/);
+  assert.match(rendered,/<a href="https:\/\/example\.com\/ficha" rel="noopener noreferrer">fonte<\/a>/);
   assert.match(rendered,/<ul><li>Seguro<\/li><li>Barato<\/li><\/ul>/);
   assert.doesNotMatch(rendered,/<script>/);
   assert.match(rendered,/&lt;script&gt;/);

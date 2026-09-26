@@ -86,6 +86,13 @@ card e `{{editorial-comparison-table}}` para a tabela. O conteúdo aceita subtí
 com `##`, negrito com `**texto**` e listas iniciadas por `-`; HTML arbitrário não
 é aceito.
 
+O painel também oferece uma coleção editorial inicial com dez guias originais
+sobre escolha de celulares. A publicação é idempotente, registra a migração em
+`site_migrations` e não cria duplicatas. Cada guia inclui fontes de fabricantes,
+links internos para o mesmo núcleo temático e não depende de ofertas ou afiliados.
+O script do AdSense é carregado somente nas páginas de matéria; catálogo e páginas
+institucionais mantêm apenas a identificação da conta.
+
 Execute as migrações `0013_blog.sql` e `0014_blog_produtos_editoriais.sql` antes
 de usar o painel. A API administrativa também cria a nova tabela de forma
 idempotente. Proteja `/admin*` e

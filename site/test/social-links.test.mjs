@@ -38,8 +38,9 @@ test('publica a identificação oficial do AdSense',async()=>{
   const adsTxt=await readFile(new URL('../public/ads.txt',import.meta.url),'utf8');
   assert.match(page,/google-adsense-account" content="ca-pub-5239970037930660"/);
   assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/google-adsense-account" content="ca-pub-5239970037930660"/);
-  assert.match(page,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
-  assert.match(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
+  assert.doesNotMatch(page,/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
+  assert.doesNotMatch(head({title:'Teste',description:'Teste',canonical:'https://canaltabarato.com.br/teste'}),/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/);
+  assert.match(head({title:'Matéria',description:'Teste',canonical:'https://canaltabarato.com.br/blog/teste',ads:true}),/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js\?client=ca-pub-5239970037930660/);
   assert.equal(adsTxt,'google.com, pub-5239970037930660, DIRECT, f08c47fec0942fa0\n');
 });
 

@@ -16,7 +16,7 @@ export async function onRequestGet({env}) {
     entry('/mais-acessadas','','daily','0.8'),entry('/mais-vendidos','','daily','0.8'),
     entry('/faixas-de-preco/ate-50','','daily','0.7'),entry('/faixas-de-preco/de-50-a-100','','daily','0.7'),
     entry('/faixas-de-preco/de-100-a-200','','daily','0.7'),entry('/faixas-de-preco/acima-de-200','','daily','0.7'),
-    entry('/como-escolhemos','','monthly','0.6'),entry('/faq','','monthly','0.6'),entry('/privacidade','','yearly','0.3'),entry('/termos','','yearly','0.2'),entry('/exclusao-de-dados','','yearly','0.2'),entry('/contato','','monthly','0.4'),
+    entry('/sobre','','monthly','0.6'),entry('/politica-editorial','','monthly','0.6'),entry('/como-escolhemos','','monthly','0.6'),entry('/faq','','monthly','0.6'),entry('/privacidade','','yearly','0.3'),entry('/termos','','yearly','0.2'),entry('/exclusao-de-dados','','yearly','0.2'),entry('/contato','','monthly','0.4'),
     ...(categories.results||[]).map(row=>entry(`/categorias/${slugify(row.value)}`)),
     ...(shops.results||[]).map(row=>entry(`/lojas/${slugify(row.value)}`)),
     ...posts.map(post=>entry(`/blog/${post.slug}`,new Date(Number(post.updated_at)*1000).toISOString(),'monthly','0.7')),
