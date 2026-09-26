@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {articleSidebarAd,comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
+import {articleSidebarAd,articleTableOfContents,comparisonTable,extractProductSpecs,renderArticleBody} from '../functions/_blog.js';
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
@@ -12,7 +12,7 @@ const base64Url=value=>Buffer.from(value).toString('base64url');
 
 test('conteúdo editorial formata texto e bloqueia HTML arbitrário',()=>{
   const rendered=renderArticleBody('## Comparativo\n\nProduto **bom**.\n\n- Seguro\n- Barato\n\n<script>alert(1)</script>');
-  assert.match(rendered,/<h2>Comparativo<\/h2>/);
+  assert.match(rendered,/<h2 id="comparativo">Comparativo<\/h2>/);
   assert.match(rendered,/<strong>bom<\/strong>/);
   assert.match(rendered,/<ul><li>Seguro<\/li><li>Barato<\/li><\/ul>/);
   assert.doesNotMatch(rendered,/<script>/);
@@ -27,6 +27,13 @@ test('conteúdo editorial insere apenas blocos cadastrados',()=>{
   assert.match(rendered,/\{\{offer:desconhecida\}\}/);
 });
 
+test('sumário aponta para títulos e subtítulos com IDs estáveis',()=>{
+  const markdown='## Como escolher\n\n### Tela\n\n## Comparativo';
+  const toc=articleTableOfContents(markdown),body=renderArticleBody(markdown);
+  assert.match(toc,/href="#como-escolher"/);assert.match(toc,/href="#tela"/);
+  assert.match(body,/id="como-escolher"/);assert.match(body,/id="tela"/);
+});
+
 test('tabela compara preço, reputação e especificações anunciadas',()=>{
   const specs=extractProductSpecs('Power Bank 20000mAh 33W USB-C Bluetooth 5.3');
   assert.deepEqual(specs,{battery:'20000 mAh',power:'33 W',features:'Bluetooth 5.3, USB-C'});
@@ -38,6 +45,12 @@ test('tabela compara preço, reputação e especificações anunciadas',()=>{
   assert.match(table,/20000 mAh/);assert.match(table,/33 W/);assert.match(table,/Sem fio/);
   assert.match(table,/R\$\s*70,00/);assert.match(table,/Menor preço/);assert.match(table,/1,5\s*mil vendas/);
   assert.match(table,/Não informado/);assert.match(table,/Confirme todos os detalhes/);
+});
+
+test('extrai especificações técnicas relevantes de calçados',()=>{
+  assert.deepEqual(extractProductSpecs('Tênis corrida maratona malha respirável placa de carbono'),{
+    purpose:'Corrida, Maratona',upper:'Malha/mesh, Respirável',sole:'Placa de carbono anunciada',
+  });
 });
 
 test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{
@@ -62,10 +75,23 @@ test('automação escolhe produtos comparáveis e cria somente rascunho factual'
   assert.equal(draft.status,'draft');
   assert.deepEqual(new Set(draft.offer_ids),new Set(['a','b','c']));
   assert.match(draft.body_markdown,/## Qual é a melhor escolha\?/);
+  assert.match(draft.body_markdown,/## Como escolher power banks/);
+  assert.match(draft.body_markdown,/### Análise das especificações técnicas/);
+  assert.match(draft.body_markdown,/## Como fizemos este comparativo/);
+  assert.match(draft.body_markdown,/## Perguntas frequentes/);
   assert.match(draft.body_markdown,/\{\{comparison-table\}\}/);
   assert.match(draft.body_markdown,/não realizamos teste físico/i);
   assert.doesNotMatch(draft.body_markdown,/excelente qualidade|testamos|recomendamos sem ressalvas/i);
   assert.equal(brazilDateKey(new Date('2026-09-26T01:30:00Z')),'2026-09-25');
+});
+
+test('classificador não confunde acessórios com os produtos comparados',()=>{
+  assert.equal(comparisonType('Arara com sapateira e suporte para roupas e tênis'),null);
+  assert.equal(comparisonType('Cadarço elástico para tênis de corrida'),null);
+  assert.equal(comparisonType('Tênis de corrida em malha respirável'),'tênis');
+  assert.equal(comparisonType('Tênis para meia maratona com palmilha macia'),'tênis');
+  assert.equal(comparisonType('Capa com teclado para tablet'),null);
+  assert.equal(comparisonType('Tablet 11 polegadas 128GB'),'tablet');
 });
 
 test('blog abre com estado vazio antes da primeira matéria',async()=>{

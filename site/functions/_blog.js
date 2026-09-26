@@ -1,27 +1,6 @@
-import {compact,html,money,shorten} from './_site.js';
-
-const SPEC_LABELS={battery:'Capacidade',power:'Potência',storage:'Memória/capacidade',screen:'Tela',voltage:'Voltagem',dimensions:'Dimensões',features:'Recursos'};
-const unique=values=>[...new Set(values.filter(Boolean))];
-const matches=(text,regex,format=match=>match[0])=>unique([...text.matchAll(regex)].map(format));
-
-export function extractProductSpecs(title='') {
-  const text=String(title||''),lower=text.toLocaleLowerCase('pt-BR'),specs={};
-  const battery=matches(text,/(\d{3,6}(?:[.,]\d+)?)\s*m\s*ah/gi,match=>`${match[1].replace('.',',')} mAh`);
-  const power=matches(text,/(\d{1,4}(?:[.,]\d+)?)\s*w(?:atts?)?\b/gi,match=>`${match[1].replace('.',',')} W`);
-  const storage=matches(text,/(\d+(?:[.,]\d+)?)\s*(tb|gb)\b/gi,match=>`${match[1].replace('.',',')} ${match[2].toUpperCase()}`);
-  const screen=matches(text,/(\d{1,3}(?:[.,]\d+)?)\s*(?:["”]|pol(?:egadas?)?)(?=\s|$|[,;])/gi,match=>`${match[1].replace('.',',')}″`);
-  const voltage=matches(text,/\b(bivolt|110\s*v|127\s*v|220\s*v)\b/gi,match=>match[1].replace(/\s+/g,'').replace(/^bivolt$/i,'Bivolt').toUpperCase().replace('BIVOLT','Bivolt'));
-  const dimensions=matches(text,/\b(\d{1,4}\s*x\s*\d{1,4}(?:\s*x\s*\d{1,4})?)\s*(mm|cm|m)\b/gi,match=>`${match[1].replace(/\s+/g,'')} ${match[2].toLowerCase()}`);
-  const features=[];
-  const bluetooth=lower.match(/bluetooth\s*(\d+(?:[.,]\d+)?)?/i);if(bluetooth)features.push(`Bluetooth${bluetooth[1]?` ${bluetooth[1].replace(',','.')}`:''}`);
-  const featurePatterns=[[/\bwi[ -]?fi\b/i,'Wi-Fi'],[/\b5g\b/i,'5G'],[/\b4g\b/i,'4G'],[/\busb[ -]?c\b/i,'USB-C'],[/\bnfc\b/i,'NFC'],[/\bgps\b/i,'GPS'],[/\banc\b|cancelamento (?:ativo )?de ru[ií]do/i,'ANC'],[/sem fio|wireless/i,'Sem fio'],[/magn[eé]tic/i,'Magnético'],[/carregamento r[aá]pido|fast charg/i,'Carga rápida'],[/resistente [àa] [aá]gua|imperme[aá]vel/i,'Resistente à água']];
-  for(const [pattern,label] of featurePatterns)if(pattern.test(lower))features.push(label);
-  if(battery.length)specs.battery=battery.join(' / ');if(power.length)specs.power=power.join(' / ');
-  if(storage.length)specs.storage=storage.join(' / ');if(screen.length)specs.screen=screen.join(' / ');
-  if(voltage.length)specs.voltage=voltage.join(' / ');if(dimensions.length)specs.dimensions=dimensions.join(' / ');
-  if(features.length)specs.features=unique(features).join(', ');
-  return specs;
-}
+import {compact,html,money,shorten,slugify} from './_site.js';
+import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
+export {extractProductSpecs} from './_product_specs.js';
 
 export function comparisonTable(offers=[]) {
   if(!offers.length)return '';
@@ -48,9 +27,24 @@ function inline(value='') {
     .replace(/_([^_\n]+)_/g,'<em>$1</em>');
 }
 
+function headingId(value,seen) {
+  const base=slugify(String(value).replace(/[*_]/g,''))||'secao',count=(seen.get(base)||0)+1;
+  seen.set(base,count);return count===1?base:`${base}-${count}`;
+}
+
+export function articleTableOfContents(markdown='') {
+  const seen=new Map(),items=[];
+  for(const raw of String(markdown).replace(/\r/g,'').split('\n').slice(0,1200)){
+    const match=raw.trim().match(/^(#{2,3})\s+(.+)$/);if(!match)continue;
+    items.push({level:match[1].length,title:match[2].replace(/[*_]/g,''),id:headingId(match[2],seen)});
+  }
+  if(items.filter(item=>item.level===2).length<2)return '';
+  return `<nav class="article-toc" aria-label="Sumário da matéria"><strong>Nesta matéria</strong><ol>${items.map(item=>`<li class="level-${item.level}"><a href="#${html(item.id)}">${html(item.title)}</a></li>`).join('')}</ol></nav>`;
+}
+
 export function renderArticleBody(markdown='',blocks={}) {
   const lines=String(markdown).replace(/\r/g,'').split('\n').slice(0,1200);
-  const output=[];let paragraph=[],list=[];
+  const output=[],seenHeadings=new Map();let paragraph=[],list=[];
   const flushParagraph=()=>{if(paragraph.length){output.push(`<p>${inline(paragraph.join(' '))}</p>`);paragraph=[];}};
   const flushList=()=>{if(list.length){output.push(`<ul>${list.map(item=>`<li>${inline(item)}</li>`).join('')}</ul>`);list=[];}};
   for(const raw of lines){
@@ -60,7 +54,7 @@ export function renderArticleBody(markdown='',blocks={}) {
       flushParagraph();flushList();output.push(blocks[line]);continue;
     }
     const heading=line.match(/^(#{2,3})\s+(.+)$/);
-    if(heading){flushParagraph();flushList();const level=heading[1].length;output.push(`<h${level}>${inline(heading[2])}</h${level}>`);continue;}
+    if(heading){flushParagraph();flushList();const level=heading[1].length,id=headingId(heading[2],seenHeadings);output.push(`<h${level} id="${html(id)}">${inline(heading[2])}</h${level}>`);continue;}
     const item=line.match(/^[-*]\s+(.+)$/);
     if(item){flushParagraph();list.push(item[1]);continue;}
     flushList();paragraph.push(line);

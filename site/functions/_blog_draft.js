@@ -1,25 +1,39 @@
 import {label,shorten,slugify} from './_site.js';
+import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
 
 const TYPES=[
-  ['power-bank','power bank','carregador portátil'],
-  ['fone de ouvido','fone','headphone','headset','earbud'],
-  ['smartphone','smartphone','celular'],
-  ['smartwatch','smartwatch','relógio inteligente'],
-  ['notebook','notebook','laptop'],
-  ['tablet','tablet'],
-  ['televisor','smart tv','televisor',' tv '],
-  ['caixa de som','caixa de som','speaker'],
-  ['aspirador','aspirador'],
-  ['air fryer','air fryer','fritadeira elétrica','fritadeira eletrica'],
-  ['cafeteira','cafeteira'],
-  ['ventilador','ventilador'],
-  ['parafusadeira','parafusadeira'],
-  ['furadeira','furadeira'],
-  ['panela','panela'],
-  ['tênis','tênis','tenis'],
-  ['creatina','creatina'],
-  ['whey protein','whey'],
+  {name:'power-bank',terms:['power bank','carregador portátil'],exclude:['capa','case','bolsa','suporte','cabo para']},
+  {name:'fone de ouvido',terms:['fone','headphone','headset','earbud'],exclude:['capa','case','estojo','almofada','espuma','suporte para','cabo para']},
+  {name:'smartphone',terms:['smartphone','celular'],exclude:['capa','capinha','pelicula','suporte','carregador','cabo','bolsa']},
+  {name:'smartwatch',terms:['smartwatch','relógio inteligente'],exclude:['pulseira','capa','case','pelicula','carregador','suporte']},
+  {name:'notebook',terms:['notebook','laptop'],exclude:['capa','case','bolsa','mochila','suporte','mesa','base','carregador','teclado']},
+  {name:'tablet',terms:['tablet'],exclude:['capa','case','pelicula','suporte','teclado para','caneta para']},
+  {name:'televisor',terms:['smart tv','televisor',' tv '],exclude:['suporte','painel','rack','controle','capa','antena']},
+  {name:'caixa de som',terms:['caixa de som','speaker'],exclude:['capa','case','suporte','bolsa']},
+  {name:'aspirador',terms:['aspirador'],exclude:['filtro','bico','mangueira','saco para','peça','peca']},
+  {name:'air fryer',terms:['air fryer','fritadeira elétrica','fritadeira eletrica'],exclude:['forma','papel','forro','cesto','acessorio']},
+  {name:'cafeteira',terms:['cafeteira'],exclude:['filtro','capsula','jarra','capa','suporte']},
+  {name:'ventilador',terms:['ventilador'],exclude:['capa','hélice','helice','motor','grade','peça','peca']},
+  {name:'parafusadeira',terms:['parafusadeira'],exclude:['broca','bit','bateria para','carregador','maleta']},
+  {name:'furadeira',terms:['furadeira'],exclude:['broca','bateria para','carregador','maleta','suporte']},
+  {name:'panela',terms:['panela'],exclude:['tampa','organizador','suporte','protetor']},
+  {name:'tênis',terms:['tênis','tenis'],exclude:['sapateira','arara','cabideiro','porta tenis','organizador de tenis','caixa para tenis','cadarco','cadarço','palmilha para tenis','meia para tenis','limpador de tenis','forma para tenis','saco para tenis','bolsa para tenis','suporte para tenis']},
+  {name:'creatina',terms:['creatina'],exclude:['coqueteleira','porta suplemento','kit sem creatina']},
+  {name:'whey protein',terms:['whey'],exclude:['coqueteleira','porta suplemento','kit sem whey']},
 ];
+
+const TYPE_GUIDES={
+  'power-bank':['Capacidade em mAh e rendimento real','Potência e protocolos de carga','Portas, peso e proteções elétricas'],
+  'fone de ouvido':['Formato e conforto','Codec, Bluetooth e cancelamento de ruído','Autonomia e resistência à água'],
+  smartphone:['Processador e memória','Tela, câmeras e bateria','Atualizações, 5G e garantia'],smartwatch:['Compatibilidade com o celular','Sensores e GPS','Autonomia e resistência à água'],
+  notebook:['Processador, RAM e armazenamento','Tela, bateria e peso','Portas, possibilidade de upgrade e garantia'],tablet:['Tela e desempenho','Armazenamento e acessórios compatíveis','Bateria e política de atualizações'],
+  televisor:['Tamanho e distância de uso','Tipo de painel, resolução e frequência','Sistema, conexões e garantia'],'caixa de som':['Potência e qualidade sonora','Autonomia e conectividade','Resistência e portabilidade'],
+  aspirador:['Potência de sucção','Capacidade, filtros e acessórios','Autonomia ou comprimento do cabo'],'air fryer':['Capacidade útil','Potência e faixa de temperatura','Facilidade de limpeza e segurança'],
+  cafeteira:['Tipo de café e pressão','Capacidade e custo dos insumos','Limpeza e assistência'],ventilador:['Vazão, ruído e velocidades','Diâmetro e alcance','Consumo e segurança'],
+  parafusadeira:['Torque e controle de velocidade','Bateria, voltagem e mandril','Acessórios e assistência'],furadeira:['Potência, impacto e rotação','Mandril e materiais suportados','Ergonomia e acessórios'],
+  panela:['Material e revestimento','Capacidade e compatibilidade com fogão','Tampa, cabos e facilidade de limpeza'],'tênis':['Finalidade do calçado','Cabedal, ajuste e respirabilidade','Entressola, solado e durabilidade'],
+  creatina:['Quantidade por dose e pureza','Laudos, procedência e registro','Preço por porção'],'whey protein':['Proteína por dose','Tipo de whey e ingredientes','Preço por grama de proteína'],
+};
 
 const fold=value=>` ${String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ')} `;
 const clean=value=>String(value||'').replace(/[\r\n]+/g,' ').replace(/[\\*_{}\[\]#]/g,'').replace(/\s+/g,' ').trim();
@@ -30,13 +44,14 @@ export function brazilDateKey(date=new Date()) {
 }
 export function comparisonType(title='') {
   const text=fold(title);
-  for(const [name,...terms] of TYPES) if(terms.some(term=>text.includes(fold(term)))) return name;
+  for(const rule of TYPES)if(rule.terms.some(term=>text.includes(fold(term)))&&!rule.exclude.some(term=>text.includes(fold(term))))return rule.name;
   return null;
 }
 
 function score(offer) {
   const rating=Math.max(0,Number(offer.rating)||0),sales=Math.max(0,Number(offer.sales)||0);
-  return Math.max(0,Number(offer.discount)||0)*1.5+rating*8+Math.log10(sales+1)*7;
+  const technicalFields=Object.keys(extractProductSpecs(offer.title)).length;
+  return Math.min(60,Math.max(0,Number(offer.discount)||0))*.35+rating*10+Math.log10(sales+1)*6+technicalFields*7;
 }
 
 export function selectComparableOffers(candidates=[],size=3) {
@@ -71,6 +86,25 @@ function facts(offer,offers) {
   return {pros,attention};
 }
 
+function technicalAnalysis(offer) {
+  const specs=extractProductSpecs(offer.title),entries=Object.entries(specs);
+  if(!entries.length)return '- O título não informa especificações técnicas suficientes para uma comparação segura. Confirme ficha técnica, materiais, medidas, compatibilidade e garantia no anúncio.';
+  return entries.map(([key,value])=>`- **${SPEC_LABELS[key]}:** ${clean(value)}.`).join('\n')+"\n- As características acima foram extraídas do título do anúncio e ainda devem ser confirmadas na página da loja.";
+}
+
+function buyingGuide(type) {
+  const factors=TYPE_GUIDES[type]||['Especificações adequadas ao uso','Compatibilidade, dimensões e materiais','Garantia, procedência e custo total'];
+  return factors.map(item=>`- **${item}:** compare este ponto entre os anúncios e confirme a informação na ficha do fabricante.`).join('\n');
+}
+
+function recommendationReason(offer) {
+  const labels=Object.keys(extractProductSpecs(offer.title)).map(key=>SPEC_LABELS[key]).slice(0,3);
+  const evidence=[];if(labels.length)evidence.push(`informa ${labels.join(', ').toLowerCase()}`);
+  if(Number(offer.rating)>0)evidence.push(`tem nota ${Number(offer.rating).toFixed(1)} de 5 no anúncio`);
+  if(Number(offer.sales)>0)evidence.push(`registra ${number(offer.sales)} vendas`);
+  return evidence.length?evidence.join(' e '):'apresenta o melhor equilíbrio dos dados disponíveis no catálogo';
+}
+
 export function buildComparisonDraft(type,offers,date=new Date()) {
   if(!type||!Array.isArray(offers)||offers.length<3)throw new Error('not_enough_offers');
   const day=brazilDateKey(date),winner=[...offers].sort((a,b)=>score(b)-score(a))[0];
@@ -83,12 +117,12 @@ export function buildComparisonDraft(type,offers,date=new Date()) {
     if(Number(offer.discount)>0)details.push(`desconto informado de **${Math.round(Number(offer.discount))}%**`);
     if(Number(offer.rating)>0)details.push(`nota **${Number(offer.rating).toFixed(1)} de 5**`);
     if(Number(offer.sales)>0)details.push(`**${number(offer.sales)} vendas** informadas`);
-    return `## ${index+1}. ${shorten(clean(offer.title),120)}\n\nNa consulta mais recente, esta oferta apareceu com ${details.join(', ')}${offer.shop?` na loja **${clean(offer.shop)}**`:''}.\n\n### Prós\n\n${pros.map(item=>`- ${item}`).join('\n')}\n\n### Pontos de atenção\n\n${attention.map(item=>`- ${item}`).join('\n')}\n\n{{offer:${offer.id}}}`;
+    return `## ${index+1}. ${shorten(clean(offer.title),120)}\n\nNa consulta mais recente, esta oferta apareceu com ${details.join(', ')}${offer.shop?` na loja **${clean(offer.shop)}**`:''}.\n\n### Análise das especificações técnicas\n\n${technicalAnalysis(offer)}\n\n### Prós\n\n${pros.map(item=>`- ${item}`).join('\n')}\n\n### Pontos de atenção\n\n${attention.map(item=>`- ${item}`).join('\n')}\n\n{{offer:${offer.id}}}`;
   }).join('\n\n');
-  const reason=facts(winner,offers).pros[0].replace(/\.$/,'').toLowerCase();
+  const reason=recommendationReason(winner),cheapest=[...offers].sort((a,b)=>Number(a.price)-Number(b.price))[0];
   const category=label(offers[0].category||'outros');
-  const excerpt=`Comparamos três ofertas recentes de ${typeLabel} usando preço, desconto, avaliação e popularidade informados nos anúncios.`;
-  const body=`Os preços abaixo foram consultados recentemente no catálogo do Tá Barato. A comparação considera somente dados objetivos recebidos das lojas; não realizamos teste físico dos produtos.\n\n${sections}\n\n## Qual é a melhor escolha?\n\nPelos dados disponíveis no momento, **${shorten(clean(winner.title),110)}** é a melhor escolha geral porque ${reason}. Antes da compra, confira capacidade, compatibilidade, prazo de entrega e garantia diretamente na página do produto.\n\n## Tabela comparativa\n\n{{comparison-table}}`;
+  const excerpt=`Comparamos três ofertas recentes de ${typeLabel}, incluindo especificações técnicas, preço, avaliação, prós e pontos de atenção.`;
+  const body=`Os preços abaixo foram consultados recentemente no catálogo do Tá Barato. A comparação considera somente dados objetivos recebidos das lojas; não realizamos teste físico dos produtos.\n\n## Resumo rápido\n\n- **Melhor escolha geral pelos dados disponíveis:** ${shorten(clean(winner.title),110)}.\n- **Menor preço consultado:** ${shorten(clean(cheapest.title),100)}, por ${money(cheapest.price)}.\n- **Importante:** especificações anunciadas devem ser confirmadas na página da loja antes da compra.\n\n## Como escolher ${typeLabel}\n\n${buyingGuide(type)}\n\n${sections}\n\n## Qual é a melhor escolha?\n\nPelos dados disponíveis no momento, **${shorten(clean(winner.title),110)}** é a melhor escolha geral porque ${reason}. A recomendação não se baseia apenas no menor preço ou no maior desconto. Antes da compra, confirme ficha técnica, compatibilidade, prazo de entrega, política de troca e garantia.\n\n## Tabela comparativa\n\n{{comparison-table}}\n\n## Como fizemos este comparativo\n\nSelecionamos apenas anúncios classificados como ${typeLabel}, eliminamos acessórios conhecidos e comparamos dados recentes do catálogo. Consideramos especificações presentes no título, preço, desconto, avaliação e quantidade de vendas. Não há teste físico dos produtos, e alegações do anúncio não são tratadas como certificação independente.\n\n## Perguntas frequentes\n\n### O produto mais barato é sempre a melhor escolha?\n\nNão. O preço precisa ser analisado junto das especificações, procedência, garantia, avaliações e adequação ao uso.\n\n### As especificações foram testadas pelo Tá Barato?\n\nNão. Elas foram extraídas dos anúncios e precisam ser confirmadas com a loja ou o fabricante.\n\n### Os preços permanecem os mesmos?\n\nNão necessariamente. Preços, estoque, frete e cupons podem mudar depois da publicação.`;
   return {id:`auto-comparativo-${day}`,slug:slugify(`${typeLabel}-comparativo-ofertas-${day}`),title,excerpt,body_markdown:body,cover_image_url:offers[0].image_url,category:`Comparativo · ${category}`,status:'draft',meta_title:shorten(title,70),meta_description:shorten(excerpt,170),offer_ids:offers.map(item=>item.id)};
 }
 
