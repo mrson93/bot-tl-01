@@ -47,7 +47,7 @@ export function articleSidebarAd() {
 export function articleSummary(post={}) {
   const summary=String(post.excerpt||'').trim();
   if(!summary)return '';
-  return `<section class="article-summary" aria-labelledby="article-summary-title"><p class="eyebrow">RESUMO DA MATÉRIA</p><h2 id="article-summary-title">O que você encontrará</h2><p>${html(summary)}</p></section>`;
+  return `<section class="article-summary" aria-labelledby="article-summary-title"><p class="eyebrow">EM POUCAS PALAVRAS</p><h2 id="article-summary-title">Resumo da matéria</h2><p>${html(summary)}</p></section>`;
 }
 
 function inline(value='') {

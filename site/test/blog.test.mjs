@@ -39,7 +39,7 @@ test('todas as matérias de celulares recebem uma seleção de modelos descritos
 
 test('resumo da matéria aparece antes do conteúdo com texto seguro',()=>{
   const summary=articleSummary({excerpt:'Compare bateria, câmera e <desempenho>.'});
-  assert.match(summary,/RESUMO DA MATÉRIA/);assert.match(summary,/O que você encontrará/);
+  assert.match(summary,/EM POUCAS PALAVRAS/);assert.match(summary,/Resumo da matéria/);
   assert.match(summary,/&lt;desempenho&gt;/);assert.doesNotMatch(summary,/<desempenho>/);
 });
 
