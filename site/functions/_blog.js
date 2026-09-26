@@ -1,4 +1,4 @@
-import {compact,html,money,shorten,slugify} from './_site.js';
+import {html,money,shorten,slugify} from './_site.js';
 import {extractProductSpecs,SPEC_LABELS} from './_product_specs.js';
 export {extractProductSpecs} from './_product_specs.js';
 
@@ -6,15 +6,12 @@ export function comparisonTable(offers=[]) {
   if(!offers.length)return '';
   const enriched=offers.map(offer=>({...offer,specs:extractProductSpecs(offer.title)}));
   const keys=Object.keys(SPEC_LABELS).filter(key=>enriched.some(offer=>offer.specs[key])).slice(0,4);
-  const specHeaders=keys.length?keys.map(key=>`<th>${SPEC_LABELS[key]}</th>`).join(''):'<th>Especificações anunciadas</th>';
-  const lowest=Math.min(...offers.map(offer=>Number(offer.price)||Infinity));
+  const specHeaders=keys.length?keys.map(key=>`<th>${SPEC_LABELS[key]}</th>`).join(''):'<th>Especificações informadas</th>';
   const rows=enriched.map(offer=>{
-    const difference=Number(offer.price)-lowest,priceNote=difference>0?`+${money(difference)} vs. menor`:'Menor preço';
-    const reputation=[offer.rating?`⭐ ${Number(offer.rating).toFixed(1)}`:'Sem nota',offer.sales?`${compact(offer.sales)} vendas`:null].filter(Boolean).join(' · ');
-    const specs=keys.length?keys.map(key=>`<td>${html(offer.specs[key]||'Não informado')}</td>`).join(''):'<td>Não informado no título</td>';
-    return `<tr><th scope="row">${html(offer.title)}</th><td><strong>${html(money(offer.price))}</strong><small>${html(priceNote)}</small></td><td>${Number(offer.discount)>0?`${Math.round(Number(offer.discount))}%`:'Não informado'}</td><td>${html(reputation)}</td>${specs}<td>${html(offer.shop||offer.source)}</td><td><a href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></td></tr>`;
+    const specs=keys.length?keys.map(key=>`<td data-label="${html(SPEC_LABELS[key])}">${html(offer.specs[key]||'Não informado')}</td>`).join(''):'<td data-label="Especificações">Não informado no título</td>';
+    return `<tr><th scope="row">${html(offer.title)}</th>${specs}<td data-label="Preço de referência"><strong>${html(money(offer.price))}</strong><small>Pode mudar</small></td><td data-label="Produto"><a href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver produto ↗</a></td></tr>`;
   }).join('');
-  return `<p class="article-table-note">Especificações extraídas do título dos anúncios. Confirme todos os detalhes na página do produto antes da compra.</p><div class="article-table-wrap"><table class="article-comparison"><thead><tr><th>Produto</th><th>Preço atual</th><th>Desconto</th><th>Nota e vendas</th>${specHeaders}<th>Loja</th><th>Link</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<p class="article-table-note">A comparação técnica usa as informações disponíveis no catálogo. Confirme a ficha completa com a loja ou o fabricante.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa com rolagem horizontal em telas médias"><table class="article-comparison"><thead><tr><th>Produto</th>${specHeaders}<th>Preço de referência</th><th>Produto</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function articleSidebarAd() {

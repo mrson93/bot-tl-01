@@ -2,7 +2,7 @@ import {SITE,footer,head,header,html,money,notFound,responseHtml,shorten} from '
 import {articleSidebarAd,articleTableOfContents,comparisonTable,renderArticleBody} from '../_blog.js';
 
 function relatedOffer(offer) {
-  return `<article class="article-offer"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"><div><span>${html(offer.source)}</span><h3>${html(offer.title)}</h3><strong>${html(money(offer.price))}</strong><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver preço atual ↗</a></div></article>`;
+  return `<article class="article-offer"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"><div><span>${html(offer.source)}</span><h3>${html(offer.title)}</h3><strong>${html(money(offer.price))}</strong><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver produto ↗</a></div></article>`;
 }
 
 export async function onRequestGet({params,env}) {
@@ -33,7 +33,7 @@ export async function onRequestGet({params,env}) {
   const blocks=Object.fromEntries(offers.map(offer=>[`{{offer:${offer.id}}}`,`<aside class="article-inline-offer" aria-label="Oferta relacionada">${relatedOffer(offer)}</aside>`]));
   blocks['{{comparison-table}}']=comparisonTable(offers);
   const hasInlineOffers=/\{\{offer:[^}]+\}\}/.test(post.body_markdown);
-  const offerSection=!hasInlineOffers&&offers.length?`<section class="article-products"><p class="eyebrow">PRODUTOS CITADOS</p><h2>Confira os preços atuais</h2><p class="affiliate-note">Os links abaixo podem gerar comissão para o Tá Barato, sem custo adicional para você.</p><div>${offers.map(relatedOffer).join('')}</div></section>`:'';
+  const offerSection=!hasInlineOffers&&offers.length?`<section class="article-products"><p class="eyebrow">PRODUTOS CITADOS</p><h2>Produtos relacionados</h2><p class="affiliate-note">Os links abaixo podem gerar comissão para o Tá Barato, sem custo adicional para você.</p><div>${offers.map(relatedOffer).join('')}</div></section>`:'';
   const publishedDate=new Date(Number(post.published_at)*1000),updatedDate=new Date(Number(post.updated_at)*1000);
   const updated=Number(post.updated_at)>Number(post.published_at)+3600?` · Atualizado em <time datetime="${updatedDate.toISOString()}">${updatedDate.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time>`:'';
   return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical,structured,image:post.cover_image_url})}<script src="/adsense-units.js" defer></script></head><body>${header('blog')}<main class="article-page"><nav class="breadcrumbs" aria-label="Navegação"><a href="/">Início</a><span>›</span><a href="/blog">Blog</a><span>›</span><span>Matéria</span></nav><article><header class="article-header"><p class="eyebrow">${html(post.category||'GUIA DE COMPRA')}</p><h1>${html(post.title)}</h1><p>${html(post.excerpt)}</p><p class="article-dates"><time datetime="${publishedDate.toISOString()}">Publicado em ${publishedDate.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time>${updated}</p></header>${cover}<div class="article-layout"><div class="article-main">${articleTableOfContents(post.body_markdown)}<div class="article-content">${renderArticleBody(post.body_markdown,blocks)}</div>${offerSection}<p class="article-disclosure">Transparência: esta matéria pode conter links de afiliado. Preços e disponibilidade podem mudar após a publicação.</p></div>${articleSidebarAd()}</div></article></main>${footer()}</body></html>`);

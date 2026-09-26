@@ -34,7 +34,7 @@ test('sumário aponta para títulos e subtítulos com IDs estáveis',()=>{
   assert.match(body,/id="como-escolher"/);assert.match(body,/id="tela"/);
 });
 
-test('tabela compara preço, reputação e especificações anunciadas',()=>{
+test('tabela prioriza especificações e mantém preço apenas como referência',()=>{
   const specs=extractProductSpecs('Power Bank 20000mAh 33W USB-C Bluetooth 5.3');
   assert.deepEqual(specs,{battery:'20000 mAh',power:'33 W',features:'Bluetooth 5.3, USB-C'});
   const table=comparisonTable([
@@ -43,8 +43,10 @@ test('tabela compara preço, reputação e especificações anunciadas',()=>{
   ]);
   assert.match(table,/Capacidade/);assert.match(table,/Potência/);assert.match(table,/Recursos/);
   assert.match(table,/20000 mAh/);assert.match(table,/33 W/);assert.match(table,/Sem fio/);
-  assert.match(table,/R\$\s*70,00/);assert.match(table,/Menor preço/);assert.match(table,/1,5\s*mil vendas/);
-  assert.match(table,/Não informado/);assert.match(table,/Confirme todos os detalhes/);
+  assert.match(table,/R\$\s*70,00/);assert.match(table,/Preço de referência/);assert.match(table,/Pode mudar/);
+  assert.match(table,/data-label="Capacidade"/);assert.match(table,/Ver produto/);
+  assert.doesNotMatch(table,/Menor preço|Nota e vendas|<th>Desconto<\/th>/);
+  assert.match(table,/Não informado/);assert.match(table,/Confirme a ficha completa/);
 });
 
 test('extrai especificações técnicas relevantes de calçados',()=>{
@@ -74,7 +76,7 @@ test('automação escolhe produtos comparáveis e cria somente rascunho factual'
   const draft=buildComparisonDraft(selected.type,selected.offers,new Date('2026-09-25T12:00:00Z'));
   assert.equal(draft.status,'draft');
   assert.deepEqual(new Set(draft.offer_ids),new Set(['a','b','c']));
-  assert.match(draft.body_markdown,/## Qual é a melhor escolha\?/);
+  assert.match(draft.body_markdown,/## Qual produto se destaca\?/);
   assert.match(draft.body_markdown,/## Como escolher power banks/);
   assert.match(draft.body_markdown,/### Análise das especificações técnicas/);
   assert.match(draft.body_markdown,/## Como fizemos este comparativo/);
@@ -82,6 +84,8 @@ test('automação escolhe produtos comparáveis e cria somente rascunho factual'
   assert.match(draft.body_markdown,/\{\{comparison-table\}\}/);
   assert.match(draft.body_markdown,/não realizamos teste físico/i);
   assert.doesNotMatch(draft.body_markdown,/excelente qualidade|testamos|recomendamos sem ressalvas/i);
+  assert.doesNotMatch(draft.body_markdown,/oferta|menor preço|desconto informado|vendas informadas/i);
+  assert.match(draft.slug,/comparativo-produtos/);
   assert.equal(brazilDateKey(new Date('2026-09-26T01:30:00Z')),'2026-09-25');
 });
 

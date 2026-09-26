@@ -49,9 +49,8 @@ export function comparisonType(title='') {
 }
 
 function score(offer) {
-  const rating=Math.max(0,Number(offer.rating)||0),sales=Math.max(0,Number(offer.sales)||0);
   const technicalFields=Object.keys(extractProductSpecs(offer.title)).length;
-  return Math.min(60,Math.max(0,Number(offer.discount)||0))*.35+rating*10+Math.log10(sales+1)*6+technicalFields*7;
+  return technicalFields*20+Math.max(0,Number(offer.rating)||0);
 }
 
 export function selectComparableOffers(candidates=[],size=3) {
@@ -67,22 +66,13 @@ export function selectComparableOffers(candidates=[],size=3) {
     .sort((a,b)=>b.freshness-a.freshness)[0]||null;
 }
 
-const money=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0);
-const number=value=>new Intl.NumberFormat('pt-BR',{notation:'compact',maximumFractionDigits:1}).format(Number(value)||0);
-
-function facts(offer,offers) {
-  const prices=offers.map(item=>Number(item.price)),discounts=offers.map(item=>Number(item.discount)||0);
-  const pros=[],attention=[];
-  if(Number(offer.price)===Math.min(...prices))pros.push('É a opção de menor preço deste comparativo.');
-  if(Number(offer.discount)>0&&Number(offer.discount)===Math.max(...discounts))pros.push(`Tem o maior desconto informado: ${Math.round(Number(offer.discount))}%.`);
-  if(Number(offer.rating)>=4.5)pros.push(`Avaliação informada de ${Number(offer.rating).toFixed(1)} de 5.`);
-  if(Number(offer.sales)>=100)pros.push(`${number(offer.sales)} vendas informadas no anúncio.`);
-  if(!pros.length)pros.push(`Preço consultado de ${money(offer.price)}.`);
-  if(Number(offer.price)>Math.min(...prices))attention.push(`Custa ${money(Number(offer.price)-Math.min(...prices))} a mais que a opção mais barata.`);
-  if(!Number(offer.discount))attention.push('O anúncio não informa um desconto comparável.');
-  if(!Number(offer.rating))attention.push('O catálogo não recebeu uma nota de avaliação para esta oferta.');
-  if(!Number(offer.sales))attention.push('O catálogo não recebeu a quantidade de vendas deste anúncio.');
-  if(!attention.length)attention.push('Preço e disponibilidade podem mudar a qualquer momento.');
+function facts(offer) {
+  const entries=Object.entries(extractProductSpecs(offer.title));
+  const pros=entries.slice(0,3).map(([key,value])=>`A descrição informa ${SPEC_LABELS[key].toLowerCase()}: ${clean(value)}.`);
+  if(!pros.length)pros.push('O produto está identificado por categoria, mas a descrição resumida traz poucos dados técnicos.');
+  const attention=[];
+  if(entries.length<2)attention.push('A ficha disponível no catálogo não detalha características suficientes para avaliar o produto por completo.');
+  attention.push('Materiais, compatibilidade, medidas e garantia devem ser confirmados com a loja ou o fabricante.');
   return {pros,attention};
 }
 
@@ -99,10 +89,7 @@ function buyingGuide(type) {
 
 function recommendationReason(offer) {
   const labels=Object.keys(extractProductSpecs(offer.title)).map(key=>SPEC_LABELS[key]).slice(0,3);
-  const evidence=[];if(labels.length)evidence.push(`informa ${labels.join(', ').toLowerCase()}`);
-  if(Number(offer.rating)>0)evidence.push(`tem nota ${Number(offer.rating).toFixed(1)} de 5 no anúncio`);
-  if(Number(offer.sales)>0)evidence.push(`registra ${number(offer.sales)} vendas`);
-  return evidence.length?evidence.join(' e '):'apresenta o melhor equilíbrio dos dados disponíveis no catálogo';
+  return labels.length?`sua descrição informa ${labels.join(', ').toLowerCase()}`:'é o produto mais bem documentado entre os dados disponíveis';
 }
 
 export function buildComparisonDraft(type,offers,date=new Date()) {
@@ -110,20 +97,16 @@ export function buildComparisonDraft(type,offers,date=new Date()) {
   const day=brazilDateKey(date),winner=[...offers].sort((a,b)=>score(b)-score(a))[0];
   const plurals={'power-bank':'power banks','fone de ouvido':'fones de ouvido',smartphone:'smartphones',smartwatch:'smartwatches',notebook:'notebooks',tablet:'tablets',televisor:'televisores','caixa de som':'caixas de som',aspirador:'aspiradores','air fryer':'air fryers',cafeteira:'cafeteiras',ventilador:'ventiladores',parafusadeira:'parafusadeiras',furadeira:'furadeiras',panela:'panelas','tênis':'tênis',creatina:'creatinas','whey protein':'whey proteins'};
   const typeLabel=plurals[type]||type;
-  const title=`3 ofertas de ${typeLabel}: qual vale mais a pena?`;
+  const title=`Comparativo de 3 ${typeLabel}: diferenças e qual escolher`;
   const sections=offers.map((offer,index)=>{
-    const {pros,attention}=facts(offer,offers);
-    const details=[`preço de **${money(offer.price)}**`];
-    if(Number(offer.discount)>0)details.push(`desconto informado de **${Math.round(Number(offer.discount))}%**`);
-    if(Number(offer.rating)>0)details.push(`nota **${Number(offer.rating).toFixed(1)} de 5**`);
-    if(Number(offer.sales)>0)details.push(`**${number(offer.sales)} vendas** informadas`);
-    return `## ${index+1}. ${shorten(clean(offer.title),120)}\n\nNa consulta mais recente, esta oferta apareceu com ${details.join(', ')}${offer.shop?` na loja **${clean(offer.shop)}**`:''}.\n\n### Análise das especificações técnicas\n\n${technicalAnalysis(offer)}\n\n### Prós\n\n${pros.map(item=>`- ${item}`).join('\n')}\n\n### Pontos de atenção\n\n${attention.map(item=>`- ${item}`).join('\n')}\n\n{{offer:${offer.id}}}`;
+    const {pros,attention}=facts(offer);
+    return `## ${index+1}. ${shorten(clean(offer.title),120)}\n\nA análise deste produto considera sua proposta de uso e as características técnicas disponíveis no catálogo.\n\n### Análise das especificações técnicas\n\n${technicalAnalysis(offer)}\n\n### Pontos fortes informados\n\n${pros.map(item=>`- ${item}`).join('\n')}\n\n### Limitações da ficha\n\n${attention.map(item=>`- ${item}`).join('\n')}\n\n{{offer:${offer.id}}}`;
   }).join('\n\n');
-  const reason=recommendationReason(winner),cheapest=[...offers].sort((a,b)=>Number(a.price)-Number(b.price))[0];
+  const reason=recommendationReason(winner);
   const category=label(offers[0].category||'outros');
-  const excerpt=`Comparamos três ofertas recentes de ${typeLabel}, incluindo especificações técnicas, preço, avaliação, prós e pontos de atenção.`;
-  const body=`Os preços abaixo foram consultados recentemente no catálogo do Tá Barato. A comparação considera somente dados objetivos recebidos das lojas; não realizamos teste físico dos produtos.\n\n## Resumo rápido\n\n- **Melhor escolha geral pelos dados disponíveis:** ${shorten(clean(winner.title),110)}.\n- **Menor preço consultado:** ${shorten(clean(cheapest.title),100)}, por ${money(cheapest.price)}.\n- **Importante:** especificações anunciadas devem ser confirmadas na página da loja antes da compra.\n\n## Como escolher ${typeLabel}\n\n${buyingGuide(type)}\n\n${sections}\n\n## Qual é a melhor escolha?\n\nPelos dados disponíveis no momento, **${shorten(clean(winner.title),110)}** é a melhor escolha geral porque ${reason}. A recomendação não se baseia apenas no menor preço ou no maior desconto. Antes da compra, confirme ficha técnica, compatibilidade, prazo de entrega, política de troca e garantia.\n\n## Tabela comparativa\n\n{{comparison-table}}\n\n## Como fizemos este comparativo\n\nSelecionamos apenas anúncios classificados como ${typeLabel}, eliminamos acessórios conhecidos e comparamos dados recentes do catálogo. Consideramos especificações presentes no título, preço, desconto, avaliação e quantidade de vendas. Não há teste físico dos produtos, e alegações do anúncio não são tratadas como certificação independente.\n\n## Perguntas frequentes\n\n### O produto mais barato é sempre a melhor escolha?\n\nNão. O preço precisa ser analisado junto das especificações, procedência, garantia, avaliações e adequação ao uso.\n\n### As especificações foram testadas pelo Tá Barato?\n\nNão. Elas foram extraídas dos anúncios e precisam ser confirmadas com a loja ou o fabricante.\n\n### Os preços permanecem os mesmos?\n\nNão necessariamente. Preços, estoque, frete e cupons podem mudar depois da publicação.`;
-  return {id:`auto-comparativo-${day}`,slug:slugify(`${typeLabel}-comparativo-ofertas-${day}`),title,excerpt,body_markdown:body,cover_image_url:offers[0].image_url,category:`Comparativo · ${category}`,status:'draft',meta_title:shorten(title,70),meta_description:shorten(excerpt,170),offer_ids:offers.map(item=>item.id)};
+  const excerpt=`Comparamos três ${typeLabel} pelas características técnicas, diferenças de uso, pontos fortes e limitações.`;
+  const body=`Este comparativo analisa os produtos de forma geral, usando as características disponíveis no catálogo. Não realizamos teste físico; informações incompletas são sinalizadas no texto.\n\n## Resumo rápido\n\n- **Produto com ficha mais completa:** ${shorten(clean(winner.title),110)}.\n- **Critério principal:** características técnicas e adequação ao uso, sem usar preço ou desconto para definir o destaque.\n- **Importante:** confirme a ficha completa com a loja ou o fabricante.\n\n## Como escolher ${typeLabel}\n\n${buyingGuide(type)}\n\n${sections}\n\n## Qual produto se destaca?\n\nPelos dados disponíveis, **${shorten(clean(winner.title),110)}** é o produto mais bem documentado porque ${reason}. Isso não comprova desempenho superior: a escolha final depende do perfil de uso e da confirmação da ficha técnica completa.\n\n## Tabela comparativa\n\n{{comparison-table}}\n\n## Como fizemos este comparativo\n\nSelecionamos produtos da mesma categoria, eliminamos acessórios conhecidos e organizamos as características técnicas disponíveis no catálogo. Preço e desconto não influenciam o destaque editorial. Não há teste físico, e descrições comerciais não são tratadas como certificação independente.\n\n## Perguntas frequentes\n\n### O produto com mais especificações é necessariamente melhor?\n\nNão. Ele apenas permite uma análise mais completa. Desempenho, durabilidade e qualidade exigem documentação confiável ou testes independentes.\n\n### As especificações foram testadas pelo Tá Barato?\n\nNão. Elas são organizadas a partir do catálogo e precisam ser confirmadas com a loja ou o fabricante.\n\n### Como escolher entre os modelos?\n\nDefina primeiro o uso principal e compare as características que realmente interferem nesse uso, além de compatibilidade, garantia e assistência.`;
+  return {id:`auto-comparativo-${day}`,slug:slugify(`${typeLabel}-comparativo-produtos-${day}`),title,excerpt,body_markdown:body,cover_image_url:offers[0].image_url,category:`Comparativo · ${category}`,status:'draft',meta_title:shorten(title,70),meta_description:shorten(excerpt,170),offer_ids:offers.map(item=>item.id)};
 }
 
 export async function generateDailyDraft(env,now=Math.floor(Date.now()/1000)) {
