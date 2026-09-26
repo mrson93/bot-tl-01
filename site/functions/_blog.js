@@ -9,9 +9,9 @@ export function comparisonTable(offers=[]) {
   const specHeaders=keys.length?keys.map(key=>`<th>${SPEC_LABELS[key]}</th>`).join(''):'<th>Especificações informadas</th>';
   const rows=enriched.map(offer=>{
     const specs=keys.length?keys.map(key=>`<td data-label="${html(SPEC_LABELS[key])}">${html(offer.specs[key]||'Não informado')}</td>`).join(''):'<td data-label="Especificações">Não informado no título</td>';
-    return `<tr><th scope="row">${html(offer.title)}</th>${specs}<td data-label="Preço de referência"><strong>${html(money(offer.price))}</strong><small>Pode mudar</small></td><td data-label="Produto"><a href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver produto ↗</a></td></tr>`;
+    return `<tr><th scope="row"><a href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">${html(offer.title)}<small>Ver produto ↗</small></a></th>${specs}<td data-label="Preço de referência"><strong>${html(money(offer.price))}</strong><small>Pode mudar</small></td></tr>`;
   }).join('');
-  return `<p class="article-table-note">A comparação técnica usa as informações disponíveis no catálogo. Confirme a ficha completa com a loja ou o fabricante.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa com rolagem horizontal em telas médias"><table class="article-comparison"><thead><tr><th>Produto</th>${specHeaders}<th>Preço de referência</th><th>Produto</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<p class="article-table-note">A comparação técnica usa as informações disponíveis no catálogo. Confirme a ficha completa com a loja ou o fabricante.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa com rolagem horizontal em telas médias"><table class="article-comparison"><thead><tr><th>Produto</th>${specHeaders}<th>Preço de referência</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function articleSidebarAd() {
