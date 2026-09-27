@@ -25,10 +25,24 @@ export function editorialProductCard(product) {
   const summary=product.summary?`<p>${html(product.summary)}</p>`:'';
   const specs=Object.entries(editorialSpecs(product.specs_json||product.specs)).slice(0,4);
   const specList=specs.length?`<dl class="product-spec-list">${specs.map(([key,value])=>`<div><dt>${html(key)}</dt><dd>${html(value)}</dd></div>`).join('')}</dl>`:'';
-  const price=product.price_label?`<strong>${html(product.price_label)}</strong>`:'';
+  const checkedAt=formatPriceDate(product.price_checked_at);
+  const price=product.price_label?`<div class="product-price-panel"><span>Preço estimado</span><strong>${html(product.price_label)}</strong><small>${checkedAt?`Consultado em ${html(checkedAt)} · `:''}Pode mudar</small></div>`:'<p class="product-price-missing">Consulte o preço atual nas lojas</p>';
   const links=productLinks(product);
-  const actions=links.length?`<div class="product-store-links">${links.map(link=>`<a class="buy" href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener">${html(link.label)} ↗</a>`).join('')}</div>`:'<span class="product-model-badge">Modelo analisado</span>';
+  const actions=links.length?`<div class="product-store-links" aria-label="Lojas para ${html(product.name)}">${links.map(link=>`<a class="buy store-${html(link.store||'outro')}" href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener"><span>${html(storeAction(link))}</span><b aria-hidden="true">→</b></a>`).join('')}</div>`:'<span class="product-model-badge">Links em atualização</span>';
   return `<article class="article-offer editorial-product">${image}<div>${brand}<h3>${html(product.name)}</h3>${summary}${specList}${price}${actions}</div></article>`;
+}
+
+export function formatPriceDate(value) {
+  const timestamp=Number(value);
+  if(!Number.isFinite(timestamp)||timestamp<=0)return '';
+  return new Date(timestamp*1000).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
+}
+
+function storeAction(link={}) {
+  if(link.store==='amazon')return 'Conferir na Amazon';
+  if(link.store==='mercado-livre')return 'Conferir no Mercado Livre';
+  const label=String(link.label||'loja').trim();
+  return /^(ver|conferir|comprar)\b/i.test(label)?label:`Conferir em ${label}`;
 }
 
 export function editorialComparisonTable(products=[]) {
@@ -36,8 +50,8 @@ export function editorialComparisonTable(products=[]) {
   const enriched=products.map(product=>({...product,specs:editorialSpecs(product.specs_json||product.specs)}));
   const keys=[...new Set(enriched.flatMap(product=>Object.keys(product.specs)))].slice(0,5),hasPrice=enriched.some(product=>product.price_label),hasLinks=enriched.some(product=>productLinks(product).length);
   const headers=keys.map(key=>`<th>${html(key)}</th>`).join('');
-  const rows=enriched.map(product=>{const links=productLinks(product);return `<tr><th scope="row">${html(product.name)}</th>${keys.map(key=>`<td data-label="${html(key)}">${html(product.specs[key]||'Não informado')}</td>`).join('')}${hasPrice?`<td data-label="Preço de referência">${html(product.price_label||'Consultar')}</td>`:''}${hasLinks?`<td data-label="Onde comprar"><div class="comparison-store-links">${links.map(link=>`<a href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener">${html(link.label)} ↗</a>`).join('')||'<small>Link ainda não cadastrado</small>'}</div></td>`:''}</tr>`;}).join('');
-  return `<p class="article-table-note">Comparação baseada nas fichas técnicas cadastradas para esta matéria. Confirme versões e especificações no fabricante.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa de produtos"><table class="article-comparison editorial-comparison"><thead><tr><th>Produto</th>${headers}${hasPrice?'<th>Preço de referência</th>':''}${hasLinks?'<th>Onde comprar</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows=enriched.map(product=>{const links=productLinks(product),checkedAt=formatPriceDate(product.price_checked_at);return `<tr><th scope="row">${html(product.name)}</th>${keys.map(key=>`<td data-label="${html(key)}">${html(product.specs[key]||'Não informado')}</td>`).join('')}${hasPrice?`<td data-label="Preço estimado"><strong>${html(product.price_label||'Consultar')}</strong>${checkedAt?`<small>Consulta: ${html(checkedAt)}</small>`:''}</td>`:''}${hasLinks?`<td data-label="Onde comprar"><div class="comparison-store-links">${links.map(link=>`<a href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener">${html(storeAction(link))} →</a>`).join('')||'<small>Link ainda não cadastrado</small>'}</div></td>`:''}</tr>`;}).join('');
+  return `<p class="article-table-note">Comparação baseada nas fichas técnicas cadastradas para esta matéria. Preços são estimativas da data indicada e podem mudar; confirme o valor atual na loja.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa de produtos"><table class="article-comparison editorial-comparison"><thead><tr><th>Produto</th>${headers}${hasPrice?'<th>Preço estimado</th>':''}${hasLinks?'<th>Onde comprar</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 export function articleSidebarAd() {

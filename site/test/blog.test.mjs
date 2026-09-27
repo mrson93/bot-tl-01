@@ -96,17 +96,19 @@ test('extrai especificações técnicas relevantes de calçados',()=>{
 });
 
 test('produto editorial aceita vários links afiliados fora do catálogo de ofertas',()=>{
-  const product={id:'celular-a',name:'Celular A',brand:'Marca',summary:'Bom para fotos.',image_url:'https://img.example/a.jpg',price_label:'Até R$ 2.000',specs:{Tela:'6,5 polegadas',Memória:'256 GB'},links:[{store:'amazon',label:'Amazon',affiliate_url:'https://amazon.com.br/dp/abc?tag=canaltabarato-20'},{store:'mercado-livre',label:'Mercado Livre',affiliate_url:'https://mercadolivre.com.br/item?matt_tool=abc'}]};
+  const product={id:'celular-a',name:'Celular A',brand:'Marca',summary:'Bom para fotos.',image_url:'https://img.example/a.jpg',price_label:'Até R$ 2.000',price_checked_at:Date.UTC(2026,8,27,15)/1000,specs:{Tela:'6,5 polegadas',Memória:'256 GB'},links:[{store:'amazon',label:'Amazon',affiliate_url:'https://amazon.com.br/dp/abc?tag=canaltabarato-20'},{store:'mercado-livre',label:'Mercado Livre',affiliate_url:'https://mercadolivre.com.br/item?matt_tool=abc'}]};
   const card=editorialProductCard(product),table=editorialComparisonTable([product]);
   assert.match(card,/Bom para fotos/);assert.match(card,/amazon\.com\.br\/dp\/abc\?tag=canaltabarato-20/);
-  assert.match(card,/Mercado Livre/);assert.match(table,/Onde comprar/);
+  assert.match(card,/Conferir na Amazon/);assert.match(card,/Conferir no Mercado Livre/);assert.match(table,/Onde comprar/);
+  assert.match(card,/Preço estimado/);assert.match(card,/Consultado em 27\/09\/2026/);assert.match(card,/Pode mudar/);
   assert.match(table,/Tela/);assert.match(table,/6,5 polegadas/);assert.match(table,/Até R\$ 2\.000/);
+  assert.match(table,/Consulta: 27\/09\/2026/);assert.match(table,/Conferir na Amazon/);
   assert.doesNotMatch(`${card}${table}`,/\/go\//);
 });
 
 test('modelo editorial pode ser exibido antes de receber link afiliado',()=>{
   const card=editorialProductCard({id:'galaxy-a56-5g',name:'Modelo sem link',summary:'Descrição pronta.',specs:{Tela:'OLED'}});
-  assert.match(card,/Modelo analisado/);assert.match(card,/OLED/);assert.doesNotMatch(card,/<a /);
+  assert.match(card,/Links em atualização/);assert.match(card,/Consulte o preço atual/);assert.match(card,/OLED/);assert.doesNotMatch(card,/<a /);
   assert.match(card,/images\/blog\/produtos\/galaxy-a56-5g\.png/);
 });
 

@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20260926-6';
+export const STYLESHEET='/styles.css?v=20260927-1';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
