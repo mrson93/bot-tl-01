@@ -17,6 +17,24 @@ class MonitorTest(unittest.TestCase):
         self.assertIn("durante a publicacao", publicacao)
         self.assertNotIn("publicou a oferta", publicacao)
 
+    def test_workflow_alerta_somente_na_terceira_falha_e_rearma(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
+             patch.object(monitor, "enviar_alerta", return_value=True) as enviar:
+            self.assertFalse(monitor.registrar_resultado_workflow(False, "1"))
+            self.assertFalse(monitor.registrar_resultado_workflow(False, "2"))
+            self.assertTrue(monitor.registrar_resultado_workflow(False, "3"))
+            self.assertFalse(monitor.registrar_resultado_workflow(False, "4"))
+            self.assertFalse(monitor.registrar_resultado_workflow(True, "5"))
+            self.assertFalse(monitor.registrar_resultado_workflow(False, "6"))
+            self.assertFalse(monitor.registrar_resultado_workflow(False, "7"))
+            self.assertTrue(monitor.registrar_resultado_workflow(False, "8"))
+        self.assertEqual(2, enviar.call_count)
+        self.assertIn("3ª falha consecutiva", enviar.call_args.args[0])
+
     def test_resumo_privado_identifica_sucesso_e_falha_por_canal(self):
         resposta = Mock()
         resposta.json.return_value = {"ok": True}

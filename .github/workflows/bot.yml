@@ -206,6 +206,7 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Restaurar estado remoto
+        id: restaurar_estado
         env:
           GH_TOKEN: ${{ github.token }}
         # A instalação nova não possui artefato na primeira rodada. A restauração
@@ -247,9 +248,19 @@ jobs:
         if: always() && steps.estado.outputs.changed == 'true'
         run: python estado_remoto.py salvar
 
-      - name: Alertar falha da execução
-        if: failure() && inputs.somente_pendentes != true
+      - name: Registrar resultado para alertas
+        if: always() && inputs.somente_pendentes != true && steps.restaurar_estado.outcome == 'success'
         env:
+          WORKFLOW_RESULTADO: ${{ job.status }}
           PUBLICACAO_RESULTADO: ${{ steps.publicar.outcome }}
           ESTADO_RESULTADO: ${{ steps.salvar_estado.outcome }}
-        run: python monitor.py --workflow-failure
+        run: python monitor.py --workflow-result
+
+      - name: Verificar alteração dos alertas
+        if: always() && inputs.somente_pendentes != true && steps.restaurar_estado.outcome == 'success'
+        id: estado_alertas
+        run: python estado_remoto.py alterado
+
+      - name: Salvar estado dos alertas
+        if: always() && inputs.somente_pendentes != true && steps.restaurar_estado.outcome == 'success' && steps.estado_alertas.outputs.changed == 'true'
+        run: python estado_remoto.py salvar

@@ -147,17 +147,53 @@ def mensagem_falha_workflow(run, publicacao_resultado="", estado_resultado=""):
     return f"A execucao {run} falhou durante a publicacao."
 
 
+def registrar_resultado_workflow(sucesso, run="desconhecida",
+                                 publicacao_resultado="",
+                                 estado_resultado=""):
+    """Alerta uma vez, somente na terceira falha seguida da execução."""
+    chave = "falhas_consecutivas_workflow"
+    if sucesso:
+        if store._estado(chave) not in {None, "0"}:
+            store._definir_estado(chave, 0)
+        return False
+
+    estado = store._estado(chave)
+    if estado == "alertada":
+        return False
+    try:
+        falhas = int(estado or 0) + 1
+    except ValueError:
+        falhas = 1
+    store._definir_estado(chave, falhas)
+    if falhas < max(1, config.FALHAS_CONSECUTIVAS_ALERTA):
+        return False
+
+    mensagem = mensagem_falha_workflow(
+        run, publicacao_resultado, estado_resultado
+    )
+    mensagem += f" Esta foi a {falhas}ª falha consecutiva."
+    if enviar_alerta(mensagem):
+        store._definir_estado(chave, "alertada")
+        return True
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--workflow-failure", action="store_true")
+    grupo = parser.add_mutually_exclusive_group()
+    grupo.add_argument("--workflow-result", action="store_true")
+    grupo.add_argument("--workflow-failure", action="store_true")
     args = parser.parse_args()
-    if args.workflow_failure:
+    if args.workflow_result or args.workflow_failure:
         run = os.getenv("GITHUB_RUN_ID", "desconhecida")
-        enviar_alerta(mensagem_falha_workflow(
+        sucesso = (os.getenv("WORKFLOW_RESULTADO", "").lower() == "success"
+                   and not args.workflow_failure)
+        registrar_resultado_workflow(
+            sucesso,
             run,
             os.getenv("PUBLICACAO_RESULTADO", ""),
             os.getenv("ESTADO_RESULTADO", ""),
-        ))
+        )
         return
     alerta = verificar_execucoes()
     if alerta:

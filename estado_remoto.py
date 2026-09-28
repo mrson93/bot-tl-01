@@ -806,6 +806,8 @@ def main():
             salvar_branch()
         else:
             salvar_release()
+        SEM_REMOTO.unlink(missing_ok=True)
+        HASH_INICIAL.write_text(_hash(), encoding="ascii")
     elif args.acao == "limpar":
         limpar_artefatos_antigos()
     else:
