@@ -40,26 +40,35 @@ def enviar_mensagem_privada(mensagem, sessao=requests):
     return _enviar_privado(str(mensagem), sessao)
 
 
-def enviar_resumo_publicacao(loja, titulo, resultados, sessao=requests):
-    """Um aviso privado por oferta, com confirmação por destino."""
+def avisar_falha_total_publicacao(loja, titulo, resultados, sessao=requests):
+    """Avisa apenas quando nenhum dos destinos conseguiu publicar a oferta."""
+    resultados = dict(resultados or {})
+    falhas = {canal: resultado for canal, resultado in resultados.items()
+              if str(resultado).startswith("❌")}
+    houve_sucesso = any(str(resultado).startswith("✅")
+                        for resultado in resultados.values())
+    if not falhas or houve_sucesso:
+        return False
     titulo = " ".join(str(titulo or "Oferta").split())[:100]
-    linhas = [f"📣 Publicação — {loja}", titulo, ""]
+    linhas = [f"🚨 Publicação falhou em todos os destinos — {loja}", titulo, ""]
     linhas.extend(f"{canal}: {resultado}" for canal, resultado in resultados.items())
     return _enviar_privado("\n".join(linhas), sessao)
 
 
 def avisar_estoque_lista(loja, ineditas, sessao=requests):
-    """Notifica uma vez quando a lista curada fica com até cinco inéditas."""
-    chave = f"estoque_lista:{loja.lower().replace(' ', '_')}"
-    if ineditas > 5:
+    """Notifica uma vez quando a lista curada fica sem produtos inéditos."""
+    # Chave nova: alertas antigos de "estoque baixo" não podem impedir o
+    # primeiro aviso quando a lista realmente chegar a zero.
+    chave = f"estoque_lista_vazio:{loja.lower().replace(' ', '_')}"
+    if ineditas > 0:
         store._definir_estado(chave, "normal")
         return False
-    if store._estado(chave) == "baixo":
+    if store._estado(chave) == "vazio":
         return False
-    mensagem = (f"📦 Lista {loja}: restam {ineditas} ofertas inéditas e elegíveis. "
+    mensagem = (f"📦 Lista {loja}: não há ofertas inéditas e elegíveis. "
                 "Adicione novos produtos à lista para manter a publicação.")
     if _enviar_privado(mensagem, sessao):
-        store._definir_estado(chave, "baixo")
+        store._definir_estado(chave, "vazio")
         return True
     return False
 
@@ -147,53 +156,17 @@ def mensagem_falha_workflow(run, publicacao_resultado="", estado_resultado=""):
     return f"A execucao {run} falhou durante a publicacao."
 
 
-def registrar_resultado_workflow(sucesso, run="desconhecida",
-                                 publicacao_resultado="",
-                                 estado_resultado=""):
-    """Alerta uma vez, somente na terceira falha seguida da execução."""
-    chave = "falhas_consecutivas_workflow"
-    if sucesso:
-        if store._estado(chave) not in {None, "0"}:
-            store._definir_estado(chave, 0)
-        return False
-
-    estado = store._estado(chave)
-    if estado == "alertada":
-        return False
-    try:
-        falhas = int(estado or 0) + 1
-    except ValueError:
-        falhas = 1
-    store._definir_estado(chave, falhas)
-    if falhas < max(1, config.FALHAS_CONSECUTIVAS_ALERTA):
-        return False
-
-    mensagem = mensagem_falha_workflow(
-        run, publicacao_resultado, estado_resultado
-    )
-    mensagem += f" Esta foi a {falhas}ª falha consecutiva."
-    if enviar_alerta(mensagem):
-        store._definir_estado(chave, "alertada")
-        return True
-    return False
-
-
 def main():
     parser = argparse.ArgumentParser()
-    grupo = parser.add_mutually_exclusive_group()
-    grupo.add_argument("--workflow-result", action="store_true")
-    grupo.add_argument("--workflow-failure", action="store_true")
+    parser.add_argument("--workflow-failure", action="store_true")
     args = parser.parse_args()
-    if args.workflow_result or args.workflow_failure:
+    if args.workflow_failure:
         run = os.getenv("GITHUB_RUN_ID", "desconhecida")
-        sucesso = (os.getenv("WORKFLOW_RESULTADO", "").lower() == "success"
-                   and not args.workflow_failure)
-        registrar_resultado_workflow(
-            sucesso,
+        enviar_alerta(mensagem_falha_workflow(
             run,
             os.getenv("PUBLICACAO_RESULTADO", ""),
             os.getenv("ESTADO_RESULTADO", ""),
-        )
+        ))
         return
     alerta = verificar_execucoes()
     if alerta:

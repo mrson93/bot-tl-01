@@ -57,7 +57,7 @@ class MainTest(unittest.TestCase):
             del candidatos[1]["expira_em"]
             self.assertEqual("normal", main._ordenar_candidatos(candidatos)[0]["oferta_id"])
 
-    def test_resumo_mostra_mesma_oferta_por_canal_e_site_nao_duplica(self):
+    def test_sucesso_parcial_nao_envia_notificacao_privada_e_site_nao_duplica(self):
         import tempfile
         from pathlib import Path
         fonte = unittest.mock.Mock(NOME="Shopee")
@@ -73,18 +73,38 @@ class MainTest(unittest.TestCase):
              patch.object(main.site_publisher, "esta_configurado", return_value=True), \
              patch.object(main.site_publisher, "publicar") as site, \
              patch.object(main.shortlinks, "esta_configurado", return_value=False), \
-             patch.object(main.monitor, "enviar_resumo_publicacao") as resumo, \
-             patch.object(main, "_registrar_saude_canal"), \
+             patch.object(main.monitor, "_enviar_privado") as enviar_privado, \
              patch.object(main.observabilidade, "evento"):
             self.assertEqual(1, main.publicar(fonte, oferta))
-            resultados = resumo.call_args.args[2]
-            self.assertEqual("✅ publicado", resultados["Telegram"])
-            self.assertEqual("❌ falhou", resultados["Facebook"])
-            self.assertEqual("✅ publicado", resultados["Site"])
+            enviar_privado.assert_not_called()
             self.assertEqual(0, main.publicar(fonte, oferta))
+            enviar_privado.assert_not_called()
             site.assert_called_once()
             telegram.postar.assert_called_once()
             self.assertEqual(2, facebook.postar.call_count)
+
+    def test_falha_em_todos_os_destinos_envia_um_unico_alerta_privado(self):
+        import tempfile
+        from pathlib import Path
+        fonte = unittest.mock.Mock(NOME="Shopee")
+        fonte.gerar_link.return_value = "https://oferta.test/link"
+        telegram = unittest.mock.Mock(NOME="Telegram", TRACKING_ID="telegram")
+        facebook = unittest.mock.Mock(NOME="Facebook", TRACKING_ID="facebook")
+        telegram.postar.side_effect = RuntimeError("indisponível")
+        facebook.postar.side_effect = RuntimeError("indisponível")
+        oferta = {"oferta_id": "produto-falhou", "productName": "Produto falhou",
+                  "productUrl": "https://oferta.test/item", "price": 50}
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[telegram, facebook]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "_enviar_privado", return_value=True) as enviar, \
+             patch.object(main.observabilidade, "evento"):
+            self.assertEqual(0, main.publicar(fonte, oferta))
+        enviar.assert_called_once()
+        self.assertIn("falhou em todos os destinos", enviar.call_args.args[0])
+
     def test_revalida_preco_imediatamente_antes_de_publicar(self):
         class Fonte:
             NOME = "Mercado Livre"
@@ -107,7 +127,6 @@ class MainTest(unittest.TestCase):
              patch.object(main.store, "registrar_entrega") as registrar, \
              patch.object(main.shortlinks, "esta_configurado", return_value=False), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
-             patch.object(main, "_registrar_saude_canal"), \
              patch.object(main.observabilidade, "evento"):
             self.assertEqual(1, main.publicar(Fonte, oferta))
 
@@ -146,7 +165,6 @@ class MainTest(unittest.TestCase):
              patch.object(main.store, "registrar_entrega") as registrar, \
              patch.object(main.shortlinks, "esta_configurado", return_value=False), \
              patch.object(main.facebook, "postar") as postar, \
-             patch.object(main, "_registrar_saude_canal"), \
              patch.object(main.observabilidade, "evento"):
             self.assertEqual(1, main.publicar_teste_facebook_real())
         postar.assert_called_once_with(oferta, "https://shopee.com.br/afiliado")

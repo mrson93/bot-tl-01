@@ -280,16 +280,6 @@ def enviar_bom_dia_se_preciso(agora=None) -> bool:
     return publicou
 
 
-def _registrar_saude_canal(canal, sucesso, erro=""):
-    """O monitor nunca pode transformar uma publicação aceita em falha."""
-    try:
-        return monitor.registrar_resultado_canal(canal, sucesso, erro)
-    except Exception as erro_alerta:
-        print("   ⚠️  Não foi possível atualizar o alerta privado: "
-              f"{seguranca.redigir_segredos(erro_alerta)}")
-        return False
-
-
 def _revalidar_antes_de_publicar(fonte, oferta):
     """Atualiza ofertas de fontes que exigem confirmação no último instante."""
     if getattr(fonte, "VALIDA_ANTES_PUBLICAR", False) is not True:
@@ -376,7 +366,6 @@ def publicar(fonte, oferta: dict) -> int:
                 continue
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
-            _registrar_saude_canal(canal.NOME, True)
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                     canal=canal.NOME, fonte=fonte.NOME)
             ok += 1
@@ -386,7 +375,6 @@ def publicar(fonte, oferta: dict) -> int:
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, canal.NOME, False, preco, fonte.NOME, erro)
-            _registrar_saude_canal(canal.NOME, False, erro)
             observabilidade.evento("publicacao_falha", oferta_id=oid,
                                     canal=canal.NOME, fonte=fonte.NOME,
                                     motivo="erro_canal")
@@ -407,7 +395,6 @@ def publicar(fonte, oferta: dict) -> int:
             else:
                 site_publisher.publicar(fonte, oferta)
                 store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
-                _registrar_saude_canal("Site", True)
                 observabilidade.evento("publicacao_sucesso", oferta_id=oid,
                                         canal="Site", fonte=fonte.NOME)
                 resultados["Site"] = "✅ publicado"
@@ -416,7 +403,6 @@ def publicar(fonte, oferta: dict) -> int:
         except Exception as e:
             erro = seguranca.redigir_segredos(e)[:500]
             store.registrar_entrega(oid, "Site", False, preco, fonte.NOME, erro)
-            _registrar_saude_canal("Site", False, erro)
             observabilidade.evento("publicacao_falha", oferta_id=oid,
                                     canal="Site", fonte=fonte.NOME,
                                     motivo="erro_site")
@@ -426,7 +412,7 @@ def publicar(fonte, oferta: dict) -> int:
         resultados["Site"] = "✅ já entregue"
     if resultados:
         try:
-            monitor.enviar_resumo_publicacao(
+            monitor.avisar_falha_total_publicacao(
                 fonte.NOME, oferta.get("productName"), resultados)
         except Exception as erro_alerta:
             print("   ⚠️  Resumo privado indisponível: "
@@ -1179,7 +1165,6 @@ def publicar_teste_facebook_real() -> int:
                       f"{seguranca.redigir_segredos(erro_link)}")
         facebook.postar(oferta, link)
         store.registrar_entrega(oid, facebook.NOME, True, preco, fonte.NOME)
-        _registrar_saude_canal(facebook.NOME, True)
         observabilidade.evento(
             "publicacao_sucesso", oferta_id=oid,
             canal=facebook.NOME, fonte=fonte.NOME,

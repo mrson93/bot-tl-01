@@ -17,34 +17,20 @@ class MonitorTest(unittest.TestCase):
         self.assertIn("durante a publicacao", publicacao)
         self.assertNotIn("publicou a oferta", publicacao)
 
-    def test_workflow_alerta_somente_na_terceira_falha_e_rearma(self):
-        import tempfile
-        from pathlib import Path
-        with tempfile.TemporaryDirectory() as tmp, \
-             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
-             patch.object(monitor.config, "FALHAS_CONSECUTIVAS_ALERTA", 3), \
-             patch.object(monitor, "enviar_alerta", return_value=True) as enviar:
-            self.assertFalse(monitor.registrar_resultado_workflow(False, "1"))
-            self.assertFalse(monitor.registrar_resultado_workflow(False, "2"))
-            self.assertTrue(monitor.registrar_resultado_workflow(False, "3"))
-            self.assertFalse(monitor.registrar_resultado_workflow(False, "4"))
-            self.assertFalse(monitor.registrar_resultado_workflow(True, "5"))
-            self.assertFalse(monitor.registrar_resultado_workflow(False, "6"))
-            self.assertFalse(monitor.registrar_resultado_workflow(False, "7"))
-            self.assertTrue(monitor.registrar_resultado_workflow(False, "8"))
-        self.assertEqual(2, enviar.call_count)
-        self.assertIn("3ª falha consecutiva", enviar.call_args.args[0])
-
-    def test_resumo_privado_identifica_sucesso_e_falha_por_canal(self):
+    def test_aviso_privado_so_e_enviado_quando_todos_os_destinos_falham(self):
         resposta = Mock()
         resposta.json.return_value = {"ok": True}
         sessao = Mock(post=Mock(return_value=resposta))
         with patch.object(monitor.config, "TELEGRAM_ADMIN_ID", "123"), \
              patch.object(monitor.config, "TELEGRAM_BOT_TOKEN", "token"):
-            self.assertTrue(monitor.enviar_resumo_publicacao(
+            self.assertFalse(monitor.avisar_falha_total_publicacao(
                 "Shopee", "Produto", {"Telegram": "✅ publicado", "Facebook": "❌ falhou"}, sessao))
+            self.assertTrue(monitor.avisar_falha_total_publicacao(
+                "Shopee", "Produto", {"Telegram": "❌ falhou", "Facebook": "❌ falhou"}, sessao))
+        sessao.post.assert_called_once()
         mensagem = sessao.post.call_args.kwargs["json"]["text"]
-        self.assertIn("Telegram: ✅ publicado", mensagem)
+        self.assertIn("falhou em todos os destinos", mensagem)
+        self.assertIn("Telegram: ❌ falhou", mensagem)
         self.assertIn("Facebook: ❌ falhou", mensagem)
 
     def test_estoque_lista_alerta_uma_vez_e_rearma(self):
@@ -53,10 +39,11 @@ class MonitorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, \
              patch.object(store, "_DB", Path(tmp) / "estado.db"), \
              patch.object(monitor, "_enviar_privado", return_value=True) as enviar:
-            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 5))
-            self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 4))
+            self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 5))
+            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 0))
+            self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 0))
             self.assertFalse(monitor.avisar_estoque_lista("Mercado Livre", 8))
-            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 5))
+            self.assertTrue(monitor.avisar_estoque_lista("Mercado Livre", 0))
             self.assertEqual(2, enviar.call_count)
 
     def test_lista_alerta_apenas_apos_tres_falhas_consecutivas(self):
