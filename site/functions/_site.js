@@ -104,25 +104,22 @@ export function head({title,description,canonical,structured='',image='',ads=fal
 
 export function productStructuredData(offer,canonical) {
   const productName=shorten(offer.title,150);
-  const publishedAt=Number(offer.published_at)||Number(offer.last_checked_at)||Math.floor(Date.now()/1000);
-  const checkedAt=Number(offer.last_checked_at)||publishedAt;
   const rawId=String(offer.id||'');
   const sku=rawId.replace(/^(amazon_|mercadolivre_|shopee_|aliexpress_)/,'').slice(0,100);
   const product={
     '@type':'Product',name:productName,image:[String(offer.image_url)],
     description:shorten(`${productName} por ${money(offer.price)}. Confira preço e condições.`,500),
-    url:canonical,sku,
+    url:canonical,sku,category:label(offer.category||'outros'),
   };
   if(offer.source==='Amazon'&&offer.shop&&String(offer.shop).toLowerCase()!=='amazon') {
     product.brand={'@type':'Brand',name:shorten(offer.shop,70)};
   }
   product.offers={
-    '@type':'Offer',url:`${SITE}/go/${encodeURIComponent(offer.id)}`,
-    priceCurrency:'BRL',price:Number(offer.price),
-    availability:offer.availability==='unavailable'?'https://schema.org/OutOfStock':'https://schema.org/InStock',
-    validFrom:new Date(publishedAt*1000).toISOString(),
-    priceValidUntil:new Date((checkedAt+2*86400)*1000).toISOString().slice(0,10),
-    seller:{'@type':'Organization',name:String(offer.shop||offer.source)},
+    // O Tá Barato compara e encaminha para o varejista; não é o vendedor.
+    // AggregateOffer é a marcação indicada pelo Google para agregadores e
+    // evita declarar, incorretamente, frete, devolução ou checkout próprios.
+    '@type':'AggregateOffer',priceCurrency:'BRL',
+    lowPrice:Number(offer.price),highPrice:Number(offer.price),offerCount:1,
   };
   return {'@context':'https://schema.org','@graph':[product,{
     '@type':'BreadcrumbList',itemListElement:[
