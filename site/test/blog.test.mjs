@@ -194,6 +194,11 @@ test('painel valida assinatura, audiência e e-mail do Cloudflare Access',async(
     const request=new Request('https://canaltabarato.com.br/admin',{headers:{'Cf-Access-Jwt-Assertion':token}});
     const identity=await adminIdentity(request,{CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'aud-blog',ADMIN_EMAILS:'editor@example.com'});
     assert.equal(identity.email,'editor@example.com');
+    const page=await adminPage({request,env:{CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'aud-blog',ADMIN_EMAILS:'editor@example.com'}});
+    assert.equal(page.status,200);
+    const pageBody=await page.text();
+    assert.match(pageBody,/id="editorial-audit"/);
+    assert.match(pageBody,/\/admin-blog\.js\?v=20260930-1/);
     assert.equal(await adminIdentity(request,{CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'outra',ADMIN_EMAILS:'editor@example.com'}),null);
   } finally {globalThis.fetch=previousFetch;}
 });
