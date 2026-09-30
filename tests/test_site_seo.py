@@ -204,8 +204,8 @@ class SiteSeoTest(unittest.TestCase):
         index = (PUBLIC / "index.html").read_text()
         analytics = (PUBLIC / "google-analytics.js").read_text()
         privacy = (ROOT / "site" / "functions" / "privacidade.js").read_text()
-        self.assertIn('src="/google-analytics.js"', helper)
-        self.assertIn('src="/google-analytics.js"', index)
+        for text in (helper, index):
+            self.assertRegex(text, r'src="/google-analytics\.js(?:\?v=[0-9-]+)?"')
         self.assertIn("G-3LVTD2P52D", analytics)
         self.assertNotIn("analytics-consent", analytics)
         self.assertNotIn("localStorage", analytics)
