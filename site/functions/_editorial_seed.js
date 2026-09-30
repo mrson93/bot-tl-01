@@ -788,6 +788,8 @@ const MODELS={
   'moto-g05':{name:'Motorola Moto g05',brand:'Motorola',summary:'Modelo básico com bateria de 5.200 mAh, entrada para microSD e foco em uso cotidiano.',specs:{Tela:'6,7″ LCD HD+',Armazenamento:'256 GB + microSD',Bateria:'5.200 mAh',Rede:'4G'}},
   'moto-g56-5g':{name:'Motorola Moto g56 5G',brand:'Motorola',summary:'Intermediário acessível que combina 5G, bateria, carregamento de 33 W e construção resistente.',specs:{Tela:'6,72″, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh',Rede:'5G'}},
   'galaxy-a26-5g':{name:'Samsung Galaxy A26 5G',brand:'Samsung',summary:'Intermediário equilibrado com tela AMOLED, câmera principal com OIS e proteção IP67.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
+  'galaxy-a17-5g':{name:'Samsung Galaxy A17 5G',brand:'Samsung',summary:'Modelo com tela AMOLED, câmera principal estabilizada e armazenamento expansível; compare a versão de 128 GB com a de 256 GB.',specs:{Tela:'6,7″ Super AMOLED, 90 Hz',Armazenamento:'128 GB ou 256 GB + microSD',Bateria:'5.000 mAh',Câmera:'50 MP com OIS',Rede:'5G'}},
+  'galaxy-a36-5g':{name:'Samsung Galaxy A36 5G',brand:'Samsung',summary:'Intermediário com tela AMOLED de 120 Hz, câmera principal estabilizada, resistência IP67 e suporte prolongado.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS',Rede:'5G'}},
   'galaxy-a56-5g':{name:'Samsung Galaxy A56 5G',brand:'Samsung',summary:'Intermediário premium com tela AMOLED, proteção IP67, câmeras versáteis e suporte longo.',specs:{Tela:'6,7″ Super AMOLED, 120 Hz',Armazenamento:'128 GB ou 256 GB',Bateria:'5.000 mAh',Câmera:'50 MP com OIS'}},
   'edge-60-fusion':{name:'Motorola Edge 60 Fusion',brand:'Motorola',summary:'Modelo com tela pOLED de alta resolução, carregamento rápido e câmera principal estabilizada.',specs:{Tela:'6,7″ pOLED 1220p, 120 Hz',Armazenamento:'256 GB',Bateria:'5.200 mAh, 68 W',Câmera:'50 MP com OIS'}},
   'redmi-note-14':{name:'Xiaomi Redmi Note 14 4G',brand:'Xiaomi',summary:'Opção focada em tela AMOLED e armazenamento, indicada para quem não precisa de 5G.',specs:{Tela:'6,67″ AMOLED, 120 Hz',Armazenamento:'Até 256 GB + microSD',Bateria:'5.500 mAh',Rede:'4G'}},
@@ -805,12 +807,28 @@ const MODEL_SELECTIONS={
   'editorial-5g-vale-pena':['galaxy-a07-5g','moto-g56-5g','galaxy-a26-5g','redmi-note-15-5g'],
   'editorial-como-escolher-celular':['galaxy-a07-5g','moto-g56-5g','galaxy-a56-5g','galaxy-s26-ultra'],
   'editorial-celular-ate-1000':['galaxy-a07','moto-g05','redmi-note-14'],
-  'editorial-celular-ate-1500':['galaxy-a07-5g','moto-g56-5g','redmi-note-15-5g'],
-  'editorial-celular-ate-2000':['galaxy-a26-5g','moto-g56-5g','edge-60-fusion','redmi-note-15-5g'],
+  'editorial-celular-ate-1500':['galaxy-a07-5g','galaxy-a17-5g','moto-g56-5g','redmi-note-15-5g'],
+  'editorial-celular-ate-2000':['galaxy-a26-5g','galaxy-a36-5g','moto-g56-5g','edge-60-fusion','redmi-note-15-5g'],
   'editorial-celular-fotos':['galaxy-a56-5g','edge-60-fusion','galaxy-s26-ultra'],
 };
 
 export const EDITORIAL_MODELS=Object.entries(MODEL_SELECTIONS).flatMap(([post_id,ids])=>ids.map((id,position)=>({post_id,id,...MODELS[id],position})));
+
+// Acrescenta apenas modelos ausentes nos guias já publicados, sem tocar nos
+// textos, preços ou links editados no painel. A migração roda no primeiro acesso.
+export async function ensureMissingGuideModels(env){
+  await ensureBlogProducts(env);
+  await ensureMigrationTable(env);
+  const migration='celulares-modelos-recomendados-2026-v2';
+  if(await env.DB.prepare('SELECT id FROM site_migrations WHERE id=?').bind(migration).first())return;
+  const additions=EDITORIAL_MODELS.filter(model=>['galaxy-a17-5g','galaxy-a36-5g'].includes(model.id));
+  const statements=additions.map(model=>env.DB.prepare(`INSERT OR IGNORE INTO blog_post_products
+    (post_id,id,name,brand,summary,image_url,affiliate_url,price_label,specs_json,position)
+    SELECT id,?,?,?,?,?,'',NULL,?,? FROM blog_posts WHERE id=? AND status='published'`)
+    .bind(model.id,model.name,model.brand,model.summary,model.image_url||null,JSON.stringify(model.specs),model.position,model.post_id));
+  statements.push(env.DB.prepare('INSERT OR IGNORE INTO site_migrations(id,applied_at) VALUES(?,?)').bind(migration,Math.floor(Date.now()/1000)));
+  await env.DB.batch(statements);
+}
 
 const RELATED={
   'qual-melhor-celular-comprar-2026':['melhor-celular-ate-1000-reais','melhor-celular-ate-1500-reais','melhor-celular-ate-2000-reais'],

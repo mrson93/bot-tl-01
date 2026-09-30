@@ -33,7 +33,8 @@ export async function onRequestGet({request,env}) {
       return {...post,offer_ids:post.offer_ids?post.offer_ids.split(','):[],products,
         missing_product_links:products.filter(product=>!product.links.length).length,
         missing_product_prices:products.filter(product=>!product.price_label).length,
-        missing_product_specs:products.filter(product=>!Object.keys(product.specs||{}).length).length};
+        missing_product_specs:products.filter(product=>!Object.keys(product.specs||{}).length).length,
+        missing_product_images:products.filter(product=>!product.image_url).length};
     })});
   } catch { return json({error:'blog_not_configured'},503); }
 }

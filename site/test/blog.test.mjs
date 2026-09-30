@@ -33,7 +33,7 @@ test('todas as matérias de celulares recebem uma seleção de modelos descritos
   for(const articleId of articleIds){
     const models=EDITORIAL_MODELS.filter(model=>model.post_id===articleId);
     assert.equal(models.length>=3,true,articleId);
-    for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.match(model.image_url,/^https:\/\/canaltabarato\.com\.br\/images\/blog\/produtos\//);assert.equal(Object.keys(model.specs).length>=3,true);}
+    for(const model of models){assert.ok(model.name);assert.ok(model.summary);assert.match(model.image_url,/^https:\/\/(?:canaltabarato\.com\.br\/images\/blog\/produtos\/|images\.samsung\.com\/is\/image\/samsung\/)/);assert.equal(Object.keys(model.specs).length>=3,true);}
   }
 });
 
@@ -198,7 +198,8 @@ test('painel valida assinatura, audiência e e-mail do Cloudflare Access',async(
     assert.equal(page.status,200);
     const pageBody=await page.text();
     assert.match(pageBody,/id="editorial-audit"/);
-    assert.match(pageBody,/\/admin-blog\.js\?v=20260930-1/);
+    assert.match(pageBody,/\/admin-blog\.js\?v=20260930-2/);
+    assert.match(pageBody,/\/admin-metrics\.js\?v=20260930-1/);
     assert.equal(await adminIdentity(request,{CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'outra',ADMIN_EMAILS:'editor@example.com'}),null);
   } finally {globalThis.fetch=previousFetch;}
 });

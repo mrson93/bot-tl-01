@@ -1,6 +1,7 @@
 import {SITE,footer,head,header,html,money,notFound,responseHtml,shorten} from '../_site.js';
 import {articleBodyWithoutQuickAnswer,articleSidebarAd,articleSummary,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,renderArticleBody} from '../_blog.js';
 import {coverForPost} from '../_blog_covers.js';
+import {ensureMissingGuideModels} from '../_editorial_seed.js';
 
 function relatedOffer(offer) {
   const checkedAt=Number(offer.last_checked_at)>0?new Date(Number(offer.last_checked_at)*1000).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
@@ -15,6 +16,9 @@ export async function onRequestGet({params,env}) {
       WHERE slug=? AND status='published' AND published_at<=?`).bind(String(params.slug||''),Math.floor(Date.now()/1000)).first();
   } catch { return notFound('Matéria não encontrada'); }
   if(!post) return notFound('Matéria não encontrada');
+  if(['melhor-celular-ate-1500-reais','melhor-celular-ate-2000-reais'].includes(post.slug)){
+    try{await ensureMissingGuideModels(env);}catch(error){console.error('Não foi possível atualizar os modelos do guia',error);}
+  }
   const result=await env.DB.prepare(`SELECT o.id,o.title,o.price,o.original_price,o.discount,o.rating,o.sales,o.image_url,o.source,o.shop,o.last_checked_at
     FROM blog_post_offers b JOIN offers o ON o.id=b.offer_id
     WHERE b.post_id=? AND o.availability!='unavailable' ORDER BY b.position LIMIT 8`).bind(post.id).all();

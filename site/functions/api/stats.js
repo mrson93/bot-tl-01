@@ -33,8 +33,17 @@ export async function onRequestGet({request,env}) {
   }
   const editorialRate=editorialViews?Number((100*editorialClicks/editorialViews).toFixed(2)):0;
   const clickPerView=views?Number((100*total/views).toFixed(2)):0;
+  const catalogSearch={results:0,empty:0,by_source:{},by_device:{}};
+  try{const result=await env.DB.prepare(`SELECT source,device,outcome,SUM(quantity) quantity FROM catalog_search_daily
+    WHERE observed_on>=date(?,'unixepoch','-3 hours') AND observed_on<date(?,'unixepoch','-3 hours')
+    GROUP BY source,device,outcome`).bind(start,end).all();
+    for(const row of result.results||[]){const quantity=Number(row.quantity)||0;if(!['results','empty'].includes(row.outcome))continue;
+      catalogSearch[row.outcome]+=quantity;(catalogSearch.by_source[row.source]??={results:0,empty:0})[row.outcome]+=quantity;
+      (catalogSearch.by_device[row.device]??={results:0,empty:0})[row.outcome]+=quantity;}
+  }catch(error){if(!String(error?.message||error).toLowerCase().includes('no such table'))throw error;}
   return json({total,views,outbound_clicks:total,ctr:clickPerView,clicks_per_view_percent:clickPerView,
     by_channel:{site:total},by_source:bySource,by_channel_source:byChannelSource,by_offer:byOffer,by_traffic_source:byTrafficSource,
+    catalog_search:catalogSearch,
     editorial:{views:editorialViews,clicks:editorialClicks,clicks_per_view_percent:editorialRate,
       by_post:editorialByPost,by_product:editorialByProduct,by_store:editorialByStore,by_placement:editorialByPlacement,by_source:editorialBySource}});
 }

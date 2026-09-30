@@ -4,11 +4,12 @@ import {readFile} from 'node:fs/promises';
 import {onRequestPost as feedback} from '../functions/api/feedback.js';
 import {onRequestPost as publish} from '../functions/api/publish.js';
 import {onRequestPost as view} from '../functions/api/view.js';
+import {onRequestPost as searchMetric} from '../functions/api/search-metric.js';
 import {onRequestGet as verifyMetaWebhook} from '../functions/api/meta-webhook.js';
 
 function database() {
   const events=new Set();
-  const state={feedbackWrites:0,metricBatches:0};
+  const state={feedbackWrites:0,metricBatches:0,searchWrites:0};
   return {state,prepare(sql){
     const statement={args:[],bind(...args){this.args=args;return this;},
       async first(){return sql.includes('FROM offers')?{ok:1}:null;},
@@ -18,6 +19,7 @@ function database() {
           return {meta:{changes:fresh?1:0}};
         }
         if(sql.includes('INSERT INTO offer_feedback')) state.feedbackWrites+=1;
+        if(sql.includes('INSERT INTO catalog_search_daily')) state.searchWrites+=1;
         return {meta:{changes:1}};
       }};
     return statement;
@@ -66,6 +68,15 @@ test('visualização exige JSON limitado e deduplica métricas',async()=>{
   assert.equal(first.status,202);
   assert.equal(duplicate.status,202);
   assert.equal(DB.state.metricBatches,1);
+});
+
+test('busca registra só o resultado agregado e deduplica por visitante',async()=>{
+  const DB=database(),env={DB,ABUSE_HASH_SECRET:'s'.repeat(32)};
+  const body={source:'google',device:'mobile',outcome:'empty'};
+  assert.equal((await searchMetric({request:publicRequest('/api/search-metric',body),env})).status,202);
+  assert.equal((await searchMetric({request:publicRequest('/api/search-metric',body),env})).status,202);
+  assert.equal(DB.state.searchWrites,1);
+  assert.equal((await searchMetric({request:publicRequest('/api/search-metric',{...body,outcome:'no results'}),env})).status,400);
 });
 
 test('verificação Meta falha fechado quando secret ou token estão ausentes',async()=>{
