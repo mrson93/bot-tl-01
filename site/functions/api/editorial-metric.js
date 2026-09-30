@@ -12,6 +12,14 @@ const SOURCES=new Set(['facebook','instagram','telegram','bluesky','x','google',
 const STORES=new Set(['amazon','mercado-livre','outro']);
 const PLACEMENTS=new Set(['model-card','comparison-table','inline-card']);
 const dayInSaoPaulo=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+let schemaReady=false;
+
+async function ensureSchema(env){
+  if(schemaReady)return;
+  await env.DB.prepare(CREATE_TABLE).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_editorial_metrics_date ON editorial_metrics_daily(observed_on)').run();
+  schemaReady=true;
+}
 
 export async function onRequestPost({request,env}){
   if(!String(request.headers.get('Content-Type')||'').toLowerCase().startsWith('application/json'))return json({error:'unsupported_media_type'},415);
@@ -32,7 +40,7 @@ export async function onRequestPost({request,env}){
   if(claim.reason==='rate_limited')return json({error:'rate_limited'},429);
   if(['misconfigured','rate_limiter_error'].includes(claim.reason))return json({ok:true,tracked:false},202);
   if(!claim.accepted)return json({ok:true,duplicate:true},202);
-  await env.DB.prepare(CREATE_TABLE).run();
+  await ensureSchema(env);
   await env.DB.prepare(`INSERT INTO editorial_metrics_daily(observed_on,post_slug,product_id,store,placement,source,event_type,quantity)
     VALUES(?,?,?,?,?,?,?,1) ON CONFLICT(observed_on,post_slug,product_id,store,placement,source,event_type)
     DO UPDATE SET quantity=quantity+1`).bind(dayInSaoPaulo(),slug,productId,store,placement,source,eventType).run();

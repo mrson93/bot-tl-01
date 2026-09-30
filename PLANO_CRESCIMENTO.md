@@ -45,7 +45,7 @@ Esforço relativo: completar cadastros é baixo em desenvolvimento, mas exige da
 
 Implementado no código em 29/09/2026: busca rápida e catálogo mais cedo na página inicial; filtros recolhidos no celular; nova tentativa quando o catálogo falha; inclusão dos favoritos ainda não carregados; eventos agregados de exposição e clique dos modelos editoriais por matéria, modelo, loja, posição e origem; suporte a X nos relatórios; guia rápido no resumo da matéria sem duplicar o trecho no corpo; e alertas no painel para modelos publicados sem preço ou link.
 
-Para ativar a medição em produção, aplicar `site/migrations/0017_metricas_cliques_editoriais.sql` no D1. O relatório só começará a acumular dados depois da publicação dessa versão. O pacote de código não preenche links afiliados, preços ou dados de vendas: esses dados precisam ser cadastrados/revisados no painel e nas plataformas. A auditoria dos demais artigos e a escolha de novas pautas ainda dependem dos relatórios privados do Search Console, que não foram acessados nesta execução.
+Para ativar a medição em produção, publicar esta versão. O primeiro evento válido cria a tabela e o índice de `site/migrations/0017_metricas_cliques_editoriais.sql` de forma idempotente; o arquivo permanece disponível para a gestão formal das migrações no D1. O pacote de código não preenche links afiliados, preços ou dados de vendas: esses dados precisam ser cadastrados/revisados no painel e nas plataformas. A auditoria dos demais artigos e a escolha de novas pautas ainda dependem dos relatórios privados do Search Console, que não foram acessados nesta execução.
 
 ## Formato recomendado para os artigos
 

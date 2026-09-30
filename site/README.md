@@ -68,6 +68,8 @@ com cliques de saída; esse indicador não equivale à exposição nem à taxa d
 dos cards. A migração `0017_metricas_cliques_editoriais.sql` registra cards
 visíveis e cliques de produtos nas matérias, por artigo, modelo, loja, posição e
 origem. As contagens são agregadas e os destinos de afiliados continuam diretos.
+O endpoint de métricas cria a tabela e o índice de forma idempotente na primeira
+exposição válida, caso a migração ainda não tenha sido aplicada.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` e `ABUSE_HASH_SECRET` como segredos. O segundo deve ter
    pelo menos 32 caracteres aleatórios e ser compartilhado somente com as Functions.
