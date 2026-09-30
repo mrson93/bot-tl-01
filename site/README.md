@@ -96,6 +96,11 @@ links internos para o mesmo núcleo temático e não depende de ofertas ou afili
 O script do AdSense é carregado somente nas páginas de matéria; catálogo e páginas
 institucionais mantêm apenas a identificação da conta.
 
+Na lista de matérias, o painel sinaliza modelos publicados sem link de afiliado,
+preço de referência ou ficha técnica. Esses alertas são uma lista de revisão
+editorial; não substituem a conferência da variante, da fonte e da validade dos
+links e preços antes de manter uma recomendação publicada.
+
 Execute as migrações `0013_blog.sql`, `0014_blog_produtos_editoriais.sql`,
 `0015_blog_multiplos_links.sql`, `0016_blog_preco_consultado.sql` e
 `0017_metricas_cliques_editoriais.sql` antes
