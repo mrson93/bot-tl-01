@@ -4,6 +4,7 @@ import {articleSidebarAd,articleSummary,articleTableOfContents,comparisonTable,e
 import {onRequestGet as blogIndex} from '../functions/blog.js';
 import {onRequestGet as adminPage} from '../functions/admin.js';
 import {onRequestGet as adminPosts} from '../functions/api/admin/posts.js';
+import {onRequestGet as adminMetrics} from '../functions/api/admin/metrics.js';
 import {adminIdentity} from '../functions/_admin.js';
 import {brazilDateKey,buildComparisonDraft,comparisonType,selectComparableOffers} from '../functions/_blog_draft.js';
 import {onRequestPost as automaticDraft} from '../functions/api/blog-drafts.js';
@@ -171,6 +172,7 @@ test('painel e API administrativa falham fechados sem Cloudflare Access',async()
   assert.match(page.headers.get('X-Robots-Tag'),/noindex/);
   const api=await adminPosts({request,env:{}});
   assert.equal(api.status,401);
+  assert.equal((await adminMetrics({request,env:{}})).status,401);
   const automation=await automaticDraft({request:new Request('https://canaltabarato.com.br/api/blog-drafts',{method:'POST'}),env:{}});
   assert.equal(automation.status,401);
 });
@@ -198,8 +200,18 @@ test('painel valida assinatura, audiência e e-mail do Cloudflare Access',async(
     assert.equal(page.status,200);
     const pageBody=await page.text();
     assert.match(pageBody,/id="editorial-audit"/);
-    assert.match(pageBody,/\/admin-blog\.js\?v=20260930-2/);
-    assert.match(pageBody,/\/admin-metrics\.js\?v=20260930-1/);
+    assert.match(pageBody,/\/admin-blog\.js\?v=20260930-3/);
+    assert.match(pageBody,/\/admin-metrics\.js\?v=20260930-2/);
+    const DB={prepare(sql){return {async all(){return {results:sql.includes('FROM page_views_daily')?[{slug:'melhor-celular-ate-2000-reais',quantity:12}]
+      :sql.includes('FROM editorial_metrics_daily')?[{slug:'melhor-celular-ate-2000-reais',event_type:'click',quantity:2}]
+      :sql.includes('FROM catalog_search_daily')?[{source:'google',device:'mobile',outcome:'empty',quantity:3}]
+      :[{id:'post-1',slug:'melhor-celular-ate-2000-reais',title:'Melhor celular até R$ 2.000',model_count:5,missing_links:2}]};}};}};
+    const metrics=await adminMetrics({request,env:{DB,CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'aud-blog',ADMIN_EMAILS:'editor@example.com'}});
+    assert.equal(metrics.status,200);
+    const summary=await metrics.json();
+    assert.equal(summary.by_post['melhor-celular-ate-2000-reais'].missing_links,2);
+    assert.equal(summary.by_post['melhor-celular-ate-2000-reais'].visits,12);
+    assert.equal(summary.catalog_search.by_device.mobile.empty,3);
     assert.equal(await adminIdentity(request,{CF_ACCESS_TEAM_DOMAIN:'equipe.cloudflareaccess.com',CF_ACCESS_AUD:'outra',ADMIN_EMAILS:'editor@example.com'}),null);
   } finally {globalThis.fetch=previousFetch;}
 });

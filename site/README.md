@@ -14,7 +14,10 @@ o produto só sai da vitrine depois de três consultas válidas sem resultado.
 
 O catálogo permite buscar pelo nome e combinar filtros de plataforma, categoria,
 faixa de preço, nota, loja, período e presença de cupom. A API usa paginação e
-informa o total real de resultados; a vitrine carrega 24 itens por vez. Os
+informa o total real de resultados; a vitrine carrega 24 itens por vez. Termos
+separados por espaço podem aparecer em posições diferentes do título. Quando não
+há resultado, a página oferece um botão para limpar os filtros e um caminho para
+os guias de compra. Os
 atalhos destacam ofertas em alta, recentes, com
 maior desconto, mais vendidas ou mais baratas. O modo “Em alta” pondera cliques
 recentes, vendas, desconto, avaliação e recência. Categorias e lojas são extraídas
@@ -70,6 +73,10 @@ visíveis e cliques de produtos nas matérias, por artigo, modelo, loja, posiç�
 origem. As contagens são agregadas e os destinos de afiliados continuam diretos.
 O endpoint de métricas cria a tabela e o índice de forma idempotente na primeira
 exposição válida, caso a migração ainda não tenha sido aplicada.
+`0018_catalog_search_metrics.sql` registra apenas quantidades de buscas com e sem
+resultado por origem e dispositivo. O texto pesquisado não é persistido. O painel
+editorial mostra leituras, exibições e cliques por matéria e prioriza guias que
+receberam leitores mas ainda têm modelos sem link afiliado.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` e `ABUSE_HASH_SECRET` como segredos. O segundo deve ter
    pelo menos 32 caracteres aleatórios e ser compartilhado somente com as Functions.
@@ -99,13 +106,13 @@ O script do AdSense é carregado somente nas páginas de matéria; catálogo e p
 institucionais mantêm apenas a identificação da conta.
 
 Na lista de matérias, o painel sinaliza modelos publicados sem link de afiliado,
-preço de referência ou ficha técnica. Esses alertas são uma lista de revisão
+preço de referência, ficha técnica ou imagem. Esses alertas são uma lista de revisão
 editorial; não substituem a conferência da variante, da fonte e da validade dos
 links e preços antes de manter uma recomendação publicada.
 
 Execute as migrações `0013_blog.sql`, `0014_blog_produtos_editoriais.sql`,
 `0015_blog_multiplos_links.sql`, `0016_blog_preco_consultado.sql` e
-`0017_metricas_cliques_editoriais.sql` antes
+`0017_metricas_cliques_editoriais.sql` e `0018_catalog_search_metrics.sql` antes
 de usar o painel. A API administrativa também cria a nova tabela de forma
 idempotente. Proteja `/admin*` e
 `/api/admin/*` com um aplicativo self-hosted do Cloudflare Access. Configure
