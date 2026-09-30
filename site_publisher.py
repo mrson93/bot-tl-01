@@ -356,4 +356,15 @@ def resumo_cliques(inicio, fim):
                        (dados.get("by_offer") or {}).items()},
         "por_origem": {str(k): int(v) for k, v in
                        (dados.get("by_traffic_source") or {}).items()},
+        "editorial": {
+            "visitas": int((dados.get("editorial") or {}).get("views") or 0),
+            "cliques": int((dados.get("editorial") or {}).get("clicks") or 0),
+            "cliques_por_exposicao": float(
+                (dados.get("editorial") or {}).get("clicks_per_view_percent") or 0
+            ),
+            "por_materia": (dados.get("editorial") or {}).get("by_post") or {},
+            "por_produto": (dados.get("editorial") or {}).get("by_product") or {},
+            "por_loja": (dados.get("editorial") or {}).get("by_store") or {},
+            "por_origem": (dados.get("editorial") or {}).get("by_source") or {},
+        },
     }

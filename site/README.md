@@ -63,8 +63,11 @@ nesse aviso não interrompe a publicação nem expõe dados da oferta ou credenc
 O catálogo também publica páginas fixas de descoberta (`/quedas-de-preco`,
 `/menores-precos`, `/mais-acessadas`, `/mais-vendidos` e faixas de preço). A
 migração `0007_visitas_agregadas.sql` ativa contagens diárias de visualizações
-sem armazenar IP, identidade ou cookies de publicidade; o relatório privado
-compara essas visualizações com os cliques de saída para as lojas.
+sem armazenar IP ou identidade. A API `/api/stats` compara essas visualizações
+com cliques de saída; esse indicador não equivale à exposição nem à taxa de clique
+dos cards. A migração `0017_metricas_cliques_editoriais.sql` registra cards
+visíveis e cliques de produtos nas matérias, por artigo, modelo, loja, posição e
+origem. As contagens são agregadas e os destinos de afiliados continuam diretos.
 3. Associar o binding `DB` ao projeto Pages.
 4. Cadastrar `PUBLISH_TOKEN` e `ABUSE_HASH_SECRET` como segredos. O segundo deve ter
    pelo menos 32 caracteres aleatórios e ser compartilhado somente com as Functions.
@@ -93,7 +96,9 @@ links internos para o mesmo núcleo temático e não depende de ofertas ou afili
 O script do AdSense é carregado somente nas páginas de matéria; catálogo e páginas
 institucionais mantêm apenas a identificação da conta.
 
-Execute as migrações `0013_blog.sql` e `0014_blog_produtos_editoriais.sql` antes
+Execute as migrações `0013_blog.sql`, `0014_blog_produtos_editoriais.sql`,
+`0015_blog_multiplos_links.sql`, `0016_blog_preco_consultado.sql` e
+`0017_metricas_cliques_editoriais.sql` antes
 de usar o painel. A API administrativa também cria a nova tabela de forma
 idempotente. Proteja `/admin*` e
 `/api/admin/*` com um aplicativo self-hosted do Cloudflare Access. Configure

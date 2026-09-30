@@ -1,5 +1,5 @@
 import {SITE,footer,head,header,html,money,notFound,responseHtml,shorten} from '../_site.js';
-import {articleSidebarAd,articleSummary,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,renderArticleBody} from '../_blog.js';
+import {articleBodyWithoutQuickAnswer,articleSidebarAd,articleSummary,articleTableOfContents,comparisonTable,editorialComparisonTable,editorialProductCard,renderArticleBody} from '../_blog.js';
 import {coverForPost} from '../_blog_covers.js';
 
 function relatedOffer(offer) {
@@ -23,6 +23,7 @@ export async function onRequestGet({params,env}) {
   try {const linkResult=await env.DB.prepare('SELECT product_id,id,store,label,affiliate_url,position FROM blog_product_links WHERE post_id=? ORDER BY product_id,position').bind(post.id).all();const linksByProduct=new Map();for(const link of linkResult.results||[]){const list=linksByProduct.get(link.product_id)||[];list.push(link);linksByProduct.set(link.product_id,list);}editorialProducts=editorialProducts.map(product=>({...product,links:linksByProduct.get(product.id)||[]}));}catch{}
   const canonical=`${SITE}/blog/${post.slug}`;
   const coverImage=coverForPost(post);
+  const articleBody=articleBodyWithoutQuickAnswer(post.body_markdown);
   const title=shorten(post.meta_title||`${post.title} | Tá Barato`,65);
   const description=shorten(post.meta_description||post.excerpt,155);
   const structured=JSON.stringify({'@context':'https://schema.org','@graph':[
@@ -38,13 +39,13 @@ export async function onRequestGet({params,env}) {
   const cover=coverImage?`<img class="article-cover" src="${html(coverImage)}" alt="${html(post.title)}">`:'';
   const blocks=Object.fromEntries(offers.map(offer=>[`{{offer:${offer.id}}}`,`<aside class="article-inline-offer" aria-label="Oferta relacionada">${relatedOffer(offer)}</aside>`]));
   blocks['{{comparison-table}}']=comparisonTable(offers);
-  for(const product of editorialProducts)blocks[`{{product:${product.id}}}`]=`<aside class="article-inline-offer" aria-label="Produto relacionado">${editorialProductCard(product)}</aside>`;
-  blocks['{{editorial-comparison-table}}']=editorialComparisonTable(editorialProducts);
-  const hasInlineOffers=/\{\{offer:[^}]+\}\}/.test(post.body_markdown);
+  for(const product of editorialProducts)blocks[`{{product:${product.id}}}`]=`<aside class="article-inline-offer" aria-label="Produto relacionado">${editorialProductCard(product,post.slug,'inline-card')}</aside>`;
+  blocks['{{editorial-comparison-table}}']=editorialComparisonTable(editorialProducts,post.slug);
+  const hasInlineOffers=/\{\{offer:[^}]+\}\}/.test(articleBody);
   const offerSection=!hasInlineOffers&&offers.length?`<section class="article-products"><p class="eyebrow">PRODUTOS CITADOS</p><h2>Produtos relacionados</h2><p class="affiliate-note">Os links abaixo podem gerar comissão para o Tá Barato, sem custo adicional para você.</p><div>${offers.map(relatedOffer).join('')}</div></section>`:'';
-  const hasInlineProducts=/\{\{product:[^}]+\}\}|\{\{editorial-comparison-table\}\}/.test(post.body_markdown);
-  const editorialSection=!hasInlineProducts&&editorialProducts.length?`<section class="article-products"><p class="eyebrow">PRODUTOS DO GUIA</p><h2>Produtos mencionados</h2><p class="affiliate-note">Compare os destaques e use os botões para conferir preço e disponibilidade atuais. Os links podem gerar comissão para o Tá Barato, sem custo adicional para você.</p><div>${editorialProducts.map(editorialProductCard).join('')}</div></section>`:'';
+  const hasInlineProducts=/\{\{product:[^}]+\}\}|\{\{editorial-comparison-table\}\}/.test(articleBody);
+  const editorialSection=!hasInlineProducts&&editorialProducts.length?`<section class="article-products"><p class="eyebrow">PRODUTOS DO GUIA</p><h2>Produtos mencionados</h2><p class="affiliate-note">Compare os destaques e use os botões para conferir preço e disponibilidade atuais. Os links podem gerar comissão para o Tá Barato, sem custo adicional para você.</p><div>${editorialProducts.map(product=>editorialProductCard(product,post.slug)).join('')}</div></section>`:'';
   const publishedDate=new Date(Number(post.published_at)*1000),updatedDate=new Date(Number(post.updated_at)*1000);
   const updated=Number(post.updated_at)>Number(post.published_at)+3600?` · Atualizado em <time datetime="${updatedDate.toISOString()}">${updatedDate.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time>`:'';
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical,structured,image:coverImage,ads:true})}<script src="/adsense-units.js" defer></script></head><body>${header('blog')}<main class="article-page"><nav class="breadcrumbs" aria-label="Navegação"><a href="/">Início</a><span>›</span><a href="/blog">Blog</a><span>›</span><span>Matéria</span></nav><article><header class="article-header"><p class="eyebrow">${html(post.category||'GUIA DE COMPRA')}</p><h1>${html(post.title)}</h1><p>${html(post.excerpt)}</p><p class="article-dates">Por <a href="/sobre">Equipe editorial Tá Barato</a> · <time datetime="${publishedDate.toISOString()}">Publicado em ${publishedDate.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time>${updated}</p></header>${cover}<div class="article-layout"><div class="article-main">${articleSummary(post)}${editorialSection}${articleTableOfContents(post.body_markdown)}<div class="article-content">${renderArticleBody(post.body_markdown,blocks)}</div>${offerSection}<p class="article-disclosure">Transparência: esta matéria pode conter links de afiliado. Preços e disponibilidade podem mudar após a publicação.</p></div>${articleSidebarAd()}</div></article></main>${footer()}</body></html>`);
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical,structured,image:coverImage,ads:true})}<script src="/adsense-units.js" defer></script></head><body>${header('blog')}<main class="article-page"><nav class="breadcrumbs" aria-label="Navegação"><a href="/">Início</a><span>›</span><a href="/blog">Blog</a><span>›</span><span>Matéria</span></nav><article><header class="article-header"><p class="eyebrow">${html(post.category||'GUIA DE COMPRA')}</p><h1>${html(post.title)}</h1><p>${html(post.excerpt)}</p><p class="article-dates">Por <a href="/sobre">Equipe editorial Tá Barato</a> · <time datetime="${publishedDate.toISOString()}">Publicado em ${publishedDate.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})}</time>${updated}</p></header>${cover}<div class="article-layout"><div class="article-main">${articleSummary(post)}${editorialSection}${articleTableOfContents(articleBody)}<div class="article-content">${renderArticleBody(articleBody,blocks)}</div>${offerSection}<p class="article-disclosure">Transparência: esta matéria pode conter links de afiliado. Preços e disponibilidade podem mudar após a publicação.</p></div>${articleSidebarAd()}</div></article></main>${footer()}</body></html>`);
 }

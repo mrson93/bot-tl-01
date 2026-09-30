@@ -69,7 +69,7 @@
     <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/quedas-de-preco">Histórico</a><a href="/cupons">Cupons</a><a href="/blog">Blog</a></nav>
   </header>
 
-  <main>
+  <main class="home-page">
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">GARIMPO AUTOMÁTICO, ESCOLHA CRITERIOSA</p>
@@ -126,6 +126,7 @@
       <div class="section-head">
         <div><p class="eyebrow">VITRINE ATUALIZADA</p><h2 id="catalog-title">Achados que valem a pena</h2></div>
       </div>
+      <label class="quick-search"><span>Buscar produto</span><div class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Digite o nome do produto" autocomplete="off"></div></label>
       <nav class="browse-modes" aria-label="Explorar ofertas">
         <button class="browse-mode active" type="button" data-sort="recent">Recentes</button>
         <button class="browse-mode" type="button" data-sort="trending">🔥 Em alta</button>
@@ -134,10 +135,11 @@
         <button class="browse-mode" type="button" data-sort="price-asc">Menor preço</button>
         <button class="browse-mode" type="button" data-favorites="1">♥ Favoritos</button>
       </nav>
-      <nav class="category-links" id="category-links" aria-label="Categorias disponíveis"></nav>
-      <div class="filters" id="source-filters" aria-label="Filtrar por plataforma"></div>
-      <div class="filter-panel" aria-label="Filtros das ofertas">
-        <label class="search-field"><span>Buscar produto</span><div class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Digite o nome do produto" autocomplete="off"></div></label>
+      <details id="filter-details" class="filter-details">
+        <summary>Buscar e filtrar produtos</summary>
+        <nav class="category-links" id="category-links" aria-label="Categorias disponíveis"></nav>
+        <div class="filters" id="source-filters" aria-label="Filtrar por plataforma"></div>
+        <div class="filter-panel" aria-label="Filtros das ofertas">
         <label><span>Categoria</span><select id="category"><option value="">Todas</option></select></label>
         <label><span>Loja</span><input id="shop" list="shop-options" placeholder="Todas as lojas" autocomplete="off"><datalist id="shop-options"></datalist></label>
         <label><span>Preço mínimo</span><div class="money-input"><b>R$</b><input id="min-price" type="number" min="0" step="10" inputmode="decimal" placeholder="0"></div></label>
@@ -146,13 +148,14 @@
         <label><span>Adicionado</span><select id="hours"><option value="">Todo o catálogo</option><option value="6">Nas últimas 6 horas</option><option value="12">Nas últimas 12 horas</option><option value="24">Nas últimas 24 horas</option><option value="72">Nos últimos 3 dias</option><option value="168">Nos últimos 7 dias</option></select></label>
         <label class="check-filter"><input id="coupon-only" type="checkbox"><span>Somente com cupom</span></label>
         <label><span>Ordenar por</span><select id="sort"><option value="recent">Mais recentes</option><option value="trending">Em alta</option><option value="discount">Maior desconto</option><option value="price-asc">Menor preço</option><option value="price-desc">Maior preço</option><option value="rating">Melhor avaliação</option><option value="sales">Mais vendidos</option></select></label>
-      </div>
+        </div>
+      </details>
       <div class="filter-status"><p id="result-count" aria-live="polite">Carregando ofertas…</p><button id="clear-filters" type="button">Limpar filtros</button></div>
       <div id="featured"></div>
       <div class="offer-grid" id="offers" aria-live="polite"></div>
       <button class="load-more" id="load-more" type="button" hidden>Carregar mais ofertas</button>
       <div class="empty" id="empty" hidden>
-        <span>⌕</span><h3>Nenhuma oferta encontrada</h3><p>Tente outro termo ou volte em alguns minutos.</p>
+        <span>⌕</span><h3>Nenhuma oferta encontrada</h3><p>Tente outro termo ou volte em alguns minutos.</p><button id="retry-offers" type="button" hidden>Tentar novamente</button>
       </div>
     </section>
 

@@ -1,8 +1,8 @@
 import {claimPublicAction} from '../_abuse.js';
 import {json,readJsonLimited} from '../_lib.js';
 
-const ALLOWED=/^\/(?:$|stories$|oferta\/[^/?#]{1,200}$|cupons$|quedas-de-preco$|menores-precos$|mais-acessadas$|mais-vendidos$|categorias\/[^/?#]{1,80}$|lojas\/[^/?#]{1,80}$|faixas-de-preco\/(?:ate-50|de-50-a-100|de-100-a-200|acima-de-200)$)/;
-const SOURCES=new Set(['facebook','instagram','telegram','bluesky','google','bing','direct','other']);
+const ALLOWED=/^\/(?:$|stories$|blog(?:\/[^/?#]{1,100})?$|oferta\/[^/?#]{1,200}$|cupons$|quedas-de-preco$|menores-precos$|mais-acessadas$|mais-vendidos$|categorias\/[^/?#]{1,80}$|lojas\/[^/?#]{1,80}$|faixas-de-preco\/(?:ate-50|de-50-a-100|de-100-a-200|acima-de-200)$)/;
+const SOURCES=new Set(['facebook','instagram','telegram','bluesky','x','google','bing','direct','other']);
 
 function saoPauloDay() {
   return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());

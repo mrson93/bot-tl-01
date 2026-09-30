@@ -18,7 +18,7 @@ export function comparisonTable(offers=[]) {
   return `<p class="article-table-note">A comparação técnica usa as informações disponíveis no catálogo. Confirme a ficha completa com a loja ou o fabricante.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa com rolagem horizontal em telas médias"><table class="article-comparison"><thead><tr><th>Produto</th>${specHeaders}<th>Preço de referência</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-export function editorialProductCard(product) {
+export function editorialProductCard(product,postSlug='',placement='model-card') {
   const imageUrl=imageForProduct(product);
   const image=imageUrl?`<img src="${html(imageUrl)}" alt="${html(product.name)}" loading="lazy" decoding="async">`:'<span class="article-product-placeholder" aria-hidden="true">✦</span>';
   const brand=product.brand?`<span>${html(product.brand)}</span>`:'';
@@ -28,8 +28,8 @@ export function editorialProductCard(product) {
   const checkedAt=formatPriceDate(product.price_checked_at);
   const price=product.price_label?`<div class="product-price-panel"><span>Preço estimado</span><strong>${html(product.price_label)}</strong><small>${checkedAt?`Consultado em ${html(checkedAt)} · `:''}Pode mudar</small></div>`:'<p class="product-price-missing">Consulte o preço atual nas lojas</p>';
   const links=productLinks(product);
-  const actions=links.length?`<div class="product-store-links" aria-label="Lojas para ${html(product.name)}">${links.map(link=>`<a class="buy store-${html(link.store||'outro')}" href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener"><span>${html(storeAction(link))}</span><b aria-hidden="true">→</b></a>`).join('')}</div>`:'<span class="product-model-badge">Links em atualização</span>';
-  return `<article class="article-offer editorial-product">${image}<div>${brand}<h3>${html(product.name)}</h3>${summary}${specList}${price}${actions}</div></article>`;
+  const actions=links.length?`<div class="product-store-links" aria-label="Lojas para ${html(product.name)}">${links.map(link=>`<a class="buy store-${html(link.store||'outro')}" data-editorial-store="${html(link.store||'outro')}" href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener"><span>${html(storeAction(link))}</span><b aria-hidden="true">→</b></a>`).join('')}</div>`:'<span class="product-model-badge">Links em atualização · cadastre no painel</span>';
+  return `<article class="article-offer editorial-product" data-editorial-post="${html(postSlug)}" data-editorial-product="${html(product.id)}" data-editorial-placement="${html(placement)}">${image}<div>${brand}<h3>${html(product.name)}</h3>${summary}${specList}${price}${actions}</div></article>`;
 }
 
 export function formatPriceDate(value) {
@@ -45,12 +45,12 @@ function storeAction(link={}) {
   return /^(ver|conferir|comprar)\b/i.test(label)?label:`Conferir em ${label}`;
 }
 
-export function editorialComparisonTable(products=[]) {
+export function editorialComparisonTable(products=[],postSlug='') {
   if(!products.length)return '';
   const enriched=products.map(product=>({...product,specs:editorialSpecs(product.specs_json||product.specs)}));
   const keys=[...new Set(enriched.flatMap(product=>Object.keys(product.specs)))].slice(0,5),hasPrice=enriched.some(product=>product.price_label),hasLinks=enriched.some(product=>productLinks(product).length);
   const headers=keys.map(key=>`<th>${html(key)}</th>`).join('');
-  const rows=enriched.map(product=>{const links=productLinks(product),checkedAt=formatPriceDate(product.price_checked_at);return `<tr><th scope="row">${html(product.name)}</th>${keys.map(key=>`<td data-label="${html(key)}">${html(product.specs[key]||'Não informado')}</td>`).join('')}${hasPrice?`<td data-label="Preço estimado"><strong>${html(product.price_label||'Consultar')}</strong>${checkedAt?`<small>Consulta: ${html(checkedAt)}</small>`:''}</td>`:''}${hasLinks?`<td data-label="Onde comprar"><div class="comparison-store-links">${links.map(link=>`<a href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener">${html(storeAction(link))} →</a>`).join('')||'<small>Link ainda não cadastrado</small>'}</div></td>`:''}</tr>`;}).join('');
+  const rows=enriched.map(product=>{const links=productLinks(product),checkedAt=formatPriceDate(product.price_checked_at);return `<tr data-editorial-post="${html(postSlug)}" data-editorial-product="${html(product.id)}" data-editorial-placement="comparison-table"><th scope="row">${html(product.name)}</th>${keys.map(key=>`<td data-label="${html(key)}">${html(product.specs[key]||'Não informado')}</td>`).join('')}${hasPrice?`<td data-label="Preço estimado"><strong>${html(product.price_label||'Consultar')}</strong>${checkedAt?`<small>Consulta: ${html(checkedAt)}</small>`:''}</td>`:''}${hasLinks?`<td data-label="Onde comprar"><div class="comparison-store-links">${links.map(link=>`<a data-editorial-store="${html(link.store||'outro')}" href="${html(link.affiliate_url)}" target="_blank" rel="nofollow sponsored noopener">${html(storeAction(link))} →</a>`).join('')||'<small>Link ainda não cadastrado</small>'}</div></td>`:''}</tr>`;}).join('');
   return `<p class="article-table-note">Comparação baseada nas fichas técnicas cadastradas para esta matéria. Preços são estimativas da data indicada e podem mudar; confirme o valor atual na loja.</p><div class="article-table-wrap" tabindex="0" aria-label="Tabela comparativa de produtos"><table class="article-comparison editorial-comparison"><thead><tr><th>Produto</th>${headers}${hasPrice?'<th>Preço estimado</th>':''}${hasLinks?'<th>Onde comprar</th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -61,7 +61,13 @@ export function articleSidebarAd() {
 export function articleSummary(post={}) {
   const summary=String(post.excerpt||'').trim();
   if(!summary)return '';
-  return `<section class="article-summary" aria-labelledby="article-summary-title"><p class="eyebrow">EM POUCAS PALAVRAS</p><h2 id="article-summary-title">Resumo da matéria</h2><p>${html(summary)}</p></section>`;
+  const answer=String(post.body_markdown||'').match(/(?:^|\n)## Resposta rápida\s*\n([\s\S]*?)(?=\n##\s|\s*$)/i)?.[1]?.trim();
+  const recommendation=answer?`<div class="article-summary-answer">${renderArticleBody(answer)}</div>`:'';
+  return `<section class="article-summary" aria-labelledby="article-summary-title"><p class="eyebrow">EM POUCAS PALAVRAS</p><h2 id="article-summary-title">Resumo da matéria</h2><p>${html(summary)}</p>${recommendation}</section>`;
+}
+
+export function articleBodyWithoutQuickAnswer(markdown='') {
+  return String(markdown).replace(/(?:^|\n)## Resposta rápida\s*\n[\s\S]*?(?=\n##\s|\s*$)/i,'\n').trim();
 }
 
 function inline(value='') {

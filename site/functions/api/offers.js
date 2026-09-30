@@ -4,6 +4,11 @@ export async function onRequestGet({request,env}) {
   const p=new URL(request.url).searchParams,limit=Math.max(1,Math.min(48,Number(p.get('limit'))||24)),offset=Math.max(0,Math.min(5000,Number(p.get('offset'))||0));
   const requestedHours=Math.max(0,Math.min(720,Number(p.get('hours'))||0));
   const conditions=["o.availability!='unavailable'"],values=[];
+  if(p.has('ids')){
+    const ids=[...new Set(String(p.get('ids')||'').split(',').map(id=>id.trim()).filter(id=>/^[a-zA-Z0-9:_-]{1,160}$/.test(id)))].slice(0,100);
+    if(!ids.length)return json({offers:[],total:0,best_discount:0,latest_checked_at:null,facets:{sources:[],categories:[],shops:[]},limit,offset,has_more:false},200,'public, max-age=30');
+    conditions.push(`o.id IN (${ids.map(()=>'?').join(',')})`);values.push(...ids);
+  }
   if(requestedHours){conditions.push('COALESCE(o.cataloged_at,o.published_at)>=?');values.push(Math.floor(Date.now()/1000)-requestedHours*3600);}
   const add=(sql,value)=>{if(value!==null&&value!==''){conditions.push(sql);values.push(value);}};
   const q=String(p.get('q')||'').trim().slice(0,80);add("o.title LIKE ? ESCAPE '\\' COLLATE NOCASE",q?`%${q.replace(/[\\%_]/g,'\\$&')}%`:null);

@@ -21,9 +21,37 @@ def _top(contadores, limite=3):
     return sorted((contadores or {}).items(), key=lambda item: (-item[1], item[0]))[:limite]
 
 
+def _resumo_editorial(cliques, limite=3):
+    editorial=(cliques or {}).get("editorial") or {}
+    visitas=int(editorial.get("visitas") or 0)
+    quantidade=int(editorial.get("cliques") or 0)
+    if not visitas and not quantidade:
+        return []
+    taxa=100*quantidade/visitas if visitas else 0
+    linhas=[f"Blog: {quantidade} cliques em {visitas} exposicoes ({_numero(taxa)}%)"]
+    materias=sorted((editorial.get("por_materia") or {}).items(),
+                    key=lambda item:(-int(item[1].get("cliques") or 0),item[0]))[:limite]
+    materias=[(slug,dados) for slug,dados in materias if int(dados.get("cliques") or 0)>0]
+    if materias:
+        linhas.append("Materias do blog mais clicadas: " + "; ".join(
+            f"{slug.replace('-', ' ')} ({dados.get('cliques',0)})" for slug,dados in materias
+        ))
+    produtos=sorted((editorial.get("por_produto") or {}).values(),
+                    key=lambda item:(-int(item.get("cliques") or 0),item.get("product_name","")))[:limite]
+    produtos=[item for item in produtos if int(item.get("cliques") or 0)>0]
+    if produtos:
+        linhas.append("Modelos do blog mais clicados: " + "; ".join(
+            f"{str(item.get('product_name') or 'Produto')[:40]} ({item.get('cliques',0)})"
+            for item in produtos
+        ))
+    return linhas
+
+
 def _somar_cliques(resumos):
     total = {"total": 0, "visitas": 0, "por_canal": {}, "por_fonte": {},
-             "por_fonte_canal": {}, "por_oferta": {}, "por_origem": {}}
+             "por_fonte_canal": {}, "por_oferta": {}, "por_origem": {},
+             "editorial": {"visitas": 0, "cliques": 0, "por_materia": {},
+                           "por_produto": {}, "por_loja": {}, "por_origem": {}}}
     for resumo in resumos:
         total["total"] += int(resumo.get("total") or 0)
         total["visitas"] += int(resumo.get("visitas") or 0)
@@ -34,6 +62,16 @@ def _somar_cliques(resumos):
             destino = total["por_fonte_canal"].setdefault(fonte, {})
             for canal, quantidade in canais.items():
                 destino[canal] = destino.get(canal, 0) + int(quantidade or 0)
+        editorial=total["editorial"]
+        for campo in ("visitas", "cliques"):
+            editorial[campo]+=int((resumo.get("editorial") or {}).get(campo) or 0)
+        for campo in ("por_materia", "por_produto", "por_loja", "por_origem"):
+            for chave,metricas in ((resumo.get("editorial") or {}).get(campo) or {}).items():
+                destino=editorial[campo].setdefault(chave,{"visitas":0,"cliques":0})
+                for tipo in ("visitas","cliques"):
+                    destino[tipo]+=int(metricas.get(tipo) or 0)
+                if metricas.get("product_name"):
+                    destino["product_name"]=metricas["product_name"]
     return total
 
 
@@ -179,6 +217,7 @@ def _texto_detalhado(linhas, data, conversoes=None, conversoes_shopee=None,
                 f"{str(nome)[:45]} ({qtd})"
                 for nome, qtd in cliques["somente_cliques"][:3]
             ))
+        blocos.extend(_resumo_editorial(cliques))
     if alertas:
         blocos.append("")
         blocos.append("Alertas")
@@ -381,6 +420,7 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
             blocos.append("Sem conversão: " + "; ".join(
                 f"{str(nome)[:38]} ({qtd})" for nome, qtd in cliques["somente_cliques"][:2]
             ))
+        blocos.extend(_resumo_editorial(cliques,2))
 
     atencao = list(alertas or [])
     if sem_conversao:

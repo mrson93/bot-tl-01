@@ -28,7 +28,12 @@ export async function onRequestGet({request,env}) {
     const linkResult=await env.DB.prepare('SELECT post_id,product_id,id,store,label,affiliate_url,position FROM blog_product_links ORDER BY post_id,product_id,position').all();
     const linksByProduct=new Map();for(const link of linkResult.results||[]){const key=`${link.post_id}\0${link.product_id}`,list=linksByProduct.get(key)||[];list.push(link);linksByProduct.set(key,list);}
     const productsByPost=new Map();for(const product of productResult.results||[]){const list=productsByPost.get(product.post_id)||[],links=linksByProduct.get(`${product.post_id}\0${product.id}`)||[];list.push({...product,specs:productSpecs(product.specs_json),links:links.length?links:(product.affiliate_url?[{id:'legacy',store:'outro',label:'Ver produto',affiliate_url:product.affiliate_url,position:0}]:[])});productsByPost.set(product.post_id,list);}
-    return json({posts:(result.results||[]).map(post=>({...post,offer_ids:post.offer_ids?post.offer_ids.split(','):[],products:productsByPost.get(post.id)||[]}))});
+    return json({posts:(result.results||[]).map(post=>{
+      const products=productsByPost.get(post.id)||[];
+      return {...post,offer_ids:post.offer_ids?post.offer_ids.split(','):[],products,
+        missing_product_links:products.filter(product=>!product.links.length).length,
+        missing_product_prices:products.filter(product=>!product.price_label).length};
+    })});
   } catch { return json({error:'blog_not_configured'},503); }
 }
 
