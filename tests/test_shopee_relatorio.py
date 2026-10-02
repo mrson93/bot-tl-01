@@ -21,6 +21,30 @@ class ShopeeRelatorioTest(unittest.TestCase):
         self.assertEqual(1, len(ofertas))
         self.assertTrue(ofertas[0]["_shopee_campeao"])
 
+    def test_preserva_primeira_pagina_quando_segunda_falha(self):
+        produto = {"shopId": 1, "itemId": 2, "productName": "Panela"}
+        with patch.object(shopee.config, "SHOPEE_LIST_TYPES", [0]), \
+             patch.object(shopee.config, "SHOPEE_PAGES", 3), \
+             patch.object(shopee, "_buscar_pagina", side_effect=[[produto], RuntimeError("falha")]):
+            ofertas = shopee.buscar_ofertas()
+        self.assertEqual(["shopee_1_2"], [item["oferta_id"] for item in ofertas])
+
+    def test_falha_total_da_busca_nao_parece_lista_vazia(self):
+        with patch.object(shopee.config, "SHOPEE_LIST_TYPES", [0]), \
+             patch.object(shopee.config, "SHOPEE_PAGES", 1), \
+             patch.object(shopee, "_buscar_pagina", side_effect=RuntimeError("falha")):
+            with self.assertRaisesRegex(RuntimeError, "nenhuma página válida"):
+                shopee.buscar_ofertas()
+
+    def test_termo_rotativo_usa_mesma_quantidade_de_paginas(self):
+        with patch.object(shopee.config, "SHOPEE_LIST_TYPES", [0]), \
+             patch.object(shopee.config, "SHOPEE_PAGES", 3), \
+             patch.object(shopee.config, "SHOPEE_KEYWORDS", ("celular", "fone")), \
+             patch.object(shopee.captacao, "termo_da_rodada", return_value="fone"), \
+             patch.object(shopee, "_buscar_pagina", return_value=[]) as buscar:
+            self.assertEqual([], shopee.buscar_ofertas())
+        buscar.assert_called_once_with(1, 0, "fone")
+
     def test_resultado_vazio(self):
         resposta = {
             "conversionReport": {

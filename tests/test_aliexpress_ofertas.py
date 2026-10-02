@@ -31,6 +31,8 @@ class AliExpressOfertasTest(unittest.TestCase):
         self.assertEqual("20 de desconto", oferta["cupomCondicao"])
         self.assertFalse(oferta["cupomResgate"])
         self.assertEqual("Eletronicos", oferta["categoria"])
+        self.assertIsNone(oferta["ratingStar"])
+        self.assertEqual(96, oferta["positiveFeedbackPercent"])
 
     def test_nao_alega_preco_app_quando_valores_sao_iguais(self):
         produto = {"product_id": 10, "product_title": "Produto",
@@ -41,6 +43,27 @@ class AliExpressOfertasTest(unittest.TestCase):
         self.assertEqual(80, oferta["price"])
         self.assertFalse(oferta["precoNoApp"])
         self.assertIsNone(oferta["cupom"])
+
+    def test_preserva_primeira_pagina_quando_segunda_falha(self):
+        produto = {"product_id": 10, "product_title": "Fone", "target_sale_price": "80"}
+        with patch.object(aliexpress.config, "ALIEXPRESS_PAGES", 3), \
+             patch.object(aliexpress, "_buscar_pagina", side_effect=[[produto], RuntimeError("falha")]):
+            ofertas = aliexpress.buscar_ofertas()
+        self.assertEqual(["aliexpress_10"], [item["oferta_id"] for item in ofertas])
+
+    def test_falha_na_primeira_pagina_continua_visivel(self):
+        with patch.object(aliexpress.config, "ALIEXPRESS_PAGES", 1), \
+             patch.object(aliexpress, "_buscar_pagina", side_effect=RuntimeError("falha")):
+            with self.assertRaisesRegex(RuntimeError, "falha"):
+                aliexpress.buscar_ofertas()
+
+    def test_termo_rotativo_usa_mesma_quantidade_de_paginas(self):
+        with patch.object(aliexpress.config, "ALIEXPRESS_PAGES", 3), \
+             patch.object(aliexpress.config, "ALIEXPRESS_KEYWORDS", ("celular", "fone")), \
+             patch.object(aliexpress.captacao, "termo_da_rodada", return_value="fone"), \
+             patch.object(aliexpress, "_buscar_pagina", return_value=[]) as buscar:
+            self.assertEqual([], aliexpress.buscar_ofertas())
+        buscar.assert_called_once_with(1, "fone")
 
     def test_atualiza_varios_produtos_em_uma_consulta_de_detalhe(self):
         resposta = {"resp_result": {"result": {"products": {"product": [{

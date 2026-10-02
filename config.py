@@ -107,6 +107,7 @@ PERCENTUAL_SHOPEE = _float("PERCENTUAL_SHOPEE", 30)
 SHOPEE_LIST_TYPES = [int(x) for x in (_get("SHOPEE_LIST_TYPES") or "0,2").split(",")
                      if x.strip().lstrip("-").isdigit()]
 SHOPEE_KEYWORD = _get("SHOPEE_KEYWORD")
+SHOPEE_KEYWORDS = tuple(x.strip() for x in _get("SHOPEE_KEYWORDS").split("|") if x.strip())[:8]
 SHOPEE_FETCH_LIMIT = _int("SHOPEE_FETCH_LIMIT", 50)
 # quantas paginas buscar por rodada (mais paginas = mais ofertas ineditas)
 SHOPEE_PAGES = _int("SHOPEE_PAGES", 3)
@@ -132,6 +133,7 @@ ALIEXPRESS_ATIVA = _bool("ALIEXPRESS_ATIVA", True)
 PESO_ALIEXPRESS = _float("PESO_ALIEXPRESS", 1.0)
 PERCENTUAL_ALIEXPRESS = _float("PERCENTUAL_ALIEXPRESS", 15)
 ALIEXPRESS_KEYWORD = _get("ALIEXPRESS_KEYWORD")
+ALIEXPRESS_KEYWORDS = tuple(x.strip() for x in _get("ALIEXPRESS_KEYWORDS").split("|") if x.strip())[:8]
 ALIEXPRESS_SORT = _get("ALIEXPRESS_SORT") or "LAST_VOLUME_DESC"
 ALIEXPRESS_FETCH_LIMIT = _int("ALIEXPRESS_FETCH_LIMIT", 40)
 # quantas paginas buscar por rodada (mais paginas = mais chance de achar ineditas)
@@ -154,6 +156,7 @@ PESO_AMAZON = _float("PESO_AMAZON", 1.0)
 PERCENTUAL_AMAZON = _float("PERCENTUAL_AMAZON", 25)
 AMAZON_MARKETPLACE = _get("AMAZON_MARKETPLACE") or "www.amazon.com.br"
 AMAZON_KEYWORD = _get("AMAZON_KEYWORD")
+AMAZON_KEYWORDS = tuple(x.strip() for x in _get("AMAZON_KEYWORDS").split("|") if x.strip())[:8]
 AMAZON_SEARCH_INDEX = _get("AMAZON_SEARCH_INDEX")
 AMAZON_SORT = _get("AMAZON_SORT") or "Featured"
 AMAZON_PAGES = _int("AMAZON_PAGES", 3)
@@ -315,7 +318,8 @@ def aliexpress_configurada():
 def amazon_configurada():
     return bool(AMAZON_ASSOCIATE_TAG and (
         AMAZON_LIST_URL
-        or (AMAZON_CREDENTIAL_ID and AMAZON_CREDENTIAL_SECRET)
+        or (AMAZON_CREDENTIAL_ID and AMAZON_CREDENTIAL_SECRET
+            and (AMAZON_KEYWORD or AMAZON_KEYWORDS))
     ))
 
 

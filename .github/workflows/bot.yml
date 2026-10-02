@@ -113,6 +113,8 @@ jobs:
       AMAZON_ASSOCIATE_TAG: "canaltabarato-20"
       AMAZON_LIST_SOURCE_TAGS: "emersonpettor-20"
       AMAZON_LIST_URL: ${{ vars.AMAZON_LIST_URL }}
+      AMAZON_KEYWORD: ${{ vars.AMAZON_KEYWORD }}
+      AMAZON_KEYWORDS: ${{ vars.AMAZON_KEYWORDS }}
       AMAZON_FETCH_LIMIT: ${{ vars.AMAZON_FETCH_LIMIT || '100' }}
       AMAZON_MARKETPLACE: "www.amazon.com.br"
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
@@ -131,12 +133,16 @@ jobs:
       PERCENTUAL_ALIEXPRESS: ${{ vars.PERCENTUAL_ALIEXPRESS || '15' }}
       PESO_ALIEXPRESS: ${{ vars.PESO_ALIEXPRESS || '1' }}
       ALIEXPRESS_PAGES: ${{ vars.ALIEXPRESS_PAGES || '6' }}
+      ALIEXPRESS_KEYWORD: ${{ vars.ALIEXPRESS_KEYWORD }}
+      ALIEXPRESS_KEYWORDS: ${{ vars.ALIEXPRESS_KEYWORDS }}
       # a Shopee busca DUAS listas (padrao + mais vendidos), entao 3 paginas de
       # cada da o mesmo numero de chamadas que 6 de uma so
       SHOPEE_ATIVA: ${{ vars.SHOPEE_ATIVA || 'true' }}
       PERCENTUAL_SHOPEE: ${{ vars.PERCENTUAL_SHOPEE || '30' }}
       PESO_SHOPEE: ${{ vars.PESO_SHOPEE || '1' }}
       SHOPEE_PAGES: ${{ vars.SHOPEE_PAGES || '3' }}
+      SHOPEE_KEYWORD: ${{ vars.SHOPEE_KEYWORD }}
+      SHOPEE_KEYWORDS: ${{ vars.SHOPEE_KEYWORDS }}
       SHOPEE_LIST_TYPES: "0,2"
       PICO_PRIORIZA_MAIS_VENDIDOS: ${{ vars.PICO_PRIORIZA_MAIS_VENDIDOS || 'false' }}
       PICO_JANELA_VENDAS_DIAS: ${{ vars.PICO_JANELA_VENDAS_DIAS || '7' }}

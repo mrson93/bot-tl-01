@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import requests
 
+import captacao
 import config
 import seguranca
 
@@ -329,8 +330,14 @@ def _buscar_api() -> list:
             "offersV2.listings.dealDetails",
         ],
     }
-    if config.AMAZON_KEYWORD:
-        corpo_base["keywords"] = config.AMAZON_KEYWORD
+    termo = captacao.termo_da_rodada(
+        config.AMAZON_KEYWORD, config.AMAZON_KEYWORDS
+    )
+    if not termo:
+        raise RuntimeError(
+            "Amazon API exige AMAZON_KEYWORD ou AMAZON_KEYWORDS para buscar ofertas"
+        )
+    corpo_base["keywords"] = termo
     if config.AMAZON_SEARCH_INDEX:
         corpo_base["searchIndex"] = config.AMAZON_SEARCH_INDEX
     if config.MIN_RATING:
@@ -370,6 +377,33 @@ def consultar_produtos(ids) -> dict:
     procurados = {str(item) for item in ids if item}
     if not procurados:
         return {}
+    if not config.AMAZON_LIST_URL:
+        asins = [item[7:] for item in sorted(procurados)
+                 if re.fullmatch(r"amazon_[A-Z0-9]{10}", item)]
+        if not asins:
+            return {}
+        resultado = {}
+        for inicio in range(0, len(asins), 10):
+            resposta = _chamar("getItems", {
+                "partnerTag": config.AMAZON_ASSOCIATE_TAG,
+                "marketplace": config.AMAZON_MARKETPLACE,
+                "itemIds": asins[inicio:inicio + 10],
+                "itemIdType": "ASIN",
+                "resources": ["itemInfo.title", "images.primary.large",
+                              "offersV2.listings.price",
+                              "offersV2.listings.availability"],
+            })
+            itens = _cavar(resposta, "itemsResult", "items", padrao=[]) or []
+            for item in itens:
+                disponibilidade = _cavar(item, "offersV2", "listings", "availability", "type")
+                if (disponibilidade and str(disponibilidade).replace("_", "").upper()
+                        not in {"INSTOCK", "INSTOCKSCARCE"}):
+                    continue
+                oferta = _normalizar(item)
+                if (oferta["oferta_id"] in procurados and oferta["price"] > 0
+                        and oferta.get("productUrl") and oferta.get("imageUrl")):
+                    resultado[oferta["oferta_id"]] = oferta
+        return resultado
     return {
         oferta["oferta_id"]: oferta
         for oferta in buscar_ofertas()
@@ -378,8 +412,6 @@ def consultar_produtos(ids) -> dict:
 
 
 def revalidar_oferta(oferta: dict):
-    if not config.AMAZON_LIST_URL:
-        return oferta
     oferta_id = str(oferta.get("oferta_id") or "")
     return consultar_produtos([oferta_id]).get(oferta_id)
 

@@ -14,8 +14,10 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+import captacao
 import config
 import desempenho
+import seguranca
 
 NOME = "Shopee"
 ENDPOINT = "https://open-api.affiliate.shopee.com.br/graphql"
@@ -52,15 +54,16 @@ def _executar(query: str) -> dict:
     return corpo.get("data", {})
 
 
-def _buscar_pagina(pagina: int, list_type: int) -> list:
+def _buscar_pagina(pagina: int, list_type: int, termo=None) -> list:
     """Uma pagina de uma das listas da Shopee.
 
     list_type 0  = lista padrao (mais variedade, comissao maior)
     list_type 2  = campeoes de venda (muito mais popular, comissao menor)
     Nao usamos sortType: testado de 1 a 6, a Shopee devolve sempre o mesmo.
     """
-    keyword = (f"keyword: {json.dumps(config.SHOPEE_KEYWORD, ensure_ascii=False)}"
-               if config.SHOPEE_KEYWORD else "")
+    termo = config.SHOPEE_KEYWORD if termo is None else termo
+    keyword = (f"keyword: {json.dumps(termo, ensure_ascii=False)}"
+               if termo else "")
     lista = f"listType: {list_type}" if list_type else ""
     query = f"""
     {{
@@ -112,10 +115,22 @@ def _normalizar_produto(node: dict, campeao=False) -> dict:
 
 def buscar_ofertas() -> list:
     """Busca ofertas na Shopee em todas as listas configuradas e padroniza."""
-    nodes, vistos = [], {}
+    nodes, vistos, falhas = [], {}, []
+    termo = captacao.termo_da_rodada(config.SHOPEE_KEYWORD, config.SHOPEE_KEYWORDS)
     for list_type in config.SHOPEE_LIST_TYPES:
         for pagina in range(1, config.SHOPEE_PAGES + 1):
-            for n in _buscar_pagina(pagina, list_type):
+            try:
+                pagina_nodes = captacao.buscar_pagina_com_retry(
+                    _buscar_pagina, pagina, list_type, termo
+                )
+            except Exception as erro:
+                falhas.append((list_type, pagina))
+                print(f"   ⚠️  Shopee: lista {list_type}, página {pagina} incompleta: "
+                      f"{seguranca.redigir_segredos(erro)}")
+                break
+            if not pagina_nodes:
+                break
+            for n in pagina_nodes:
                 chave = (n.get("shopId"), n.get("itemId"))
                 if chave in vistos:
                     # O mesmo item pode aparecer primeiro na lista comum. Não
@@ -125,6 +140,8 @@ def buscar_ofertas() -> list:
                 produto = _normalizar_produto(n, list_type == 2)
                 vistos[chave] = produto
                 nodes.append(produto)
+    if falhas and not nodes:
+        raise RuntimeError("Shopee não devolveu nenhuma página válida")
     return nodes
 
 

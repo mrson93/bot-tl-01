@@ -14,8 +14,10 @@ import time
 
 import requests
 
+import captacao
 import config
 import desempenho
+import seguranca
 
 NOME = "AliExpress"
 ENDPOINT = "https://api-sg.aliexpress.com/sync"
@@ -72,9 +74,10 @@ def _num(txt, padrao=0.0):
         return padrao
 
 
-def _buscar_pagina(pagina: int) -> list:
+def _buscar_pagina(pagina: int, termo=None) -> list:
+    termo = config.ALIEXPRESS_KEYWORD if termo is None else termo
     resposta = _chamar("aliexpress.affiliate.product.query", {
-        "keywords": config.ALIEXPRESS_KEYWORD,
+        "keywords": termo,
         "sort": config.ALIEXPRESS_SORT,
         "page_no": pagina,
         "page_size": config.ALIEXPRESS_FETCH_LIMIT,
@@ -85,13 +88,16 @@ def _buscar_pagina(pagina: int) -> list:
     })
     produtos = _extrair_resultado(resposta, "products")
     lista = produtos.get("product") if isinstance(produtos, dict) else produtos
+    if isinstance(lista, dict):
+        lista = [lista]
     return lista or []
 
 
 def _normalizar_produto(p: dict) -> dict:
     """Converte respostas da busca e do detalhe no formato comum do bot."""
-    # nota vem como "94.5%" (percentual de avaliacoes positivas) -> vira 0-5
-    rating = round(_num(p.get("evaluate_rate")) / 20, 1)
+    # evaluate_rate é um percentual de avaliações positivas, não uma média de
+    # estrelas. Não converta esse campo numa nota de 0 a 5.
+    positivas = _num(p.get("evaluate_rate"), None)
     preco_normal = _num(p.get("target_sale_price") or p.get("sale_price"))
     preco_app = _num(p.get("target_app_sale_price") or p.get("app_sale_price"))
     somente_app = bool(preco_app and preco_normal and preco_app < preco_normal)
@@ -109,7 +115,10 @@ def _normalizar_produto(p: dict) -> dict:
         "precoNoApp": somente_app,
         "precoOriginal": _num(p.get("target_original_price")) or None,
         "priceDiscountRate": _num(p.get("discount")),
-        "ratingStar": rating,
+        "ratingStar": None,
+        "positiveFeedbackPercent": (
+            positivas if positivas is not None and 0 <= positivas <= 100 else None
+        ),
         "sales": int(_num(p.get("lastest_volume"))),
         "comissao": _num(p.get("commission_rate")) / 100,
         "shopName": p.get("shop_name") or "AliExpress",
@@ -131,8 +140,21 @@ def _normalizar_produto(p: dict) -> dict:
 def buscar_ofertas() -> list:
     """Busca ofertas no AliExpress (varias paginas) na mesma forma que a Shopee usa."""
     lista, vistos = [], set()
+    termo = captacao.termo_da_rodada(
+        config.ALIEXPRESS_KEYWORD, config.ALIEXPRESS_KEYWORDS
+    )
     for pagina in range(1, config.ALIEXPRESS_PAGES + 1):
-        for p in _buscar_pagina(pagina):
+        try:
+            produtos = captacao.buscar_pagina_com_retry(_buscar_pagina, pagina, termo)
+        except Exception as erro:
+            if not lista:
+                raise
+            print(f"   ⚠️  AliExpress: página {pagina} incompleta; preservando "
+                  f"{len(lista)} produto(s): {seguranca.redigir_segredos(erro)}")
+            break
+        if not produtos:
+            break
+        for p in produtos:
             pid = p.get("product_id")
             if pid not in vistos:
                 vistos.add(pid)

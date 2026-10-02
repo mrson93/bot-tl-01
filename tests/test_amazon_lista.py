@@ -59,6 +59,38 @@ class AmazonListaTest(unittest.TestCase):
             ])
         self.assertEqual(["amazon_B0DPNHDC9B"], list(encontrados))
 
+    def test_api_revalida_por_asin_e_preco_antes_de_publicar(self):
+        item = {"asin": "B0F9Z2DV83", "detailPageURL": "https://www.amazon.com.br/dp/B0F9Z2DV83",
+                "itemInfo": {"title": {"displayValue": "Aspirador atualizado"}},
+                "images": {"primary": {"large": {"url": "https://m.media-amazon.com/images/I/test.jpg"}}},
+                "offersV2": {"listings": [{"price": {"money": {"amount": 99.9}},
+                                           "availability": {"type": "IN_STOCK"}}]}}
+        with patch.object(amazon.config, "AMAZON_LIST_URL", ""), \
+             patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"), \
+             patch.object(amazon, "_chamar", return_value={"itemsResult": {"items": [item]}}) as chamar:
+            oferta = amazon.revalidar_oferta({"oferta_id": "amazon_B0F9Z2DV83", "price": 150})
+        self.assertEqual(99.9, oferta["price"])
+        self.assertEqual("getItems", chamar.call_args.args[0])
+        self.assertEqual(["B0F9Z2DV83"], chamar.call_args.args[1]["itemIds"])
+
+    def test_api_nao_publica_item_sem_preco_ou_fora_de_estoque(self):
+        item = {"asin": "B0F9Z2DV83", "detailPageURL": "https://www.amazon.com.br/dp/B0F9Z2DV83",
+                "offersV2": {"listings": [{"price": {"money": {"amount": 99.9}},
+                                           "availability": {"type": "OUT_OF_STOCK"}}]}}
+        with patch.object(amazon.config, "AMAZON_LIST_URL", ""), \
+             patch.object(amazon, "_chamar", return_value={"itemsResult": {"items": [item]}}):
+            self.assertIsNone(amazon.revalidar_oferta({"oferta_id": "amazon_B0F9Z2DV83"}))
+
+    def test_api_usa_termo_rotativo_sem_aumentar_paginas(self):
+        with patch.object(amazon.config, "AMAZON_KEYWORD", "fixo"), \
+             patch.object(amazon.config, "AMAZON_KEYWORDS", ("celular", "notebook")), \
+             patch.object(amazon.config, "AMAZON_PAGES", 3), \
+             patch.object(amazon.captacao, "termo_da_rodada", return_value="notebook"), \
+             patch.object(amazon, "_chamar", return_value={"searchResult": {"items": []}}) as chamar:
+            self.assertEqual([], amazon._buscar_api())
+        self.assertEqual(1, chamar.call_count)
+        self.assertEqual("notebook", chamar.call_args.args[1]["keywords"])
+
     def test_prazo_explicito_da_lista_e_preservado(self):
         html = HTML.replace('data-asin="B0F9Z2DV83"',
                             'data-asin="B0F9Z2DV83" data-deal-end-date="2026-09-19T10:00:00Z"')
