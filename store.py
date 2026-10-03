@@ -525,7 +525,7 @@ def registrar_vendas_produtos(ofertas, agora=None, janela_dias=7):
         con.execute(
             "DELETE FROM vendas_produto_diarias WHERE data<?",
             ((datetime.datetime.fromtimestamp(momento).date()
-              - datetime.timedelta(days=45)).isoformat(),),
+              - datetime.timedelta(days=max(8, janela_dias + 2))).isoformat(),),
         )
     return resultado
 

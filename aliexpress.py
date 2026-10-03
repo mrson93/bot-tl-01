@@ -318,6 +318,8 @@ def gerar_link(url_produto: str, tracking_id: str = None, etiquetas=None) -> str
     link de afiliado nao ha comissao, entao e melhor pular a oferta.
     """
     padrao = config.ALIEXPRESS_TRACKING_ID
+    if tracking_id == config.SITE_TRACKING_ID:
+        tracking_id = config.ALIEXPRESS_SITE_TRACKING_ID
     link = _gerar(url_produto, tracking_id or padrao)
     if not link and tracking_id and tracking_id != padrao:
         print(f"   ⚠️  tracking_id '{tracking_id}' nao funcionou; usando '{padrao}'")

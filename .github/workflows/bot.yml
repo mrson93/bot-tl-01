@@ -20,6 +20,11 @@ on:
         required: false
         default: false
         type: boolean
+      somente_reparar_estado:
+        description: "Compactar e salvar o historico do bot sem publicar ofertas"
+        required: false
+        default: false
+        type: boolean
       teste_facebook:
         description: "Publicar uma oferta real somente no Facebook"
         required: false
@@ -46,7 +51,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       (inputs.executar_bot == true || inputs.somente_relatorio == true ||
-       inputs.somente_pendentes == true ||
+       inputs.somente_pendentes == true || inputs.somente_reparar_estado == true ||
        inputs.teste_facebook == true || inputs.campanha != '')
     runs-on: ubuntu-latest
     # Até três posts com intervalo de três minutos precisam de margem além da busca.
@@ -106,6 +111,7 @@ jobs:
       SHOPEE_VIP_DIAS: ${{ vars.SHOPEE_VIP_DIAS || '0,2,5' }}
       SHOPEE_VIP_HORAS: ${{ vars.SHOPEE_VIP_HORAS || '10,11,19,20' }}
       ALIEXPRESS_TRACKING_ID: default
+      ALIEXPRESS_SITE_TRACKING_ID: ${{ vars.ALIEXPRESS_SITE_TRACKING_ID }}
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
       # pra saber qual canal vende mais. Vazio = usa o "default" acima.
       TELEGRAM_TRACKING_ID: "telegram"
@@ -220,7 +226,7 @@ jobs:
 
       - name: Procurar e postar ofertas
         id: publicar
-        if: github.ref == 'refs/heads/main' && env.BOT_MODE != 'pausado' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.teste_facebook != true && inputs.campanha == ''
+        if: github.ref == 'refs/heads/main' && env.BOT_MODE != 'pausado' && inputs.somente_relatorio != true && inputs.somente_pendentes != true && inputs.somente_reparar_estado != true && inputs.teste_facebook != true && inputs.campanha == ''
         run: python main.py --once
 
       - name: Conferir produtos ainda não publicados
@@ -250,7 +256,7 @@ jobs:
 
       - name: Salvar estado remoto
         id: salvar_estado
-        if: always() && steps.estado.outputs.changed == 'true'
+        if: always() && (steps.estado.outputs.changed == 'true' || inputs.somente_reparar_estado == true)
         run: python estado_remoto.py salvar
 
       - name: Alertar falha da execução

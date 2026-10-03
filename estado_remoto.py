@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import requests
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+import config
 import seguranca
 
 DB = Path(__file__).parent / "postadas.db"
@@ -27,7 +28,7 @@ SEM_REMOTO = Path(__file__).parent / ".estado-sem-remoto"
 # eram insuficientes para o volume normal e transformavam crescimento legítimo
 # em uma parada total. Os limites continuam explícitos para impedir downloads
 # descontrolados e arquivos-bomba.
-MAX_BANCO = 32 * 1024 * 1024
+MAX_BANCO = 64 * 1024 * 1024
 MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
 MAX_ARTEFATOS_TENTADOS = 10
 TAMANHO_PARTE_ISSUE = 50_000
@@ -76,6 +77,10 @@ def _compactar_estado(caminho=DB, agora=None):
         return
     momento = int(agora or time.time())
     dia_atual = date.fromtimestamp(momento)
+    # Só há cálculo de aceleração de vendas até a janela configurada (máx. 30
+    # dias). Os 45 dias antigos acumulavam centenas de milhares de itens que
+    # nunca foram publicados, levando o snapshot além do limite de segurança.
+    dias_vendas = max(8, min(30, config.PICO_JANELA_VENDAS_DIAS) + 2)
     cortes_epoch = {
         "eventos": momento - 90 * 86400,
         "entregas": momento - 180 * 86400,
@@ -85,7 +90,7 @@ def _compactar_estado(caminho=DB, agora=None):
         "desempenho": momento - 180 * 86400,
     }
     cortes_data = {
-        "vendas_produto_diarias": (dia_atual - timedelta(days=45)).isoformat(),
+        "vendas_produto_diarias": (dia_atual - timedelta(days=dias_vendas)).isoformat(),
         "metricas_diarias": (dia_atual - timedelta(days=400)).isoformat(),
         "metricas_categoria_diarias": (dia_atual - timedelta(days=400)).isoformat(),
         "experimentos_diarios": (dia_atual - timedelta(days=400)).isoformat(),
@@ -124,7 +129,10 @@ def _compactar_estado(caminho=DB, agora=None):
         con.commit()
         paginas_livres = int(con.execute("PRAGMA freelist_count").fetchone()[0])
         paginas = int(con.execute("PRAGMA page_count").fetchone()[0])
-        if paginas_livres >= 128 and paginas_livres * 5 >= paginas:
+        # SQLite não devolve espaço ao arquivo só com DELETE. Mesmo uma
+        # fração menor que 20% de páginas livres pode estourar o limite.
+        if (paginas_livres >= 128 and paginas_livres * 5 >= paginas
+                or caminho.stat().st_size > MAX_BANCO * 3 // 4):
             con.execute("VACUUM")
         con.execute("PRAGMA optimize")
 

@@ -65,6 +65,15 @@ class AliExpressOfertasTest(unittest.TestCase):
             self.assertEqual([], aliexpress.buscar_ofertas())
         buscar.assert_called_once_with(1, "fone")
 
+    def test_link_do_site_usa_tracking_padrao_quando_nao_ha_subid_proprio(self):
+        with patch.object(aliexpress.config, "SITE_TRACKING_ID", "site"), \
+             patch.object(aliexpress.config, "ALIEXPRESS_TRACKING_ID", "default"), \
+             patch.object(aliexpress.config, "ALIEXPRESS_SITE_TRACKING_ID", "default"), \
+             patch.object(aliexpress, "_gerar", return_value="https://s.click.aliexpress.com/link") as gerar:
+            link = aliexpress.gerar_link("https://aliexpress.com/item/10.html", "site")
+        self.assertEqual("https://s.click.aliexpress.com/link", link)
+        gerar.assert_called_once_with("https://aliexpress.com/item/10.html", "default")
+
     def test_atualiza_varios_produtos_em_uma_consulta_de_detalhe(self):
         resposta = {"resp_result": {"result": {"products": {"product": [{
             "product_id": 10, "product_title": "Fone atualizado",

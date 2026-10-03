@@ -305,6 +305,34 @@ class EstadoRemotoTest(unittest.TestCase):
             ).fetchall())
             self.assertEqual(0, con.execute("SELECT COUNT(*) FROM eventos").fetchone()[0])
 
+    def test_compactacao_preserva_janela_de_vendas_e_remove_excedente(self):
+        agora = int(time.time())
+        hoje = estado_remoto.date.fromtimestamp(agora)
+        with sqlite3.connect(estado_remoto.DB) as con:
+            con.execute("CREATE TABLE vendas_produto_diarias(data TEXT, fonte TEXT, oferta_id TEXT)")
+            for dias in (0, 7, 10, 44):
+                data = (hoje - estado_remoto.timedelta(days=dias)).isoformat()
+                con.execute("INSERT INTO vendas_produto_diarias VALUES(?,?,?)",
+                            (data, "Shopee", str(dias)))
+        with patch.object(estado_remoto.config, "PICO_JANELA_VENDAS_DIAS", 7):
+            estado_remoto._compactar_estado(estado_remoto.DB, agora)
+        with sqlite3.connect(estado_remoto.DB) as con:
+            ids = {linha[0] for linha in con.execute(
+                "SELECT oferta_id FROM vendas_produto_diarias"
+            )}
+        self.assertEqual({"0", "7"}, ids)
+
+    def test_upload_recupera_espaco_sqlite_antes_de_validar_limite(self):
+        with sqlite3.connect(estado_remoto.DB) as con:
+            con.execute("CREATE TABLE lixo(valor BLOB)")
+            con.execute("INSERT INTO lixo VALUES(?)", (os.urandom(1_000_000),))
+            con.execute("DELETE FROM lixo")
+        self.assertGreater(estado_remoto.DB.stat().st_size, 500_000)
+        with patch.object(estado_remoto, "MAX_BANCO", 500_000), \
+             patch.dict(os.environ, {"BOT_STATE_KEY": self.chave}):
+            self.assertTrue(estado_remoto.preparar_upload())
+        self.assertLess(estado_remoto.DB.stat().st_size, 500_000)
+
     def test_tenta_snapshot_anterior_quando_mais_novo_esta_corrompido(self):
         lista = Mock()
         lista.json.return_value = {"artifacts": [

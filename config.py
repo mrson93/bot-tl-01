@@ -129,6 +129,9 @@ SHOPEE_VIP_HORAS = [int(x) for x in (_get("SHOPEE_VIP_HORAS") or "10,11,19,20").
 ALIEXPRESS_APP_KEY = _get("ALIEXPRESS_APP_KEY")
 ALIEXPRESS_APP_SECRET = _get("ALIEXPRESS_APP_SECRET")
 ALIEXPRESS_TRACKING_ID = _get("ALIEXPRESS_TRACKING_ID") or "default"
+# O subID do site deve existir no painel de afiliados do AliExpress. Se não
+# houver um próprio, use o padrão em vez de repetir uma tentativa inválida.
+ALIEXPRESS_SITE_TRACKING_ID = _get("ALIEXPRESS_SITE_TRACKING_ID") or ALIEXPRESS_TRACKING_ID
 ALIEXPRESS_ATIVA = _bool("ALIEXPRESS_ATIVA", True)
 PESO_ALIEXPRESS = _float("PESO_ALIEXPRESS", 1.0)
 PERCENTUAL_ALIEXPRESS = _float("PERCENTUAL_ALIEXPRESS", 15)
