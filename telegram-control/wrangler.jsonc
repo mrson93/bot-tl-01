@@ -12,7 +12,8 @@
   "vars": {
     "GITHUB_OWNER": "mrson93",
     "GITHUB_REPO": "bot-tl-01",
-    "GITHUB_DEFAULT_BRANCH": "main"
+    "GITHUB_DEFAULT_BRANCH": "main",
+    "USAGE_MONITOR_ENABLED": "true"
   },
   "observability": {
     "enabled": true,

@@ -47,12 +47,14 @@ diferentes de `TELEGRAM_ADMIN_ID` são ignorados sem resposta.
    públicas. Tokens e IDs administrativos permanecem em secrets.
 2. Crie um token de acesso refinado no GitHub, limitado apenas ao repositório
    `bot-tl-01`, com `Actions: read and write` e `Variables: read and write`.
-3. Configure estes cinco valores exclusivamente como secrets do Worker:
+3. Configure estes seis valores exclusivamente como secrets do Worker:
 
    - `TELEGRAM_BOT_TOKEN`;
    - `TELEGRAM_ADMIN_ID`;
    - `TELEGRAM_WEBHOOK_SECRET` (valor aleatório, diferente de todos os tokens);
    - `GITHUB_TOKEN`;
+   - `GITHUB_BILLING_TOKEN` (token separado: somente este repositório, `Actions: read`,
+     `Administration: read and write` e `Plan: read` na conta);
    - `SCHEDULER_SHARED_SECRET` (usado somente entre os dois Workers).
 
 4. Publique o Worker e registre como webhook a URL
@@ -64,7 +66,17 @@ Na instalação atual, o token temporário usado para publicar no Cloudflare foi
 revogado depois da configuração. O token refinado do GitHub expira em
 22/11/2026 e deve ser substituído no secret `GITHUB_TOKEN` antes dessa data.
 
-Nunca coloque os cinco secrets no `wrangler.jsonc`, em commits, prints ou
+O monitor de franquia é habilitado por `USAGE_MONITOR_ENABLED=true` no
+`wrangler.jsonc`. A cada execução do agendador ele confere o relatório de uso
+do GitHub e os jobs recentes, inclui conservadoramente o consumo de Actions
+da conta e publica o repositório quando a estimativa chega a 1.980 de 2.000
+minutos. O valor inicial de 236 minutos públicos de outubro/2026 é descontado;
+nos meses seguintes o desconto é zero. Erros são notificados ao administrador,
+mas a troca automática não garante ausência de cobrança: relatórios, jobs e
+agendamentos podem atrasar. Revise a validade do token de faturamento antes de
+01/01/2027.
+
+Nunca coloque os seis secrets no `wrangler.jsonc`, em commits, prints ou
 mensagens. O arquivo `.dev.vars` é ignorado pelo Git.
 
 ## Agendador isolado

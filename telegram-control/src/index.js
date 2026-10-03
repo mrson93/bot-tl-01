@@ -11,6 +11,7 @@ import {
   validateSetting,
   validateDistribution,
 } from "./settings.js";
+import { checkUsageLimit } from "./usage-monitor.js";
 
 const MODES = Object.freeze({
   economico: {
@@ -1165,10 +1166,40 @@ export function selectFetch(candidate) {
   return typeof candidate === "function" ? candidate : fetch;
 }
 
+export async function runScheduledUsageMonitor(controller, env, fetchImpl = fetch) {
+  if (env.USAGE_MONITOR_ENABLED !== "true") return false;
+  const scheduledTime = Number(controller?.scheduledTime || Date.now());
+  try {
+    return await checkUsageLimit({
+      env, scheduledTime, fetchImpl,
+      getVariables: () => getVariables(env, fetchImpl),
+      setVariable: (name, value) => setVariable(env, name, value, fetchImpl),
+      notify: (message) => sendMessage(env, adminId(env), message, fetchImpl, null),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "usage_monitor_error";
+    console.error(JSON.stringify({ event: "usage_monitor_failed", reason }));
+    // Erros do monitor não podem impedir a rodada normal de ofertas.
+    const date = new Date(scheduledTime);
+    if (date.getUTCMinutes() === 0) {
+      try {
+        await sendMessage(env, adminId(env),
+          "⚠️ Não consegui conferir o limite gratuito do GitHub Actions. "
+          + "A mudança automática de visibilidade não está garantida. Confira o monitor.",
+          fetchImpl, null);
+      } catch {
+        console.error(JSON.stringify({ event: "usage_monitor_alert_failed" }));
+      }
+    }
+    return false;
+  }
+}
+
 export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
   await Promise.all([
     runScheduledReport(controller, env, fetchImpl),
     runScheduledAutomation(controller, env, fetchImpl),
+    runScheduledUsageMonitor(controller, env, fetchImpl),
   ]);
 }
 
