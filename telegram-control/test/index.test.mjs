@@ -498,6 +498,25 @@ test("agendador privado dispara relatorio apenas no horario configurado", async 
   assert.equal(calls.some((call) => call.url.includes("/dispatches")), false);
 });
 
+test("agendador recupera leitura de variáveis após um 504 temporário", async () => {
+  let reads = 0;
+  const fakeFetch = async (url) => {
+    if (!String(url).includes("/actions/variables?")) {
+      throw new Error(`Requisição inesperada: ${url}`);
+    }
+    reads += 1;
+    if (reads === 1) return new Response("", { status: 504 });
+    return Response.json({ variables: [
+      { name: "RELATORIO_HORA", value: "11" },
+      { name: "RELATORIO_MINUTO", value: "30" },
+    ] });
+  };
+  assert.equal(await runScheduledReport({
+    scheduledTime: Date.parse("2026-08-25T15:00:00Z"),
+  }, env, fakeFetch), false);
+  assert.equal(reads, 2);
+});
+
 test("agendador automatico espera o horario sorteado e entao dispara uma rodada", async () => {
   const calls = [];
   let nextAt = null;

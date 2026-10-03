@@ -12,6 +12,7 @@ import {
   validateDistribution,
 } from "./settings.js";
 import { checkUsageLimit } from "./usage-monitor.js";
+import { githubFetch } from "./github-retry.js";
 
 const MODES = Object.freeze({
   economico: {
@@ -235,7 +236,7 @@ function githubBase(env) {
 }
 
 async function githubRequest(env, path, options, fetchImpl) {
-  return fetchImpl(`${githubBase(env)}${path}`, {
+  return githubFetch(fetchImpl, `${githubBase(env)}${path}`, {
     ...options,
     headers: { ...githubHeaders(env), ...(options?.headers || {}) },
   });

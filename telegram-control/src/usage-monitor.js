@@ -1,3 +1,5 @@
+import { githubFetch } from "./github-retry.js";
+
 const PRIVATE_SINCE = Date.parse("2026-10-03T12:27:08Z");
 const OCTOBER_PUBLIC_BASELINE = 236;
 const FREE_MINUTES = 2000;
@@ -17,7 +19,7 @@ function githubUrl(owner, repo, suffix) {
 }
 
 async function githubJson(fetchImpl, url, token, options = {}) {
-  const response = await fetchImpl(url, {
+  const response = await githubFetch(fetchImpl, url, {
     ...options,
     headers: {
       Accept: "application/vnd.github+json",
@@ -51,6 +53,21 @@ export function jobMinutes(jobs) {
       throw new Error("github_usage_invalid_job_time");
     }
     return total + Math.ceil((end - start) / 60000);
+  }, 0);
+}
+
+function unsettledJobMinutes(jobs, now) {
+  return jobs.reduce((total, job) => {
+    if (job.conclusion === "skipped" || !job.started_at) return total;
+    const start = Date.parse(job.started_at);
+    const end = job.completed_at ? Date.parse(job.completed_at) : now;
+    if (!Number.isFinite(start) || !Number.isFinite(end)
+        || (job.completed_at && end < start)) {
+      throw new Error("github_usage_invalid_job_time");
+    }
+    // O agendamento pode carregar um horário alguns segundos anterior ao
+    // início de um job recém-criado. Ele será contabilizado no próximo ciclo.
+    return total + Math.ceil(Math.max(0, end - start) / 60000);
   }, 0);
 }
 
@@ -149,17 +166,16 @@ export async function checkUsageLimit({ env, scheduledTime, fetchImpl, getVariab
       if (!Array.isArray(jobs.jobs) || jobs.total_count > 100) {
         throw new Error("github_usage_invalid_jobs_page");
       }
-      if (run.status === "completed") {
+      const pendingJob = jobs.jobs.some((job) =>
+        job.started_at && !job.completed_at && job.conclusion !== "skipped");
+      if (run.status === "completed" && !pendingJob) {
         state.minutes += jobMinutes(jobs.jobs);
         accounted.add(run.id);
         changed = true;
       } else {
-        runningMinutes += jobs.jobs.reduce((total, job) => {
-          if (!job.started_at || job.completed_at) return total;
-          const elapsed = now.getTime() - Date.parse(job.started_at);
-          if (!Number.isFinite(elapsed) || elapsed < 0) throw new Error("github_usage_invalid_job_time");
-          return total + Math.ceil(elapsed / 60000);
-        }, 0);
+        // A API pode anunciar a execução como concluída antes de preencher o
+        // completed_at de todos os jobs. Não persista esse total ainda.
+        runningMinutes += unsettledJobMinutes(jobs.jobs, now.getTime());
       }
     }
     if (!exhausted || data.workflow_runs.length < 100) { exhausted = false; break; }

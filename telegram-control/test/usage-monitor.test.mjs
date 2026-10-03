@@ -126,6 +126,27 @@ test("soma ao relatório atrasado os jobs ainda não faturados", async () => {
   assert.equal(await threshold.invoke(), true);
 });
 
+test("não grava execução concluída enquanto o GitHub não informar o fim do job", async () => {
+  const jobs = { 3: [{ started_at: "2026-10-03T15:45:00Z", completed_at: null }] };
+  const subject = monitor({ runs: [
+    { id: 3, created_at: "2026-10-03T15:44:00Z", status: "completed" },
+  ], jobs });
+  assert.equal(await subject.invoke(), false);
+  assert.equal(subject.stored, undefined);
+  jobs[3][0].completed_at = "2026-10-03T15:50:00Z";
+  assert.equal(await subject.invoke(), false);
+  assert.equal(JSON.parse(subject.stored).minutes, 5);
+  assert.deepEqual(JSON.parse(subject.stored).accounted, [3]);
+});
+
+test("tolera início do job poucos segundos após o horário do agendamento", async () => {
+  const subject = monitor({ runs: [
+    { id: 4, created_at: "2026-10-03T15:59:59Z", status: "in_progress" },
+  ], jobs: { 4: [{ started_at: "2026-10-03T16:00:01Z", completed_at: null }] } });
+  assert.equal(await subject.invoke(), false);
+  assert.equal(subject.stored, undefined);
+});
+
 test("falha explicitamente se o relatório não puder ser lido", async () => {
   const subject = monitor();
   const broken = () => checkUsageLimit({ env, scheduledTime: time,

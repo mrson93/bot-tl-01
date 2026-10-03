@@ -53,7 +53,7 @@ jobs:
       (inputs.executar_bot == true || inputs.somente_relatorio == true ||
        inputs.somente_pendentes == true || inputs.somente_reparar_estado == true ||
        inputs.teste_facebook == true || inputs.campanha != '')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Até três posts com intervalo de três minutos precisam de margem além da busca.
     timeout-minutes: 15
     env:
