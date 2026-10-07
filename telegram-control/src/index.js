@@ -1102,7 +1102,9 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
   if (request.method === "GET" && url.pathname === "/health") {
     return textResponse("ok");
   }
-  if (request.method === "POST" && url.pathname === "/internal/scheduled") {
+  if (request.method === "POST" &&
+      (url.pathname === "/internal/scheduled" ||
+       url.pathname === "/internal/usage-monitor")) {
     const expectedSecret = String(env.SCHEDULER_SHARED_SECRET || "");
     const receivedSecret = request.headers.get("X-Internal-Scheduler-Secret");
     if (!expectedSecret || !await constantTimeEqual(receivedSecret, expectedSecret)) {
@@ -1113,8 +1115,13 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
       return textResponse("bad request", 400);
     }
     try {
-      await runScheduledTasks({ scheduledTime }, env, fetchImpl);
-      console.log(JSON.stringify({ event: "fallback_schedule_processed", scheduledTime }));
+      if (url.pathname === "/internal/usage-monitor") {
+        await runScheduledUsageMonitor({ scheduledTime }, env, fetchImpl);
+        console.log(JSON.stringify({ event: "usage_schedule_processed", scheduledTime }));
+      } else {
+        await runScheduledTasks({ scheduledTime }, env, fetchImpl);
+        console.log(JSON.stringify({ event: "fallback_schedule_processed", scheduledTime }));
+      }
       return textResponse("ok");
     } catch (error) {
       const reason = error instanceof Error ? error.message : "scheduled_task_error";
@@ -1200,7 +1207,6 @@ export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
   await Promise.all([
     runScheduledReport(controller, env, fetchImpl),
     runScheduledAutomation(controller, env, fetchImpl),
-    runScheduledUsageMonitor(controller, env, fetchImpl),
   ]);
 }
 

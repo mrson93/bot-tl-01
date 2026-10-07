@@ -322,6 +322,28 @@ class EstadoRemotoTest(unittest.TestCase):
             )}
         self.assertEqual({"0", "7"}, ids)
 
+    def test_compactacao_limita_retratos_por_loja_e_preserva_mais_vendidos(self):
+        hoje = estado_remoto.date.today().isoformat()
+        with sqlite3.connect(estado_remoto.DB) as con:
+            con.execute("CREATE TABLE vendas_produto_diarias("
+                        "data TEXT, fonte TEXT, oferta_id TEXT, vendas INTEGER, "
+                        "observado_em INTEGER)")
+            for fonte in ("Shopee", "Mercado Livre"):
+                con.executemany(
+                    "INSERT INTO vendas_produto_diarias VALUES(?,?,?,?,?)",
+                    ((hoje, fonte, str(indice), indice, indice)
+                     for indice in range(8)),
+                )
+        with patch.object(estado_remoto, "MAX_VENDAS_DIA_FONTE", 3):
+            estado_remoto._compactar_estado(estado_remoto.DB)
+        with sqlite3.connect(estado_remoto.DB) as con:
+            for fonte in ("Shopee", "Mercado Livre"):
+                ids = {linha[0] for linha in con.execute(
+                    "SELECT oferta_id FROM vendas_produto_diarias WHERE fonte=?",
+                    (fonte,),
+                )}
+                self.assertEqual({"5", "6", "7"}, ids)
+
     def test_upload_recupera_espaco_sqlite_antes_de_validar_limite(self):
         with sqlite3.connect(estado_remoto.DB) as con:
             con.execute("CREATE TABLE lixo(valor BLOB)")

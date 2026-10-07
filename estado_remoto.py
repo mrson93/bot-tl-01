@@ -30,6 +30,7 @@ SEM_REMOTO = Path(__file__).parent / ".estado-sem-remoto"
 # descontrolados e arquivos-bomba.
 MAX_BANCO = 64 * 1024 * 1024
 MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
+MAX_VENDAS_DIA_FONTE = 1500
 MAX_ARTEFATOS_TENTADOS = 10
 TAMANHO_PARTE_ISSUE = 50_000
 MAX_PARTES_ISSUE = 128
@@ -113,6 +114,25 @@ def _compactar_estado(caminho=DB, agora=None):
         for tabela, corte in cortes_data.items():
             if tabela in tabelas:
                 con.execute(f"DELETE FROM {tabela} WHERE data<?", (corte,))
+        if "vendas_produto_diarias" in tabelas:
+            # A busca observa muitos produtos que nunca serão publicados. Para
+            # estimar aceleração de vendas bastam os mais vendidos de cada
+            # fonte/dia; sem limite, esses retratos enchem o snapshot remoto.
+            grupos = con.execute(
+                "SELECT data,fonte FROM vendas_produto_diarias "
+                "GROUP BY data,fonte HAVING COUNT(*)>?",
+                (MAX_VENDAS_DIA_FONTE,),
+            ).fetchall()
+            for data, fonte in grupos:
+                con.execute(
+                    "DELETE FROM vendas_produto_diarias WHERE data=? AND fonte=? "
+                    "AND rowid NOT IN ("
+                    "SELECT rowid FROM vendas_produto_diarias "
+                    "WHERE data=? AND fonte=? "
+                    "ORDER BY vendas DESC, observado_em DESC "
+                    "LIMIT ?)",
+                    (data, fonte, data, fonte, MAX_VENDAS_DIA_FONTE),
+                )
         if "cupons_ativos" in tabelas:
             con.execute(
                 "DELETE FROM cupons_ativos WHERE "
@@ -191,7 +211,17 @@ def preparar_upload():
     _compactar_estado(DB)
     _validar_sqlite(DB)
     if DB.stat().st_size > MAX_BANCO:
-        raise RuntimeError("Banco local excedeu o limite mesmo apos a compactacao")
+        with sqlite3.connect(DB) as con:
+            tabelas = {linha[0] for linha in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            contagens = []
+            for tabela in ("vendas_produto_diarias", "eventos", "entregas_log",
+                           "entregas", "postadas", "desempenho", "buffer_posts"):
+                if tabela in tabelas:
+                    contagens.append(f"{tabela}={con.execute('SELECT COUNT(*) FROM ' + tabela).fetchone()[0]}")
+        raise RuntimeError("Banco local excedeu o limite mesmo apos a compactacao "
+                           f"({DB.stat().st_size} bytes; {', '.join(contagens)})")
     protegido = _criptografar(DB.read_bytes())
     with tempfile.NamedTemporaryFile(dir=DB.parent, delete=False) as temporario:
         temporario.write(protegido)

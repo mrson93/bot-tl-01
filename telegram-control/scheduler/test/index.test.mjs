@@ -27,6 +27,22 @@ test("encaminha o horario pelo binding interno protegido", async () => {
   assert.equal(forwardedRequest.headers.get("X-Scheduled-Time"), String(scheduledTime));
 });
 
+test("isola o monitor de uso da rodada normal a cada cinco minutos", async () => {
+  const paths = [];
+  const env = {
+    SCHEDULER_SHARED_SECRET: "segredo-compartilhado",
+    CONTROLLER: { async fetch(request) {
+      paths.push(new URL(request.url).pathname);
+      return new Response("ok");
+    } },
+  };
+  await worker.scheduled({ scheduledTime: Date.parse("2026-10-07T15:01:00Z") }, env);
+  assert.deepEqual(paths, ["/internal/scheduled"]);
+  paths.length = 0;
+  await worker.scheduled({ scheduledTime: Date.parse("2026-10-07T15:05:00Z") }, env);
+  assert.deepEqual(paths, ["/internal/scheduled", "/internal/usage-monitor"]);
+});
+
 test("falha de forma explicita sem segredo ou binding", async () => {
   await assert.rejects(() => forwardScheduledEvent({}, {}), /scheduler_secret_not_configured/);
   await assert.rejects(

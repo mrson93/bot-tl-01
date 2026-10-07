@@ -9,13 +9,13 @@ function textResponse(text, status = 200) {
   });
 }
 
-export async function forwardScheduledEvent(controller, env) {
+async function forward(controller, env, path) {
   const secret = String(env.SCHEDULER_SHARED_SECRET || "");
   if (!secret) throw new Error("scheduler_secret_not_configured");
   if (!env.CONTROLLER?.fetch) throw new Error("controller_binding_not_configured");
 
   const scheduledTime = Number(controller?.scheduledTime || Date.now());
-  const response = await env.CONTROLLER.fetch(new Request("https://controller.internal/internal/scheduled", {
+  const response = await env.CONTROLLER.fetch(new Request(`https://controller.internal${path}`, {
     method: "POST",
     headers: {
       "X-Internal-Scheduler-Secret": secret,
@@ -23,7 +23,15 @@ export async function forwardScheduledEvent(controller, env) {
     },
   }));
   if (!response.ok) throw new Error(`controller_${response.status}`);
-  console.log(JSON.stringify({ event: "schedule_forwarded", scheduledTime }));
+  console.log(JSON.stringify({ event: "schedule_forwarded", path, scheduledTime }));
+}
+
+export function forwardScheduledEvent(controller, env) {
+  return forward(controller, env, "/internal/scheduled");
+}
+
+export function forwardUsageMonitor(controller, env) {
+  return forward(controller, env, "/internal/usage-monitor");
 }
 
 export default {
@@ -33,6 +41,12 @@ export default {
   async scheduled(controller, env) {
     try {
       await forwardScheduledEvent(controller, env);
+      // Uma chamada separada protege as publicações contra o limite de CPU
+      // da conferência de faturamento. Cinco minutos preservam a margem de
+      // 20 minutos antes do fim da franquia gratuita.
+      if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
+        await forwardUsageMonitor(controller, env);
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : "schedule_forward_error";
       console.error(JSON.stringify({ event: "schedule_forward_failed", reason }));

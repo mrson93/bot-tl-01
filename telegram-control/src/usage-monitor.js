@@ -5,6 +5,9 @@ const OCTOBER_PUBLIC_BASELINE = 236;
 const FREE_MINUTES = 2000;
 const PUBLIC_AT_MINUTES = Math.ceil(FREE_MINUTES * 0.99);
 const STATE_VARIABLE = "ACTIONS_PRIVATE_USAGE_STATE";
+// Cada invocação no plano gratuito tem apenas 10 ms de CPU. O histórico é
+// percorrido em partes, mantendo o acumulado entre invocações.
+const MAX_JOBS_PER_CHECK = 5;
 
 function monthKey(date) {
   return date.toISOString().slice(0, 7);
@@ -116,12 +119,17 @@ function parseState(raw, period) {
     if (state?.period === period && Number.isSafeInteger(state.minutes)
         && state.minutes >= 0 && Array.isArray(state.accounted)
         && state.accounted.every(Number.isSafeInteger)) {
-      return state;
+      return {
+        ...state,
+        scanPage: Number.isSafeInteger(state.scanPage) && state.scanPage >= 1
+          && state.scanPage <= 50 ? state.scanPage : 1,
+        complete: state.complete === true,
+      };
     }
   } catch {
     // Reconstitui o estado pelas execuções do mês.
   }
-  return { period, minutes: 0, accounted: [] };
+  return { period, minutes: 0, accounted: [], scanPage: 1, complete: false };
 }
 
 export async function checkUsageLimit({ env, scheduledTime, fetchImpl, getVariables, setVariable, notify }) {
@@ -148,40 +156,55 @@ export async function checkUsageLimit({ env, scheduledTime, fetchImpl, getVariab
 
   const variables = await getVariables();
   const state = parseState(variables[STATE_VARIABLE], period);
+  const wasComplete = state.complete;
   const accounted = new Set(state.accounted);
   let changed = false;
   let runningMinutes = 0;
-  let exhausted = true;
-  for (let page = 1; page <= 50; page += 1) {
-    const data = await githubJson(fetchImpl,
-      githubUrl(owner, repo, `/actions/runs?per_page=100&page=${page}`), token);
-    if (!Array.isArray(data.workflow_runs)) throw new Error("github_usage_invalid_runs");
-    for (const run of data.workflow_runs) {
-      const created = Date.parse(run.created_at);
-      if (!Number.isFinite(created)) throw new Error("github_usage_invalid_run_time");
-      if (created < start) { exhausted = false; break; }
-      if (accounted.has(run.id)) continue;
-      const jobs = await githubJson(fetchImpl,
-        githubUrl(owner, repo, `/actions/runs/${run.id}/jobs?per_page=100`), token);
-      if (!Array.isArray(jobs.jobs) || jobs.total_count > 100) {
-        throw new Error("github_usage_invalid_jobs_page");
-      }
-      const pendingJob = jobs.jobs.some((job) =>
-        job.started_at && !job.completed_at && job.conclusion !== "skipped");
-      if (run.status === "completed" && !pendingJob) {
-        state.minutes += jobMinutes(jobs.jobs);
-        accounted.add(run.id);
-        changed = true;
-      } else {
-        // A API pode anunciar a execução como concluída antes de preencher o
-        // completed_at de todos os jobs. Não persista esse total ainda.
-        runningMinutes += unsettledJobMinutes(jobs.jobs, now.getTime());
-      }
+  const page = state.scanPage;
+  const data = await githubJson(fetchImpl,
+    githubUrl(owner, repo, `/actions/runs?per_page=100&page=${page}`), token);
+  if (!Array.isArray(data.workflow_runs)) throw new Error("github_usage_invalid_runs");
+  let scannedToStart = data.workflow_runs.length < 100;
+  let pending = false;
+  let more = false;
+  let inspected = 0;
+  for (const run of data.workflow_runs) {
+    const created = Date.parse(run.created_at);
+    if (!Number.isFinite(created)) throw new Error("github_usage_invalid_run_time");
+    if (created < start) { scannedToStart = true; break; }
+    if (accounted.has(run.id)) continue;
+    if (inspected >= MAX_JOBS_PER_CHECK) { more = true; break; }
+    inspected += 1;
+    const jobs = await githubJson(fetchImpl,
+      githubUrl(owner, repo, `/actions/runs/${run.id}/jobs?per_page=100`), token);
+    if (!Array.isArray(jobs.jobs) || jobs.total_count > 100) {
+      throw new Error("github_usage_invalid_jobs_page");
     }
-    if (!exhausted || data.workflow_runs.length < 100) { exhausted = false; break; }
+    const pendingJob = jobs.jobs.some((job) =>
+      job.started_at && !job.completed_at && job.conclusion !== "skipped");
+    if (run.status === "completed" && !pendingJob) {
+      state.minutes += jobMinutes(jobs.jobs);
+      accounted.add(run.id);
+      changed = true;
+    } else {
+      pending = true;
+      // A API pode anunciar a execução como concluída antes de preencher o
+      // completed_at de todos os jobs. Não persista esse total ainda.
+      runningMinutes += unsettledJobMinutes(jobs.jobs, now.getTime());
+    }
   }
-  if (exhausted) throw new Error("github_usage_runs_pagination_limit");
-  if (changed) {
+  if (more) {
+    state.complete = false;
+  } else if (scannedToStart) {
+    state.scanPage = 1;
+    state.complete = true;
+  } else if (pending) {
+    state.complete = false;
+  } else if (!state.complete) {
+    if (page >= 50) throw new Error("github_usage_runs_pagination_limit");
+    state.scanPage = page + 1;
+  }
+  if (changed || state.scanPage !== page || state.complete !== wasComplete) {
     state.accounted = [...accounted];
     await setVariable(STATE_VARIABLE, JSON.stringify(state));
   }
@@ -190,6 +213,9 @@ export async function checkUsageLimit({ env, scheduledTime, fetchImpl, getVariab
   // Soma somente a parte dos jobs concluídos que ainda falta no relatório do
   // repositório, mais os jobs em andamento (ainda não consolidados).
   const minutes = billed + Math.max(0, state.minutes - billed) + runningMinutes + otherPrivate;
+  if (!state.complete && minutes < PUBLIC_AT_MINUTES) {
+    throw new Error("github_usage_backlog_not_fully_counted");
+  }
   if (minutes < PUBLIC_AT_MINUTES) return false;
   await githubJson(fetchImpl, repoUrl, token, {
     method: "PATCH", body: JSON.stringify({ visibility: "public" }),

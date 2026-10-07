@@ -107,6 +107,23 @@ test("contabiliza jobs concluídos sem somá-los duas vezes", async () => {
   assert.equal(subject.calls.filter((call) => call.endsWith("/jobs?per_page=100")).length, 1);
 });
 
+test("avança o histórico em lotes sem tratar backlog como consumo zero", async () => {
+  const runs = Array.from({ length: 6 }, (_, index) => ({
+    id: index + 1, created_at: "2026-10-03T15:00:00Z", status: "completed",
+  }));
+  const jobs = Object.fromEntries(runs.map((run) => [run.id, [{
+    started_at: "2026-10-03T15:00:00Z",
+    completed_at: "2026-10-03T15:01:00Z",
+  }]]));
+  const subject = monitor({ runs, jobs });
+  await assert.rejects(subject.invoke, /github_usage_backlog_not_fully_counted/);
+  assert.equal(JSON.parse(subject.stored).minutes, 5);
+  assert.equal(subject.calls.filter((call) => call.includes("/jobs?" )).length, 5);
+  assert.equal(await subject.invoke(), false);
+  assert.equal(JSON.parse(subject.stored).minutes, 6);
+  assert.equal(JSON.parse(subject.stored).complete, true);
+});
+
 test("soma ao relatório atrasado os jobs ainda não faturados", async () => {
   const subject = monitor({ repoGross: 2190,
     runs: [{ id: 2, created_at: "2026-10-03T15:45:00Z", status: "in_progress" }],
@@ -132,7 +149,8 @@ test("não grava execução concluída enquanto o GitHub não informar o fim do 
     { id: 3, created_at: "2026-10-03T15:44:00Z", status: "completed" },
   ], jobs });
   assert.equal(await subject.invoke(), false);
-  assert.equal(subject.stored, undefined);
+  assert.equal(JSON.parse(subject.stored).minutes, 0);
+  assert.deepEqual(JSON.parse(subject.stored).accounted, []);
   jobs[3][0].completed_at = "2026-10-03T15:50:00Z";
   assert.equal(await subject.invoke(), false);
   assert.equal(JSON.parse(subject.stored).minutes, 5);
@@ -144,7 +162,7 @@ test("tolera início do job poucos segundos após o horário do agendamento", as
     { id: 4, created_at: "2026-10-03T15:59:59Z", status: "in_progress" },
   ], jobs: { 4: [{ started_at: "2026-10-03T16:00:01Z", completed_at: null }] } });
   assert.equal(await subject.invoke(), false);
-  assert.equal(subject.stored, undefined);
+  assert.equal(JSON.parse(subject.stored).minutes, 0);
 });
 
 test("falha explicitamente se o relatório não puder ser lido", async () => {

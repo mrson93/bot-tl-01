@@ -116,6 +116,21 @@ test("rota interna exige segredo e executa as tarefas pelo horario recebido", as
   assert.equal(calls, 2);
 });
 
+test("monitor de uso tem rota interna separada da publicacao", async () => {
+  const req = (secret) => new Request("https://controller.example/internal/usage-monitor", {
+    method: "POST",
+    headers: { "X-Internal-Scheduler-Secret": secret,
+      "X-Scheduled-Time": String(Date.parse("2026-10-07T15:05:00Z")) },
+  });
+  let calls = 0;
+  const fakeFetch = async () => { calls += 1; throw new Error("unexpected fetch"); };
+  assert.equal((await worker.fetch(req("errado"), env, fakeFetch)).status, 404);
+  assert.equal((await worker.fetch(req("scheduler-secret"), {
+    ...env, USAGE_MONITOR_ENABLED: "false",
+  }, fakeFetch)).status, 200);
+  assert.equal(calls, 0);
+});
+
 test("ignora silenciosamente usuario nao autorizado", async () => {
   let calls = 0;
   const response = await worker.fetch(request(update("/status", 999)), env, async () => {
