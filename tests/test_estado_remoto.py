@@ -305,6 +305,26 @@ class EstadoRemotoTest(unittest.TestCase):
             ).fetchall())
             self.assertEqual(0, con.execute("SELECT COUNT(*) FROM eventos").fetchone()[0])
 
+    def test_compactacao_limita_log_sem_apagar_estado_de_entrega(self):
+        agora = int(time.time())
+        with sqlite3.connect(estado_remoto.DB) as con:
+            con.execute("CREATE TABLE entregas_log(id TEXT, entregue_em INTEGER)")
+            con.execute("CREATE TABLE entregas(id TEXT, entregue_em INTEGER)")
+            con.executemany("INSERT INTO entregas_log VALUES(?,?)", [
+                ("mais_antiga", agora - 4), ("antiga", agora - 3),
+                ("recente", agora - 2), ("mais_recente", agora - 1),
+            ])
+            con.execute("INSERT INTO entregas VALUES('mais_antiga',?)", (agora - 4,))
+        with patch.object(estado_remoto, "MAX_ENTREGAS_LOG", 2):
+            estado_remoto._compactar_estado(estado_remoto.DB, agora)
+        with sqlite3.connect(estado_remoto.DB) as con:
+            self.assertEqual([("recente",), ("mais_recente",)], con.execute(
+                "SELECT id FROM entregas_log ORDER BY entregue_em"
+            ).fetchall())
+            self.assertEqual([("mais_antiga",)], con.execute(
+                "SELECT id FROM entregas"
+            ).fetchall())
+
     def test_compactacao_preserva_janela_de_vendas_e_remove_excedente(self):
         agora = int(time.time())
         hoje = estado_remoto.date.fromtimestamp(agora)

@@ -31,6 +31,7 @@ SEM_REMOTO = Path(__file__).parent / ".estado-sem-remoto"
 MAX_BANCO = 64 * 1024 * 1024
 MAX_DOWNLOAD = MAX_BANCO + 1024 * 1024  # margem para criptografia e contêiner ZIP
 MAX_VENDAS_DIA_FONTE = 1500
+MAX_ENTREGAS_LOG = 100_000
 MAX_ARTEFATOS_TENTADOS = 10
 TAMANHO_PARTE_ISSUE = 50_000
 MAX_PARTES_ISSUE = 128
@@ -85,7 +86,9 @@ def _compactar_estado(caminho=DB, agora=None):
     cortes_epoch = {
         "eventos": momento - 90 * 86400,
         "entregas": momento - 180 * 86400,
-        "entregas_log": momento - 180 * 86400,
+        # Relatórios antigos já estão consolidados em metricas_diarias.
+        # As consultas operacionais ao log detalhado usam até sete dias.
+        "entregas_log": momento - 30 * 86400,
         "entregas_cupom": momento - 180 * 86400,
         "postadas": momento - 180 * 86400,
         "desempenho": momento - 180 * 86400,
@@ -114,6 +117,18 @@ def _compactar_estado(caminho=DB, agora=None):
         for tabela, corte in cortes_data.items():
             if tabela in tabelas:
                 con.execute(f"DELETE FROM {tabela} WHERE data<?", (corte,))
+        if "entregas_log" in tabelas:
+            # Retentativas em massa podem produzir centenas de milhares de
+            # linhas dentro da janela de 30 dias. Conserva as mais recentes
+            # sem afetar a tabela `entregas`, usada para idempotência.
+            quantidade = con.execute("SELECT COUNT(*) FROM entregas_log").fetchone()[0]
+            if quantidade > MAX_ENTREGAS_LOG:
+                con.execute(
+                    "DELETE FROM entregas_log WHERE rowid NOT IN ("
+                    "SELECT rowid FROM entregas_log "
+                    "ORDER BY entregue_em DESC, rowid DESC LIMIT ?)",
+                    (MAX_ENTREGAS_LOG,),
+                )
         if "vendas_produto_diarias" in tabelas:
             # A busca observa muitos produtos que nunca serão publicados. Para
             # estimar aceleração de vendas bastam os mais vendidos de cada
