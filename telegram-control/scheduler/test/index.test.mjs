@@ -27,7 +27,7 @@ test("encaminha o horario pelo binding interno protegido", async () => {
   assert.equal(forwardedRequest.headers.get("X-Scheduled-Time"), String(scheduledTime));
 });
 
-test("isola o monitor de uso da rodada normal a cada cinco minutos", async () => {
+test("isola o monitor de uso da rodada normal em cada minuto", async () => {
   const paths = [];
   const env = {
     SCHEDULER_SHARED_SECRET: "segredo-compartilhado",
@@ -37,7 +37,7 @@ test("isola o monitor de uso da rodada normal a cada cinco minutos", async () =>
     } },
   };
   await worker.scheduled({ scheduledTime: Date.parse("2026-10-07T15:01:00Z") }, env);
-  assert.deepEqual(paths, ["/internal/scheduled"]);
+  assert.deepEqual(paths, ["/internal/scheduled", "/internal/usage-monitor"]);
   paths.length = 0;
   await worker.scheduled({ scheduledTime: Date.parse("2026-10-07T15:05:00Z") }, env);
   assert.deepEqual(paths, ["/internal/scheduled", "/internal/usage-monitor"]);

@@ -68,7 +68,10 @@ revogado depois da configuração. O token refinado do GitHub expira em
 
 O monitor de franquia é habilitado por `USAGE_MONITOR_ENABLED=true` no
 `wrangler.jsonc`. A cada execução do agendador ele confere o relatório de uso
-do GitHub e os jobs recentes, inclui conservadoramente o consumo de Actions
+do GitHub e os jobs recentes em uma chamada separada da publicação de ofertas.
+O histórico de jobs é conferido em lotes até ficar completo; enquanto houver
+execuções pendentes, o monitor sinaliza que a medição ainda não é confiável.
+Ele inclui conservadoramente o consumo de Actions
 da conta e publica o repositório quando a estimativa chega a 1.980 de 2.000
 minutos. O valor inicial de 236 minutos públicos de outubro/2026 é descontado;
 nos meses seguintes o desconto é zero. Erros são notificados ao administrador,

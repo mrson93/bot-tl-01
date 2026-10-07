@@ -41,12 +41,10 @@ export default {
   async scheduled(controller, env) {
     try {
       await forwardScheduledEvent(controller, env);
-      // Uma chamada separada protege as publicações contra o limite de CPU
-      // da conferência de faturamento. Cinco minutos preservam a margem de
-      // 20 minutos antes do fim da franquia gratuita.
-      if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
-        await forwardUsageMonitor(controller, env);
-      }
+      // A chamada separada protege as publicações contra falhas do monitor.
+      // A verificação por minuto recupera mais rápido o histórico ainda não
+      // contabilizado, sem alterar o intervalo das ofertas.
+      await forwardUsageMonitor(controller, env);
     } catch (error) {
       const reason = error instanceof Error ? error.message : "schedule_forward_error";
       console.error(JSON.stringify({ event: "schedule_forward_failed", reason }));
