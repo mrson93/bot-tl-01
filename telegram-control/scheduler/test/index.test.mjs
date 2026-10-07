@@ -43,6 +43,23 @@ test("isola o monitor de uso da rodada normal em cada minuto", async () => {
   assert.deepEqual(paths, ["/internal/scheduled", "/internal/usage-monitor"]);
 });
 
+test("monitor continua quando o despacho normal falha", async () => {
+  const paths = [];
+  const env = {
+    SCHEDULER_SHARED_SECRET: "segredo-compartilhado",
+    CONTROLLER: { async fetch(request) {
+      const path = new URL(request.url).pathname;
+      paths.push(path);
+      return new Response("erro", { status: path === "/internal/scheduled" ? 503 : 200 });
+    } },
+  };
+  await assert.rejects(
+    () => worker.scheduled({ scheduledTime: Date.parse("2026-10-07T15:01:00Z") }, env),
+    /controller_503/,
+  );
+  assert.deepEqual(paths, ["/internal/scheduled", "/internal/usage-monitor"]);
+});
+
 test("falha de forma explicita sem segredo ou binding", async () => {
   await assert.rejects(() => forwardScheduledEvent({}, {}), /scheduler_secret_not_configured/);
   await assert.rejects(
