@@ -77,7 +77,7 @@ export function couponActive(offer,now=Math.floor(Date.now()/1000)) {
   return Boolean(offer.coupon_code)&&(!offer.coupon_expires_at||Number(offer.coupon_expires_at)>now);
 }
 
-export function responseHtml(body,status=200,cache='public, max-age=300, stale-while-revalidate=1800') {
+export function responseHtml(body,status=200,cache='public, max-age=300, stale-while-revalidate=1800',indexable=true) {
   return new Response(body,{status,headers:{
     'Content-Type':'text/html; charset=utf-8',
     'Cache-Control':status===200?cache:'no-store',
@@ -86,14 +86,14 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
     'Strict-Transport-Security':'max-age=31536000',
     'Permissions-Policy':'camera=(), microphone=(), geolocation=()',
     'X-Content-Type-Options':'nosniff',
-    'X-Robots-Tag':status===200?'index, follow, max-image-preview:large':'noindex, nofollow'
+    'X-Robots-Tag':status!==200?'noindex, nofollow':indexable?'index, follow, max-image-preview:large':'noindex, follow'
   }});
 }
 
-export function head({title,description,canonical,structured='',image='',ads=false}) {
+export function head({title,description,canonical,structured='',image='',ads=false,indexable=true}) {
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${html(title)}</title><meta name="description" content="${html(description)}">
-  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+  <meta name="robots" content="${indexable?'index,follow,max-image-preview:large,max-snippet:-1':'noindex,follow'}">
   <meta name="google-adsense-account" content="ca-pub-5239970037930660">
   <link rel="canonical" href="${html(canonical)}"><meta name="theme-color" content="#ff5a1f">
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">

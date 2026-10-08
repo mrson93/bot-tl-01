@@ -1,5 +1,6 @@
 import {SITE,footer,head,header,html,label,notFound,offerCard,offerPath,
   responseHtml,shorten,slugify} from './_site.js';
+import {indexableCollection} from './_indexing.js';
 
 const CONFIG={
   category:{column:'category',plural:'categorias',heading:name=>`Ofertas de ${label(name)}`,
@@ -29,12 +30,13 @@ export async function collectionPage(env,kind,requestedSlug) {
   const description=shorten(config.description(selected.value),155);
   const canonical=`${SITE}/${config.plural}/${slugify(selected.value)}`;
   const rows=offers.results||[];
+  const indexable=indexableCollection(rows.length);
   const structured=JSON.stringify({'@context':'https://schema.org','@type':'CollectionPage',
     name:heading,description,url:canonical,mainEntity:{'@type':'ItemList',
       itemListElement:rows.map((offer,index)=>({'@type':'ListItem',position:index+1,
         url:`${SITE}${offerPath(offer)}`}))}}).replace(/</g,'\\u003c');
   const body=rows.length?`<div class="offer-grid collection-grid">${rows.map(offerCard).join('')}</div>`:
     '<div class="empty"><h2>Nenhum produto disponível</h2><p>Volte em breve para conferir novos achados.</p></div>';
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title:`${shorten(heading,50)} | Tá Barato`,description,canonical,structured})}</head><body>${header()}
-    <main class="collection-page"><a class="offer-back" href="/">← Todo o catálogo</a><div class="collection-heading"><p class="eyebrow">CATÁLOGO ATUALIZADO</p><h1>${html(heading)}</h1><p>${html(description)}</p><strong>${rows.length} ${rows.length===1?'produto':'produtos'}</strong></div>${body}</main>${footer()}</body></html>`);
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title:`${shorten(heading,50)} | Tá Barato`,description,canonical,structured,indexable})}</head><body>${header()}
+    <main class="collection-page"><a class="offer-back" href="/">← Todo o catálogo</a><div class="collection-heading"><p class="eyebrow">CATÁLOGO ATUALIZADO</p><h1>${html(heading)}</h1><p>${html(description)}</p><strong>${rows.length} ${rows.length===1?'produto':'produtos'}</strong></div>${body}</main>${footer()}</body></html>`,200,undefined,indexable);
 }

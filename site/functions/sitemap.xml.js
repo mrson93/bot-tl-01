@@ -1,14 +1,18 @@
 import {SITE,offerPath,slugify,xml} from './_site.js';
+import {MIN_COLLECTION_OFFERS,MIN_PRICE_HISTORY_DAYS} from './_indexing.js';
 
 function entry(location,lastmod='',changefreq='daily',priority='0.8') {
   return `  <url><loc>${xml(`${SITE}${location}`)}</loc>${lastmod?`<lastmod>${lastmod}</lastmod>`:''}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 
 export async function onRequestGet({env}) {
+  const since30d=Math.floor(Date.now()/1000)-30*86400;
   const [offers,categories,shops]=await Promise.all([
-    env.DB.prepare("SELECT id,title,COALESCE(last_checked_at,published_at) updated_at FROM offers WHERE availability!='unavailable' ORDER BY updated_at DESC LIMIT 5000").all(),
-    env.DB.prepare("SELECT DISTINCT category value FROM offers WHERE availability!='unavailable' AND category IS NOT NULL AND TRIM(category)!=''").all(),
-    env.DB.prepare("SELECT DISTINCT shop value FROM offers WHERE availability!='unavailable' AND shop IS NOT NULL AND TRIM(shop)!=''").all()
+    env.DB.prepare(`SELECT o.id,o.title,COALESCE(o.last_checked_at,o.published_at) updated_at FROM offers o
+      WHERE o.availability='active' AND (SELECT COUNT(*) FROM offer_prices p WHERE p.offer_id=o.id AND p.observed_at>=?)>=?
+      ORDER BY updated_at DESC LIMIT 5000`).bind(since30d,MIN_PRICE_HISTORY_DAYS).all(),
+    env.DB.prepare("SELECT category value FROM offers WHERE availability!='unavailable' AND category IS NOT NULL AND TRIM(category)!='' GROUP BY category HAVING COUNT(*)>=?").bind(MIN_COLLECTION_OFFERS).all(),
+    env.DB.prepare("SELECT shop value FROM offers WHERE availability!='unavailable' AND shop IS NOT NULL AND TRIM(shop)!='' GROUP BY shop HAVING COUNT(*)>=?").bind(MIN_COLLECTION_OFFERS).all()
   ]);
   let posts=[];try{const result=await env.DB.prepare("SELECT slug,updated_at FROM blog_posts WHERE status='published' AND published_at<=? ORDER BY published_at DESC LIMIT 1000").bind(Math.floor(Date.now()/1000)).all();posts=result.results||[];}catch{}
   const urls=[entry('/','','hourly','1.0'),entry('/stories','','hourly','0.8'),entry('/cupons','','hourly','0.9'),entry('/blog','','daily','0.8'),

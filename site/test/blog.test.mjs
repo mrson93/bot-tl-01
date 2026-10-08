@@ -109,8 +109,17 @@ test('produto editorial aceita vários links afiliados fora do catálogo de ofer
 
 test('modelo editorial pode ser exibido antes de receber link afiliado',()=>{
   const card=editorialProductCard({id:'galaxy-a56-5g',name:'Modelo sem link',summary:'Descrição pronta.',specs:{Tela:'OLED'}});
-  assert.match(card,/Links em atualização/);assert.match(card,/Consulte o preço atual/);assert.match(card,/OLED/);assert.doesNotMatch(card,/<a /);
+  assert.match(card,/Descrição pronta/);assert.match(card,/OLED/);assert.doesNotMatch(card,/cadastre no painel|Links em atualização|Consulte o preço atual|<a /i);
   assert.match(card,/images\/blog\/produtos\/galaxy-a56-5g\.png/);
+});
+
+test('tabela não expõe recados administrativos em linhas sem afiliado',()=>{
+  const table=editorialComparisonTable([
+    {id:'a',name:'Com link',specs:{Tela:'OLED'},links:[{store:'amazon',affiliate_url:'https://amazon.com.br/a'}]},
+    {id:'b',name:'Sem link',specs:{Tela:'LCD'},links:[]},
+  ]);
+  assert.match(table,/Sem link de compra disponível/);
+  assert.doesNotMatch(table,/cadastrado|cadastre no painel/i);
 });
 
 test('matéria reserva um único anúncio lateral responsivo e discreto',()=>{

@@ -46,6 +46,13 @@ O site publica metadados canônicos, Open Graph, dados estruturados Schema.org,
 oferta disponível no catálogo possui uma página HTML própria em
 `/oferta/:titulo--:id`, mantendo compatibilidade com os endereços antigos, que
 pode ser lida mesmo por buscadores que não executam o JavaScript do catálogo.
+Páginas de ofertas com menos de sete dias de preços observados, ou sem
+disponibilidade confirmada, continuam acessíveis para visitantes e com o botão
+de compra, mas recebem `noindex` e não entram no sitemap. Depois de sete dias
+observados nos últimos 30 dias, voltam a ser elegíveis à indexação.
+Páginas de lojas e categorias com menos de três produtos disponíveis seguem a
+mesma regra: funcionam para visitantes, mas ficam fora dos resultados de busca
+e do sitemap até formarem uma coleção útil.
 Os botões de compra continuam apontando diretamente para `/go/:id` para não
 adicionar uma etapa à conversão.
 As páginas de produto exibem histórico dos preços observados, ofertas relacionadas,
@@ -103,7 +110,10 @@ sobre escolha de celulares. A publicação é idempotente, registra a migração
 `site_migrations` e não cria duplicatas. Cada guia inclui fontes de fabricantes,
 links internos para o mesmo núcleo temático e não depende de ofertas ou afiliados.
 O script do AdSense é carregado somente nas páginas de matéria; catálogo e páginas
-institucionais mantêm apenas a identificação da conta.
+institucionais mantêm apenas a identificação da conta por metatag. Na tela de
+verificação de propriedade do AdSense, use a opção "Metatag"; a opção de script
+não corresponde à configuração deliberada das demais páginas. A aprovação do
+site depende de análise editorial do Google e não é garantida pelo código.
 
 Na lista de matérias, o painel sinaliza modelos publicados sem link de afiliado,
 preço de referência, ficha técnica ou imagem. Esses alertas são uma lista de revisão
