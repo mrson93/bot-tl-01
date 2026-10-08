@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {head,responseHtml} from '../functions/_site.js';
+import {head,responseHead,responseHtml} from '../functions/_site.js';
 import {indexableCollection,indexableOffer,MIN_COLLECTION_OFFERS,MIN_PRICE_HISTORY_DAYS} from '../functions/_indexing.js';
 import {onRequestGet as sitemap} from '../functions/sitemap.xml.js';
-import {onRequestGet as offerPage} from '../functions/oferta/[id].js';
+import {onRequestGet as offerPage,onRequestHead as offerHead} from '../functions/oferta/[id].js';
 import {collectionPage} from '../functions/_collection.js';
 
 test('oferta só entra na busca com histórico e disponibilidade confirmada',()=>{
@@ -31,6 +31,9 @@ test('metatag e cabeçalho HTTP concordam quando uma oferta não deve ser indexa
   assert.equal(responseHtml('oferta',200,undefined,false).headers.get('X-Robots-Tag'),'noindex, follow');
   assert.equal(responseHtml('guia').headers.get('X-Robots-Tag'),'index, follow, max-image-preview:large');
   assert.equal(responseHtml('não encontrado',404).headers.get('X-Robots-Tag'),'noindex, nofollow');
+  const headOnly=responseHead(responseHtml('oferta',200,undefined,false));
+  assert.equal(headOnly.body,null);
+  assert.equal(headOnly.headers.get('X-Robots-Tag'),'noindex, follow');
 });
 
 test('oferta nova continua comprável, mas só é indexável após sete observações',async()=>{
@@ -39,12 +42,15 @@ test('oferta nova continua comprável, mas só é indexável após sete observa�
   async function render(days){
     const prices=Array.from({length:days},(_,index)=>({price:100-index,observed_at:1_780_000_000+index*86400}));
     const DB={prepare(){return {bind(){return this;},async first(){return offer;}};},async batch(){return [{results:prices},{results:[]}];}};
-    return offerPage({params:{id:offer.id},env:{DB}});
+    const context={params:{id:offer.id},env:{DB}};
+    return {page:await offerPage(context),head:await offerHead(context)};
   }
-  const fresh=await render(1),mature=await render(7);
+  const {page:fresh,head:freshHead}=await render(1),{page:mature,head:matureHead}=await render(7);
   assert.equal(fresh.headers.get('X-Robots-Tag'),'noindex, follow');
+  assert.equal(freshHead.headers.get('X-Robots-Tag'),'noindex, follow');
   assert.match(await fresh.text(),/href="\/go\/amazon_ABC123"/);
   assert.equal(mature.headers.get('X-Robots-Tag'),'index, follow, max-image-preview:large');
+  assert.equal(matureHead.headers.get('X-Robots-Tag'),'index, follow, max-image-preview:large');
   assert.match(await mature.text(),/name="robots" content="index,follow/);
 });
 

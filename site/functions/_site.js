@@ -90,6 +90,10 @@ export function responseHtml(body,status=200,cache='public, max-age=300, stale-w
   }});
 }
 
+export function responseHead(response) {
+  return new Response(null,{status:response.status,headers:response.headers});
+}
+
 export function head({title,description,canonical,structured='',image='',ads=false,indexable=true}) {
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${html(title)}</title><meta name="description" content="${html(description)}">
