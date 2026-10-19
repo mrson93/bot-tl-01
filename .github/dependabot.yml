@@ -1,0 +1,40 @@
+# Atualizacoes semanais agrupadas: no maximo um PR por ecossistema, revisado
+# pelo CI antes do merge. Alertas de seguranca continuam chegando na hora.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: "/telegram-control"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      telegram-control:
+        patterns: ["*"]
+
+  # Mantem as Actions fixadas por SHA completo, atualizando o comentario da versao.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
