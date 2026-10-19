@@ -14,7 +14,7 @@ fotografia somente leitura da situação encontrada antes da remediação.
 | SEC-05 — limite baseado em Content-Length | Corrigido | Leitura incremental limitada em feedback e nos demais endpoints JSON de escrita. |
 | CONF-01 — DNS rebinding em imagens | Mitigado no código | Download restrito a uma allowlist explícita de hosts oficiais, seguido da validação de endereços públicos e sem redirects. |
 | CONF-02 — verificação Meta sem secret | Corrigido | Verificação GET exige secret e token não vazios e compara em tempo constante. |
-| CONF-03 — controles externos | Ação externa pendente | Conferir e registrar os controles descritos em `controles-externos.md`. |
+| CONF-03 — controles externos | Parcial | 19/10/2026: GitHub com secret scanning, push protection, alertas e correções automáticas do Dependabot ativos, além de `.github/dependabot.yml` semanal. HSTS, CSP e cabeçalhos de segurança confirmados no domínio oficial. Pendentes: proteção da `main` e conferência de secrets, rate limiters e migrations nos painéis Cloudflare. |
 
 ## Validação executada
 
