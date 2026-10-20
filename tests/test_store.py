@@ -25,6 +25,15 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("produto", "Facebook", True, agora=9999999999)
         self.assertIsNone(store.buffer_post("produto", "Facebook"))
 
+    def test_estoque_de_lista_guarda_ultima_leitura_e_ignora_antiga(self):
+        store.registrar_estoque_lista("Mercado Livre", 4, 150, agora=1_000_000)
+        store.registrar_estoque_lista("Mercado Livre", 3, 150, agora=1_000_100)
+        store.registrar_estoque_lista("Amazon", 20, 40, agora=1_000_000 - 72 * 3600)
+        estoque = store.estoque_listas(agora=1_000_200)
+        self.assertEqual(["Mercado Livre"], list(estoque))
+        self.assertEqual(3, estoque["Mercado Livre"]["ineditas"])
+        self.assertEqual(150, estoque["Mercado Livre"]["total"])
+
     def test_migra_buffer_antigo_sem_perder_post_pendente(self):
         con = sqlite3.connect(self.db)
         con.execute("CREATE TABLE buffer_posts (id TEXT NOT NULL, canal TEXT NOT NULL, post_id TEXT NOT NULL, criado_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")

@@ -31,6 +31,10 @@ _VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input",
               "link", "meta", "param", "source", "track", "wbr"}
 
 _token = {"valor": None, "expira_em": 0}
+# A vitrine devolve 503 com frequência para datacenters. A revalidação logo
+# após a busca reaproveita a leitura desta rodada em vez de baixar de novo.
+_VALIDADE_LISTA_SEGUNDOS = 15 * 60
+_cache_lista = {"url": None, "em": 0.0, "ofertas": None}
 
 
 def esta_configurada() -> bool:
@@ -226,7 +230,18 @@ def _buscar_lista() -> list:
             continue
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista da Amazon")
+    _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
+                        ofertas=[dict(oferta) for oferta in ofertas.values()])
     return list(ofertas.values())
+
+
+def _lista_recente():
+    """Leitura bem-sucedida desta execução, se ainda estiver dentro da validade."""
+    if (_cache_lista["ofertas"] is None
+            or _cache_lista["url"] != config.AMAZON_LIST_URL
+            or time.monotonic() - _cache_lista["em"] > _VALIDADE_LISTA_SEGUNDOS):
+        return None
+    return [dict(oferta) for oferta in _cache_lista["ofertas"]]
 
 
 def _access_token() -> str:
@@ -406,7 +421,7 @@ def consultar_produtos(ids) -> dict:
         return resultado
     return {
         oferta["oferta_id"]: oferta
-        for oferta in buscar_ofertas()
+        for oferta in (_lista_recente() or buscar_ofertas())
         if oferta["oferta_id"] in procurados
     }
 

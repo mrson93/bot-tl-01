@@ -28,6 +28,27 @@ HTML = """
 
 
 class AmazonListaTest(unittest.TestCase):
+    def setUp(self):
+        amazon._cache_lista.update(url=None, em=0.0, ofertas=None)
+
+    def test_revalidacao_reaproveita_lista_da_rodada_sem_novo_download(self):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista",
+                                      return_value=HTML) as baixar:
+            amazon.buscar_ofertas()
+            oferta = amazon.revalidar_oferta({"oferta_id": "amazon_B0F9Z2DV83"})
+        self.assertEqual(509.90, oferta["price"])
+        baixar.assert_called_once()
+
+    def test_revalidacao_baixa_de_novo_quando_leitura_expirou(self):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista",
+                                      return_value=HTML) as baixar:
+            amazon.buscar_ofertas()
+            amazon._cache_lista["em"] -= amazon._VALIDADE_LISTA_SEGUNDOS + 1
+            amazon.revalidar_oferta({"oferta_id": "amazon_B0F9Z2DV83"})
+        self.assertEqual(2, baixar.call_count)
+
     def _config(self):
         return (
             patch.object(amazon.config, "AMAZON_LIST_URL", "https://amzn.to/lista"),

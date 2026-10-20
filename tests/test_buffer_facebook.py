@@ -114,6 +114,20 @@ class BufferFacebookTest(unittest.TestCase):
                     buffer_facebook.publicar_confirmado("oferta-1", "Facebook", criar)
             criar.assert_called_once()
 
+    def test_post_ainda_enviando_aguarda_ate_confirmar(self):
+        import tempfile
+        from pathlib import Path
+        import store
+        with tempfile.TemporaryDirectory() as pasta, \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"), \
+             patch.object(buffer_facebook, "consultar_status",
+                          side_effect=["sending", "sending", "sending", "sent"]), \
+             patch.object(buffer_facebook.time, "sleep") as esperar:
+            criar = unittest.mock.Mock(return_value="post_123")
+            self.assertEqual("post_123", buffer_facebook.publicar_confirmado(
+                "oferta-1", "Facebook", criar))
+        self.assertEqual([2, 3, 5], [c.args[0] for c in esperar.call_args_list])
+
     def test_post_em_erro_e_retentado_no_mesmo_id_apos_24_horas(self):
         import tempfile
         from pathlib import Path

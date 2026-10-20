@@ -48,6 +48,10 @@ import idempotencia
 FONTES = [shopee, aliexpress, amazon, mercadolivre]
 # Canais onde as ofertas sao publicadas.
 CANAIS = [telegram_poster, bluesky, facebook, buffer_x, instagram_stories]
+# Canais que definem uma "oferta nova". Completar só os demais (cotas por
+# turno de Facebook, X e Stories) não consome a vaga da rodada.
+CANAIS_PRINCIPAIS = [telegram_poster, bluesky]
+MAX_COMPLEMENTOS_POR_RODADA = 1
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 MENSAGENS_BOM_DIA = [
@@ -779,6 +783,7 @@ def buscar_candidatos(fonte) -> list:
                                     motivo=motivo, quantidade=total)
     if fonte.NOME in {"Amazon", "Mercado Livre"}:
         ineditas = sum(not store.ja_postada(o["oferta_id"]) for o in comerciais)
+        store.registrar_estoque_lista(fonte.NOME, ineditas, len(ofertas))
         try:
             monitor.avisar_estoque_lista(fonte.NOME, ineditas)
         except Exception as erro_alerta:
@@ -932,9 +937,24 @@ def _priorizar_campeao_no_pico(fila, agora=None):
     return fila
 
 
+def _so_completa_canais_secundarios(oferta):
+    """Indica uma oferta já entregue nos canais principais e pendente só nos demais."""
+    if oferta.get("_motivo") != "canal_pendente":
+        return False
+    ativos = canais_ativos()
+    principais = [canal.NOME for canal in CANAIS_PRINCIPAIS if canal in ativos]
+    if not principais:
+        return False
+    curada = (bool(oferta.get("curadoriaManual"))
+              and oferta.get("fonte") in {"Amazon", "Mercado Livre"})
+    preco = None if curada else float(oferta.get("price") or 0)
+    return not store.ha_canal_pendente(oferta["oferta_id"], principais, preco)
+
+
 def _publicar_fila(fila, limite):
     """Publica a fila global, alternando a plataforma após uma sequência longa."""
     postadas = 0
+    complementos = 0
     pendentes = list(fila)
     selecionadas = []
     lojas_hoje = store.posts_por_loja_hoje()
@@ -996,7 +1016,18 @@ def _publicar_fila(fila, limite):
         fonte = oferta["_fonte_obj"]
         oid = oferta["oferta_id"]
 
+        # Completar Facebook/X/Stories de uma oferta anterior não deve tirar
+        # a vez de uma oferta nova no Telegram e no Bluesky.
+        complemento = _so_completa_canais_secundarios(oferta)
+        if complemento:
+            if complementos >= MAX_COMPLEMENTOS_POR_RODADA:
+                continue
+            complementos += 1
         if publicar(fonte, oferta) == 0:
+            continue
+        if complemento:
+            print(f"   ↪️  Canais pendentes completados ({fonte.NOME}); "
+                  "a vaga da rodada segue livre para uma oferta nova.")
             continue
         store.marcar_postada(
             oid, oferta.get("price"), oferta.get("priceDiscountRate"), fonte.NOME,

@@ -41,7 +41,7 @@ bot. Shopee e AliExpress são abastecidos pelas APIs dos programas de afiliados.
 
 Este documento deve ser o primeiro arquivo lido por uma pessoa ou IA que assumir
 o projeto. O código é a fonte de verdade final. Alguns documentos mais antigos,
-especialmente `PROXIMOS-PASSOS.md`, descrevem etapas que já foram concluídas e
+especialmente `docs/arquivo/PROXIMOS-PASSOS-2026-08.md`, descrevem etapas que já foram concluídas e
 podem estar desatualizados.
 
 Para conferir o estado atual, consulte `git status`, `git log -1` e
@@ -250,7 +250,10 @@ Regras padrão de repetição:
 - pode voltar antes se o preço cair pelo menos 15% em relação à última
   publicação;
 - produtos semelhantes ficam bloqueados por uma janela própria;
-- a entrega é controlada por produto **e por canal**.
+- a entrega é controlada por produto **e por canal**;
+- completar só Facebook, X ou Stories de uma oferta já entregue no Telegram e
+  no Bluesky não consome a vaga da rodada: a mesma execução ainda publica uma
+  oferta nova (no máximo um complemento por rodada).
 
 A pontuação considera desconto, comissão estimada, preferência moderada da
 fonte, histórico recente de conversão/comissão, cancelamentos, categoria,

@@ -1,5 +1,6 @@
 """Estado persistente do bot: histórico, entregas e agendamento."""
 import datetime
+import json
 import math
 import sqlite3
 import time
@@ -280,6 +281,33 @@ def _estado(chave):
 def _definir_estado(chave, valor):
     with _conn() as con:
         con.execute("INSERT INTO estado(chave,valor) VALUES(?,?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor", (chave, str(valor)))
+
+
+def registrar_estoque_lista(loja, ineditas, total, agora=None):
+    """Guarda quantos produtos inéditos restam numa lista curada."""
+    slug = str(loja).lower().replace(" ", "_")
+    _definir_estado(f"estoque_lista_atual:{slug}", json.dumps({
+        "loja": loja, "ineditas": int(ineditas), "total": int(total),
+        "em": int(agora or time.time()),
+    }))
+
+
+def estoque_listas(max_idade_horas=48, agora=None):
+    """Último estoque conhecido de cada lista curada, ignorando leituras antigas."""
+    limite = int(agora or time.time()) - max_idade_horas * 3600
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT valor FROM estado WHERE chave LIKE 'estoque_lista_atual:%'"
+        ).fetchall()
+    estoque = {}
+    for (valor,) in linhas:
+        try:
+            dados = json.loads(valor)
+        except (TypeError, ValueError):
+            continue
+        if int(dados.get("em") or 0) >= limite:
+            estoque[dados["loja"]] = dados
+    return estoque
 
 
 def proximo_post():

@@ -810,6 +810,55 @@ class MainTest(unittest.TestCase):
             self.assertEqual(1, main._publicar_fila(fila, 1))
         self.assertEqual("panela", publicar.call_args.args[1]["oferta_id"])
 
+    def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        fila = [
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "antiga-1",
+             "productName": "Panela antiaderente", "categoria": "cozinha",
+             "_motivo": "canal_pendente", "price": 50},
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "antiga-2",
+             "productName": "Garrafa térmica", "categoria": "casa",
+             "_motivo": "canal_pendente", "price": 40},
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "nova",
+             "productName": "Fone Bluetooth", "categoria": "eletronicos",
+             "_motivo": "inedita", "price": 80},
+        ]
+        with patch.object(main, "canais_ativos",
+                          return_value=[main.telegram_poster, main.bluesky,
+                                        main.facebook]), \
+             patch.object(main.store, "ha_canal_pendente", return_value=False), \
+             patch.object(main.store, "marcar_postada") as marcar, \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.desempenho, "produtos_semelhantes", return_value=False), \
+             patch.object(main.time, "sleep"):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+
+        # Só um complemento por rodada; a oferta nova ocupa a vaga normal.
+        self.assertEqual(["antiga-1", "nova"],
+                         [c.args[1]["oferta_id"] for c in publicar.call_args_list])
+        marcar.assert_called_once()
+        self.assertEqual("nova", marcar.call_args.args[0])
+
+    def test_reenvio_pendente_no_telegram_continua_contando_na_rodada(self):
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        fila = [
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "falhou",
+             "productName": "Panela antiaderente", "categoria": "cozinha",
+             "_motivo": "canal_pendente", "price": 50},
+            {"_fonte_obj": fonte, "fonte": "Shopee", "oferta_id": "nova",
+             "productName": "Fone Bluetooth", "categoria": "eletronicos",
+             "_motivo": "inedita", "price": 80},
+        ]
+        with patch.object(main, "canais_ativos",
+                          return_value=[main.telegram_poster, main.bluesky]), \
+             patch.object(main.store, "ha_canal_pendente", return_value=True), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.time, "sleep"):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+        self.assertEqual(["falhou"],
+                         [c.args[1]["oferta_id"] for c in publicar.call_args_list])
+
     def test_rodada_espera_intervalo_configurado_entre_posts(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

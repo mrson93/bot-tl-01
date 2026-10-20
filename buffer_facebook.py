@@ -16,6 +16,9 @@ import store
 API_URL = "https://api.buffer.com"
 _CHANNEL_ID = re.compile(r"^[0-9a-f]{24}$", re.IGNORECASE)
 _MAX_IMAGEM_HOSPEDADA = 850_000
+# O Buffer costuma ficar em "sending" por mais de 4 s. Esperar um pouco mais
+# evita registrar como falha um post que já está saindo (e gastar outra rodada).
+_ESPERAS_ENVIO = (2, 3, 5, 8)
 
 _CREATE_POST = """
 mutation CreateFacebookPost($input: CreatePostInput!) {
@@ -202,7 +205,7 @@ def publicar_confirmado(oferta_id: str, canal_nome: str, criar,
         post_id = str(criar())
         store.registrar_buffer_post(oferta_id, canal_nome, post_id)
         info = store.buffer_post_info(oferta_id, canal_nome)
-    for tentativa in range(3):
+    for tentativa in range(len(_ESPERAS_ENVIO) + 1):
         status = consultar_status(post_id, api_key)
         if status == "sent":
             return post_id
@@ -214,9 +217,9 @@ def publicar_confirmado(oferta_id: str, canal_nome: str, criar,
                 retentar_post_com_erro(post_id, api_key)
                 info = store.buffer_post_info(oferta_id, canal_nome)
                 continue
-        if status not in {"sending"} or tentativa == 2:
+        if status not in {"sending"} or tentativa == len(_ESPERAS_ENVIO):
             break
-        time.sleep(2)
+        time.sleep(_ESPERAS_ENVIO[tentativa])
     raise RuntimeError(f"Buffer recebeu o post {post_id}, mas estado atual: {status}")
 
 

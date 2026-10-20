@@ -249,6 +249,8 @@ TELEGRAM_ADMIN_ID = _get("TELEGRAM_ADMIN_ID")
 RELATORIO_HORA = _int("RELATORIO_HORA", 11)
 RELATORIO_MINUTO = max(0, min(59, _int("RELATORIO_MINUTO", 30)))
 RELATORIO_ALERTA_MIN_POSTS = _int("RELATORIO_ALERTA_MIN_POSTS", 10)
+# Abaixo deste número de produtos inéditos, o relatório pede itens novos na lista curada.
+ESTOQUE_LISTA_ALERTA = _int("ESTOQUE_LISTA_ALERTA", 10)
 FALHAS_CONSECUTIVAS_ALERTA = _int("FALHAS_CONSECUTIVAS_ALERTA", 3)
 # Na nuvem, o controlador do Telegram agenda o relatório sem gastar uma
 # execução do GitHub a cada verificação. Instalações locais mantêm o padrão.

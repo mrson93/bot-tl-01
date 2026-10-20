@@ -63,6 +63,7 @@ Novas variáveis:
 | `RELATORIO_HORA` | `11` | Hora a partir da qual o resumo pode ser enviado |
 | `RELATORIO_MINUTO` | `30` | Minuto a partir do qual o resumo pode ser enviado |
 | `RELATORIO_ALERTA_MIN_POSTS` | `10` | Posts sem conversão necessários para gerar alerta |
+| `ESTOQUE_LISTA_ALERTA` | `10` | Inéditos restantes na lista curada que geram aviso no relatório |
 | `FALHAS_CONSECUTIVAS_ALERTA` | `3` | Falhas seguidas necessárias para gerar alerta |
 | `FACEBOOK_ATIVO` | `false` | Ativa ofertas na Página depois que ID e token existirem |
 | `FACEBOOK_PAGE_ID` | vazio | Identificador numérico da Página administrada |
@@ -255,6 +256,9 @@ Se o Botize não fornecer preço anterior real, use apenas `💰 {{preco_atual}}
 Omita as linhas de avaliação, vendas, vendedor e cupom quando não houver dados.
 
 ## Comandos
+
+Use Python 3.12, a mesma versão do CI (veja `.python-version`), e instale as
+dependências com `pip install -r requirements.txt` antes de rodar os testes.
 
 ```text
 python main.py --check
