@@ -47,7 +47,7 @@ PAUTAS = [
                    "Versão do Bluetooth, cancelamento de ruído e microfone",
                    "Autonomia da bateria e resistência à água"]},
     {"slug": "melhor-power-bank-ate-150-reais", "genero": "m", "busca": "power bank", "nome": "power bank",
-     "plural": "power banks", "preco_max": 150, "termos": ["power bank", "carregador portatil"],
+     "plural": "power banks", "preco_max": 150, "termos": ["power bank", "powerbank", "carregador portatil", "bateria portatil"],
      "excluir": ["capa", "case", "bolsa", "suporte", "cabo para"],
      "criterios": ["Capacidade em mAh e quantas cargas ela rende",
                    "Potência de saída e carregamento rápido (PD/QC)",
@@ -183,19 +183,43 @@ def _pontuacao(produto) -> float:
     return nota
 
 
-def _apto(produto, pauta) -> bool:
+# O tipo do produto precisa aparecer no começo do título: "Cabo USB-C ... para
+# Power Bank" e "Fone TWS ... com Power Bank" não são power banks.
+_POSICAO_MAX_TERMO = 6
+
+
+def _posicao_palavra(titulo: str, termo: str):
+    achado = re.search(rf"(?<![a-z0-9]){re.escape(_normalizar(termo))}(?![a-z0-9])", titulo)
+    return len(titulo[:achado.start()].split()) if achado else None
+
+
+def motivo_rejeicao(produto, pauta):
     titulo = _normalizar(produto.get("productName"))
     try:
         preco = float(produto.get("price") or 0)
     except (TypeError, ValueError):
-        return False
-    vendas = int(float(produto.get("sales") or 0))
-    return (pauta["preco_max"] * 0.15 <= preco <= pauta["preco_max"]
-            and _nota(produto) >= 4.5 and vendas >= 50
-            and any(_contem(titulo, termo) for termo in pauta["termos"])
-            and not any(_contem(titulo, termo) for termo in pauta["excluir"])
-            and not desempenho.parece_replica(produto)
-            and produto.get("productUrl") and str(produto.get("imageUrl") or "").startswith("https://"))
+        return "preco"
+    if not pauta["preco_max"] * 0.15 <= preco <= pauta["preco_max"]:
+        return "preco"
+    if _nota(produto) < 4.5:
+        return "avaliacao"
+    if int(float(produto.get("sales") or 0)) < 50:
+        return "vendas"
+    posicoes = [p for p in (_posicao_palavra(titulo, termo) for termo in pauta["termos"])
+                if p is not None]
+    if not posicoes or min(posicoes) >= _POSICAO_MAX_TERMO:
+        return "fora_do_tema"
+    if any(_contem(titulo, termo) for termo in pauta["excluir"]):
+        return "acessorio"
+    if desempenho.parece_replica(produto):
+        return "replica"
+    if not produto.get("productUrl") or not str(produto.get("imageUrl") or "").startswith("https://"):
+        return "sem_link_ou_imagem"
+    return None
+
+
+def _apto(produto, pauta) -> bool:
+    return motivo_rejeicao(produto, pauta) is None
 
 
 def buscar_candidatos(pauta) -> list:
@@ -220,6 +244,14 @@ def buscar_candidatos(pauta) -> list:
 def selecionar(produtos, pauta, limite=MAX_PRODUTOS) -> list:
     """Melhores aptos, sem modelos repetidos e no máximo um por loja."""
     escolhidos, lojas = [], set()
+    motivos = {}
+    for produto in produtos:
+        motivo = motivo_rejeicao(produto, pauta)
+        if motivo:
+            motivos[motivo] = motivos.get(motivo, 0) + 1
+    if produtos:
+        detalhe = ", ".join(f"{m}={q}" for m, q in sorted(motivos.items())) or "nenhuma"
+        print(f"   Diagnostico guia {pauta['slug']}: recebidos={len(produtos)}; rejeicoes: {detalhe}.")
     for produto in sorted((p for p in produtos if _apto(p, pauta)),
                           key=_pontuacao, reverse=True):
         loja = str(produto.get("shopName") or "").strip().casefold()
@@ -365,13 +397,39 @@ def _gerar_link(produto) -> str:
     return fonte.gerar_link(produto["productUrl"], tracking, ["guia"])
 
 
+# Suba quando a seleção mudar de forma relevante: guias publicados com uma
+# versão anterior são refeitos antes de qualquer pauta nova.
+VERSAO_SELECAO = 2
+
+
+def _desatualizado(pauta) -> bool:
+    publicado = store._estado(f"guia_atualizado:{pauta['slug']}")
+    versao = store._estado(f"guia_versao:{pauta['slug']}")
+    return bool(publicado) and str(versao) != str(VERSAO_SELECAO)
+
+
 def proxima_pauta(agora=None):
-    """Pauta nunca publicada primeiro; depois a atualizada há mais tempo."""
+    """Guias de versão antiga primeiro; depois inéditos; depois os mais antigos."""
     momento = int(agora or time.time())
     def idade(pauta):
         return int(store._estado(f"guia_atualizado:{pauta['slug']}") or 0)
+    revisar = [p for p in PAUTAS if _desatualizado(p)]
+    if revisar:
+        return min(revisar, key=idade)
     candidatas = [p for p in PAUTAS if momento - idade(p) >= 5 * 86400]
     return min(candidatas, key=idade) if candidatas else None
+
+
+def arquivar(pauta) -> None:
+    """Tira do ar um guia que não pode mais ser montado com qualidade."""
+    resposta = requests.post(
+        site_publisher._api_path("/api/editorial-guides"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={"topic": pauta["slug"], "status": "archived"},
+        timeout=30, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou arquivar o guia ({resposta.status_code})")
 
 
 def publicar(guia) -> dict:
@@ -388,7 +446,7 @@ def publicar(guia) -> dict:
 def gerar_guia_do_dia(agora=None) -> bool:
     """No máximo um guia por dia; nunca interrompe a rodada de ofertas."""
     agora = agora or datetime.now(FUSO)
-    chave_dia = f"guia_dia:{agora.date().isoformat()}"
+    chave_dia = f"guia_dia:{agora.date().isoformat()}:v{VERSAO_SELECAO}"
     if (not config.BLOG_GUIAS_AUTOMATICOS or not site_publisher.esta_configurado()
             or agora.hour < config.BLOG_GUIAS_HORA or store._estado(chave_dia)):
         return False
@@ -403,12 +461,19 @@ def gerar_guia_do_dia(agora=None) -> bool:
             produtos = selecionar(buscar_candidatos(pauta), pauta)
             if len(produtos) < MIN_PRODUTOS:
                 print(f"📝 Guia '{pauta['slug']}' adiado: só {len(produtos)} produto(s) aptos.")
+                if _desatualizado(pauta):
+                    # Melhor sem página do que com uma seleção que não é do tema.
+                    arquivar(pauta)
+                    print(f"📝 Guia antigo '{pauta['slug']}' arquivado até haver produtos aptos.")
+                # Tentada com a seleção atual: não deve voltar como "desatualizada".
+                store._definir_estado(f"guia_versao:{pauta['slug']}", VERSAO_SELECAO)
                 # Volta ao fim da fila para não travar o rodízio.
                 store._definir_estado(f"guia_atualizado:{pauta['slug']}", int(agora.timestamp()))
                 continue
             links = {id(p): _gerar_link(p) for p in produtos}
             resultado = publicar(montar_guia(pauta, produtos, links, agora))
             store._definir_estado(f"guia_atualizado:{pauta['slug']}", int(agora.timestamp()))
+            store._definir_estado(f"guia_versao:{pauta['slug']}", VERSAO_SELECAO)
             endereco = f"{config.SITE_PUBLICO_URL}/blog/{resultado.get('slug') or pauta['slug']}"
             print(f"📝 Guia publicado: {endereco}")
             return True

@@ -40,6 +40,18 @@ test('guia automático exige o token de publicação e uma pauta válida',async(
   assert.equal((await guides({request:request({...guide,products:[product(1)]}),env,waitUntil(){}})).status,400);
 });
 
+test('guia sem produtos aptos pode ser arquivado só pelo token de publicação',async()=>{
+  const runs=[];
+  const DB={prepare(sql){return {sql,args:[],bind(...args){this.args=args;return this;},async run(){runs.push({sql,args:this.args});return {meta:{changes:1}};}};}};
+  const archived={topic:'melhor-power-bank-ate-150-reais',status:'archived'};
+  assert.equal((await guides({request:request(archived,'errado'),env:{DB,PUBLISH_TOKEN:TOKEN}})).status,401);
+  const response=await guides({request:request(archived),env:{DB,PUBLISH_TOKEN:TOKEN}});
+  assert.equal(response.status,200);
+  assert.equal(runs.length,1);
+  assert.match(runs[0].sql,/SET status='archived'/);
+  assert.equal(runs[0].args[1],'guia-auto-melhor-power-bank-ate-150-reais');
+});
+
 test('guia é gravado com id próprio, publicado e sem tocar em matérias do painel',async()=>{
   const DB=database(),pending=[],pings=[],originalFetch=globalThis.fetch;
   globalThis.fetch=async(url)=>{pings.push(String(url));return {ok:true,status:200};};

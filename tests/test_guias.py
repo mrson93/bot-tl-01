@@ -82,12 +82,49 @@ class GuiasTest(unittest.TestCase):
         self.assertEqual(["Avaliação", "Vendidos"], list(primeiro["specs"])[:2])
         self.assertEqual("published", guia["status"])
 
+    def test_tipo_do_produto_precisa_estar_no_inicio_do_titulo(self):
+        pauta = next(p for p in guias.PAUTAS if p["slug"] == "melhor-power-bank-ate-150-reais")
+        cabo = produto(1, price="49.90", productName="Cabo USB4 Curto USB-C para USB-C, "
+                       "Transferência de Dados de 40Gbps, Carregamento Rápido PD 240W, Power Bank")
+        fone = produto(2, price="59.90", productName="Fone De Ouvido Bluetooth Tws M10 F9 "
+                       "C/ Power Bank Tela Digital")
+        junto = produto(3, price="79.90", productName="Powerbank 10000mah Bateria Portátil 23W")
+        self.assertEqual("fora_do_tema", guias.motivo_rejeicao(cabo, pauta))
+        self.assertEqual("fora_do_tema", guias.motivo_rejeicao(fone, pauta))
+        self.assertIsNone(guias.motivo_rejeicao(junto, pauta))
+
+    def test_guia_de_versao_antiga_e_refeito_antes_das_pautas_novas(self):
+        agora = 2_000_000_000
+        antigo = guias.PAUTAS[2]["slug"]
+        store._definir_estado(f"guia_atualizado:{antigo}", agora - 3600)
+        self.assertEqual(antigo, guias.proxima_pauta(agora)["slug"])
+        store._definir_estado(f"guia_versao:{antigo}", guias.VERSAO_SELECAO)
+        self.assertEqual(guias.PAUTAS[0]["slug"], guias.proxima_pauta(agora)["slug"])
+
+    def test_guia_antigo_sem_produtos_aptos_e_arquivado(self):
+        agora = datetime(2026, 10, 21, 13, tzinfo=guias.FUSO)
+        antigo = guias.PAUTAS[2]
+        store._definir_estado(f"guia_atualizado:{antigo['slug']}", int(agora.timestamp()) - 3600)
+        with patch.object(guias.config, "BLOG_GUIAS_AUTOMATICOS", True), \
+             patch.object(guias.config, "BLOG_GUIAS_HORA", 9), \
+             patch.object(guias.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(guias, "buscar_candidatos", return_value=[]), \
+             patch.object(guias, "arquivar") as arquivar, \
+             patch.object(guias, "publicar") as publicar:
+            guias.gerar_guia_do_dia(agora)
+        arquivar.assert_called_once_with(antigo)
+        publicar.assert_not_called()
+        self.assertEqual(str(guias.VERSAO_SELECAO),
+                         str(store._estado(f"guia_versao:{antigo['slug']}")))
+
     def test_rodizio_prioriza_pauta_inedita_e_respeita_intervalo(self):
         agora = 2_000_000_000
         for pauta in guias.PAUTAS[1:]:
             store._definir_estado(f"guia_atualizado:{pauta['slug']}", agora - 86400)
+            store._definir_estado(f"guia_versao:{pauta['slug']}", guias.VERSAO_SELECAO)
         self.assertEqual(guias.PAUTAS[0]["slug"], guias.proxima_pauta(agora)["slug"])
         store._definir_estado(f"guia_atualizado:{guias.PAUTAS[0]['slug']}", agora)
+        store._definir_estado(f"guia_versao:{guias.PAUTAS[0]['slug']}", guias.VERSAO_SELECAO)
         self.assertIsNone(guias.proxima_pauta(agora))
 
     def test_um_guia_por_dia_e_pula_pauta_sem_produtos_suficientes(self):

@@ -16,6 +16,12 @@ export async function onRequestPost(context) {
   }
   const topic=String(body?.topic||'');
   if(!GUIDE_ID.test(topic)) return json({error:'invalid_topic'},400);
+  if(body.status==='archived'){
+    // Tira do ar um guia que deixou de ter produtos aptos, sem apagar o histórico.
+    const now=Math.floor(Date.now()/1000);
+    await env.DB.prepare("UPDATE blog_posts SET status='archived',updated_at=? WHERE id=?").bind(now,`guia-auto-${topic}`).run();
+    return json({ok:true,id:`guia-auto-${topic}`,status:'archived'});
+  }
   const products=Array.isArray(body.products)?body.products:[];
   if(products.length<3) return json({error:'not_enough_products'},400);
   return saveBlogPost(context,{
