@@ -187,7 +187,14 @@ def _pontuacao(produto) -> float:
 
 # O tipo do produto precisa aparecer no começo do título: "Cabo USB-C ... para
 # Power Bank" e "Fone TWS ... com Power Bank" não são power banks.
-_POSICAO_MAX_TERMO = 6
+_POSICAO_MAX_TERMO = 4
+
+
+# Acessórios e móveis que citam o produto ("Suporte para Air Fryer") valem
+# para todas as pautas, além das exclusões específicas de cada uma.
+_ACESSORIOS_GERAIS = ("suporte", "nicho", "prateleira", "organizador", "capa", "capinha",
+                      "pelicula", "adesivo", "refil", "peca de reposicao", "kit acessorios",
+                      "case para", "bolsa para", "tampa para")
 
 
 def _posicao_palavra(titulo: str, termo: str):
@@ -211,7 +218,7 @@ def motivo_rejeicao(produto, pauta):
                 if p is not None]
     if not posicoes or min(posicoes) >= _POSICAO_MAX_TERMO:
         return "fora_do_tema"
-    if any(_contem(titulo, termo) for termo in pauta["excluir"]):
+    if any(_contem(titulo, termo) for termo in (*pauta["excluir"], *_ACESSORIOS_GERAIS)):
         return "acessorio"
     if desempenho.parece_replica(produto):
         return "replica"
@@ -259,6 +266,18 @@ def buscar_candidatos(pauta) -> list:
     return produtos
 
 
+def _mesmo_produto(a, b) -> bool:
+    """Mesmo modelo vendido por lojas diferentes: título quase igual, ou mesma
+    ficha técnica (capacidade, potência...) com título parecido."""
+    semelhanca = desempenho.similaridade_produtos(a, b.get("productName"))
+    if semelhanca >= 0.85:
+        return True
+    ficha_a, ficha_b = extrair_ficha(a.get("productName")), extrair_ficha(b.get("productName"))
+    comuns = [chave for chave in ficha_a if chave in ficha_b and chave != "Voltagem"]
+    return (len(comuns) >= 1 and all(ficha_a[c] == ficha_b[c] for c in comuns)
+            and semelhanca >= 0.3)
+
+
 def selecionar(produtos, pauta, limite=MAX_PRODUTOS) -> list:
     """Melhores aptos, sem modelos repetidos e no máximo um por loja."""
     escolhidos, lojas = [], set()
@@ -277,8 +296,7 @@ def selecionar(produtos, pauta, limite=MAX_PRODUTOS) -> list:
             continue
         # Só barra anúncios praticamente iguais: modelos diferentes da mesma
         # categoria costumam ter títulos parecidos, e é isso que comparamos.
-        if any(desempenho.produtos_semelhantes(produto, outro.get("productName"), 0.85)
-               for outro in escolhidos):
+        if any(_mesmo_produto(produto, outro) for outro in escolhidos):
             continue
         escolhidos.append(produto)
         if loja:
@@ -417,7 +435,7 @@ def _gerar_link(produto) -> str:
 
 # Suba quando a seleção mudar de forma relevante: guias publicados com uma
 # versão anterior são refeitos antes de qualquer pauta nova.
-VERSAO_SELECAO = 2
+VERSAO_SELECAO = 3
 
 
 def _desatualizado(pauta) -> bool:
@@ -475,11 +493,12 @@ def gerar_guia_do_dia(agora=None) -> bool:
         if not pauta:
             return False
         tentadas += 1
+        reparo = _desatualizado(pauta)
         try:
             produtos = selecionar(buscar_candidatos(pauta), pauta)
             if len(produtos) < MIN_PRODUTOS:
                 print(f"📝 Guia '{pauta['slug']}' adiado: só {len(produtos)} produto(s) aptos.")
-                if _desatualizado(pauta):
+                if reparo:
                     # Melhor sem página do que com uma seleção que não é do tema.
                     try:
                         arquivar(pauta)
@@ -496,9 +515,10 @@ def gerar_guia_do_dia(agora=None) -> bool:
             resultado = publicar(montar_guia(pauta, produtos, links, agora))
             store._definir_estado(f"guia_atualizado:{pauta['slug']}", int(agora.timestamp()))
             store._definir_estado(f"guia_versao:{pauta['slug']}", VERSAO_SELECAO)
-            # A trava diária conta só guias publicados: tentativas sem produtos
-            # aptos não impedem que a próxima rodada tente outra pauta.
-            store._definir_estado(chave_dia, "publicado")
+            # A trava diária conta só guias novos publicados. Reparos de guias
+            # antigos e tentativas sem produtos aptos não ocupam a vaga do dia.
+            if not reparo:
+                store._definir_estado(chave_dia, "publicado")
             endereco = f"{config.SITE_PUBLICO_URL}/blog/{resultado.get('slug') or pauta['slug']}"
             print(f"📝 Guia publicado: {endereco}")
             return True

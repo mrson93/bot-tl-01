@@ -93,6 +93,19 @@ class GuiasTest(unittest.TestCase):
         self.assertEqual("fora_do_tema", guias.motivo_rejeicao(fone, pauta))
         self.assertIsNone(guias.motivo_rejeicao(junto, pauta))
 
+    def test_mesmo_modelo_em_lojas_diferentes_e_acessorio_nao_entram(self):
+        g1 = produto(1, productName="Mini Air Fryer Fritadeira Elétrica Sem Óleo 1.4L Individual 900w - Gaabor")
+        g2 = produto(2, productName="Gaabor Fritadeira Elétrica sem Óleo Air Fryer 1,4L 220V/127V 900W com Timer")
+        g3 = produto(3, productName="Air Fryer Gaabor 1,4L Compacta Sem Óleo 900W Antiaderente Rose Gold 127V")
+        mondial = produto(4, productName="Fritadeira Elétrica sem Óleo Air Fryer Mondial 4L 1500W 220V")
+        suporte = produto(5, productName="Suporte Duplo Microondas e Air Fryer Grande Industrial Reforçado 50kg")
+        self.assertTrue(guias._mesmo_produto(g2, g1))
+        self.assertTrue(guias._mesmo_produto(g3, g1))
+        self.assertFalse(guias._mesmo_produto(mondial, g1))
+        self.assertIn(guias.motivo_rejeicao(suporte, PAUTA), {"acessorio", "fora_do_tema"})
+        escolhidos = guias.selecionar([g1, g2, g3, mondial, suporte], PAUTA)
+        self.assertEqual(2, len(escolhidos))
+
     def test_guia_de_versao_antiga_e_refeito_antes_das_pautas_novas(self):
         agora = 2_000_000_000
         antigo = guias.PAUTAS[2]["slug"]
