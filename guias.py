@@ -466,7 +466,8 @@ def gerar_guia_do_dia(agora=None) -> bool:
     agora = agora or datetime.now(FUSO)
     chave_dia = f"guia_dia:{agora.date().isoformat()}:v{VERSAO_SELECAO}"
     if (not config.BLOG_GUIAS_AUTOMATICOS or not site_publisher.esta_configurado()
-            or agora.hour < config.BLOG_GUIAS_HORA or store._estado(chave_dia)):
+            or agora.hour < config.BLOG_GUIAS_HORA
+            or store._estado(chave_dia) == "publicado"):
         return False
     tentadas = 0
     while tentadas < 3:
