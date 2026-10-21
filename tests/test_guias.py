@@ -106,6 +106,16 @@ class GuiasTest(unittest.TestCase):
         escolhidos = guias.selecionar([g1, g2, g3, mondial, suporte], PAUTA)
         self.assertEqual(2, len(escolhidos))
 
+    def test_codigo_de_modelo_igual_indica_mesmo_produto(self):
+        a = produto(1, productName="Fone de Ouvido Bluetooth Kimaster TWS300 TWS350 | Touch | Estojo")
+        b = produto(2, productName="Fone de Ouvido TWS Bluetooth TWS300 Kimaster 20h de Bateria academia")
+        c = produto(3, productName="Fone De Ouvido Sem Fio Bluetooth M25 TWS Com Controle De Toque")
+        self.assertTrue(guias._mesmo_produto(b, a))
+        self.assertFalse(guias._mesmo_produto(c, a))
+        self.assertEqual(set(), guias._codigos_modelo("Air Fryer 5L 1500W 220V 20h"))
+        self.assertTrue(guias.desempenho.parece_replica(
+            {"productName": "Fone de Ouvido airpod TWS Bluetooth", "shopName": "Loja X"}))
+
     def test_guia_de_versao_antiga_e_refeito_antes_das_pautas_novas(self):
         agora = 2_000_000_000
         antigo = guias.PAUTAS[2]["slug"]

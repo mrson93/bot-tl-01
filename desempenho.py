@@ -208,7 +208,7 @@ def _contem_termo(texto: str, termo: str) -> bool:
 # Marcas muito copiadas. Um produto genérico usando o nome delas no título
 # derruba a confiança no canal, então só passa quando a própria loja é da marca
 # ou quando o título descreve um acessório compatível.
-MARCAS_COPIADAS = ("airpods", "apple watch", "iphone", "jbl", "stanley", "dyson",
+MARCAS_COPIADAS = ("airpods", "airpod", "apple watch", "iphone", "jbl", "stanley", "dyson",
                    "rolex", "nike", "adidas", "lacoste", "ray ban", "rayban",
                    "oakley", "lego")
 _TERMOS_ACESSORIO = ("capa", "capinha", "case", "pelicula", "pulseira", "suporte",

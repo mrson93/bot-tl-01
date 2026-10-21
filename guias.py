@@ -266,11 +266,25 @@ def buscar_candidatos(pauta) -> list:
     return produtos
 
 
+_UNIDADE = re.compile(r"^\d+(?:[.,]\d+)?(?:l|ml|w|h|mah|gb|tb|v|mm|cm|m|g|kg|pcs|pecas|x)$")
+
+
+def _codigos_modelo(titulo) -> set:
+    palavras = re.findall(r"[a-z0-9]+", _normalizar(titulo))
+    return {p for p in palavras
+            if len(p) >= 3 and re.search(r"[a-z]", p) and re.search(r"\d", p)
+            and not _UNIDADE.match(p) and not p.startswith(("usb", "bluetooth"))}
+
+
 def _mesmo_produto(a, b) -> bool:
     """Mesmo modelo vendido por lojas diferentes: título quase igual, ou mesma
     ficha técnica (capacidade, potência...) com título parecido."""
     semelhanca = desempenho.similaridade_produtos(a, b.get("productName"))
     if semelhanca >= 0.85:
+        return True
+    # Códigos de modelo (TWS300, BFR38, M25) identificam o produto mesmo quando
+    # cada loja escreve o título de um jeito.
+    if _codigos_modelo(a.get("productName")) & _codigos_modelo(b.get("productName")):
         return True
     ficha_a, ficha_b = extrair_ficha(a.get("productName")), extrair_ficha(b.get("productName"))
     comuns = [chave for chave in ficha_a if chave in ficha_b and chave != "Voltagem"]
@@ -435,7 +449,7 @@ def _gerar_link(produto) -> str:
 
 # Suba quando a seleção mudar de forma relevante: guias publicados com uma
 # versão anterior são refeitos antes de qualquer pauta nova.
-VERSAO_SELECAO = 3
+VERSAO_SELECAO = 4
 
 
 def _desatualizado(pauta) -> bool:
