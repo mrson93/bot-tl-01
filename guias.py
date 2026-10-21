@@ -36,12 +36,14 @@ _MESES = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
 PAUTAS = [
     {"slug": "melhor-air-fryer-ate-600-reais", "genero": "f", "busca": "air fryer", "nome": "air fryer",
      "plural": "air fryers", "preco_max": 600, "termos": ["air fryer", "fritadeira eletrica"],
+     "buscas_extras": ["fritadeira eletrica air fryer 4l", "air fryer mondial"],
      "excluir": ["forma", "papel", "forro", "cesto", "tapete", "acessorio", "kit acessorios"],
      "criterios": ["Capacidade útil do cesto (em litros) para o tamanho da família",
                    "Potência e faixa de temperatura",
                    "Facilidade de limpeza, revestimento antiaderente e voltagem"]},
     {"slug": "melhor-fone-bluetooth-ate-200-reais", "genero": "m", "busca": "fone bluetooth", "nome": "fone bluetooth",
      "plural": "fones bluetooth", "preco_max": 200, "termos": ["fone", "headphone", "earbud", "headset"],
+     "buscas_extras": ["fone de ouvido bluetooth sem fio"],
      "excluir": ["capa", "case para", "estojo para", "almofada", "espuma", "suporte", "cabo"],
      "criterios": ["Formato (intra-auricular, over-ear) e conforto",
                    "Versão do Bluetooth, cancelamento de ruído e microfone",
@@ -223,21 +225,37 @@ def _apto(produto, pauta) -> bool:
 
 
 def buscar_candidatos(pauta) -> list:
-    """Consulta as lojas oficiais pela busca da pauta (sem depender das redes)."""
-    produtos = []
+    """Consulta as lojas oficiais pela busca da pauta (sem depender das redes).
+
+    A busca da Shopee mistura muitos acessórios baratos; por isso cada pauta
+    pode ter buscas alternativas e lemos duas páginas de cada lista.
+    """
+    produtos, vistos = [], set()
+
+    def juntar(itens):
+        for item in itens:
+            if item.get("oferta_id") and item["oferta_id"] not in vistos:
+                vistos.add(item["oferta_id"])
+                produtos.append(item)
+
+    buscas = [pauta["busca"]] + list(pauta.get("buscas_extras") or [])
     if shopee.esta_configurada() and config.loja_ativa(shopee.NOME):
-        for lista in (0, 2):
-            try:
-                produtos += [shopee._normalizar_produto(n)
-                             for n in shopee._buscar_pagina(1, lista, pauta["busca"])]
-            except Exception as erro:
-                print(f"   ⚠️  Guia: busca Shopee indisponível ({seguranca.redigir_segredos(erro)})")
+        for termo in buscas:
+            for lista in (0, 2):
+                for pagina in (1, 2):
+                    try:
+                        juntar(shopee._normalizar_produto(n)
+                               for n in shopee._buscar_pagina(pagina, lista, termo))
+                    except Exception as erro:
+                        print(f"   ⚠️  Guia: busca Shopee indisponível ({seguranca.redigir_segredos(erro)})")
+                        break
     if aliexpress.esta_configurada() and config.loja_ativa(aliexpress.NOME):
-        try:
-            produtos += [aliexpress._normalizar_produto(p)
-                         for p in aliexpress._buscar_pagina(1, pauta["busca"])]
-        except Exception as erro:
-            print(f"   ⚠️  Guia: busca AliExpress indisponível ({seguranca.redigir_segredos(erro)})")
+        for termo in buscas:
+            try:
+                juntar(aliexpress._normalizar_produto(p)
+                       for p in aliexpress._buscar_pagina(1, termo))
+            except Exception as erro:
+                print(f"   ⚠️  Guia: busca AliExpress indisponível ({seguranca.redigir_segredos(erro)})")
     return produtos
 
 
@@ -450,7 +468,6 @@ def gerar_guia_do_dia(agora=None) -> bool:
     if (not config.BLOG_GUIAS_AUTOMATICOS or not site_publisher.esta_configurado()
             or agora.hour < config.BLOG_GUIAS_HORA or store._estado(chave_dia)):
         return False
-    store._definir_estado(chave_dia, "tentado")
     tentadas = 0
     while tentadas < 3:
         pauta = proxima_pauta(agora.timestamp())
@@ -463,8 +480,12 @@ def gerar_guia_do_dia(agora=None) -> bool:
                 print(f"📝 Guia '{pauta['slug']}' adiado: só {len(produtos)} produto(s) aptos.")
                 if _desatualizado(pauta):
                     # Melhor sem página do que com uma seleção que não é do tema.
-                    arquivar(pauta)
-                    print(f"📝 Guia antigo '{pauta['slug']}' arquivado até haver produtos aptos.")
+                    try:
+                        arquivar(pauta)
+                        print(f"📝 Guia antigo '{pauta['slug']}' arquivado até haver produtos aptos.")
+                    except Exception as erro:
+                        print(f"   ⚠️  Não foi possível arquivar '{pauta['slug']}': "
+                              f"{seguranca.redigir_segredos(erro)}")
                 # Tentada com a seleção atual: não deve voltar como "desatualizada".
                 store._definir_estado(f"guia_versao:{pauta['slug']}", VERSAO_SELECAO)
                 # Volta ao fim da fila para não travar o rodízio.
@@ -474,6 +495,9 @@ def gerar_guia_do_dia(agora=None) -> bool:
             resultado = publicar(montar_guia(pauta, produtos, links, agora))
             store._definir_estado(f"guia_atualizado:{pauta['slug']}", int(agora.timestamp()))
             store._definir_estado(f"guia_versao:{pauta['slug']}", VERSAO_SELECAO)
+            # A trava diária conta só guias publicados: tentativas sem produtos
+            # aptos não impedem que a próxima rodada tente outra pauta.
+            store._definir_estado(chave_dia, "publicado")
             endereco = f"{config.SITE_PUBLICO_URL}/blog/{resultado.get('slug') or pauta['slug']}"
             print(f"📝 Guia publicado: {endereco}")
             return True
