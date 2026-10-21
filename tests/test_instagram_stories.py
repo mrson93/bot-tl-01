@@ -81,7 +81,8 @@ class InstagramStoriesTest(unittest.TestCase):
         self.assertEqual(
             "Bearer token-meta-secreto", publicar.kwargs["headers"]["Authorization"]
         )
-        self.assertEqual({}, gerar.call_args.kwargs)
+        # Direct ativo: o cartão chama para responder QUERO.
+        self.assertEqual({"direct_ativo": True}, gerar.call_args.kwargs)
         registrar.assert_called_once()
         self.assertEqual("17900000000000001", registrar.call_args.args[0])
 
@@ -193,7 +194,7 @@ class InstagramStoriesTest(unittest.TestCase):
         with self.configuracao(), \
              patch.object(instagram_stories.requests, "get", side_effect=gets), \
              patch.object(instagram_stories.requests, "post", side_effect=posts), \
-             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg"), \
+             patch.object(instagram_stories.story_card, "gerar", return_value=b"jpeg") as gerar, \
              patch.object(instagram_stories.site_publisher, "publicar_imagem_story",
                           return_value="https://canaltabarato.pages.dev/story-assets/a.jpg"), \
              patch.object(instagram_stories.site_publisher, "verificar_imagem_publica_story"), \
@@ -204,6 +205,8 @@ class InstagramStoriesTest(unittest.TestCase):
                 {"oferta_id": "x", "productName": "Panela", "price": 79.9},
                 "https://s.shopee.com.br/link-instagram",
             )
+        # Com o Direct automático ativo, o cartão precisa pedir "QUERO".
+        self.assertTrue(gerar.call_args.kwargs["direct_ativo"])
 
     def test_falha_ao_assinar_webhook_nao_impede_story(self):
         gets = [

@@ -207,7 +207,15 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     titulo = fmt.limpar_titulo(
         oferta.get("productName", "Oferta"), config.TITULO_MAX_CARACTERES
     )
+    # O histórico é um bônus: é o primeiro item a sair quando falta espaço.
+    linha_preco_base = linha_preco
+    historico = fmt.linha_historico(oferta)
+    if historico:
+        linha_preco = f"{linha_preco}\n{historico}" if linha_preco else historico
     texto = montar(titulo)
+    if len(texto) > 300 and historico:
+        linha_preco = linha_preco_base
+        texto = montar(titulo)
     if len(texto) > 300 and humana:
         humana = ""
         texto = montar(titulo, chamada="")

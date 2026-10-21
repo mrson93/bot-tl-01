@@ -64,6 +64,10 @@ Novas variáveis:
 | `RELATORIO_MINUTO` | `30` | Minuto a partir do qual o resumo pode ser enviado |
 | `RELATORIO_ALERTA_MIN_POSTS` | `10` | Posts sem conversão necessários para gerar alerta |
 | `ESTOQUE_LISTA_ALERTA` | `10` | Inéditos restantes na lista curada que geram aviso no relatório |
+| `LOJA_OFICIAL_BONUS` | `10` | Pontos extras na seleção para lojas que se identificam como oficiais |
+| `TOP_WHATSAPP_ATIVO` | `true` | Envia no privado o Top 5 do dia pronto para colar no WhatsApp |
+| `TOP_WHATSAPP_HORA` | `18` | Hora de Brasília a partir da qual o Top 5 é enviado |
+| `SITE_PUBLICO_URL` | `https://canaltabarato.com.br` | Domínio usado nos links do Top 5 |
 | `FALHAS_CONSECUTIVAS_ALERTA` | `3` | Falhas seguidas necessárias para gerar alerta |
 | `FACEBOOK_ATIVO` | `false` | Ativa ofertas na Página depois que ID e token existirem |
 | `FACEBOOK_PAGE_ID` | vazio | Identificador numérico da Página administrada |

@@ -249,6 +249,13 @@ TELEGRAM_ADMIN_ID = _get("TELEGRAM_ADMIN_ID")
 RELATORIO_HORA = _int("RELATORIO_HORA", 11)
 RELATORIO_MINUTO = max(0, min(59, _int("RELATORIO_MINUTO", 30)))
 RELATORIO_ALERTA_MIN_POSTS = _int("RELATORIO_ALERTA_MIN_POSTS", 10)
+# Pontos extras na seleção para lojas que se identificam como oficiais.
+LOJA_OFICIAL_BONUS = _float("LOJA_OFICIAL_BONUS", 10)
+# Endereço público do site usado em links compartilháveis (ex.: Top 5 do WhatsApp).
+SITE_PUBLICO_URL = _get("SITE_PUBLICO_URL") or "https://canaltabarato.com.br"
+# Hora de Brasília em que o administrador recebe o Top 5 pronto para o WhatsApp.
+TOP_WHATSAPP_ATIVO = _bool("TOP_WHATSAPP_ATIVO", True)
+TOP_WHATSAPP_HORA = _int("TOP_WHATSAPP_HORA", 18)
 # Abaixo deste número de produtos inéditos, o relatório pede itens novos na lista curada.
 ESTOQUE_LISTA_ALERTA = _int("ESTOQUE_LISTA_ALERTA", 10)
 FALHAS_CONSECUTIVAS_ALERTA = _int("FALHAS_CONSECUTIVAS_ALERTA", 3)

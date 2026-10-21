@@ -121,6 +121,37 @@ def limpar_titulo(titulo: str, limite: int = None) -> str:
     return texto or "Oferta"
 
 
+# Só afirmamos "menor preço" com pelo menos uma semana de observação própria.
+_MIN_DIAS_HISTORICO = 7
+
+
+def linha_historico(oferta: dict) -> str:
+    """Motivo verificável para comprar agora, a partir do histórico do bot."""
+    try:
+        preco = float(oferta.get("price") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if preco <= 0:
+        return ""
+    anterior = oferta.get("_preco_publicacao_anterior")
+    try:
+        if oferta.get("_motivo") == "queda_preco" and anterior and float(anterior) > preco:
+            return f"📉 Baixou de R$ {_preco(anterior)} desde o nosso último post"
+    except (TypeError, ValueError):
+        pass
+    historico = oferta.get("_historico_preco") or {}
+    try:
+        minimo = float(historico.get("minimo_anterior") or 0)
+        dias = int(historico.get("desde_dias") or 0)
+        observados = int(historico.get("dias_observados") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if (observados >= _MIN_DIAS_HISTORICO and dias >= _MIN_DIAS_HISTORICO
+            and 0 < preco < minimo * 0.99):
+        return f"📉 Menor preço que vimos nos últimos {min(30, dias)} dias"
+    return ""
+
+
 def _milhar(valor) -> str:
     """7137 -> '7.137'"""
     try:
@@ -167,6 +198,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     elif preco:
         sufixo = " no app" if oferta.get("precoNoApp") else ""
         linhas.append(f"💰 <b>R$ {_preco(preco)}</b>{sufixo}" + (f" · {int(round(desconto))}% OFF" if desconto else ""))
+    historico = linha_historico(oferta)
+    if historico:
+        linhas.append(f"<b>{historico}</b>")
 
     # linha de reputacao
     reput = []

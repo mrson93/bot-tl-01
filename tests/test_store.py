@@ -25,6 +25,19 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("produto", "Facebook", True, agora=9999999999)
         self.assertIsNone(store.buffer_post("produto", "Facebook"))
 
+    def test_historico_de_preco_ignora_dia_atual_e_guarda_menor_do_dia(self):
+        dia = 86400
+        base = int(datetime(2026, 10, 1, 12).timestamp())
+        oferta = {"fonte": "Shopee", "oferta_id": "p1"}
+        store.registrar_precos_produtos([dict(oferta, price=100)], agora=base)
+        store.registrar_precos_produtos([dict(oferta, price=90)], agora=base + 60)
+        store.registrar_precos_produtos([dict(oferta, price=95)], agora=base + 5 * dia)
+        store.registrar_precos_produtos([dict(oferta, price=70)], agora=base + 10 * dia)
+        historico = store.historico_preco("Shopee", "p1", agora=base + 10 * dia)
+        self.assertEqual({"dias_observados": 2, "minimo_anterior": 90.0,
+                          "desde_dias": 10}, historico)
+        self.assertIsNone(store.historico_preco("Shopee", "outro", agora=base))
+
     def test_estoque_de_lista_guarda_ultima_leitura_e_ignora_antiga(self):
         store.registrar_estoque_lista("Mercado Livre", 4, 150, agora=1_000_000)
         store.registrar_estoque_lista("Mercado Livre", 3, 150, agora=1_000_100)

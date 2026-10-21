@@ -1,7 +1,9 @@
 """Publica na vitrine própria sem interferir nos canais sociais."""
 import base64
 import time
-from urllib.parse import urlsplit, urlunsplit
+import re
+import unicodedata
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 import requests
 
@@ -247,6 +249,19 @@ def link_publico_loja(slug):
     if not slug or any(c not in "abcdefghijklmnopqrstuvwxyz0123456789-" for c in slug):
         raise ValueError("Atalho do site inválido")
     return urlunsplit((partes.scheme, partes.netloc, f"/loja/{slug}", "", ""))
+
+
+def link_publico_oferta(oferta_id, titulo, origem=None):
+    """Página pública da oferta, com preço atual e botão rastreado de compra."""
+    base = urlsplit(seguranca.validar_url_https_publica(
+        config.SITE_PUBLICO_URL, "Site público"
+    ))
+    texto = unicodedata.normalize("NFKD", str(titulo or ""))
+    texto = "".join(c for c in texto if not unicodedata.combining(c)).lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", texto).strip("-")[:80].strip("-") or "oferta"
+    caminho = f"/oferta/{slug}--{quote(str(oferta_id), safe='')}"
+    consulta = urlencode({"utm_source": origem}) if origem else ""
+    return urlunsplit((base.scheme, base.netloc, caminho, consulta, ""))
 
 
 def _payload_atualizacao(oferta_id, oferta):

@@ -810,6 +810,50 @@ class MainTest(unittest.TestCase):
             self.assertEqual(1, main._publicar_fila(fila, 1))
         self.assertEqual("panela", publicar.call_args.args[1]["oferta_id"])
 
+    def _postadas_top(self):
+        return [
+            {"oferta_id": "shopee_1_2", "fonte": "Shopee", "titulo": "Panela antiaderente 24cm",
+             "categoria": "cozinha", "preco": 79.9, "desconto": 50},
+            {"oferta_id": "shopee_3_4", "fonte": "Shopee", "titulo": "Frigideira inox",
+             "categoria": "cozinha", "preco": 59.9, "desconto": 45},
+            {"oferta_id": "mercadolivre_MLB1", "fonte": "Mercado Livre",
+             "titulo": "Fone Bluetooth sem fio", "categoria": "eletronicos",
+             "preco": 99.0, "desconto": 40},
+            {"oferta_id": "amazon_B0X", "fonte": "Amazon", "titulo": "Garrafa térmica",
+             "categoria": "casa", "preco": 45.0, "desconto": 0},
+        ]
+
+    def test_top_whatsapp_prioriza_categorias_diferentes_e_usa_link_do_site(self):
+        with patch.object(main.config, "SITE_PUBLICO_URL", "https://canaltabarato.com.br"), \
+             patch.object(main.config, "TELEGRAM_CHANNEL", "@CanalTaBarato"):
+            texto = main.montar_top_whatsapp(self._postadas_top(), limite=3)
+        self.assertIn("1️⃣ Panela antiaderente 24cm", texto)
+        self.assertIn("2️⃣ Fone Bluetooth sem fio", texto)
+        self.assertIn("3️⃣ Garrafa térmica", texto)
+        self.assertNotIn("Frigideira", texto)
+        self.assertIn("https://canaltabarato.com.br/oferta/panela-antiaderente-24cm--shopee_1_2"
+                      "?utm_source=whatsapp", texto)
+        self.assertIn("https://t.me/CanalTaBarato", texto)
+        self.assertIn("50% OFF", texto)
+        self.assertEqual("", main.montar_top_whatsapp(self._postadas_top()[:2]))
+
+    def test_top_whatsapp_sai_uma_vez_por_dia_depois_da_hora(self):
+        estado = {}
+        agora = datetime(2026, 10, 20, 18, 30, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.config, "TOP_WHATSAPP_ATIVO", True), \
+             patch.object(main.config, "TOP_WHATSAPP_HORA", 18), \
+             patch.object(main.config, "TELEGRAM_ADMIN_ID", "1"), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.store, "melhores_postadas_desde", return_value=self._postadas_top()), \
+             patch.object(main.store, "_estado", side_effect=estado.get), \
+             patch.object(main.store, "_definir_estado", side_effect=estado.__setitem__), \
+             patch.object(main.monitor, "enviar_mensagem_privada") as enviar:
+            self.assertFalse(main.enviar_top_whatsapp_se_preciso(agora.replace(hour=17)))
+            self.assertTrue(main.enviar_top_whatsapp_se_preciso(agora))
+            self.assertFalse(main.enviar_top_whatsapp_se_preciso(agora.replace(hour=21)))
+        self.assertEqual(2, enviar.call_count)
+        self.assertIn("TOP OFERTAS", enviar.call_args.args[0])
+
     def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

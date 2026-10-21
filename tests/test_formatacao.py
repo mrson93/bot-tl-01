@@ -7,6 +7,46 @@ import telegram_poster as telegram
 
 
 class FormatacaoTest(unittest.TestCase):
+    def _oferta_historico(self, **extra):
+        oferta = {"fonte": "Shopee", "productName": "Panela antiaderente",
+                  "price": 79.9, "priceDiscountRate": 50,
+                  "_historico_preco": {"dias_observados": 10,
+                                       "minimo_anterior": 99.9, "desde_dias": 18}}
+        oferta.update(extra)
+        return oferta
+
+    def test_menor_preco_aparece_so_com_historico_suficiente(self):
+        self.assertEqual("📉 Menor preço que vimos nos últimos 18 dias",
+                         telegram.linha_historico(self._oferta_historico()))
+        pouco = self._oferta_historico(_historico_preco={
+            "dias_observados": 3, "minimo_anterior": 99.9, "desde_dias": 3})
+        self.assertEqual("", telegram.linha_historico(pouco))
+        mais_caro = self._oferta_historico(price=105)
+        self.assertEqual("", telegram.linha_historico(mais_caro))
+        self.assertEqual("", telegram.linha_historico({"price": 50}))
+
+    def test_queda_desde_ultimo_post_tem_prioridade(self):
+        oferta = self._oferta_historico(_motivo="queda_preco",
+                                        _preco_publicacao_anterior=120)
+        self.assertEqual("📉 Baixou de R$ 120,00 desde o nosso último post",
+                         telegram.linha_historico(oferta))
+
+    def test_historico_entra_na_legenda_do_telegram_e_do_bluesky(self):
+        oferta = self._oferta_historico()
+        legenda = telegram.montar_legenda(oferta, "https://shope.ee/x")
+        self.assertIn("<b>📉 Menor preço que vimos nos últimos 18 dias</b>", legenda)
+        texto, _ = bluesky.montar_texto(oferta, "https://shope.ee/x")
+        self.assertIn("📉 Menor preço", texto)
+
+    def test_bluesky_tira_historico_antes_do_titulo_quando_falta_espaco(self):
+        titulo = " ".join(f"palavra{i}" for i in range(40))
+        oferta = self._oferta_historico(productName=titulo, shopName="Loja",
+                                        cupom="CUPOMLONGO2026",
+                                        cupomCondicao="Válido para compras acima de R$ 99 no app " * 2)
+        texto, _ = bluesky.montar_texto(oferta, "https://shope.ee/x")
+        self.assertLessEqual(len(texto), 300)
+        self.assertNotIn("📉", texto)
+
     def test_chamada_humana_fica_desligada_por_padrao(self):
         oferta = {
             "fonte": "Shopee", "productName": "Panela antiaderente",

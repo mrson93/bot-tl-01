@@ -570,6 +570,67 @@ def enviar_resumo_cupons_se_preciso(agora=None) -> bool:
         return False
 
 
+def montar_top_whatsapp(ofertas, limite=5):
+    """Texto pronto para colar em grupos/canais do WhatsApp (sem API oficial)."""
+    escolhidas, categorias = [], set()
+    # Primeiro uma por categoria; depois completa com as melhores restantes.
+    for repetir_categoria in (False, True):
+        for oferta in ofertas:
+            if len(escolhidas) >= limite:
+                break
+            categoria = str(oferta.get("categoria") or "outros")
+            if oferta in escolhidas or (not repetir_categoria and categoria in categorias):
+                continue
+            escolhidas.append(oferta)
+            categorias.add(categoria)
+    if len(escolhidas) < 3:
+        return ""
+    numeros = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
+    linhas = ["🔥 *TOP OFERTAS DE HOJE · Tá Barato*", ""]
+    for numero, oferta in zip(numeros, escolhidas):
+        titulo = telegram_poster.limpar_titulo(oferta.get("titulo"), 70)
+        desconto = float(oferta.get("desconto") or 0)
+        preco = f"💰 R$ {telegram_poster._preco(oferta.get('preco'))}"
+        if desconto >= 1:
+            preco += f" · {int(round(desconto))}% OFF"
+        link = site_publisher.link_publico_oferta(
+            oferta["oferta_id"], oferta.get("titulo"), origem="whatsapp"
+        )
+        linhas.extend([f"{numero} {titulo}", preco, f"👉 {link}", ""])
+    canal = str(config.TELEGRAM_CHANNEL or "").lstrip("@")
+    if canal and not canal.lstrip("-").isdigit():
+        linhas.append(f"📲 Receba todas na hora, grátis, no Telegram: https://t.me/{canal}")
+    linhas.append("_Preços podem mudar. Contém links de afiliado._")
+    return "\n".join(linhas)
+
+
+def enviar_top_whatsapp_se_preciso(agora=None) -> bool:
+    """Entrega uma vez por dia, no privado, o Top 5 para encaminhar no WhatsApp."""
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    if (not config.TOP_WHATSAPP_ATIVO or agora.hour < config.TOP_WHATSAPP_HORA
+            or not config.TELEGRAM_ADMIN_ID or not site_publisher.esta_configurado()):
+        return False
+    chave = f"top_whatsapp:{agora.date().isoformat()}"
+    if store._estado(chave):
+        return False
+    try:
+        texto = montar_top_whatsapp(
+            store.melhores_postadas_desde(agora.timestamp() - 86400)
+        )
+        if not texto:
+            return False
+        monitor.enviar_mensagem_privada(
+            "📋 Top do dia pronto para o WhatsApp: copie a próxima mensagem e "
+            "cole nos seus grupos ou no canal."
+        )
+        monitor.enviar_mensagem_privada(texto)
+        store._definir_estado(chave, "enviado")
+        return True
+    except Exception as erro:
+        print(f"⚠️ Top do WhatsApp falhou: {seguranca.redigir_segredos(erro)}")
+        return False
+
+
 def motivo_rejeicao_filtro(oferta: dict):
     """Retorna a primeira regra comercial que rejeitou a oferta."""
     desconto = float(oferta.get("priceDiscountRate") or 0)
@@ -587,6 +648,9 @@ def motivo_rejeicao_filtro(oferta: dict):
 
     if preco < config.MIN_PRICE:
         return "preco"
+    # Listas curadas já passaram pelo olho do operador.
+    if not oferta.get("curadoriaManual") and desempenho.parece_replica(oferta):
+        return "replica"
     if desconto < config.MIN_DISCOUNT and not oferta.get("curadoriaManual"):
         return "desconto"
     if (desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom")
@@ -659,6 +723,9 @@ def pontuacao(oferta: dict) -> float:
     if vendas:
         nota += min(18, math.log10(vendas + 1) * 4)
     nota += min(12, ganho_por_venda(oferta) / 4)
+    # Loja oficial passa mais confiança a quem ainda não conhece o canal.
+    if desempenho.loja_oficial(oferta):
+        nota += config.LOJA_OFICIAL_BONUS
     # Cupons retornados oficialmente pelas plataformas são escassos e podem
     # acabar antes da próxima rodada; entram no topo sem ignorar filtros.
     if str(oferta.get("cupom") or "").strip():
@@ -727,7 +794,7 @@ def buscar_candidatos(fonte) -> list:
     rejeicoes = {
         "sem_id": 0, "preco": 0, "desconto": 0,
         "desconto_preferido": 0, "avaliacao": 0, "vendas": 0,
-        "comissao": 0, "repetida": 0,
+        "comissao": 0, "repetida": 0, "replica": 0,
     }
     for oferta in ofertas:
         oferta["categoria"] = (oferta.get("categoria")
@@ -749,6 +816,7 @@ def buscar_candidatos(fonte) -> list:
     velocidades = store.registrar_vendas_produtos(
         comerciais, janela_dias=config.PICO_JANELA_VENDAS_DIAS
     )
+    store.registrar_precos_produtos(comerciais)
     for oferta in comerciais:
         chave_velocidade = (
             oferta["fonte"], str(oferta.get("oferta_id") or "")
@@ -768,6 +836,7 @@ def buscar_candidatos(fonte) -> list:
             oferta["_motivo"] = motivo or "canal_pendente"
             if motivo == "queda_preco":
                 oferta["_preco_publicacao_anterior"] = store.preco_quando_postada(oid)
+            oferta["_historico_preco"] = store.historico_preco(fonte.NOME, oid)
             candidatos.append(oferta)
         else:
             rejeicoes["repetida"] += 1
@@ -1276,6 +1345,7 @@ def main():
             # O relatorio diario nao depende de haver uma oferta liberada agora.
             enviar_relatorio_seguro()
             enviar_resumo_cupons_se_preciso()
+            enviar_top_whatsapp_se_preciso()
             print(f"⏳ Proxima postagem prevista para {datetime.fromtimestamp(proximo).strftime('%H:%M')}.")
             return
         try:
@@ -1292,6 +1362,7 @@ def main():
         # Ele roda por ultimo para nunca atrasar a publicacao nem o agendamento.
         enviar_relatorio_seguro()
         enviar_resumo_cupons_se_preciso()
+        enviar_top_whatsapp_se_preciso()
         return
 
     print(f"🤖 Bot no ar! Procurando ofertas a cada "

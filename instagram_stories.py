@@ -185,8 +185,12 @@ def postar(oferta: dict, link_afiliado: str) -> None:
                   f"{seguranca.redigir_segredos(erro)}")
     # O link identifica o canal e abre exatamente esta oferta. Ele é impresso
     # no cartão porque a API não oferece Link Sticker. Para o Mercado Livre,
-    # o endereço oficial preserva os marcadores de afiliação.
-    imagem = story_card.gerar(oferta, link_afiliado)
+    # o endereço oficial preserva os marcadores de afiliação. Com o Direct
+    # automático ativo, a chamada principal é responder QUERO: o link chega
+    # clicável na conversa, o que o cartão impresso não consegue oferecer.
+    imagem = story_card.gerar(
+        oferta, link_afiliado, direct_ativo=config.INSTAGRAM_DIRECT_ATIVO
+    )
     imagem_publica = site_publisher.publicar_imagem_story(imagem)
     # A Meta faz o download por conta própria, sem cookies. Faça a mesma
     # verificação e dê uma pequena janela para a leitura distribuída do D1

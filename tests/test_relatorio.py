@@ -6,6 +6,16 @@ import relatorio
 
 
 class RelatorioTest(unittest.TestCase):
+    def test_vencedora_ab_exige_amostra_e_vantagem_clara(self):
+        forte = [{"variante": "A", "posts": 40, "conversoes": 12, "comissao": 0},
+                 {"variante": "B", "posts": 40, "conversoes": 4, "comissao": 0}]
+        self.assertIn("Variante A converte mais (30.0% vs 10.0%",
+                      relatorio._vencedora_ab(forte))
+        pequena = [dict(item, posts=20) for item in forte]
+        self.assertEqual("", relatorio._vencedora_ab(pequena))
+        empate = [dict(forte[0], conversoes=8), dict(forte[1], conversoes=7)]
+        self.assertEqual("", relatorio._vencedora_ab(empate))
+
     def test_soma_cliques_de_links_e_site(self):
         total = relatorio._somar_cliques([
             {"total": 2, "por_canal": {"telegram": 2},
@@ -80,6 +90,7 @@ class RelatorioTest(unittest.TestCase):
                                  cliques_dia=cliques)
         self.assertIn("Cliques por loja: Amazon: 4 (Facebook 1 · Telegram 3)", texto)
         self.assertIn("Mercado Livre: 3 (Site 2 · X 1)", texto)
+        self.assertIn("Mercado Livre: só cliques do site", texto)
         self.assertIn("Por loja: Amazon: 4", texto)
 
     def test_resultado_diario_indisponivel_nao_vira_zero(self):

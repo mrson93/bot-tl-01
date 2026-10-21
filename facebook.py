@@ -82,6 +82,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     except (TypeError, ValueError):
         if preco:
             linhas.append(f"💰 R$ {_preco(preco)}")
+    historico = fmt.linha_historico(oferta)
+    if historico:
+        linhas.append(historico)
 
     reputacao = []
     if oferta.get("ratingStar"):

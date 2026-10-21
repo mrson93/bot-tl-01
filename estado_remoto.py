@@ -148,6 +148,22 @@ def _compactar_estado(caminho=DB, agora=None):
                     "LIMIT ?)",
                     (data, fonte, data, fonte, MAX_VENDAS_DIA_FONTE),
                 )
+        if "precos_produto_diarios" in tabelas:
+            # Mesmo teto das vendas: o histórico de preço serve só para provar
+            # "menor preço em N dias" de produtos que ainda podem ser postados.
+            grupos = con.execute(
+                "SELECT data,fonte FROM precos_produto_diarios "
+                "GROUP BY data,fonte HAVING COUNT(*)>?",
+                (MAX_VENDAS_DIA_FONTE,),
+            ).fetchall()
+            for data, fonte in grupos:
+                con.execute(
+                    "DELETE FROM precos_produto_diarios WHERE data=? AND fonte=? "
+                    "AND rowid NOT IN ("
+                    "SELECT rowid FROM precos_produto_diarios "
+                    "WHERE data=? AND fonte=? ORDER BY rowid DESC LIMIT ?)",
+                    (data, fonte, data, fonte, MAX_VENDAS_DIA_FONTE),
+                )
         if "cupons_ativos" in tabelas:
             con.execute(
                 "DELETE FROM cupons_ativos WHERE "

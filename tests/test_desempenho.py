@@ -4,6 +4,29 @@ import desempenho
 
 
 class DesempenhoTest(unittest.TestCase):
+    def test_replica_de_marca_e_detectada_mas_acessorio_e_loja_da_marca_passam(self):
+        replica = {"productName": "Fone de Ouvido Sem Fio Airpods PRO Bluetooth para iOS Android",
+                   "shopName": "SORTUDO 1666"}
+        copo = {"productName": "Copo Térmico tipo Stanley 1L", "shopName": "Casa Bela"}
+        capa = {"productName": "Capa para iPhone 15 Pro Max", "shopName": "Cases BR"}
+        oficial = {"productName": "Caixa de Som JBL Go 4", "shopName": "JBL Oficial"}
+        comum = {"productName": "Fone Bluetooth sem fio com estojo", "shopName": "Loja X"}
+        estojo_depois = {"productName": "Fone Airpods Pro com estojo de carga",
+                         "shopName": "Loja X"}
+        estojo_antes = {"productName": "Estojo protetor para AirPods Pro", "shopName": "Loja X"}
+        self.assertTrue(desempenho.parece_replica(estojo_depois))
+        self.assertFalse(desempenho.parece_replica(estojo_antes))
+        self.assertTrue(desempenho.parece_replica(replica))
+        self.assertTrue(desempenho.parece_replica(copo))
+        self.assertFalse(desempenho.parece_replica(capa))
+        self.assertFalse(desempenho.parece_replica(oficial))
+        self.assertFalse(desempenho.parece_replica(comum))
+
+    def test_loja_oficial_pelo_nome(self):
+        self.assertTrue(desempenho.loja_oficial({"shopName": "Mondial Loja Oficial"}))
+        self.assertTrue(desempenho.loja_oficial({"shopName": "Xiaomi Official Store"}))
+        self.assertFalse(desempenho.loja_oficial({"shopName": "SORTUDO 1666"}))
+
     def test_chave_metaforica_nao_e_ferramenta(self):
         oferta = {"productName": "O Poder do Autocontrole: A Chave para a Grandeza Pessoal"}
         self.assertEqual("outros", desempenho.categoria_produto(oferta))

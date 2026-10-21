@@ -205,6 +205,45 @@ def _contem_termo(texto: str, termo: str) -> bool:
     return re.search(padrao, texto) is not None
 
 
+# Marcas muito copiadas. Um produto genérico usando o nome delas no título
+# derruba a confiança no canal, então só passa quando a própria loja é da marca
+# ou quando o título descreve um acessório compatível.
+MARCAS_COPIADAS = ("airpods", "apple watch", "iphone", "jbl", "stanley", "dyson",
+                   "rolex", "nike", "adidas", "lacoste", "ray ban", "rayban",
+                   "oakley", "lego")
+_TERMOS_ACESSORIO = ("capa", "capinha", "case", "pelicula", "pulseira", "suporte",
+                     "carregador", "cabo", "compativel", "estojo", "protetor")
+_TERMOS_LOJA_OFICIAL = ("oficial", "official", "officialstore")
+
+
+def loja_oficial(oferta: dict) -> bool:
+    """Loja que se identifica como oficial no nome exibido pela plataforma."""
+    loja = _normalizar(oferta.get("shopName"))
+    return any(_contem_termo(loja, termo) for termo in _TERMOS_LOJA_OFICIAL)
+
+
+def parece_replica(oferta: dict) -> bool:
+    """Título usa marca famosa sem ser da loja da marca nem acessório."""
+    titulo = _normalizar(oferta.get("productName"))
+    loja = _normalizar(oferta.get("shopName")).replace(" ", "")
+    for marca in MARCAS_COPIADAS:
+        posicao = _posicao_termo(titulo, marca)
+        if posicao is None or marca.replace(" ", "") in loja:
+            continue
+        # "Capa para iPhone" é acessório; "Fone AirPods com estojo" não é.
+        antes = [_posicao_termo(titulo, termo) for termo in _TERMOS_ACESSORIO]
+        if any(p is not None and p < posicao for p in antes):
+            continue
+        return True
+    return False
+
+
+def _posicao_termo(texto: str, termo: str):
+    termo = _normalizar(termo)
+    achado = re.search(rf"(?<![a-z0-9]){re.escape(termo)}s?(?![a-z0-9])", texto)
+    return achado.start() if achado else None
+
+
 def classificar_produto(produto) -> tuple:
     """Devolve ``(categoria, confianca)`` sem forçar associação ambígua."""
     titulo = (produto.get("productName") or produto.get("titulo")

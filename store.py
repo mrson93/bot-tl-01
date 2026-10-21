@@ -45,6 +45,7 @@ def _conn():
     con.execute("CREATE INDEX IF NOT EXISTS idx_eventos_periodo ON eventos(ocorrido_em,tipo)")
     con.execute("CREATE TABLE IF NOT EXISTS vendas_produto_diarias (data TEXT NOT NULL, fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, vendas INTEGER NOT NULL, observado_em INTEGER NOT NULL, PRIMARY KEY(data,fonte,oferta_id))")
     con.execute("CREATE INDEX IF NOT EXISTS idx_vendas_produto_historico ON vendas_produto_diarias(fonte,oferta_id,data)")
+    con.execute("CREATE TABLE IF NOT EXISTS precos_produto_diarios (data TEXT NOT NULL, fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, preco REAL NOT NULL, PRIMARY KEY(fonte,oferta_id,data))")
     con.commit()
     try:
         yield con
@@ -467,6 +468,19 @@ def ofertas_desde(dias=7, agora=None):
     return [dict(zip(campos, linha)) for linha in linhas]
 
 
+def melhores_postadas_desde(inicio, limite=30):
+    """Ofertas publicadas na janela, das maiores descontos para os menores."""
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT id,fonte,titulo,categoria,preco,desconto FROM postadas "
+            "WHERE titulo IS NOT NULL AND postada_em>=? AND preco>0 "
+            "ORDER BY COALESCE(desconto,0) DESC, postada_em DESC LIMIT ?",
+            (int(inicio), int(limite)),
+        ).fetchall()
+    campos = ("oferta_id", "fonte", "titulo", "categoria", "preco", "desconto")
+    return [dict(zip(campos, linha)) for linha in linhas]
+
+
 def posts_hoje(agora=None):
     with _conn() as con:
         return int(con.execute(
@@ -556,6 +570,53 @@ def registrar_vendas_produtos(ofertas, agora=None, janela_dias=7):
               - datetime.timedelta(days=max(8, janela_dias + 2))).isoformat(),),
         )
     return resultado
+
+
+DIAS_HISTORICO_PRECO = 30
+
+
+def registrar_precos_produtos(ofertas, agora=None):
+    """Guarda o menor preço visto no dia de cada produto apto a publicação."""
+    momento = int(agora or time.time())
+    hoje = datetime.datetime.fromtimestamp(momento).date()
+    with _conn() as con:
+        for oferta in ofertas or []:
+            fonte = str(oferta.get("fonte") or "")
+            oferta_id = str(oferta.get("oferta_id") or "")
+            try:
+                preco = float(oferta.get("price") or 0)
+            except (TypeError, ValueError):
+                continue
+            if not (fonte and oferta_id) or preco <= 0:
+                continue
+            con.execute(
+                "INSERT INTO precos_produto_diarios(data,fonte,oferta_id,preco) "
+                "VALUES(?,?,?,?) ON CONFLICT(fonte,oferta_id,data) DO UPDATE SET "
+                "preco=MIN(preco,excluded.preco)",
+                (hoje.isoformat(), fonte, oferta_id, preco),
+            )
+        con.execute(
+            "DELETE FROM precos_produto_diarios WHERE data<?",
+            ((hoje - datetime.timedelta(days=DIAS_HISTORICO_PRECO + 1)).isoformat(),),
+        )
+
+
+def historico_preco(fonte, oferta_id, agora=None):
+    """Dias anteriores observados e o menor preço deles (exclui o dia atual)."""
+    momento = int(agora or time.time())
+    hoje = datetime.datetime.fromtimestamp(momento).date()
+    inicio = (hoje - datetime.timedelta(days=DIAS_HISTORICO_PRECO)).isoformat()
+    with _conn() as con:
+        linha = con.execute(
+            "SELECT COUNT(*), MIN(preco), MIN(data) FROM precos_produto_diarios "
+            "WHERE fonte=? AND oferta_id=? AND data>=? AND data<?",
+            (str(fonte), str(oferta_id), inicio, hoje.isoformat()),
+        ).fetchone()
+    if not linha or not linha[0]:
+        return None
+    primeiro = datetime.date.fromisoformat(linha[2])
+    return {"dias_observados": int(linha[0]), "minimo_anterior": float(linha[1]),
+            "desde_dias": (hoje - primeiro).days}
 
 
 def falhas_consecutivas(canal, limite=20):

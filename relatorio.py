@@ -281,6 +281,21 @@ def _destaques(resumo, fonte):
     return [f"{fonte} — {linha}" for linha in linhas]
 
 
+def _vencedora_ab(testes, minimo_posts=30):
+    """Indica uma variante só com amostra mínima e vantagem clara de conversão."""
+    if len(testes) != 2 or any(t.get("posts", 0) < minimo_posts for t in testes):
+        return ""
+    taxas = sorted(((t.get("conversoes", 0) / t["posts"], t) for t in testes),
+                   key=lambda par: par[0], reverse=True)
+    (melhor, vencedor), (pior, perdedor) = taxas
+    diferenca = vencedor.get("conversoes", 0) - perdedor.get("conversoes", 0)
+    if melhor <= 0 or melhor < pior * 1.5 or diferenca < 5:
+        return ""
+    return (f"Variante {vencedor['variante']} converte mais "
+            f"({100 * melhor:.1f}% vs {100 * pior:.1f}% por post). "
+            "Considere mantê-la e encerrar o teste.")
+
+
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
            testes_ab=None, eventos=None, diario_ali=None, diario_shopee=None,
@@ -322,6 +337,7 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
               f"✅ {sucessos} entregas · ⚠️ {falhas} falhas"]
     if cliques_lojas_dia:
         blocos.insert(6, "Cliques por loja: " + " · ".join(cliques_lojas_dia))
+        blocos.insert(7, "Mercado Livre: só cliques do site; os das redes ficam no painel de afiliados.")
     if por_canal:
         blocos.append("Canais: " + " · ".join(f"{nome} {qtd}" for nome, qtd in sorted(por_canal.items())))
     if por_loja:
@@ -452,6 +468,9 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
             f"• {item['variante']}: {item['posts']} posts · {item['conversoes']} conversões · comissão R$ {_numero(item['comissao'])}"
             for item in sorted(testes_validos, key=lambda item: item["variante"])
         )
+        vencedora = _vencedora_ab(testes_validos)
+        if vencedora:
+            blocos.append(f"➡️ {vencedora}")
 
     texto = "\n".join(blocos)
     if len(texto) <= 3900:
