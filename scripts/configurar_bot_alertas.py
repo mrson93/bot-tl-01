@@ -48,9 +48,15 @@ def chamar(token, metodo, dados=None):
 
 
 def main():
-    token = getpass.getpass("Cole o token do bot de ALERTAS (não aparece na tela): ").strip()
-    if not re.fullmatch(r"\d{5,15}:[A-Za-z0-9_-]{30,}", token):
-        raise SystemExit("Isso não parece um token do @BotFather.")
+    print("Cole o token e aperte Enter. Nada vai aparecer enquanto você cola: é normal.")
+    bruto = getpass.getpass("Token do bot de ALERTAS: ")
+    # Alguns terminais incluem marcas invisíveis de "colar"; pegamos só o token.
+    achado = re.search(r"\d{5,15}:[A-Za-z0-9_-]{30,}", bruto)
+    if not bruto.strip():
+        raise SystemExit("Nada foi colado. Rode de novo, cole o token e só então aperte Enter.")
+    if not achado:
+        raise SystemExit("Isso não parece um token do @BotFather (formato 123456:ABC...).")
+    token = achado.group(0)
     bot = chamar(token, "getMe")
     usuario = bot.get("username") or ""
     print(f"✅ Bot encontrado: @{usuario}")
