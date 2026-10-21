@@ -482,6 +482,22 @@ def cupons_das_plataformas(lojas):
     return resultado
 
 
+def diagnosticar_cupons_aliexpress(agora=None):
+    """Uma vez por dia registra no log as promoções oficiais do AliExpress."""
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    chave = f"diag_cupons_aliexpress:{agora.date().isoformat()}"
+    if not aliexpress.esta_configurada() or store._estado(chave):
+        return
+    try:
+        nomes = aliexpress.diagnosticar_promocoes()
+        print(f"🎟 Diagnostico promoções AliExpress: {len(nomes)}; "
+              f"exemplos: {'; '.join(n for n in nomes[:10] if n) or 'nenhuma'}.")
+    except Exception as erro:
+        print("   ⚠️  Diagnostico de promoções AliExpress indisponível: "
+              f"{seguranca.redigir_segredos(erro)}")
+    store._definir_estado(chave, "feito")
+
+
 def _deduplicar_cupons(cupons):
     unicos = {}
     for cupom in cupons:
@@ -843,7 +859,9 @@ def buscar_candidatos(fonte) -> list:
     detalhes = ", ".join(
         f"{nome}={total}" for nome, total in rejeicoes.items() if total
     ) or "nenhuma rejeicao"
-    print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}.")
+    com_cupom = sum(bool(str(o.get("cupom") or "").strip()) for o in ofertas)
+    print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}; "
+          f"com_cupom_na_api={com_cupom}.")
     observabilidade.evento("ofertas_elegiveis", fonte=fonte.NOME,
                             quantidade=len(candidatos))
     for motivo, total in rejeicoes.items():
@@ -1166,6 +1184,7 @@ def rodar_uma_vez() -> int:
                     print(f"   ❌ Falha inesperada em {fonte.NOME}: "
                           f"{seguranca.redigir_segredos(erro)}")
     cupons = cupons_oficiais(candidatos) + cupons_das_plataformas(lojas)
+    diagnosticar_cupons_aliexpress()
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)

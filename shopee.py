@@ -205,6 +205,11 @@ def buscar_cupons() -> list:
     nodes = ((_executar(query).get("shopeeOfferV2") or {}).get("nodes") or [])
     agora = int(time.time())
     resultado, vistos = [], set()
+    # Diagnóstico público e sem links: mostra o que a API devolve quando o
+    # filtro não encontra nenhuma campanha de cupom.
+    nomes = [" ".join(str(n.get("offerName") or "").split())[:60] for n in nodes]
+    print(f"   Diagnostico campanhas Shopee: {len(nodes)} recebidas; "
+          f"exemplos: {'; '.join(nome for nome in nomes[:10] if nome) or 'nenhuma'}.")
     for node in nodes:
         titulo = " ".join(str(node.get("offerName") or "").split())
         if not titulo or not _TERMOS_CAMPANHA.search(titulo):

@@ -66,6 +66,17 @@ def _extrair_resultado(resposta: dict, chave_final: str):
     return result.get(chave_final) or {}
 
 
+def diagnosticar_promocoes() -> list:
+    """Lista nomes das promoções em destaque do programa (sem links)."""
+    resposta = _chamar("aliexpress.affiliate.featuredpromo.get", {})
+    promos = _extrair_resultado(resposta, "promos")
+    itens = promos.get("promo") if isinstance(promos, dict) else promos
+    if not isinstance(itens, list):
+        itens = []
+    return [" ".join(str(item.get("promo_name") or "").split())[:60]
+            for item in itens if isinstance(item, dict)]
+
+
 def _num(txt, padrao=0.0):
     """Converte '94.5%' ou '12.34' em numero. '%' vira o proprio numero."""
     try:

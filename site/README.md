@@ -168,6 +168,9 @@ numérico e as palavras; `/parar` ou bloquear o bot apaga tudo.
 Ativação:
 
 1. Crie o bot no @BotFather e guarde o token e o nome de usuário.
+   Em seguida rode `python3 scripts/configurar_bot_alertas.py`: ele configura
+   comandos, descrição e webhook, gera o segredo e lista o que cadastrar abaixo
+   (os passos 2 e 4 ficam resolvidos por ele, menos o cadastro no Cloudflare).
 2. No projeto Pages `canaltabarato`, configure:
    - secret `TELEGRAM_ALERTS_BOT_TOKEN`: token do bot;
    - secret `TELEGRAM_ALERTS_WEBHOOK_SECRET`: 32+ caracteres aleatórios
