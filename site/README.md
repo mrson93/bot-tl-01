@@ -97,6 +97,19 @@ receberam leitores mas ainda têm modelos sem link afiliado.
 
 ## Blog e painel editorial
 
+### Guias de compra automáticos
+
+O bot (`guias.py`) publica um guia por dia, a partir das 9h, em rodízio entre
+pautas de busca ("melhor air fryer até R$ 600" etc.). Os produtos vêm das APIs
+de afiliados da Shopee e do AliExpress, com avaliação mínima de 4,5, ao menos 50
+vendas, faixa de preço da pauta, sem acessórios nem réplicas e no máximo um por
+loja. Cada pauta tem endereço fixo (`/blog/melhor-...`) e é atualizada com novos
+preços quando volta no rodízio (intervalo mínimo de 5 dias). A gravação usa
+`POST /api/editorial-guides` com o `PUBLISH_TOKEN`; o id é sempre
+`guia-auto-<pauta>`, então matérias do painel nunca são sobrescritas.
+`BLOG_GUIAS_STATUS=draft` faz os guias nascerem como rascunho e
+`BLOG_GUIAS_AUTOMATICOS=false` desliga a rotina.
+
 O blog público fica em `/blog` e cada matéria em `/blog/:slug`. As pautas nascem
 de dúvidas de busca e não do catálogo de promoções. Cada artigo pode cadastrar até
 12 produtos editoriais independentes, com ficha técnica e URL afiliada própria,

@@ -25,6 +25,7 @@ except (AttributeError, ValueError):
 import config
 import desempenho
 import experimentos
+import guias
 import shopee
 import aliexpress
 import amazon
@@ -1189,6 +1190,8 @@ def rodar_uma_vez() -> int:
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)
     vip = int(publicar_shopee_vip_se_preciso(alertas_cupom=alertas_cupom))
+    # Depois das ofertas: o guia do dia nunca atrasa a publicação nas redes.
+    guias.gerar_guia_do_dia()
     print(f"🏁 Rodada concluida. {total} oferta(s), {alertas_cupom} alerta(s) de "
           f"cupom e {vip} divulgação(ões) VIP.")
     observabilidade.evento("execucao_concluida",

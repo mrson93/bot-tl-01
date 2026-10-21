@@ -31,6 +31,8 @@ O projeto também inclui:
 - bot público de alertas por palavra-chave no Telegram, separado do painel
   (ativação em `site/README.md`);
 - Top 5 diário enviado ao administrador, pronto para colar no WhatsApp;
+- guia de compra diário no blog, em rodízio de pautas de busca (`guias.py`);
+- página `/servicos` com todos os recursos do site e dos canais;
 - agendamento econômico por Cloudflare Workers;
 - histórico persistente e criptografado entre execuções do GitHub Actions;
 - relatórios agregados de publicações, cliques, conversões e saúde dos canais;

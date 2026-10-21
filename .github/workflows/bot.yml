@@ -101,6 +101,8 @@ jobs:
       SHORTLINK_BASE_URL: ${{ vars.SHORTLINK_BASE_URL || 'https://go.canaltabarato.com.br' }}
       SITE_REFRESH_PER_RUN: ${{ vars.SITE_REFRESH_PER_RUN || '6' }}
       BLOG_RASCUNHO_AUTOMATICO: 'false'
+      BLOG_GUIAS_AUTOMATICOS: ${{ vars.BLOG_GUIAS_AUTOMATICOS || 'true' }}
+      BLOG_GUIAS_STATUS: ${{ vars.BLOG_GUIAS_STATUS || 'published' }}
       CUPOM_ALERTA_SEPARADO: ${{ vars.CUPOM_ALERTA_SEPARADO || 'true' }}
       CUPOM_ALERTAS_POR_RODADA: ${{ vars.CUPOM_ALERTAS_POR_RODADA || '1' }}
       CUPOM_RESUMO_HORAS: ${{ vars.CUPOM_RESUMO_HORAS || '12,20' }}

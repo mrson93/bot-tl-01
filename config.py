@@ -275,6 +275,10 @@ SITE_API_URL = _get("SITE_API_URL")
 SITE_API_TOKEN = _get("SITE_API_TOKEN")
 SITE_TRACKING_ID = _get("SITE_TRACKING_ID") or "site"
 BLOG_RASCUNHO_AUTOMATICO = _bool("BLOG_RASCUNHO_AUTOMATICO", False)
+# Guia de compra diário do blog (uma pauta de busca por dia, em rodízio).
+BLOG_GUIAS_AUTOMATICOS = _bool("BLOG_GUIAS_AUTOMATICOS", True)
+BLOG_GUIAS_STATUS = "draft" if _get("BLOG_GUIAS_STATUS").strip().lower() == "draft" else "published"
+BLOG_GUIAS_HORA = _int("BLOG_GUIAS_HORA", 9)
 # Produtos antigos sao revistos aos poucos dentro das rodadas que ja existem.
 # Isso nao cria novas execucoes do GitHub Actions.
 SITE_REFRESH_PER_RUN = max(0, min(20, _int("SITE_REFRESH_PER_RUN", 6)))
