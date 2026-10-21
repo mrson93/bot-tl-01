@@ -39,3 +39,6 @@ CREATE TABLE IF NOT EXISTS editorial_metrics_daily (observed_on TEXT NOT NULL,po
 CREATE INDEX IF NOT EXISTS idx_editorial_metrics_date ON editorial_metrics_daily(observed_on);
 CREATE TABLE IF NOT EXISTS catalog_search_daily(observed_on TEXT NOT NULL,source TEXT NOT NULL,device TEXT NOT NULL,outcome TEXT NOT NULL CHECK(outcome IN ('results','empty')),quantity INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(observed_on,source,device,outcome));
 CREATE INDEX IF NOT EXISTS idx_catalog_search_date ON catalog_search_daily(observed_on);
+CREATE TABLE IF NOT EXISTS alert_subscriptions (chat_id TEXT NOT NULL,keyword TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY (chat_id,keyword));
+CREATE TABLE IF NOT EXISTS alert_deliveries (chat_id TEXT NOT NULL,offer_id TEXT NOT NULL,sent_at INTEGER NOT NULL,PRIMARY KEY (chat_id,offer_id));
+CREATE INDEX IF NOT EXISTS idx_alert_deliveries_sent ON alert_deliveries(chat_id,sent_at);

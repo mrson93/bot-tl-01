@@ -28,6 +28,9 @@ O projeto também inclui:
 - revalidação gradual de preço e disponibilidade;
 - resposta automática opcional no Direct do Instagram;
 - painel privado no Telegram;
+- bot público de alertas por palavra-chave no Telegram, separado do painel
+  (ativação em `site/README.md`);
+- Top 5 diário enviado ao administrador, pronto para colar no WhatsApp;
 - agendamento econômico por Cloudflare Workers;
 - histórico persistente e criptografado entre execuções do GitHub Actions;
 - relatórios agregados de publicações, cliques, conversões e saúde dos canais;

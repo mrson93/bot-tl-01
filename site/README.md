@@ -157,3 +157,32 @@ exclusão de dados na configuração básica do aplicativo.
 Somente depois de concluir e testar essa configuração, defina a variável do
 GitHub `INSTAGRAM_DIRECT_ATIVO=true`. Enquanto ela estiver falsa, o cartão mantém
 o link em texto e não promete uma resposta automática.
+
+## Alertas por palavra-chave (bot público do Telegram)
+
+Bot separado do painel administrativo. Quem conversa com ele cadastra até 5
+palavras e recebe no privado as ofertas publicadas no site cujo título contém
+a palavra (no máximo 6 avisos por dia, um por oferta). Guarda apenas o chat_id
+numérico e as palavras; `/parar` ou bloquear o bot apaga tudo.
+
+Ativação:
+
+1. Crie o bot no @BotFather e guarde o token e o nome de usuário.
+2. No projeto Pages `canaltabarato`, configure:
+   - secret `TELEGRAM_ALERTS_BOT_TOKEN`: token do bot;
+   - secret `TELEGRAM_ALERTS_WEBHOOK_SECRET`: 32+ caracteres aleatórios
+     (somente letras, números, `_` e `-`);
+   - variável `TELEGRAM_ALERTS_BOT_USERNAME`: nome do bot sem `@`
+     (mostra o convite de alerta na página de oferta).
+3. Aplique `migrations/0019_alertas_telegram.sql` ao D1 (as tabelas também
+   são criadas sob demanda).
+4. Publique o site e registre o webhook, trocando os valores:
+
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+     -d url=https://canaltabarato.com.br/api/telegram-alerts \
+     -d secret_token=<SEGREDO> \
+     -d 'allowed_updates=["message"]'
+   ```
+
+Sem o token e o segredo o endpoint responde 503 e nenhum alerta é enviado.
