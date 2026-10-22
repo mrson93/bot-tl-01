@@ -40,6 +40,22 @@ def enviar_mensagem_privada(mensagem, sessao=requests):
     return _enviar_privado(str(mensagem), sessao)
 
 
+def enviar_foto_privada(url_imagem, legenda, sessao=requests):
+    """Foto com legenda em texto puro, para copiar e colar em outro app."""
+    if not config.TELEGRAM_ADMIN_ID or not config.TELEGRAM_BOT_TOKEN:
+        return False
+    url_imagem = seguranca.validar_url_https_publica(url_imagem, "Imagem do produto")
+    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendPhoto"
+    resposta = sessao.post(url, json={"chat_id": config.TELEGRAM_ADMIN_ID,
+        "photo": url_imagem, "caption": str(legenda)[:1024]}, timeout=30)
+    corpo = resposta.json()
+    if not corpo.get("ok"):
+        raise RuntimeError(seguranca.redigir_segredos(
+            f"Telegram recusou a foto: {corpo}"
+        ))
+    return True
+
+
 def avisar_falha_total_publicacao(loja, titulo, resultados, sessao=requests):
     """Avisa apenas quando nenhum dos destinos conseguiu publicar a oferta."""
     resultados = dict(resultados or {})

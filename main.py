@@ -587,10 +587,9 @@ def enviar_resumo_cupons_se_preciso(agora=None) -> bool:
         return False
 
 
-def montar_top_whatsapp(ofertas, limite=5):
-    """Texto pronto para colar em grupos/canais do WhatsApp (sem API oficial)."""
+def _escolher_top(ofertas, limite=5):
+    """Uma oferta por categoria primeiro; depois completa com as melhores."""
     escolhidas, categorias = [], set()
-    # Primeiro uma por categoria; depois completa com as melhores restantes.
     for repetir_categoria in (False, True):
         for oferta in ofertas:
             if len(escolhidas) >= limite:
@@ -600,25 +599,63 @@ def montar_top_whatsapp(ofertas, limite=5):
                 continue
             escolhidas.append(oferta)
             categorias.add(categoria)
+    return escolhidas
+
+
+def _linha_preco_whatsapp(oferta) -> str:
+    preco = f"💰 R$ {telegram_poster._preco(oferta.get('preco'))}"
+    desconto = float(oferta.get("desconto") or 0)
+    return preco + (f" · {int(round(desconto))}% OFF" if desconto >= 1 else "")
+
+
+def _chamada_telegram() -> str:
+    canal = str(config.TELEGRAM_CHANNEL or "").lstrip("@")
+    if canal and not canal.lstrip("-").isdigit():
+        return f"📲 Receba todas na hora, grátis, no Telegram: https://t.me/{canal}"
+    return ""
+
+
+def montar_top_whatsapp(ofertas, limite=5):
+    """Texto pronto para colar em grupos/canais do WhatsApp (sem API oficial)."""
+    escolhidas = _escolher_top(ofertas, limite)
     if len(escolhidas) < 3:
         return ""
     numeros = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
     linhas = ["🔥 *TOP OFERTAS DE HOJE · Tá Barato*", ""]
     for numero, oferta in zip(numeros, escolhidas):
         titulo = telegram_poster.limpar_titulo(oferta.get("titulo"), 70)
-        desconto = float(oferta.get("desconto") or 0)
-        preco = f"💰 R$ {telegram_poster._preco(oferta.get('preco'))}"
-        if desconto >= 1:
-            preco += f" · {int(round(desconto))}% OFF"
         link = site_publisher.link_publico_oferta(
             oferta["oferta_id"], oferta.get("titulo"), origem="whatsapp"
         )
-        linhas.extend([f"{numero} {titulo}", preco, f"👉 {link}", ""])
-    canal = str(config.TELEGRAM_CHANNEL or "").lstrip("@")
-    if canal and not canal.lstrip("-").isdigit():
-        linhas.append(f"📲 Receba todas na hora, grátis, no Telegram: https://t.me/{canal}")
+        linhas.extend([f"{numero} {titulo}", _linha_preco_whatsapp(oferta), f"👉 {link}", ""])
+    chamada = _chamada_telegram()
+    if chamada:
+        linhas.append(chamada)
     linhas.append("_Preços podem mudar. Contém links de afiliado._")
     return "\n".join(linhas)
+
+
+def montar_posts_whatsapp(ofertas, limite=5):
+    """Uma postagem por produto: foto do anúncio + legenda pronta para colar."""
+    com_imagem = [o for o in ofertas if str(o.get("imagem") or "").startswith("https://")]
+    escolhidas = _escolher_top(com_imagem, limite)
+    if len(escolhidas) < 3:
+        return []
+    posts = []
+    for posicao, oferta in enumerate(escolhidas, start=1):
+        titulo = telegram_poster.limpar_titulo(oferta.get("titulo"), 90)
+        link = site_publisher.link_publico_oferta(
+            oferta["oferta_id"], oferta.get("titulo"), origem="whatsapp"
+        )
+        linhas = [f"🔥 *Oferta {posicao} de {len(escolhidas)} de hoje*", "",
+                  f"*{titulo}*", _linha_preco_whatsapp(oferta), "", f"👉 {link}"]
+        if posicao == len(escolhidas):
+            chamada = _chamada_telegram()
+            if chamada:
+                linhas.extend(["", chamada])
+        linhas.extend(["", "_Preço pode mudar. Link de afiliado._"])
+        posts.append({"imagem": oferta["imagem"], "legenda": "\n".join(linhas)})
+    return posts
 
 
 def enviar_top_whatsapp_se_preciso(agora=None) -> bool:
@@ -631,16 +668,25 @@ def enviar_top_whatsapp_se_preciso(agora=None) -> bool:
     if store._estado(chave):
         return False
     try:
-        texto = montar_top_whatsapp(
-            store.melhores_postadas_desde(agora.timestamp() - 86400)
-        )
-        if not texto:
-            return False
-        monitor.enviar_mensagem_privada(
-            "📋 Top do dia pronto para o WhatsApp: copie a próxima mensagem e "
-            "cole nos seus grupos ou no canal."
-        )
-        monitor.enviar_mensagem_privada(texto)
+        ofertas = store.melhores_postadas_desde(agora.timestamp() - 86400)
+        posts = montar_posts_whatsapp(ofertas)
+        if posts:
+            monitor.enviar_mensagem_privada(
+                f"📋 {len(posts)} ofertas do dia prontas para o WhatsApp. Para cada uma: "
+                "copie a legenda, compartilhe a foto no canal e cole a legenda."
+            )
+            for post in posts:
+                monitor.enviar_foto_privada(post["imagem"], post["legenda"])
+        else:
+            # Sem fotos suficientes (ex.: ofertas antigas), mantém o resumo em texto.
+            texto = montar_top_whatsapp(ofertas)
+            if not texto:
+                return False
+            monitor.enviar_mensagem_privada(
+                "📋 Top do dia pronto para o WhatsApp: copie a próxima mensagem e "
+                "cole nos seus grupos ou no canal."
+            )
+            monitor.enviar_mensagem_privada(texto)
         store._definir_estado(chave, "enviado")
         return True
     except Exception as erro:
@@ -1121,7 +1167,7 @@ def _publicar_fila(fila, limite):
             oid, oferta.get("price"), oferta.get("priceDiscountRate"), fonte.NOME,
             titulo=oferta.get("productName"), categoria=oferta.get("categoria"),
             experimento=oferta.get("experimento"), variante=oferta.get("variante"),
-            loja=oferta.get("shopName")
+            loja=oferta.get("shopName"), imagem=oferta.get("imageUrl")
         )
         postadas += 1
         fontes_hoje[fonte.NOME] = fontes_hoje.get(fonte.NOME, 0) + 1

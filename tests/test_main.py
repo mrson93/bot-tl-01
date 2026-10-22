@@ -854,6 +854,39 @@ class MainTest(unittest.TestCase):
         self.assertEqual(2, enviar.call_count)
         self.assertIn("TOP OFERTAS", enviar.call_args.args[0])
 
+    def test_posts_whatsapp_tem_foto_e_legenda_por_produto(self):
+        postadas = [dict(item, imagem=f"https://cf.shopee.com.br/{i}.jpg")
+                    for i, item in enumerate(self._postadas_top())]
+        with patch.object(main.config, "SITE_PUBLICO_URL", "https://canaltabarato.com.br"), \
+             patch.object(main.config, "TELEGRAM_CHANNEL", "@CanalTaBarato"):
+            posts = main.montar_posts_whatsapp(postadas, limite=3)
+        self.assertEqual(3, len(posts))
+        self.assertEqual("https://cf.shopee.com.br/0.jpg", posts[0]["imagem"])
+        self.assertIn("*Oferta 1 de 3 de hoje*", posts[0]["legenda"])
+        self.assertIn("*Panela antiaderente 24cm*", posts[0]["legenda"])
+        self.assertIn("utm_source=whatsapp", posts[0]["legenda"])
+        self.assertNotIn("t.me/CanalTaBarato", posts[0]["legenda"])
+        self.assertIn("t.me/CanalTaBarato", posts[-1]["legenda"])
+        self.assertEqual([], main.montar_posts_whatsapp(self._postadas_top()))
+
+    def test_top_whatsapp_envia_fotos_quando_ha_imagens(self):
+        estado = {}
+        postadas = [dict(item, imagem=f"https://cf.shopee.com.br/{i}.jpg")
+                    for i, item in enumerate(self._postadas_top())]
+        agora = datetime(2026, 10, 20, 18, 30, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.config, "TOP_WHATSAPP_ATIVO", True), \
+             patch.object(main.config, "TOP_WHATSAPP_HORA", 18), \
+             patch.object(main.config, "TELEGRAM_ADMIN_ID", "1"), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.store, "melhores_postadas_desde", return_value=postadas), \
+             patch.object(main.store, "_estado", side_effect=estado.get), \
+             patch.object(main.store, "_definir_estado", side_effect=estado.__setitem__), \
+             patch.object(main.monitor, "enviar_mensagem_privada") as texto, \
+             patch.object(main.monitor, "enviar_foto_privada") as foto:
+            self.assertTrue(main.enviar_top_whatsapp_se_preciso(agora))
+        texto.assert_called_once()
+        self.assertEqual(4, foto.call_count)
+
     def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

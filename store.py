@@ -18,7 +18,7 @@ def _conn():
     for nome, tipo in (("preco", "REAL"), ("desconto", "REAL"), ("fonte", "TEXT"),
                        ("titulo", "TEXT"), ("categoria", "TEXT"),
                        ("experimento", "TEXT"), ("variante", "TEXT"),
-                       ("loja", "TEXT")):
+                       ("loja", "TEXT"), ("imagem", "TEXT")):
         if nome not in existentes:
             con.execute(f"ALTER TABLE postadas ADD COLUMN {nome} {tipo}")
     con.execute("CREATE TABLE IF NOT EXISTS entregas (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, preco REAL, fonte TEXT, tentativas INTEGER NOT NULL DEFAULT 1, erro TEXT, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
@@ -130,11 +130,11 @@ def avaliar_elegibilidade(oferta_id, preco, dias, queda_percent, agora=None):
 
 def marcar_postada(oferta_id, preco=None, desconto=None, fonte=None, agora=None,
                    titulo=None, categoria=None, experimento=None, variante=None,
-                   loja=None):
+                   loja=None, imagem=None):
     with _conn() as con:
-        con.execute("INSERT INTO postadas(id,postada_em,preco,desconto,fonte,titulo,categoria,experimento,variante,loja) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET postada_em=excluded.postada_em,preco=excluded.preco,desconto=excluded.desconto,fonte=excluded.fonte,titulo=COALESCE(excluded.titulo,postadas.titulo),categoria=COALESCE(excluded.categoria,postadas.categoria),experimento=COALESCE(excluded.experimento,postadas.experimento),variante=COALESCE(excluded.variante,postadas.variante),loja=COALESCE(excluded.loja,postadas.loja)",
+        con.execute("INSERT INTO postadas(id,postada_em,preco,desconto,fonte,titulo,categoria,experimento,variante,loja,imagem) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET postada_em=excluded.postada_em,preco=excluded.preco,desconto=excluded.desconto,fonte=excluded.fonte,titulo=COALESCE(excluded.titulo,postadas.titulo),categoria=COALESCE(excluded.categoria,postadas.categoria),experimento=COALESCE(excluded.experimento,postadas.experimento),variante=COALESCE(excluded.variante,postadas.variante),loja=COALESCE(excluded.loja,postadas.loja),imagem=COALESCE(excluded.imagem,postadas.imagem)",
                     (str(oferta_id), int(agora or time.time()), preco, desconto,
-                     fonte, titulo, categoria, experimento, variante, loja))
+                     fonte, titulo, categoria, experimento, variante, loja, imagem))
 
 
 def posts_por_fonte_desde(inicio):
@@ -472,12 +472,12 @@ def melhores_postadas_desde(inicio, limite=30):
     """Ofertas publicadas na janela, das maiores descontos para os menores."""
     with _conn() as con:
         linhas = con.execute(
-            "SELECT id,fonte,titulo,categoria,preco,desconto FROM postadas "
+            "SELECT id,fonte,titulo,categoria,preco,desconto,imagem FROM postadas "
             "WHERE titulo IS NOT NULL AND postada_em>=? AND preco>0 "
             "ORDER BY COALESCE(desconto,0) DESC, postada_em DESC LIMIT ?",
             (int(inicio), int(limite)),
         ).fetchall()
-    campos = ("oferta_id", "fonte", "titulo", "categoria", "preco", "desconto")
+    campos = ("oferta_id", "fonte", "titulo", "categoria", "preco", "desconto", "imagem")
     return [dict(zip(campos, linha)) for linha in linhas]
 
 
