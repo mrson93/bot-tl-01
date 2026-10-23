@@ -910,6 +910,26 @@ class MainTest(unittest.TestCase):
             self.assertEqual("liberada", main.diagnosticar_amazon_api(dia1.replace(day=24)))
         avisar.assert_called_once()
 
+    def test_campanha_mais_vendido_ml_usa_so_a_api_e_publica_uma(self):
+        capturada = {}
+
+        def candidatos(fonte):
+            capturada["fonte"] = fonte
+            return fonte.buscar_ofertas()
+
+        oferta = {"oferta_id": "mercadolivre_MLB1", "productName": "Air Fryer"}
+        with patch.object(main.mercadolivre_api, "pode_publicar", return_value=True), \
+             patch.object(main.mercadolivre_api, "buscar_mais_vendidos", return_value=[oferta]), \
+             patch.object(main, "buscar_candidatos", side_effect=candidatos), \
+             patch.object(main, "_ordenar_candidatos", side_effect=lambda fila: fila), \
+             patch.object(main, "_publicar_fila", return_value=1) as publicar:
+            self.assertTrue(main.executar_campanha("mercadolivre_mais_vendido"))
+        self.assertEqual("Mercado Livre", capturada["fonte"].NOME)
+        self.assertIs(main.mercadolivre.gerar_link, capturada["fonte"].gerar_link)
+        publicar.assert_called_once_with([oferta], 1)
+        with patch.object(main.mercadolivre_api, "pode_publicar", return_value=False):
+            self.assertFalse(main.executar_campanha("mercadolivre_mais_vendido"))
+
     def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

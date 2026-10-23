@@ -248,8 +248,12 @@ jobs:
         if: github.ref == 'refs/heads/main' && inputs.campanha == 'shopee_vip' && inputs.somente_pendentes != true
         run: python main.py --campanha shopee_vip
 
+      - name: Publicar mais vendido do Mercado Livre
+        if: github.ref == 'refs/heads/main' && inputs.campanha == 'mercadolivre_mais_vendido' && inputs.somente_pendentes != true
+        run: python main.py --campanha mercadolivre_mais_vendido
+
       - name: Recusar campanha desconhecida
-        if: inputs.campanha != '' && inputs.campanha != 'shopee_vip'
+        if: inputs.campanha != '' && inputs.campanha != 'shopee_vip' && inputs.campanha != 'mercadolivre_mais_vendido'
         run: exit 1
 
       - name: Enviar somente o relatorio privado

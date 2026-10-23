@@ -32,6 +32,7 @@ import shopee
 import aliexpress
 import amazon
 import mercadolivre
+import mercadolivre_api
 import store
 import telegram_poster
 import bluesky
@@ -198,10 +199,36 @@ def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
     return bool(publicadas)
 
 
+class _MaisVendidosMercadoLivre:
+    """Mercado Livre restrito aos mais vendidos da API (sem a lista manual)."""
+    NOME = mercadolivre.NOME
+    VALIDA_ANTES_PUBLICAR = True
+
+    @staticmethod
+    def buscar_ofertas():
+        return mercadolivre_api.buscar_mais_vendidos()
+
+    def __getattr__(self, nome):
+        return getattr(mercadolivre, nome)
+
+
+def publicar_mais_vendido_mercadolivre() -> bool:
+    """Publica agora a melhor oferta dos mais vendidos da API que passe nos filtros."""
+    if not mercadolivre_api.pode_publicar():
+        print("❌ API do Mercado Livre sem autorização ou sem parâmetros de afiliado.")
+        return False
+    fonte = _MaisVendidosMercadoLivre()
+    fila = _ordenar_candidatos(buscar_candidatos(fonte))
+    print(f"🔎 Mais vendidos do Mercado Livre aptos: {len(fila)} "
+          f"({mercadolivre_api.resumo_diagnostico()}).")
+    return _publicar_fila(fila, 1) > 0
+
+
 def executar_campanha(nome):
     """Executa somente uma campanha conhecida, sem iniciar a busca de ofertas."""
     campanhas = {
         "shopee_vip": lambda: publicar_shopee_vip_se_preciso(forcar=True),
+        "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
     }
     executar = campanhas.get(str(nome or "").strip().lower())
     if executar is None:
