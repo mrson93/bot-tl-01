@@ -124,7 +124,9 @@ def _oferta(identificador, titulo, preco, original, url, imagem, posicao) -> dic
         "fonte": "Mercado Livre", "oferta_id": f"mercadolivre_{identificador}",
         "productName": " ".join(str(titulo or "").split()), "price": preco,
         "precoOriginal": original or None, "priceDiscountRate": desconto,
-        "ratingStar": None, "sales": None, "shopName": "Mercado Livre",
+        # Sem o vendedor real, "Mercado Livre" como loja faria todos os mais
+        # vendidos dividirem o limite diário por loja; vazio fica fora dele.
+        "ratingStar": None, "sales": None, "shopName": "",
         "imageUrl": imagem, "productUrl": link_afiliado(url), "comissao": None,
         "_ml_mais_vendido": posicao,
     }

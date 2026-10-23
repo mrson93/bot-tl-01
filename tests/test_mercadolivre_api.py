@@ -93,6 +93,7 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertEqual("https://http2.mlstatic.com/a.jpg", air["imageUrl"])
         self.assertIn("matt_word=canaltabarato", air["productUrl"])
         self.assertEqual(1, air["_ml_mais_vendido"])
+        self.assertEqual("", air["shopName"])
         self.assertEqual(0, ofertas[1]["priceDiscountRate"])
 
     def test_produto_sem_vencedor_usa_menor_preco_dos_anuncios(self):
