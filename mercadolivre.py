@@ -135,6 +135,13 @@ def _adicionar_marcadores_lista(url_produto, url_lista):
         # atributos do produto e não devem ser copiados.
         if chave == "matt_tool" and chave not in chaves and valor:
             parametros.append((chave, valor))
+            chaves.add(chave)
+    # O link da lista não traz o matt_word do afiliado; completa com os
+    # parâmetros configurados para não perder a atribuição da venda.
+    for chave, valor in mercadolivre_api.parametros_afiliado():
+        if chave not in chaves:
+            parametros.append((chave, valor))
+            chaves.add(chave)
     return urlunsplit((produto.scheme, produto.netloc, produto.path,
                        urlencode(parametros), produto.fragment))
 

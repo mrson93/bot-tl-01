@@ -96,6 +96,16 @@ class MercadoLivreTest(unittest.TestCase):
             "Agora: 1.234 reais com 56 centavos"
         ))
 
+    def test_link_da_lista_recebe_matt_word_configurado(self):
+        from unittest.mock import patch
+        with patch.object(mercadolivre.config, "MERCADOLIVRE_AFILIADO_PARAMETROS",
+                          "matt_word=canaltabarato&matt_tool=71195511"):
+            url = mercadolivre._adicionar_marcadores_lista(
+                "https://www.mercadolivre.com.br/produto/p/MLB1?x=1",
+                "https://www.mercadolivre.com.br/social/emerpettorini/lists/1?matt_tool=71195511&forceInApp=true")
+        self.assertEqual("https://www.mercadolivre.com.br/produto/p/MLB1?x=1&matt_tool=71195511"
+                         "&matt_word=canaltabarato", url)
+
     def test_preco_em_espanhol_como_a_pagina_passou_a_mostrar(self):
         self.assertEqual(151.5, mercadolivre._preco_por_rotulo(
             "Ahora: 151 reales con 50 centavos"))
