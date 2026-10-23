@@ -128,6 +128,17 @@ class MercadoLivreApiTest(unittest.TestCase):
         consultar.assert_called_once_with(["mercadolivre_MLB777"])
         mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
 
+    def test_revalidacao_de_produto_de_catalogo_usa_os_anuncios(self):
+        def get(caminho, params=None):
+            if caminho == "/products/MLB111":
+                return {"name": "Cafeteira", "pictures": [{"url": "https://http2.mlstatic.com/c.jpg"}]}
+            if caminho == "/products/MLB111/items":
+                return {"results": [{"price": 199, "original_price": 249}]}
+            raise AssertionError(caminho)
+        with patch.object(api, "_get", side_effect=get):
+            achados = api.consultar(["mercadolivre_MLB111"])
+        self.assertEqual(199, achados["mercadolivre_MLB111"]["price"])
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \

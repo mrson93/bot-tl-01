@@ -208,6 +208,15 @@ class _MaisVendidosMercadoLivre:
     def buscar_ofertas():
         return mercadolivre_api.buscar_mais_vendidos()
 
+    @staticmethod
+    def revalidar_oferta(oferta):
+        oferta_id = str(oferta.get("oferta_id") or "")
+        return mercadolivre_api.consultar([oferta_id]).get(oferta_id)
+
+    @staticmethod
+    def consultar_produtos(ids):
+        return mercadolivre_api.consultar(list(ids))
+
     def __getattr__(self, nome):
         return getattr(mercadolivre, nome)
 

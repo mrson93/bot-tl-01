@@ -210,18 +210,14 @@ def resumo_diagnostico() -> str:
 
 
 def consultar(ids) -> dict:
-    """Preço atual pela API, para revalidar antes de publicar."""
+    """Preço atual pela API, pelo mesmo caminho da busca (catálogo ou anúncio)."""
     resultado = {}
     for oferta_id in ids:
         identificador = str(oferta_id).removeprefix("mercadolivre_")
         try:
-            dados = _get(f"/products/{identificador}")
-            vencedor = dados.get("buy_box_winner") or {}
-            if vencedor.get("price"):
-                url = dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{identificador}"
-                resultado[oferta_id] = _oferta(identificador, dados.get("name"), vencedor["price"],
-                                               vencedor.get("original_price"), url,
-                                               _imagem(dados), None)
+            oferta = _produto_catalogo(identificador, None)
+            if oferta:
+                resultado[oferta_id] = oferta
                 continue
         except (requests.RequestException, ValueError, KeyError):
             pass
