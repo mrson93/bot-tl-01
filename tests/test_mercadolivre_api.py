@@ -111,6 +111,22 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertEqual(21, ofertas[0]["priceDiscountRate"])
         self.assertIn("produto_preco_por_anuncio=1", api.resumo_diagnostico())
 
+    def test_revalidacao_reaproveita_leitura_da_rodada(self):
+        mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
+        lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item", "price": 10}]
+        with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
+             patch.object(mercadolivre, "_buscar_lista", return_value=lista) as lista_mock, \
+             patch.object(api, "buscar_mais_vendidos", return_value=[]) as api_mock, \
+             patch.object(api, "consultar", return_value={}) as consultar:
+            mercadolivre.buscar_ofertas()
+            achados = mercadolivre.consultar_produtos(["mercadolivre_MLB9"])
+            mercadolivre.consultar_produtos(["mercadolivre_MLB777"])
+        self.assertEqual(["mercadolivre_MLB9"], list(achados))
+        lista_mock.assert_called_once()
+        api_mock.assert_called_once()
+        consultar.assert_called_once_with(["mercadolivre_MLB777"])
+        mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \

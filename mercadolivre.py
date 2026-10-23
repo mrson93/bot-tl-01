@@ -1,6 +1,7 @@
 """Ofertas escolhidas na lista publica de recomendacoes do Mercado Livre."""
 from html.parser import HTMLParser
 import re
+import time
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import requests
@@ -17,6 +18,12 @@ _HOSTS_PRODUTO = ("mercadolivre.com.br",)
 _HOSTS_IMAGEM = ("mlstatic.com",)
 _MAX_HTML = 3_000_000
 _MAX_PAGINAS = 20
+
+
+# Leitura da rodada reaproveitada na revalidação: evita refazer a busca na
+# API (que também avançaria o rodízio de categorias) a cada oferta.
+_VALIDADE_LEITURA = 15 * 60
+_ultima_leitura = {"em": 0.0, "ofertas": None}
 
 
 def esta_configurada() -> bool:
@@ -245,7 +252,15 @@ def buscar_ofertas() -> list:
         raise erro_lista
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
+    _ultima_leitura.update(em=time.monotonic(), ofertas=list(ofertas.values()))
     return list(ofertas.values())
+
+
+def _leitura_recente():
+    if (_ultima_leitura["ofertas"] is not None
+            and time.monotonic() - _ultima_leitura["em"] <= _VALIDADE_LEITURA):
+        return _ultima_leitura["ofertas"]
+    return None
 
 
 def _buscar_lista() -> list:
@@ -298,7 +313,7 @@ def consultar_produtos(ids) -> dict:
         return {}
     encontrados = {
         oferta["oferta_id"]: oferta
-        for oferta in buscar_ofertas()
+        for oferta in (_leitura_recente() or buscar_ofertas())
         if oferta["oferta_id"] in procurados
     }
     faltando = procurados - set(encontrados)

@@ -32,6 +32,9 @@ URL_LISTA = "https://www.mercadolivre.com.br/social/canal/lists/lista"
 
 
 class MercadoLivreTest(unittest.TestCase):
+    def setUp(self):
+        mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
+
     def test_parseia_lista_e_preserva_link_rastreado(self):
         lista_rastreada = URL_LISTA + "?matt_tool=71195511&forceInApp=true"
         with patch.object(mercadolivre, "_baixar_html", return_value=(HTML, lista_rastreada)), \
