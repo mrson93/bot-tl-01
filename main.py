@@ -501,6 +501,32 @@ def diagnosticar_cupons_aliexpress(agora=None):
     store._definir_estado(chave, "feito")
 
 
+def diagnosticar_amazon_api(agora=None):
+    """Uma vez por dia testa se a Creators API já libera dados de produtos."""
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    chave = f"diag_amazon_api:{agora.date().isoformat()}"
+    if not amazon.credenciais_api_configuradas() or store._estado(chave):
+        return None
+    store._definir_estado(chave, "feito")
+    try:
+        status, detalhe = amazon.diagnosticar_api()
+    except Exception as erro:
+        status, detalhe = "recusada", seguranca.redigir_segredos(erro)[:120]
+    detalhe = seguranca.redigir_segredos(detalhe)
+    print(f"🔑 Diagnostico Creators API (Amazon): {status} · {detalhe}.")
+    anterior = store._estado("amazon_api_status")
+    store._definir_estado("amazon_api_status", status)
+    if status == "liberada" and anterior != "liberada":
+        try:
+            monitor.enviar_mensagem_privada(
+                "🎉 A Creators API da Amazon foi liberada para a sua conta. Já dá "
+                "para buscar ofertas da Amazon automaticamente, sem depender da lista."
+            )
+        except Exception as erro:
+            print(f"   ⚠️  Aviso da Creators API não enviado: {seguranca.redigir_segredos(erro)}")
+    return status
+
+
 def _deduplicar_cupons(cupons):
     unicos = {}
     for cupom in cupons:
@@ -1250,6 +1276,7 @@ def rodar_uma_vez() -> int:
                           f"{seguranca.redigir_segredos(erro)}")
     cupons = cupons_oficiais(candidatos) + cupons_das_plataformas(lojas)
     diagnosticar_cupons_aliexpress()
+    diagnosticar_amazon_api()
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)

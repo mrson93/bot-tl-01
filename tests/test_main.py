@@ -897,6 +897,19 @@ class MainTest(unittest.TestCase):
             RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")))
         self.assertEqual("erro", main.tipo_falha_fonte(RuntimeError("outra coisa")))
 
+    def test_diagnostico_amazon_avisa_uma_vez_quando_liberar(self):
+        estado = {"amazon_api_status": "recusada"}
+        dia1 = datetime(2026, 10, 23, 12, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.amazon, "credenciais_api_configuradas", return_value=True), \
+             patch.object(main.amazon, "diagnosticar_api", return_value=("liberada", "1 produto")), \
+             patch.object(main.store, "_estado", side_effect=estado.get), \
+             patch.object(main.store, "_definir_estado", side_effect=estado.__setitem__), \
+             patch.object(main.monitor, "enviar_mensagem_privada") as avisar:
+            self.assertEqual("liberada", main.diagnosticar_amazon_api(dia1))
+            self.assertIsNone(main.diagnosticar_amazon_api(dia1))
+            self.assertEqual("liberada", main.diagnosticar_amazon_api(dia1.replace(day=24)))
+        avisar.assert_called_once()
+
     def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

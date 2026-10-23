@@ -49,6 +49,19 @@ class AmazonListaTest(unittest.TestCase):
             amazon.revalidar_oferta({"oferta_id": "amazon_B0F9Z2DV83"})
         self.assertEqual(2, baixar.call_count)
 
+    def test_diagnostico_da_creators_api(self):
+        with patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"), \
+             patch.object(amazon, "_access_token", return_value="token"):
+            with patch.object(amazon, "_chamar", return_value={"itemsResult": {"items": [{}]}}):
+                self.assertEqual(("liberada", "1 produto(s) retornado(s)"), amazon.diagnosticar_api())
+            erro = RuntimeError('Amazon recusou (403): {"code":"AssociateNotEligible","message":"x"}')
+            with patch.object(amazon, "_chamar", side_effect=erro):
+                self.assertEqual(("recusada", "403 AssociateNotEligible"), amazon.diagnosticar_api())
+        resposta = Mock(status_code=401)
+        with patch.object(amazon, "_access_token",
+                          side_effect=amazon.requests.HTTPError(response=resposta)):
+            self.assertEqual(("recusada", "credencial não aceita (401)"), amazon.diagnosticar_api())
+
     def _config(self):
         return (
             patch.object(amazon.config, "AMAZON_LIST_URL", "https://amzn.to/lista"),

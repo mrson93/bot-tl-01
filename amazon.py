@@ -382,6 +382,46 @@ def _buscar_api() -> list:
     return ofertas
 
 
+_ASIN_TESTE = "B0F9Z2DV83"
+
+
+def credenciais_api_configuradas() -> bool:
+    return bool(config.AMAZON_CREDENTIAL_ID and config.AMAZON_CREDENTIAL_SECRET
+                and config.AMAZON_ASSOCIATE_TAG)
+
+
+def diagnosticar_api() -> tuple:
+    """Consulta um único produto para saber se a conta já tem a PA API liberada.
+
+    Devolve ("liberada", detalhe) ou ("recusada", motivo). Não publica nada e
+    não muda o modo de busca (lista pública).
+    """
+    asins = [o["oferta_id"][7:] for o in (_lista_recente() or [])
+             if re.fullmatch(r"amazon_[A-Z0-9]{10}", o.get("oferta_id", ""))]
+    asin = asins[0] if asins else _ASIN_TESTE
+    try:
+        _token.update(valor=None, expira_em=0)
+        _access_token()
+    except Exception as erro:
+        status = getattr(getattr(erro, "response", None), "status_code", "?")
+        return "recusada", f"credencial não aceita ({status})"
+    try:
+        resposta = _chamar("getItems", {
+            "partnerTag": config.AMAZON_ASSOCIATE_TAG,
+            "marketplace": config.AMAZON_MARKETPLACE,
+            "itemIds": [asin], "itemIdType": "ASIN",
+            "resources": ["itemInfo.title", "offersV2.listings.price"],
+        })
+    except Exception as erro:
+        texto = str(erro)
+        status = re.search(r"\((\d{3})\)", texto)
+        codigo = re.search(r'"(?:code|__type|reason)"\s*:\s*"([^"]{1,80})"', texto)
+        motivo = codigo.group(1) if codigo else texto[:120]
+        return "recusada", f"{status.group(1) if status else '?'} {motivo}".strip()
+    itens = _cavar(resposta, "itemsResult", "items", padrao=[]) or []
+    return "liberada", f"{len(itens)} produto(s) retornado(s)"
+
+
 def buscar_ofertas() -> list:
     if config.AMAZON_LIST_URL:
         return _buscar_lista()
