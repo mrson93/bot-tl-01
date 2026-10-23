@@ -30,12 +30,14 @@ def _texto(valor):
 
 
 def _preco_por_rotulo(rotulo):
+    # A página alterna o rótulo acessível entre português ("151 reais com 50
+    # centavos") e espanhol ("Ahora: 151 reales con 50 centavos").
     texto = _texto(rotulo).lower()
-    reais = re.search(r"(\d[\d.]*)\s+reais?", texto)
+    reais = re.search(r"(\d[\d.]*)\s+(?:reais|reales|real)\b", texto)
     if not reais:
         return None
     inteiro = int(reais.group(1).replace(".", ""))
-    centavos = re.search(r"com\s+(\d{1,2})\s+centavos?", texto)
+    centavos = re.search(r"(?:com|con)\s+(\d{1,2})\s+centavos?", texto)
     return inteiro + (int(centavos.group(1)) / 100 if centavos else 0)
 
 
@@ -47,7 +49,11 @@ def _id_produto(url):
     if re.fullmatch(r"MLB\d+", wid, re.I):
         return wid.upper()
     catalogo = re.search(r"/p/(MLB\d+)", partes.path, re.I)
-    return catalogo.group(1).upper() if catalogo else None
+    if catalogo:
+        return catalogo.group(1).upper()
+    # Anúncio sem página de catálogo: produto.mercadolivre.com.br/MLB-123-titulo
+    anuncio = re.search(r"/(MLB)-?(\d+)", partes.path, re.I)
+    return f"MLB{anuncio.group(2)}" if anuncio else None
 
 
 class _ParserLista(HTMLParser):

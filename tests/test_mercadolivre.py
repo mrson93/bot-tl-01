@@ -96,6 +96,15 @@ class MercadoLivreTest(unittest.TestCase):
             "Agora: 1.234 reais com 56 centavos"
         ))
 
+    def test_preco_em_espanhol_como_a_pagina_passou_a_mostrar(self):
+        self.assertEqual(151.5, mercadolivre._preco_por_rotulo(
+            "Ahora: 151 reales con 50 centavos"))
+        self.assertEqual(1202, mercadolivre._preco_por_rotulo("Antes: 1.202 reales"))
+
+    def test_id_de_anuncio_sem_pagina_de_catalogo(self):
+        self.assertEqual("MLB4049176847", mercadolivre._id_produto(
+            "https://produto.mercadolivre.com.br/MLB-4049176847-calca-wide-cargo-jeans-_JM"))
+
     def test_importa_todas_as_paginas_da_lista(self):
         segunda = HTML.replace("MLB3340103325", "MLB1111111111").replace(
             "MLB7590894102", "MLB2222222222"
