@@ -296,10 +296,46 @@ def _vencedora_ab(testes, minimo_posts=30):
             "Considere mantê-la e encerrar o teste.")
 
 
+_ROTULOS_FALHA = {"bloqueio": "bloqueio da loja", "pagina_mudou": "página mudou",
+                  "conexao": "sem conexão", "erro": "erro"}
+
+
+def linhas_saude_fontes(saude):
+    """Uma linha por loja: rodadas lidas com sucesso e o motivo das falhas."""
+    linhas = []
+    for fonte, item in sorted((saude or {}).items()):
+        falhas = sum(item["falhas"].values())
+        total = item["ok"] + falhas
+        if not total:
+            continue
+        icone = "✅" if not falhas else "⚠️" if item["ok"] >= falhas else "❌"
+        texto = f"{icone} {fonte}: {item['ok']}/{total} rodadas"
+        if falhas:
+            texto += " · " + " · ".join(
+                f"{_ROTULOS_FALHA.get(motivo, motivo)} {qtd}"
+                for motivo, qtd in sorted(item["falhas"].items(), key=lambda par: -par[1]))
+        linhas.append(texto)
+    return linhas
+
+
+def alertas_saude_fontes(saude):
+    alertas = []
+    for fonte, item in sorted((saude or {}).items()):
+        falhas = sum(item["falhas"].values())
+        total = item["ok"] + falhas
+        if total >= 4 and item["ok"] < total / 2:
+            principal = max(item["falhas"], key=item["falhas"].get)
+            dica = (" — o formato da página mudou e o bot precisa de ajuste"
+                    if principal == "pagina_mudou" else "")
+            alertas.append(f"{fonte} funcionou em só {item['ok']} de {total} rodadas"
+                           f" ({_ROTULOS_FALHA.get(principal, principal)}){dica}")
+    return alertas
+
+
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
            testes_ab=None, eventos=None, diario_ali=None, diario_shopee=None,
-           cliques_dia=None):
+           cliques_dia=None, saude=None):
     """Relatório curto, em blocos estáveis, para leitura rápida no Telegram."""
     sucessos = sum(qtd for _, ok, _, qtd in linhas if ok)
     falhas = sum(qtd for _, ok, _, qtd in linhas if not ok)
@@ -376,6 +412,11 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
             blocos.append("Falhas: " + " · ".join(
                 f"{canal} {qtd}" for canal, qtd in sorted(falhas_canal.items())
             ))
+
+    linhas_saude = linhas_saude_fontes(saude)
+    if linhas_saude:
+        blocos.extend(["", "🩺 SAÚDE DAS LOJAS · ONTEM"])
+        blocos.extend(linhas_saude)
 
     blocos.extend(["", "💰 RESULTADO · ÚLTIMOS 7 DIAS"])
     if conversoes_shopee:
@@ -540,6 +581,8 @@ def enviar_se_devido(agora=None, forcar=False):
         if qtd >= config.RELATORIO_ALERTA_MIN_POSTS and not validas.get(fonte, 0)
     ]
     eventos = store.resumo_eventos(inicio, fim)
+    saude = store.saude_fontes(inicio, fim)
+    alertas = alertas_saude_fontes(saude) + alertas
     if eventos.get("imagens_omitidas", 0) >= 3:
         alertas.append(
             f"Bluesky: {eventos['imagens_omitidas']} posts saíram sem imagem"
@@ -626,7 +669,7 @@ def enviar_se_devido(agora=None, forcar=False):
                        sem_conversao, cliques, tendencias, testes_ab,
                        eventos, diario_ali=diario_ali,
                        diario_shopee=diario_shopee,
-                       cliques_dia=cliques_dia)}, timeout=30)
+                       cliques_dia=cliques_dia, saude=saude)}, timeout=30)
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(f"Telegram recusou o relatório: {corpo}")

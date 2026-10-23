@@ -22,6 +22,8 @@ try:
 except (AttributeError, ValueError):
     pass
 
+import requests
+
 import config
 import desempenho
 import experimentos
@@ -824,6 +826,20 @@ def agendar_proxima(tentativa_curta=False, agora=None):
     print(f"⏰ Proxima tentativa: {datetime.fromtimestamp(alvo).strftime('%H:%M')} ({minutos} min).")
 
 
+def tipo_falha_fonte(erro) -> str:
+    """Separa bloqueio da loja de mudança na página, que exige ajuste no bot."""
+    resposta = getattr(erro, "response", None)
+    status = getattr(resposta, "status_code", None)
+    if status in {403, 429} or (status and status >= 500):
+        return "bloqueio"
+    if isinstance(erro, (requests.ConnectionError, requests.Timeout)):
+        return "conexao"
+    texto = str(erro).lower()
+    if "nenhuma oferta" in texto or "incompleto" in texto or isinstance(erro, ValueError):
+        return "pagina_mudou"
+    return "erro"
+
+
 def buscar_candidatos(fonte) -> list:
     """Busca e filtra uma loja; a publicação acontece só após comparar todas."""
     print(f"🔎 Buscando ofertas em {fonte.NOME}...")
@@ -832,6 +848,8 @@ def buscar_candidatos(fonte) -> list:
     except Exception as e:
         erro = seguranca.redigir_segredos(e)
         print(f"   ❌ Erro ao buscar ofertas em {fonte.NOME}: {erro}")
+        observabilidade.evento("fonte_falha", fonte=fonte.NOME,
+                                motivo=tipo_falha_fonte(e))
         if fonte.NOME in {"Amazon", "Mercado Livre"}:
             try:
                 monitor.avisar_falha_lista(fonte.NOME, erro)

@@ -246,6 +246,25 @@ def resumo_eventos(inicio, fim):
     return resultado
 
 
+def saude_fontes(inicio, fim):
+    """Rodadas com e sem leitura de cada loja, com o tipo de cada falha."""
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT tipo,fonte,COALESCE(motivo,''),COUNT(*) FROM eventos "
+            "WHERE ocorrido_em>=? AND ocorrido_em<? AND fonte IS NOT NULL "
+            "AND tipo IN ('ofertas_recebidas','fonte_falha') GROUP BY tipo,fonte,motivo",
+            (int(inicio), int(fim)),
+        ).fetchall()
+    saude = {}
+    for tipo, fonte, motivo, total in linhas:
+        item = saude.setdefault(fonte, {"ok": 0, "falhas": {}})
+        if tipo == "ofertas_recebidas":
+            item["ok"] += int(total)
+        else:
+            item["falhas"][motivo or "erro"] = item["falhas"].get(motivo or "erro", 0) + int(total)
+    return saude
+
+
 def canal_pendente(oferta_id, canal, preco=None, repetir_apos_dias=None, agora=None):
     with _conn() as con:
         row = con.execute("SELECT sucesso,preco,entregue_em FROM entregas WHERE id=? AND canal=?", (str(oferta_id), canal)).fetchone()

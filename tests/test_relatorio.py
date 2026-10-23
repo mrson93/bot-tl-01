@@ -6,6 +6,21 @@ import relatorio
 
 
 class RelatorioTest(unittest.TestCase):
+    def test_saude_das_lojas_aponta_pagina_que_mudou(self):
+        saude = {"Shopee": {"ok": 20, "falhas": {}},
+                 "Mercado Livre": {"ok": 3, "falhas": {"pagina_mudou": 17}},
+                 "Amazon": {"ok": 11, "falhas": {"bloqueio": 9}}}
+        linhas = relatorio.linhas_saude_fontes(saude)
+        self.assertIn("✅ Shopee: 20/20 rodadas", linhas)
+        self.assertIn("❌ Mercado Livre: 3/20 rodadas · página mudou 17", linhas)
+        self.assertIn("⚠️ Amazon: 11/20 rodadas · bloqueio da loja 9", linhas)
+        alertas = relatorio.alertas_saude_fontes(saude)
+        self.assertEqual(1, len(alertas))
+        self.assertIn("Mercado Livre funcionou em só 3 de 20 rodadas", alertas[0])
+        self.assertIn("precisa de ajuste", alertas[0])
+        texto = relatorio._texto([], "22/10/2026", saude=saude)
+        self.assertIn("🩺 SAÚDE DAS LOJAS · ONTEM", texto)
+
     def test_vencedora_ab_exige_amostra_e_vantagem_clara(self):
         forte = [{"variante": "A", "posts": 40, "conversoes": 12, "comissao": 0},
                  {"variante": "B", "posts": 40, "conversoes": 4, "comissao": 0}]

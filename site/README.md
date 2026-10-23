@@ -99,7 +99,7 @@ receberam leitores mas ainda têm modelos sem link afiliado.
 
 ### Guias de compra automáticos
 
-O bot (`guias.py`) publica um guia por dia, a partir das 9h, em rodízio entre
+O bot (`guias.py`) publica um guia por dia, a partir das 9h, em rodízio entre 31
 pautas de busca ("melhor air fryer até R$ 600" etc.). Os produtos vêm das APIs
 de afiliados da Shopee e do AliExpress, com avaliação mínima de 4,5, ao menos 50
 vendas, faixa de preço da pauta, sem acessórios nem réplicas e no máximo um por

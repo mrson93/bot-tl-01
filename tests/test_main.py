@@ -887,6 +887,16 @@ class MainTest(unittest.TestCase):
         texto.assert_called_once()
         self.assertEqual(4, foto.call_count)
 
+    def test_tipo_de_falha_da_loja(self):
+        import requests
+        resposta = requests.Response()
+        resposta.status_code = 503
+        self.assertEqual("bloqueio", main.tipo_falha_fonte(requests.HTTPError(response=resposta)))
+        self.assertEqual("conexao", main.tipo_falha_fonte(requests.ConnectionError("x")))
+        self.assertEqual("pagina_mudou", main.tipo_falha_fonte(
+            RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")))
+        self.assertEqual("erro", main.tipo_falha_fonte(RuntimeError("outra coisa")))
+
     def test_completar_canais_secundarios_nao_consome_vaga_da_rodada(self):
         fonte = type("Fonte", (), {"NOME": "Shopee"})()
         fila = [

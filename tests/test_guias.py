@@ -29,6 +29,15 @@ class GuiasTest(unittest.TestCase):
         self.db.stop()
         self.tmp.cleanup()
 
+    def test_todas_as_pautas_sao_validas_para_o_site(self):
+        import re
+        for pauta in guias.PAUTAS:
+            self.assertRegex(pauta["slug"], r"^[a-z0-9-]{3,80}$")
+            self.assertIn(pauta["genero"], {"f", "m"})
+            self.assertTrue(pauta["termos"] and pauta["criterios"] and pauta["busca"])
+            self.assertGreater(pauta["preco_max"], 0)
+            self.assertIsNotNone(re.search(r"ate-\d+-reais$", pauta["slug"]))
+
     def test_ficha_vem_apenas_do_titulo(self):
         ficha = guias.extrair_ficha("Air Fryer Mondial 5,5L 1500W 220V")
         self.assertEqual({"Capacidade": "5,5 L", "Potência": "1500 W", "Voltagem": "220V"}, ficha)

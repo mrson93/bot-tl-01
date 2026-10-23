@@ -38,6 +38,17 @@ class StoreTest(unittest.TestCase):
                           "desde_dias": 10}, historico)
         self.assertIsNone(store.historico_preco("Shopee", "outro", agora=base))
 
+    def test_saude_fontes_conta_rodadas_lidas_e_falhas_por_tipo(self):
+        for tipo, fonte, motivo in (("ofertas_recebidas", "Shopee", None),
+                                    ("ofertas_recebidas", "Shopee", None),
+                                    ("fonte_falha", "Mercado Livre", "pagina_mudou"),
+                                    ("ofertas_recebidas", "Mercado Livre", None),
+                                    ("ofertas_rejeitadas", "Shopee", "preco")):
+            store.registrar_evento(tipo, "exec", fonte=fonte, motivo=motivo, quantidade=40)
+        saude = store.saude_fontes(0, 9_999_999_999)
+        self.assertEqual({"ok": 2, "falhas": {}}, saude["Shopee"])
+        self.assertEqual({"ok": 1, "falhas": {"pagina_mudou": 1}}, saude["Mercado Livre"])
+
     def test_estoque_de_lista_guarda_ultima_leitura_e_ignora_antiga(self):
         store.registrar_estoque_lista("Mercado Livre", 4, 150, agora=1_000_000)
         store.registrar_estoque_lista("Mercado Livre", 3, 150, agora=1_000_100)
