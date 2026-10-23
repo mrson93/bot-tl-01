@@ -95,6 +95,22 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertEqual(1, air["_ml_mais_vendido"])
         self.assertEqual(0, ofertas[1]["priceDiscountRate"])
 
+    def test_produto_sem_vencedor_usa_menor_preco_dos_anuncios(self):
+        def get(caminho, params=None):
+            if caminho.startswith("/highlights/"):
+                return {"content": [{"id": "MLB111", "type": "PRODUCT", "position": 3}]}
+            if caminho == "/products/MLB111":
+                return {"name": "Cafeteira", "pictures": [{"url": "https://http2.mlstatic.com/c.jpg"}]}
+            if caminho == "/products/MLB111/items":
+                return {"results": [{"price": 250, "original_price": 300}, {"price": 220, "original_price": 280}]}
+            raise AssertionError(caminho)
+        with patch.object(api, "_get", side_effect=get), \
+             patch.object(api.config, "MERCADOLIVRE_CATEGORIAS", ("MLB1574",)):
+            ofertas = api.buscar_mais_vendidos()
+        self.assertEqual(220, ofertas[0]["price"])
+        self.assertEqual(21, ofertas[0]["priceDiscountRate"])
+        self.assertIn("produto_preco_por_anuncio=1", api.resumo_diagnostico())
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \

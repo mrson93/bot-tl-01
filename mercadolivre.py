@@ -231,7 +231,8 @@ def buscar_ofertas() -> list:
     if mercadolivre_api.pode_publicar():
         try:
             mais_vendidos = mercadolivre_api.buscar_mais_vendidos()
-            print(f"   Mercado Livre (API): {len(mais_vendidos)} mais vendido(s) nas categorias da rodada.")
+            print(f"   Mercado Livre (API): {len(mais_vendidos)} mais vendido(s) nas categorias "
+                  f"da rodada ({mercadolivre_api.resumo_diagnostico()}).")
             for oferta in mais_vendidos:
                 ofertas.setdefault(oferta["oferta_id"], oferta)
         except mercadolivre_api.AcessoRevogado:

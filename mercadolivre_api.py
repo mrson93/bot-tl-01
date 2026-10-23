@@ -27,6 +27,19 @@ _CHAVE_EXPIRA = "ml_access_expira"
 _CHAVE_RODIZIO = "ml_categoria_rodizio"
 
 
+# Contagem por etapa da última busca, para o log (sem dados de produto).
+diagnostico = {}
+
+
+def _anotar(chave, quantidade=1):
+    diagnostico[chave] = diagnostico.get(chave, 0) + quantidade
+
+
+def _motivo(erro) -> str:
+    status = getattr(getattr(erro, "response", None), "status_code", None)
+    return f"http_{status}" if status else type(erro).__name__
+
+
 class AcessoRevogado(RuntimeError):
     """O refresh token deixou de valer: é preciso rodar a autorização de novo."""
 
@@ -120,11 +133,19 @@ def _oferta(identificador, titulo, preco, original, url, imagem, posicao) -> dic
 def _produto_catalogo(produto_id, posicao):
     dados = _get(f"/products/{produto_id}")
     vencedor = dados.get("buy_box_winner") or {}
-    if not vencedor.get("price"):
-        return None
+    preco, original = vencedor.get("price"), vencedor.get("original_price")
+    if not preco:
+        # Sem vencedor da compra: o preço vem dos anúncios que vendem o produto.
+        anuncios = (_get(f"/products/{produto_id}/items", {"limit": 5}) or {}).get("results") or []
+        validos = [a for a in anuncios if a.get("price")]
+        if not validos:
+            _anotar("produto_sem_preco")
+            return None
+        melhor = min(validos, key=lambda a: float(a["price"]))
+        preco, original = melhor["price"], melhor.get("original_price")
+        _anotar("produto_preco_por_anuncio")
     url = dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{produto_id}"
-    return _oferta(produto_id, dados.get("name"), vencedor.get("price"),
-                   vencedor.get("original_price"), url, _imagem(dados), posicao)
+    return _oferta(produto_id, dados.get("name"), preco, original, url, _imagem(dados), posicao)
 
 
 def _itens(ids, posicoes):
@@ -134,8 +155,10 @@ def _itens(ids, posicoes):
     for bloco in _get("/items", {"ids": ",".join(ids[:20])}) or []:
         item = bloco.get("body") if isinstance(bloco, dict) and "body" in bloco else bloco
         if not isinstance(item, dict) or item.get("status") not in (None, "active"):
+            _anotar("item_inativo")
             continue
         if item.get("condition") not in (None, "new"):
+            _anotar("item_usado")
             continue
         resultado.append(_oferta(item["id"], item.get("title"), item.get("price"),
                                  item.get("original_price"), item.get("permalink"),
@@ -145,28 +168,43 @@ def _itens(ids, posicoes):
 
 def buscar_mais_vendidos() -> list:
     """Mais vendidos das categorias da rodada, só com preço e foto válidos."""
+    diagnostico.clear()
     ofertas = []
     for categoria in categorias_da_rodada():
-        destaques = _get(f"/highlights/MLB/category/{categoria}").get("content") or []
+        try:
+            destaques = _get(f"/highlights/MLB/category/{categoria}").get("content") or []
+        except (requests.RequestException, ValueError) as erro:
+            _anotar(f"destaques_{_motivo(erro)}")
+            continue
+        _anotar("destaques", len(destaques))
         itens, posicoes = [], {}
         for entrada in destaques:
             identificador, tipo = str(entrada.get("id") or ""), entrada.get("type")
             posicao = entrada.get("position")
-            try:
-                if tipo == "PRODUCT":
-                    oferta = _produto_catalogo(identificador, posicao)
-                    if oferta:
-                        ofertas.append(oferta)
-                elif tipo == "ITEM":
-                    itens.append(identificador)
-                    posicoes[identificador] = posicao
-            except (requests.RequestException, ValueError, KeyError):
+            if tipo == "ITEM":
+                itens.append(identificador)
+                posicoes[identificador] = posicao
                 continue
+            if tipo != "PRODUCT":
+                _anotar(f"tipo_{tipo}")
+                continue
+            try:
+                oferta = _produto_catalogo(identificador, posicao)
+                if oferta:
+                    ofertas.append(oferta)
+            except (requests.RequestException, ValueError, KeyError) as erro:
+                _anotar(f"produto_{_motivo(erro)}")
         try:
             ofertas += _itens(itens, posicoes)
-        except (requests.RequestException, ValueError, KeyError):
-            pass
-    return [o for o in ofertas if o["productName"] and o["price"] > 0]
+        except (requests.RequestException, ValueError, KeyError) as erro:
+            _anotar(f"itens_{_motivo(erro)}")
+    validas = [o for o in ofertas if o["productName"] and o["price"] > 0]
+    _anotar("ofertas", len(validas))
+    return validas
+
+
+def resumo_diagnostico() -> str:
+    return ", ".join(f"{chave}={valor}" for chave, valor in sorted(diagnostico.items())) or "vazio"
 
 
 def consultar(ids) -> dict:
