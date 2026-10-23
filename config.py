@@ -171,6 +171,17 @@ MERCADOLIVRE_ATIVA = _bool("MERCADOLIVRE_ATIVA", True)
 PESO_MERCADOLIVRE = _float("PESO_MERCADOLIVRE", 1.0)
 PERCENTUAL_MERCADOLIVRE = _float("PERCENTUAL_MERCADOLIVRE", 30)
 MERCADOLIVRE_FETCH_LIMIT = max(1, min(150, _int("MERCADOLIVRE_FETCH_LIMIT", 150)))
+# API oficial (mais vendidos por categoria). Credenciais via scripts/autorizar_mercadolivre.py.
+MERCADOLIVRE_CLIENT_ID = _get("MERCADOLIVRE_CLIENT_ID")
+MERCADOLIVRE_CLIENT_SECRET = _get("MERCADOLIVRE_CLIENT_SECRET")
+MERCADOLIVRE_REFRESH_TOKEN = _get("MERCADOLIVRE_REFRESH_TOKEN")
+# Parâmetros do link de afiliado (ex.: "matt_word=SEUNOME&matt_tool=123"). Sem
+# eles, os mais vendidos da API não são publicados.
+MERCADOLIVRE_AFILIADO_PARAMETROS = _get("MERCADOLIVRE_AFILIADO_PARAMETROS")
+MERCADOLIVRE_CATEGORIAS = tuple(c.strip().upper() for c in (
+    _get("MERCADOLIVRE_CATEGORIAS")
+    or "MLB1574,MLB5726,MLB1000,MLB1648,MLB1051,MLB1246,MLB1276,MLB263532,MLB1144,MLB1132,MLB1071,MLB1430"
+).split(",") if c.strip())
 
 # --- Filtros ("o que e uma boa oferta") ---
 MIN_DISCOUNT = _float("MIN_DISCOUNT", 15)
@@ -340,7 +351,7 @@ def amazon_configurada():
 
 
 def mercadolivre_configurada():
-    return bool(MERCADOLIVRE_LIST_URL)
+    return bool(MERCADOLIVRE_LIST_URL or (MERCADOLIVRE_CLIENT_ID and MERCADOLIVRE_REFRESH_TOKEN))
 
 
 def loja_ativa(nome):

@@ -746,9 +746,12 @@ def motivo_rejeicao_filtro(oferta: dict):
         return "desconto"
     if (desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom")
             and not oferta.get("curadoriaManual")):
-        vendas_fortes = (vendas is not None
+        vendas_fortes = ((vendas is not None
                           and int(vendas) >= config.VENDAS_EXCECAO_DESCONTO
                           and (not rating or rating >= max(config.MIN_RATING, 4.8)))
+                         # Estar entre os mais vendidos da categoria no Mercado
+                         # Livre é prova social equivalente.
+                         or bool(oferta.get("_ml_mais_vendido")))
         ganho_forte = (config.MIN_GANHO > 0
                        and ganho_por_venda(oferta) >= config.MIN_GANHO * 2)
         if not (vendas_fortes or ganho_forte):

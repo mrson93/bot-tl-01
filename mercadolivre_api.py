@@ -1,0 +1,193 @@
+"""Mais vendidos do Mercado Livre pela API oficial (complementa a lista manual).
+
+O acesso vem do aplicativo autorizado com scripts/autorizar_mercadolivre.py.
+O Mercado Livre troca o refresh token a cada renovação, então o mais recente
+fica no estado criptografado do bot; o access token (cerca de 6 h) também é
+reaproveitado entre rodadas para renovar o mínimo possível.
+
+Nada é publicado sem os parâmetros de afiliado confirmados
+(MERCADOLIVRE_AFILIADO_PARAMETROS): sem eles não há como garantir comissão.
+"""
+import time
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+import requests
+
+import config
+import seguranca
+import store
+
+API = "https://api.mercadolibre.com"
+_HOSTS_PRODUTO = ("mercadolivre.com.br",)
+_HOSTS_IMAGEM = ("mlstatic.com",)
+_CATEGORIAS_POR_RODADA = 2
+_CHAVE_REFRESH = "ml_refresh_token"
+_CHAVE_ACESSO = "ml_access_token"
+_CHAVE_EXPIRA = "ml_access_expira"
+_CHAVE_RODIZIO = "ml_categoria_rodizio"
+
+
+class AcessoRevogado(RuntimeError):
+    """O refresh token deixou de valer: é preciso rodar a autorização de novo."""
+
+
+def esta_configurada() -> bool:
+    return bool(config.MERCADOLIVRE_CLIENT_ID and config.MERCADOLIVRE_CLIENT_SECRET
+                and (config.MERCADOLIVRE_REFRESH_TOKEN or store._estado(_CHAVE_REFRESH)))
+
+
+def pode_publicar() -> bool:
+    return esta_configurada() and bool(parametros_afiliado())
+
+
+def parametros_afiliado() -> list:
+    return [(chave, valor) for chave, valor in
+            parse_qsl(config.MERCADOLIVRE_AFILIADO_PARAMETROS.lstrip("?"))
+            if chave.startswith(("matt_", "tracking")) and valor]
+
+
+def _access_token(agora=None) -> str:
+    momento = int(agora or time.time())
+    salvo = store._estado(_CHAVE_ACESSO)
+    expira = int(store._estado(_CHAVE_EXPIRA) or 0)
+    if salvo and momento < expira - 300:
+        return salvo
+    refresh = store._estado(_CHAVE_REFRESH) or config.MERCADOLIVRE_REFRESH_TOKEN
+    resposta = requests.post(f"{API}/oauth/token", data={
+        "grant_type": "refresh_token", "client_id": config.MERCADOLIVRE_CLIENT_ID,
+        "client_secret": config.MERCADOLIVRE_CLIENT_SECRET, "refresh_token": refresh,
+    }, headers={"Accept": "application/json"}, timeout=30)
+    corpo = resposta.json() if resposta.content else {}
+    if resposta.status_code in {400, 401} and corpo.get("error") == "invalid_grant":
+        raise AcessoRevogado("Autorização do Mercado Livre expirou ou foi revogada")
+    resposta.raise_for_status()
+    # Grava o novo refresh token antes de qualquer outra chamada: o anterior
+    # já não vale mais.
+    store._definir_estado(_CHAVE_REFRESH, corpo["refresh_token"])
+    store._definir_estado(_CHAVE_ACESSO, corpo["access_token"])
+    store._definir_estado(_CHAVE_EXPIRA, momento + int(corpo.get("expires_in") or 21600))
+    return corpo["access_token"]
+
+
+def _get(caminho, params=None):
+    resposta = requests.get(f"{API}{caminho}", params=params, timeout=30,
+                            headers={"Authorization": f"Bearer {_access_token()}",
+                                     "Accept": "application/json"})
+    resposta.raise_for_status()
+    return resposta.json()
+
+
+def categorias_da_rodada() -> list:
+    """Revezamento das categorias configuradas, poucas por rodada."""
+    categorias = list(config.MERCADOLIVRE_CATEGORIAS)
+    if not categorias:
+        return []
+    inicio = int(store._estado(_CHAVE_RODIZIO) or 0) % len(categorias)
+    escolhidas = [categorias[(inicio + i) % len(categorias)]
+                  for i in range(min(_CATEGORIAS_POR_RODADA, len(categorias)))]
+    store._definir_estado(_CHAVE_RODIZIO, inicio + len(escolhidas))
+    return escolhidas
+
+
+def link_afiliado(url: str) -> str:
+    url = seguranca.validar_url_https_em_hosts(url, _HOSTS_PRODUTO, "Produto do Mercado Livre")
+    partes = urlsplit(url)
+    parametros = [(c, v) for c, v in parse_qsl(partes.query) if not c.startswith("matt_")]
+    parametros += parametros_afiliado()
+    return urlunsplit((partes.scheme, partes.netloc, partes.path, urlencode(parametros), ""))
+
+
+def _imagem(dados) -> str:
+    fotos = dados.get("pictures") or []
+    url = (fotos[0].get("secure_url") or fotos[0].get("url")) if fotos else dados.get("thumbnail")
+    url = str(url or "").replace("http://", "https://")
+    return seguranca.validar_url_https_em_hosts(url, _HOSTS_IMAGEM, "Imagem do Mercado Livre")
+
+
+def _oferta(identificador, titulo, preco, original, url, imagem, posicao) -> dict:
+    preco, original = float(preco or 0), float(original or 0)
+    desconto = round((1 - preco / original) * 100) if original > preco > 0 else 0
+    return {
+        "fonte": "Mercado Livre", "oferta_id": f"mercadolivre_{identificador}",
+        "productName": " ".join(str(titulo or "").split()), "price": preco,
+        "precoOriginal": original or None, "priceDiscountRate": desconto,
+        "ratingStar": None, "sales": None, "shopName": "Mercado Livre",
+        "imageUrl": imagem, "productUrl": link_afiliado(url), "comissao": None,
+        "_ml_mais_vendido": posicao,
+    }
+
+
+def _produto_catalogo(produto_id, posicao):
+    dados = _get(f"/products/{produto_id}")
+    vencedor = dados.get("buy_box_winner") or {}
+    if not vencedor.get("price"):
+        return None
+    url = dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{produto_id}"
+    return _oferta(produto_id, dados.get("name"), vencedor.get("price"),
+                   vencedor.get("original_price"), url, _imagem(dados), posicao)
+
+
+def _itens(ids, posicoes):
+    if not ids:
+        return []
+    resultado = []
+    for bloco in _get("/items", {"ids": ",".join(ids[:20])}) or []:
+        item = bloco.get("body") if isinstance(bloco, dict) and "body" in bloco else bloco
+        if not isinstance(item, dict) or item.get("status") not in (None, "active"):
+            continue
+        if item.get("condition") not in (None, "new"):
+            continue
+        resultado.append(_oferta(item["id"], item.get("title"), item.get("price"),
+                                 item.get("original_price"), item.get("permalink"),
+                                 _imagem(item), posicoes.get(item["id"])))
+    return resultado
+
+
+def buscar_mais_vendidos() -> list:
+    """Mais vendidos das categorias da rodada, só com preço e foto válidos."""
+    ofertas = []
+    for categoria in categorias_da_rodada():
+        destaques = _get(f"/highlights/MLB/category/{categoria}").get("content") or []
+        itens, posicoes = [], {}
+        for entrada in destaques:
+            identificador, tipo = str(entrada.get("id") or ""), entrada.get("type")
+            posicao = entrada.get("position")
+            try:
+                if tipo == "PRODUCT":
+                    oferta = _produto_catalogo(identificador, posicao)
+                    if oferta:
+                        ofertas.append(oferta)
+                elif tipo == "ITEM":
+                    itens.append(identificador)
+                    posicoes[identificador] = posicao
+            except (requests.RequestException, ValueError, KeyError):
+                continue
+        try:
+            ofertas += _itens(itens, posicoes)
+        except (requests.RequestException, ValueError, KeyError):
+            pass
+    return [o for o in ofertas if o["productName"] and o["price"] > 0]
+
+
+def consultar(ids) -> dict:
+    """Preço atual pela API, para revalidar antes de publicar."""
+    resultado = {}
+    for oferta_id in ids:
+        identificador = str(oferta_id).removeprefix("mercadolivre_")
+        try:
+            dados = _get(f"/products/{identificador}")
+            vencedor = dados.get("buy_box_winner") or {}
+            if vencedor.get("price"):
+                url = dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{identificador}"
+                resultado[oferta_id] = _oferta(identificador, dados.get("name"), vencedor["price"],
+                                               vencedor.get("original_price"), url,
+                                               _imagem(dados), None)
+                continue
+        except (requests.RequestException, ValueError, KeyError):
+            pass
+        try:
+            for oferta in _itens([identificador], {}):
+                resultado[oferta_id] = oferta
+        except (requests.RequestException, ValueError, KeyError):
+            continue
+    return resultado

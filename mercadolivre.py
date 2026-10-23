@@ -6,6 +6,8 @@ from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlsplit, urlu
 import requests
 
 import config
+import mercadolivre_api
+import observabilidade
 import seguranca
 
 NOME = "Mercado Livre"
@@ -18,7 +20,7 @@ _MAX_PAGINAS = 20
 
 
 def esta_configurada() -> bool:
-    return bool(config.MERCADOLIVRE_LIST_URL)
+    return bool(config.MERCADOLIVRE_LIST_URL) or mercadolivre_api.pode_publicar()
 
 
 def _classes(attrs):
@@ -211,6 +213,34 @@ def _baixar_html(url):
 
 
 def buscar_ofertas() -> list:
+    """Lista manual (curadoria) + mais vendidos da API oficial, quando liberada."""
+    ofertas, erro_lista = {}, None
+    if config.MERCADOLIVRE_LIST_URL:
+        try:
+            for oferta in _buscar_lista():
+                ofertas[oferta["oferta_id"]] = oferta
+        except Exception as erro:
+            erro_lista = erro
+    if mercadolivre_api.pode_publicar():
+        try:
+            mais_vendidos = mercadolivre_api.buscar_mais_vendidos()
+            print(f"   Mercado Livre (API): {len(mais_vendidos)} mais vendido(s) nas categorias da rodada.")
+            for oferta in mais_vendidos:
+                ofertas.setdefault(oferta["oferta_id"], oferta)
+        except mercadolivre_api.AcessoRevogado:
+            print("   ⚠️  Mercado Livre (API): autorização expirou; rode scripts/autorizar_mercadolivre.py.")
+            observabilidade.evento("fonte_falha", fonte="Mercado Livre API", motivo="autorizacao")
+        except Exception as erro:
+            print(f"   ⚠️  Mercado Livre (API) indisponível: {seguranca.redigir_segredos(erro)}")
+            observabilidade.evento("fonte_falha", fonte="Mercado Livre API", motivo="erro")
+    if not ofertas and erro_lista:
+        raise erro_lista
+    if not ofertas:
+        raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
+    return list(ofertas.values())
+
+
+def _buscar_lista() -> list:
     html, url_lista = _baixar_html(config.MERCADOLIVRE_LIST_URL)
     url_lista = seguranca.validar_url_https_em_hosts(
         url_lista, _HOSTS_PRODUTO, "Lista do Mercado Livre"
@@ -258,11 +288,18 @@ def consultar_produtos(ids) -> dict:
     procurados = {str(item) for item in ids if item}
     if not procurados:
         return {}
-    return {
+    encontrados = {
         oferta["oferta_id"]: oferta
         for oferta in buscar_ofertas()
         if oferta["oferta_id"] in procurados
     }
+    faltando = procurados - set(encontrados)
+    if faltando and mercadolivre_api.pode_publicar():
+        try:
+            encontrados.update(mercadolivre_api.consultar(sorted(faltando)))
+        except Exception as erro:
+            print(f"   ⚠️  Revalidação pela API do Mercado Livre falhou: {seguranca.redigir_segredos(erro)}")
+    return encontrados
 
 
 def revalidar_oferta(oferta: dict):

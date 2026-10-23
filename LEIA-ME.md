@@ -68,6 +68,8 @@ Novas variáveis:
 | `TOP_WHATSAPP_ATIVO` | `true` | Envia no privado o Top 5 do dia pronto para colar no WhatsApp |
 | `TOP_WHATSAPP_HORA` | `18` | Hora de Brasília a partir da qual o Top 5 é enviado |
 | `SITE_PUBLICO_URL` | `https://canaltabarato.com.br` | Domínio usado nos links do Top 5 |
+| `MERCADOLIVRE_AFILIADO_PARAMETROS` | vazio | Parâmetros do link de afiliado (ex.: `matt_word=...&matt_tool=...`); sem eles os mais vendidos da API não são publicados |
+| `MERCADOLIVRE_CATEGORIAS` | 12 categorias | Categorias do Mercado Livre consultadas em rodízio (2 por rodada) |
 | `FALHAS_CONSECUTIVAS_ALERTA` | `3` | Falhas seguidas necessárias para gerar alerta |
 | `FACEBOOK_ATIVO` | `false` | Ativa ofertas na Página depois que ID e token existirem |
 | `FACEBOOK_PAGE_ID` | vazio | Identificador numérico da Página administrada |
