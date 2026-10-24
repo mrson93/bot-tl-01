@@ -252,14 +252,16 @@ def buscar_ofertas() -> list:
         raise erro_lista
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
-    _ultima_leitura.update(em=time.monotonic(), ofertas=list(ofertas.values()))
+    _ultima_leitura.update(em=time.monotonic(), ofertas=[dict(o) for o in ofertas.values()])
     return list(ofertas.values())
 
 
 def _leitura_recente():
     if (_ultima_leitura["ofertas"] is not None
             and time.monotonic() - _ultima_leitura["em"] <= _VALIDADE_LEITURA):
-        return _ultima_leitura["ofertas"]
+        # Cópias: a publicação limpa e regrava a oferta revalidada, e um objeto
+        # compartilhado apagaria os dados da própria oferta.
+        return [dict(oferta) for oferta in _ultima_leitura["ofertas"]]
     return None
 
 

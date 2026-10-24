@@ -165,6 +165,21 @@ class MercadoLivreApiTest(unittest.TestCase):
             self.assertIsNone(api._fim_promocao("MLB2", 90))
         get.assert_called_once()
 
+    def test_revalidacao_devolve_copia_e_nao_apaga_a_oferta_publicada(self):
+        mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
+        lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item", "price": 10}]
+        with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
+             patch.object(mercadolivre, "_buscar_lista", return_value=lista), \
+             patch.object(api, "buscar_mais_vendidos", return_value=[]):
+            candidata = mercadolivre.buscar_ofertas()[0]
+            atual = mercadolivre.revalidar_oferta(candidata)
+        self.assertIsNot(candidata, atual)
+        # O que main._revalidar_antes_de_publicar faz com a oferta:
+        candidata.clear()
+        candidata.update(atual)
+        self.assertEqual("mercadolivre_MLB9", candidata["oferta_id"])
+        mercadolivre._ultima_leitura.update(em=0.0, ofertas=None)
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
