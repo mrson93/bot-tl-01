@@ -1213,6 +1213,15 @@ def _publicar_fila(fila, limite):
         str(item.get("categoria") or "outros")
         for item in store.ofertas_recentes(config.DIVERSIDADE_JANELA_POSTS)
     ]
+    fontes_fila = sorted({str(o.get("fonte")) for o in pendentes})
+    if fontes_fila:
+        soma_metas = sum(config.percentual_loja(f) for f in fontes_fila) or 1
+        total_7d = sum(fontes_hoje.get(f, 0) for f in fontes_fila)
+        print("   Equilíbrio 7 dias: " + " · ".join(
+            f"{f} {fontes_hoje.get(f, 0)} posts "
+            f"({100 * fontes_hoje.get(f, 0) / (total_7d or 1):.0f}% vs meta "
+            f"{100 * config.percentual_loja(f) / soma_metas:.0f}%)"
+            for f in fontes_fila) + f"; sequência: {ultima_fonte} x{fontes_consecutivas}.")
     while pendentes and postadas < limite:
         elegiveis = [
             (i, oferta) for i, oferta in enumerate(pendentes)
