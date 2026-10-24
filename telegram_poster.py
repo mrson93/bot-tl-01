@@ -152,6 +152,30 @@ def linha_historico(oferta: dict) -> str:
     return ""
 
 
+def linha_prazo(oferta: dict, agora=None) -> str:
+    """Aviso de fim da oferta, só com prazo informado pela loja e menos de 24 h."""
+    import time as _time
+    from datetime import datetime as _dt
+    expira = oferta.get("expira_em")
+    if not expira:
+        return ""
+    try:
+        if isinstance(expira, str) and not expira.isdigit():
+            fim = _dt.fromisoformat(expira.replace("Z", "+00:00")).timestamp()
+        else:
+            fim = float(expira)
+        if fim > 10_000_000_000:
+            fim /= 1000
+    except (TypeError, ValueError, OverflowError):
+        return ""
+    restante = fim - (agora or _time.time())
+    if restante <= 0 or restante > 24 * 3600:
+        return ""
+    if restante < 3600:
+        return f"⏰ Termina em {max(1, int(restante // 60))} min"
+    return f"⏰ Termina em {int(restante // 3600)} h"
+
+
 def _milhar(valor) -> str:
     """7137 -> '7.137'"""
     try:
@@ -201,6 +225,9 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     historico = linha_historico(oferta)
     if historico:
         linhas.append(f"<b>{historico}</b>")
+    prazo = linha_prazo(oferta)
+    if prazo:
+        linhas.append(f"<b>{prazo}</b>")
 
     # linha de reputacao
     reput = []

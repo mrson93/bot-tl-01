@@ -9,6 +9,7 @@ Nada é publicado sem os parâmetros de afiliado confirmados
 (MERCADOLIVRE_AFILIADO_PARAMETROS): sem eles não há como garantir comissão.
 """
 import time
+from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
@@ -132,6 +133,29 @@ def _oferta(identificador, titulo, preco, original, url, imagem, posicao) -> dic
     }
 
 
+def _fim_promocao(item_id, preco):
+    """Quando termina o preço promocional atual do anúncio (epoch), se houver."""
+    if not item_id:
+        return None
+    try:
+        precos = (_get(f"/items/{item_id}/prices") or {}).get("prices") or []
+    except (requests.RequestException, ValueError) as erro:
+        _anotar(f"prazo_{_motivo(erro)}")
+        return None
+    for entrada in precos:
+        fim = (entrada.get("conditions") or {}).get("end_time")
+        if not fim or abs(float(entrada.get("amount") or 0) - float(preco or 0)) > 0.01:
+            continue
+        try:
+            momento = datetime.fromisoformat(str(fim).replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+        if momento > time.time():
+            _anotar("com_prazo")
+            return int(momento)
+    return None
+
+
 def _produto_catalogo(produto_id, posicao):
     dados = _get(f"/products/{produto_id}")
     vencedor = dados.get("buy_box_winner") or {}
@@ -145,9 +169,15 @@ def _produto_catalogo(produto_id, posicao):
             return None
         melhor = min(validos, key=lambda a: float(a["price"]))
         preco, original = melhor["price"], melhor.get("original_price")
+        vencedor = melhor
         _anotar("produto_preco_por_anuncio")
     url = dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{produto_id}"
-    return _oferta(produto_id, dados.get("name"), preco, original, url, _imagem(dados), posicao)
+    oferta = _oferta(produto_id, dados.get("name"), preco, original, url, _imagem(dados), posicao)
+    if original and float(original) > float(preco):
+        fim = _fim_promocao(vencedor.get("item_id") or vencedor.get("id"), preco)
+        if fim:
+            oferta["expira_em"] = fim
+    return oferta
 
 
 def _itens(ids, posicoes):
@@ -162,9 +192,14 @@ def _itens(ids, posicoes):
         if item.get("condition") not in (None, "new"):
             _anotar("item_usado")
             continue
-        resultado.append(_oferta(item["id"], item.get("title"), item.get("price"),
-                                 item.get("original_price"), item.get("permalink"),
-                                 _imagem(item), posicoes.get(item["id"])))
+        oferta = _oferta(item["id"], item.get("title"), item.get("price"),
+                         item.get("original_price"), item.get("permalink"),
+                         _imagem(item), posicoes.get(item["id"]))
+        if item.get("original_price") and float(item["original_price"]) > float(item.get("price") or 0):
+            fim = _fim_promocao(item["id"], item.get("price"))
+            if fim:
+                oferta["expira_em"] = fim
+        resultado.append(oferta)
     return resultado
 
 

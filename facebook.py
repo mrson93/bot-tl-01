@@ -85,6 +85,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     historico = fmt.linha_historico(oferta)
     if historico:
         linhas.append(historico)
+    prazo = fmt.linha_prazo(oferta)
+    if prazo:
+        linhas.append(prazo)
 
     reputacao = []
     if oferta.get("ratingStar"):

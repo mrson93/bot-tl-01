@@ -210,10 +210,16 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     # O histórico é um bônus: é o primeiro item a sair quando falta espaço.
     linha_preco_base = linha_preco
     historico = fmt.linha_historico(oferta)
-    if historico:
-        linha_preco = f"{linha_preco}\n{historico}" if linha_preco else historico
+    prazo = fmt.linha_prazo(oferta)
+    extras = "\n".join(parte for parte in (prazo, historico) if parte)
+    if extras:
+        linha_preco = f"{linha_preco}\n{extras}" if linha_preco else extras
     texto = montar(titulo)
-    if len(texto) > 300 and historico:
+    if len(texto) > 300 and extras:
+        # O prazo é mais importante que o histórico: tenta manter só ele.
+        linha_preco = f"{linha_preco_base}\n{prazo}" if prazo and linha_preco_base else linha_preco_base
+        texto = montar(titulo)
+    if len(texto) > 300 and extras:
         linha_preco = linha_preco_base
         texto = montar(titulo)
     if len(texto) > 300 and humana:

@@ -992,8 +992,9 @@ def buscar_candidatos(fonte) -> list:
         f"{nome}={total}" for nome, total in rejeicoes.items() if total
     ) or "nenhuma rejeicao"
     com_cupom = sum(bool(str(o.get("cupom") or "").strip()) for o in ofertas)
+    com_prazo = sum(1 for o in ofertas if segundos_restantes(o))
     print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}; "
-          f"com_cupom_na_api={com_cupom}.")
+          f"com_cupom_na_api={com_cupom}; com_prazo={com_prazo}.")
     observabilidade.evento("ofertas_elegiveis", fonte=fonte.NOME,
                             quantidade=len(candidatos))
     for motivo, total in rejeicoes.items():
@@ -1009,6 +1010,37 @@ def buscar_candidatos(fonte) -> list:
             print("   ⚠️  Aviso de estoque indisponível: "
                   f"{seguranca.redigir_segredos(erro_alerta)}")
     return candidatos
+
+
+URGENTE_SEGUNDOS = 6 * 3600
+
+
+def segundos_restantes(oferta, agora=None):
+    """Tempo até o fim informado da oferta (expira_em), ou None se não houver."""
+    expira = oferta.get("expira_em")
+    if not expira:
+        return None
+    try:
+        if isinstance(expira, str) and not expira.isdigit():
+            prazo = datetime.fromisoformat(expira.replace("Z", "+00:00")).timestamp()
+        else:
+            prazo = float(expira)
+        if prazo > 10_000_000_000:
+            prazo /= 1000
+    except (TypeError, ValueError, OverflowError):
+        return None
+    restante = prazo - (agora or time.time())
+    return restante if restante > 0 else None
+
+
+def faixa_urgencia(restante) -> int:
+    if not restante:
+        return 0
+    if restante <= URGENTE_SEGUNDOS:
+        return 3
+    if restante <= 24 * 3600:
+        return 2
+    return 1 if restante <= 48 * 3600 else 0
 
 
 def _ordenar_candidatos(candidatos):
@@ -1087,23 +1119,15 @@ def _ordenar_candidatos(candidatos):
         desconto = float(oferta.get("priceDiscountRate") or 0)
         cupom = bool(str(oferta.get("cupom") or "").strip())
         curada = oferta.get("fonte") in {"Amazon", "Mercado Livre"}
-        expira = oferta.get("expira_em")
-        try:
-            if isinstance(expira, str) and not expira.isdigit():
-                prazo = datetime.fromisoformat(expira.replace("Z", "+00:00")).timestamp()
-            else:
-                prazo = float(expira or 0)
-            if prazo > 10_000_000_000:
-                prazo /= 1000
-        except (TypeError, ValueError, OverflowError):
-            prazo = 0
-        restante = prazo - time.time() if prazo else 0
-        urgencia = (1, -restante) if 0 < restante <= 48 * 3600 else (0, 0)
+        # Ofertas prestes a acabar vêm primeiro, em qualquer loja: quanto mais
+        # perto do fim, mais acima (até 6 h, até 24 h, até 48 h).
+        restante = segundos_restantes(oferta)
+        urgencia = (faixa_urgencia(restante), -(restante or 0)) if restante else (0, 0)
         # Mais vendidos do Mercado Livre (API) vencem itens da lista manual
         # quando a vaga for do Mercado Livre; entre eles, o melhor colocado.
         mais_vendido = oferta.get("_ml_mais_vendido")
         api_ml = (1, -int(mais_vendido or 99)) if mais_vendido else (0, 0)
-        return (prioridade.get(motivo, 0), api_ml, urgencia if curada else (0, 0),
+        return (prioridade.get(motivo, 0), urgencia, api_ml,
                 desconto if curada else 0, cupom, comercial,
                 oferta.get("_diversidade", 2), desconto)
 
@@ -1224,7 +1248,13 @@ def _publicar_fila(fila, limite):
         pesos = {fonte: config.percentual_loja(fonte)
                  for fonte in fontes_disponiveis}
         soma_pesos = sum(pesos.values())
-        if soma_pesos:
+        # Oferta que acaba em até 6 h fura a divisão entre lojas: depois não
+        # haveria outra chance de publicá-la.
+        urgentes = [(i, o) for i, o in elegiveis
+                    if (segundos_restantes(o) or URGENTE_SEGUNDOS + 1) <= URGENTE_SEGUNDOS]
+        if urgentes:
+            indice, _ = min(urgentes, key=lambda par: segundos_restantes(par[1]))
+        elif soma_pesos:
             total_janela = sum(fontes_hoje.get(f, 0) for f in fontes_disponiveis)
             def deficit(par):
                 _, oferta = par

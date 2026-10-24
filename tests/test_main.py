@@ -59,6 +59,46 @@ class MainTest(unittest.TestCase):
             ordem = [o["oferta_id"] for o in main._ordenar_candidatos(candidatos)]
         self.assertEqual(["pendente", "api_1", "api_5", "lista"], ordem)
 
+    def test_oferta_prestes_a_acabar_vem_primeiro_em_qualquer_loja(self):
+        agora = datetime.now(timezone.utc).timestamp()
+        fonte = type("Fonte", (), {"NOME": "Shopee"})()
+        base = {"_fonte_obj": fonte, "_motivo": "inedita", "fonte": "Shopee", "price": 80}
+        candidatos = [
+            dict(base, oferta_id="sem_prazo", productName="Panela", priceDiscountRate=70, categoria="cozinha"),
+            dict(base, oferta_id="dois_dias", productName="Fone", priceDiscountRate=30,
+                 categoria="eletronicos", expira_em=agora + 40 * 3600),
+            dict(base, oferta_id="tres_horas", productName="Mochila", priceDiscountRate=20,
+                 categoria="moda", expira_em=agora + 3 * 3600),
+            dict(base, oferta_id="vencida", productName="Garrafa", priceDiscountRate=60,
+                 categoria="casa", expira_em=agora - 60),
+        ]
+        with patch.object(main.store, "ofertas_recentes", return_value=[]), \
+             patch.object(main.store, "ofertas_desde", return_value=[]), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "multiplicadores_desempenho", return_value={}):
+            ordem = [o["oferta_id"] for o in main._ordenar_candidatos(candidatos)]
+        self.assertEqual(["tres_horas", "dois_dias"], ordem[:2])
+        self.assertEqual(3, main.faixa_urgencia(3 * 3600))
+        self.assertEqual(2, main.faixa_urgencia(20 * 3600))
+        self.assertEqual(0, main.faixa_urgencia(None))
+
+    def test_oferta_que_acaba_em_6h_fura_divisao_entre_lojas(self):
+        agora = datetime.now(timezone.utc).timestamp()
+        shopee = type("Fonte", (), {"NOME": "Shopee"})()
+        amazon = type("Fonte", (), {"NOME": "Amazon"})()
+        fila = [
+            {"_fonte_obj": shopee, "fonte": "Shopee", "oferta_id": "s1", "productName": "Panela", "categoria": "cozinha"},
+            {"_fonte_obj": amazon, "fonte": "Amazon", "oferta_id": "a1", "productName": "Fone",
+             "categoria": "eletronicos", "expira_em": agora + 2 * 3600},
+        ]
+        with patch.object(main.store, "posts_por_fonte_desde", return_value={"Amazon": 50}), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "marcar_postada"), \
+             patch.object(main, "publicar", return_value=1) as publicar, \
+             patch.object(main.config, "percentual_loja", side_effect=lambda f: 90 if f == "Shopee" else 10):
+            self.assertEqual(1, main._publicar_fila(fila, 1))
+        self.assertEqual("a1", publicar.call_args.args[1]["oferta_id"])
+
     def test_lista_curada_prioriza_desconto_e_prazo_oficial(self):
         fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
         candidatos = [

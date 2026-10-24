@@ -15,6 +15,14 @@ class FormatacaoTest(unittest.TestCase):
         oferta.update(extra)
         return oferta
 
+    def test_aviso_de_prazo_so_com_menos_de_24h(self):
+        agora = 1_000_000
+        self.assertEqual("⏰ Termina em 3 h", telegram.linha_prazo({"expira_em": agora + 3 * 3600 + 50}, agora))
+        self.assertEqual("⏰ Termina em 25 min", telegram.linha_prazo({"expira_em": agora + 25 * 60}, agora))
+        self.assertEqual("", telegram.linha_prazo({"expira_em": agora + 30 * 3600}, agora))
+        self.assertEqual("", telegram.linha_prazo({"expira_em": agora - 10}, agora))
+        self.assertEqual("", telegram.linha_prazo({}, agora))
+
     def test_menor_preco_aparece_so_com_historico_suficiente(self):
         self.assertEqual("📉 Menor preço que vimos nos últimos 18 dias",
                          telegram.linha_historico(self._oferta_historico()))

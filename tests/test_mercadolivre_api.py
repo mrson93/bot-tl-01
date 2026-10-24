@@ -139,6 +139,25 @@ class MercadoLivreApiTest(unittest.TestCase):
             achados = api.consultar(["mercadolivre_MLB111"])
         self.assertEqual(199, achados["mercadolivre_MLB111"]["price"])
 
+    def test_prazo_da_promocao_vem_do_preco_atual_do_anuncio(self):
+        def get(caminho, params=None):
+            if caminho.startswith("/highlights/"):
+                return {"content": [{"id": "MLB222", "type": "ITEM", "position": 1}]}
+            if caminho == "/items":
+                return [{"code": 200, "body": {"id": "MLB222", "title": "Fone", "price": 90,
+                         "original_price": 120, "condition": "new", "status": "active",
+                         "permalink": "https://produto.mercadolivre.com.br/MLB-222-fone",
+                         "thumbnail": "https://http2.mlstatic.com/b.jpg"}}]
+            if caminho == "/items/MLB222/prices":
+                return {"prices": [{"amount": 120, "conditions": {"end_time": None}},
+                                   {"amount": 90, "conditions": {"end_time": "2099-01-01T03:00:00Z"}}]}
+            raise AssertionError(caminho)
+        with patch.object(api, "_get", side_effect=get), \
+             patch.object(api.config, "MERCADOLIVRE_CATEGORIAS", ("MLB1574",)):
+            ofertas = api.buscar_mais_vendidos()
+        self.assertEqual(4070919600, ofertas[0]["expira_em"])
+        self.assertIn("com_prazo=1", api.resumo_diagnostico())
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
