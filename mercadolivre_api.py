@@ -26,6 +26,7 @@ _CHAVE_REFRESH = "ml_refresh_token"
 _CHAVE_ACESSO = "ml_access_token"
 _CHAVE_EXPIRA = "ml_access_expira"
 _CHAVE_RODIZIO = "ml_categoria_rodizio"
+_CHAVE_PRAZO_BLOQUEADO = "ml_prazo_bloqueado_ate"
 
 
 # Contagem por etapa da última busca, para o log (sem dados de produto).
@@ -137,10 +138,16 @@ def _fim_promocao(item_id, preco):
     """Quando termina o preço promocional atual do anúncio (epoch), se houver."""
     if not item_id:
         return None
+    # O fim da promoção costuma ser visível só para o vendedor (403 para
+    # afiliados). Depois de uma recusa, para de perguntar por 7 dias.
+    if int(store._estado(_CHAVE_PRAZO_BLOQUEADO) or 0) > time.time():
+        return None
     try:
         precos = (_get(f"/items/{item_id}/prices") or {}).get("prices") or []
     except (requests.RequestException, ValueError) as erro:
         _anotar(f"prazo_{_motivo(erro)}")
+        if getattr(getattr(erro, "response", None), "status_code", None) in {401, 403}:
+            store._definir_estado(_CHAVE_PRAZO_BLOQUEADO, int(time.time()) + 7 * 86400)
         return None
     for entrada in precos:
         fim = (entrada.get("conditions") or {}).get("end_time")

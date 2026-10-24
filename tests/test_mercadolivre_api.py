@@ -158,6 +158,13 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertEqual(4070919600, ofertas[0]["expira_em"])
         self.assertIn("com_prazo=1", api.resumo_diagnostico())
 
+    def test_prazo_recusado_para_de_consultar_por_7_dias(self):
+        recusa = api.requests.HTTPError(response=Mock(status_code=403))
+        with patch.object(api, "_get", side_effect=recusa) as get:
+            self.assertIsNone(api._fim_promocao("MLB1", 90))
+            self.assertIsNone(api._fim_promocao("MLB2", 90))
+        get.assert_called_once()
+
     def test_falha_da_api_nao_derruba_a_lista(self):
         lista = [{"oferta_id": "mercadolivre_MLB9", "productName": "Item da lista", "price": 10}]
         with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", "https://meli.la/x"), \
