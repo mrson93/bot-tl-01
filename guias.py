@@ -298,6 +298,8 @@ def motivo_rejeicao(produto, pauta):
         return "acessorio"
     if desempenho.parece_replica(produto):
         return "replica"
+    if desempenho.parece_modelo_antigo(produto):
+        return "modelo_antigo"
     if not produto.get("productUrl") or not str(produto.get("imageUrl") or "").startswith("https://"):
         return "sem_link_ou_imagem"
     return None

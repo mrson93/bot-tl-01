@@ -244,6 +244,37 @@ def _posicao_termo(texto: str, termo: str):
     return achado.start() if achado else None
 
 
+# Produto usado/recondicionado ou celular de linha antiga (lançado há mais de
+# uns 5 anos): costuma ser estoque velho e não combina com a curadoria.
+_ESTADO_NAO_NOVO = re.compile(
+    r"(?<![a-z0-9])(recondicionad[oa]s?|seminov[oa]s?|de vitrine|open box|"
+    r"refurbished|renewed|remanufaturad[oa]s?)(?![a-z0-9])")
+_CELULARES_ANTIGOS = [re.compile(padrao) for padrao in (
+    r"(?<![a-z0-9])iphone ?(4s?|5s?|5c|6s?|7|8|x|xr|xs|11)(?![a-z0-9])",
+    r"(?<![a-z0-9])galaxy ?(j ?\d{1,2}|s ?([5-9]|10|20)|a ?[0-5][01]|note ?([5-9]|10|20))(?![a-z0-9])",
+    r"(?<![a-z0-9])(honor|huawei) ?(\d{1,2} ?x|p ?(10|20|30)|mate ?(10|20|30))(?![a-z0-9])",
+    r"(?<![a-z0-9])redmi ?(note ?)?[4-9]a?(?![a-z0-9])",
+    r"(?<![a-z0-9])moto ?[ge] ?[1-9](?![0-9a-z])",
+    r"(?<![a-z0-9])(poco ?(f1|x3)|mi ?[5-9]|xiaomi ?mi ?[5-9])(?![a-z0-9])",
+)]
+
+
+def parece_modelo_antigo(oferta: dict) -> bool:
+    """Usado/recondicionado, ou celular de modelo antigo (acessórios passam)."""
+    titulo = _normalizar(oferta.get("productName"))
+    if _ESTADO_NAO_NOVO.search(titulo):
+        return True
+    for padrao in _CELULARES_ANTIGOS:
+        achado = padrao.search(titulo)
+        if not achado:
+            continue
+        antes = titulo[:achado.start()]
+        if any(_contem_termo(antes, termo) for termo in _TERMOS_ACESSORIO):
+            continue
+        return True
+    return False
+
+
 def classificar_produto(produto) -> tuple:
     """Devolve ``(categoria, confianca)`` sem forçar associação ambígua."""
     titulo = (produto.get("productName") or produto.get("titulo")

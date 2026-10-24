@@ -778,6 +778,8 @@ def motivo_rejeicao_filtro(oferta: dict):
     # Listas curadas já passaram pelo olho do operador.
     if not oferta.get("curadoriaManual") and desempenho.parece_replica(oferta):
         return "replica"
+    if not oferta.get("curadoriaManual") and desempenho.parece_modelo_antigo(oferta):
+        return "modelo_antigo"
     if desconto < config.MIN_DISCOUNT and not oferta.get("curadoriaManual"):
         return "desconto"
     if (desconto < config.DESCONTO_PREFERIDO and not oferta.get("cupom")
@@ -940,7 +942,7 @@ def buscar_candidatos(fonte) -> list:
     rejeicoes = {
         "sem_id": 0, "preco": 0, "desconto": 0,
         "desconto_preferido": 0, "avaliacao": 0, "vendas": 0,
-        "comissao": 0, "repetida": 0, "replica": 0,
+        "comissao": 0, "repetida": 0, "replica": 0, "modelo_antigo": 0,
     }
     for oferta in ofertas:
         oferta["categoria"] = (oferta.get("categoria")

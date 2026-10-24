@@ -22,6 +22,21 @@ class DesempenhoTest(unittest.TestCase):
         self.assertFalse(desempenho.parece_replica(oficial))
         self.assertFalse(desempenho.parece_replica(comum))
 
+    def test_modelo_antigo_ou_recondicionado(self):
+        antigos = ["Smartphone HONOR 8X Firmware Global CPU Haisi",
+                   "Apple iPhone 8 64GB Vitrine", "iPhone 11 128GB Recondicionado",
+                   "Samsung Galaxy S10 128GB", "Xiaomi Redmi Note 9 Pro", "Motorola Moto G8 Play",
+                   "Galaxy J7 Prime", "Notebook Dell Seminovo i5", "Fone JBL Open Box"]
+        atuais = ["Smartphone Samsung Galaxy A15 128GB", "iPhone 15 128GB",
+                  "Xiaomi Redmi Note 13 Pro", "Motorola Moto G24 Power", "Honor X8b 256GB",
+                  "Capa para iPhone 8 Silicone", "Película para Galaxy S10",
+                  "Vitrine Expositora de Vidro", "O protetor mais usado do Brasil",
+                  "Apple iPhone SE 2022 64GB", "Moto G 5G 128GB"]
+        for titulo in antigos:
+            self.assertTrue(desempenho.parece_modelo_antigo({"productName": titulo}), titulo)
+        for titulo in atuais:
+            self.assertFalse(desempenho.parece_modelo_antigo({"productName": titulo}), titulo)
+
     def test_loja_oficial_pelo_nome(self):
         self.assertTrue(desempenho.loja_oficial({"shopName": "Mondial Loja Oficial"}))
         self.assertTrue(desempenho.loja_oficial({"shopName": "Xiaomi Official Store"}))
