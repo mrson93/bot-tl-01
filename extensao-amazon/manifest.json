@@ -1,11 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Tá Barato · Lista de Ofertas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Marque produtos nas páginas da Amazon e eles vão para a sua lista de ofertas, sem abrir cada um.",
-  "permissions": ["tabs", "scripting", "storage"],
-  "host_permissions": ["https://www.amazon.com.br/*"],
-  "background": { "service_worker": "background.js" },
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://www.amazon.com.br/*"],

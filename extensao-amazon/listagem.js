@@ -1,18 +1,63 @@
 // Coloca um checkbox em cada produto das páginas de listagem da Amazon
-// (Ofertas do Dia, busca, mais vendidos...). Ao marcar, pede ao background
-// para adicionar o produto à lista de ofertas, sem sair da página.
+// (Ofertas do Dia, busca, mais vendidos...). Ao marcar, adiciona o produto à
+// lista de ideias "Ofertas" com a mesma chamada que o botão "Adicionar à Lista"
+// da Amazon faz, sem sair da página e sem abrir abas.
 (() => {
   const ASIN = /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?=[/?#]|$)/;
   const MARCA = "tb-lista-ofertas";
+  const LISTA_PADRAO = { listaId: "2ZUSMM2BR8LVZ", listaNome: "Ofertas" };
+  let token = null;
+  let fila = Promise.resolve();
 
   function asinDoLink(href) {
     const achado = String(href || "").match(ASIN);
     return achado ? achado[1] : null;
   }
 
-  // Na própria página do produto o botão da Amazon já resolve.
-  function paginaDeProduto() {
-    return ASIN.test(location.pathname);
+  // O token das listas de ideias vem na página do produto (campo escondido
+  // "creator-sp-csrf-form-token"); baixamos a página sem abri-la.
+  async function obterToken(asin, renovar = false) {
+    if (token && !renovar) return token;
+    const resposta = await fetch(`/dp/${asin}`, { credentials: "include" });
+    const html = await resposta.text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    token = doc.querySelector("#creator-sp-csrf-form-token")?.value || null;
+    if (!token) throw new Error("Não achei a permissão da Amazon. Você está logado?");
+    return token;
+  }
+
+  async function enviar(asin, chave, lista) {
+    const sid = (document.cookie.match(/(?:^|; )session-id=([^;]+)/) || [])[1];
+    if (!sid) throw new Error("Sessão da Amazon não encontrada. Faça login.");
+    const resposta = await fetch("/create/api/addToList?ref=idea_dp_ai", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "text/html,*/*",
+        "anti-csrftoken-a2z": chave,
+      },
+      body: new URLSearchParams({ asin, sid, listId: lista.listaId, listName: lista.listaNome }),
+    });
+    let corpo = {};
+    try { corpo = await resposta.json(); } catch { /* resposta em HTML = recusa */ }
+    return { status: resposta.status, ok: resposta.ok && corpo.updateSuccessful === true, corpo };
+  }
+
+  async function adicionar(asin) {
+    const lista = { ...LISTA_PADRAO, ...(await chrome.storage.sync.get(["listaId", "listaNome"])) };
+    let resultado = await enviar(asin, await obterToken(asin), lista);
+    if (!resultado.ok) {
+      // Token vencido ou de outra sessão: pega um novo e tenta uma vez.
+      resultado = await enviar(asin, await obterToken(asin, true), lista);
+    }
+    if (!resultado.ok) {
+      throw new Error(resultado.corpo?.message || `A Amazon recusou (código ${resultado.status}).`);
+    }
+    const { adicionados = {} } = await chrome.storage.local.get("adicionados");
+    adicionados[asin] = Date.now();
+    await chrome.storage.local.set({ adicionados });
   }
 
   function cartaoDoLink(link) {
@@ -24,8 +69,7 @@
   function aplicarEstado(caixa, estado, detalhe) {
     const rotulo = caixa.parentElement;
     rotulo.dataset.estado = estado;
-    const texto = rotulo.querySelector("span");
-    texto.textContent = {
+    rotulo.querySelector("span").textContent = {
       livre: "Adicionar às Ofertas",
       enviando: "Adicionando…",
       ok: "Na lista de Ofertas ✓",
@@ -42,28 +86,28 @@
     rotulo.addEventListener("click", (evento) => evento.stopPropagation());
     const caixa = document.createElement("input");
     caixa.type = "checkbox";
-    const texto = document.createElement("span");
-    rotulo.append(caixa, texto);
+    rotulo.append(caixa, document.createElement("span"));
     aplicarEstado(caixa, jaAdicionado ? "ok" : "livre");
     caixa.addEventListener("change", (evento) => {
       evento.stopPropagation();
       if (!caixa.checked) return;
       aplicarEstado(caixa, "enviando");
-      chrome.runtime.sendMessage({ tipo: "adicionar", asin }, (resposta) => {
-        if (chrome.runtime.lastError || !resposta) {
-          aplicarEstado(caixa, "erro", "A extensão não respondeu.");
-        } else if (resposta.ok) {
-          aplicarEstado(caixa, "ok", resposta.detalhe);
-        } else {
-          aplicarEstado(caixa, "erro", resposta.motivo);
+      // Um produto por vez, com uma pausa curta, como cliques com calma.
+      fila = fila.then(async () => {
+        try {
+          await adicionar(asin);
+          aplicarEstado(caixa, "ok", "Adicionado à lista de ofertas.");
+        } catch (erro) {
+          aplicarEstado(caixa, "erro", String(erro?.message || erro));
         }
+        await new Promise((r) => setTimeout(r, 800));
       });
     });
     return rotulo;
   }
 
   async function marcar() {
-    if (paginaDeProduto()) return;
+    if (ASIN.test(location.pathname)) return; // na página do produto, use o botão da Amazon
     const { adicionados = {} } = await chrome.storage.local.get("adicionados");
     const vistos = new Set();
     for (const link of document.querySelectorAll("a[href*='/dp/'], a[href*='/gp/product/']")) {

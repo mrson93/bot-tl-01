@@ -2,10 +2,10 @@
 
 Coloca um checkbox amarelo **"Adicionar às Ofertas"** em cada produto das
 páginas de listagem da Amazon (Ofertas do Dia, busca, mais vendidos...). Ao
-marcar, a extensão abre o produto numa aba em segundo plano, usa o próprio
-botão **Adicionar à Lista** da Amazon para gravar na lista pública "Ofertas"
-(código `2ZUSMM2BR8LVZ`, a mesma que o bot lê) e fecha a aba. O checkbox fica
-verde quando a Amazon confirma.
+marcar, a extensão faz a mesma chamada que o botão **Adicionar à Lista** da
+Amazon faz para a lista de ideias "Ofertas" (código `2ZUSMM2BR8LVZ`, a mesma
+que o bot lê), sem abrir abas. O checkbox fica verde quando a Amazon responde
+`updateSuccessful`.
 
 - Um produto por vez, com pausa curta entre eles, como um clique humano.
 - Nada sai do seu navegador: a extensão não envia dados para nenhum servidor.
@@ -24,7 +24,8 @@ Para usar outra lista, clique no ícone da extensão e troque o código.
 
 ## Se parar de funcionar
 
-A extensão depende do botão "Adicionar à Lista" da página do produto
-(`#add-to-wishlist-button` e `#atwl-link-to-list-<código>`). Se a Amazon mudar
-essa parte do site, o checkbox fica vermelho com a mensagem do erro; avise
-para ajustar os seletores em `background.js`.
+A extensão usa a chamada interna `/create/api/addToList` (a mesma do botão da
+Amazon) e o campo escondido `creator-sp-csrf-form-token` da página do produto.
+Se a Amazon mudar isso, o checkbox fica vermelho e a mensagem aparece ao passar
+o mouse; avise para ajustar `listagem.js`. Depois de atualizar os arquivos,
+clique em **Recarregar** (↻) na extensão em `brave://extensions`.
