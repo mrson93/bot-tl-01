@@ -38,6 +38,27 @@ class MainTest(unittest.TestCase):
             self.assertEqual(0, main.rodar_uma_vez())
             fontes.assert_not_called()
 
+    def test_mais_vendido_da_api_ml_vence_item_da_lista(self):
+        fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
+        base = {"_fonte_obj": fonte, "_motivo": "inedita", "fonte": "Mercado Livre",
+                "price": 80}
+        candidatos = [
+            dict(base, oferta_id="lista", productName="Café premium", priceDiscountRate=70,
+                 categoria="alimentos", curadoriaManual=True),
+            dict(base, oferta_id="api_5", productName="Fone bluetooth", priceDiscountRate=20,
+                 categoria="eletronicos", _ml_mais_vendido=5),
+            dict(base, oferta_id="api_1", productName="Panela elétrica", priceDiscountRate=18,
+                 categoria="cozinha", _ml_mais_vendido=1),
+            dict(base, oferta_id="pendente", productName="Mochila", priceDiscountRate=10,
+                 categoria="moda", _motivo="canal_pendente"),
+        ]
+        with patch.object(main.store, "ofertas_recentes", return_value=[]), \
+             patch.object(main.store, "ofertas_desde", return_value=[]), \
+             patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+             patch.object(main.store, "multiplicadores_desempenho", return_value={}):
+            ordem = [o["oferta_id"] for o in main._ordenar_candidatos(candidatos)]
+        self.assertEqual(["pendente", "api_1", "api_5", "lista"], ordem)
+
     def test_lista_curada_prioriza_desconto_e_prazo_oficial(self):
         fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()
         candidatos = [

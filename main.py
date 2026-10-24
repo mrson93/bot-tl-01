@@ -1097,7 +1097,11 @@ def _ordenar_candidatos(candidatos):
             prazo = 0
         restante = prazo - time.time() if prazo else 0
         urgencia = (1, -restante) if 0 < restante <= 48 * 3600 else (0, 0)
-        return (prioridade.get(motivo, 0), urgencia if curada else (0, 0),
+        # Mais vendidos do Mercado Livre (API) vencem itens da lista manual
+        # quando a vaga for do Mercado Livre; entre eles, o melhor colocado.
+        mais_vendido = oferta.get("_ml_mais_vendido")
+        api_ml = (1, -int(mais_vendido or 99)) if mais_vendido else (0, 0)
+        return (prioridade.get(motivo, 0), api_ml, urgencia if curada else (0, 0),
                 desconto if curada else 0, cupom, comercial,
                 oferta.get("_diversidade", 2), desconto)
 
