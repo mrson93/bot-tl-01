@@ -1,0 +1,19 @@
+.tb-lista-ofertas {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #fff3c4;
+  border: 1px solid #f0c14b;
+  font: 600 12px/1.2 Arial, sans-serif;
+  color: #111;
+  cursor: pointer;
+  position: relative;
+  z-index: 5;
+}
+.tb-lista-ofertas input { margin: 0; cursor: pointer; }
+.tb-lista-ofertas[data-estado="ok"] { background: #e3f6e5; border-color: #2e8540; }
+.tb-lista-ofertas[data-estado="erro"] { background: #fde8e8; border-color: #c40000; }
+.tb-lista-ofertas[data-estado="enviando"] { opacity: .7; }
