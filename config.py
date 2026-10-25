@@ -164,6 +164,8 @@ AMAZON_SEARCH_INDEX = _get("AMAZON_SEARCH_INDEX")
 AMAZON_SORT = _get("AMAZON_SORT") or "Featured"
 AMAZON_PAGES = _int("AMAZON_PAGES", 3)
 AMAZON_FETCH_LIMIT = max(1, min(100, _int("AMAZON_FETCH_LIMIT", 100)))
+# Quando a vitrine recusa a leitura (503), usa a última leitura boa até esta idade.
+AMAZON_LISTA_RESERVA_MINUTOS = max(0, _int("AMAZON_LISTA_RESERVA_MINUTOS", 120))
 
 # --- Mercado Livre (lista publica de recomendacoes do afiliado) ---
 MERCADOLIVRE_LIST_URL = _get("MERCADOLIVRE_LIST_URL")

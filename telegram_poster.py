@@ -139,6 +139,14 @@ def linha_historico(oferta: dict) -> str:
             return f"📉 Baixou de R$ {_preco(anterior)} desde o nosso último post"
     except (TypeError, ValueError):
         pass
+    # Selo informado pela própria loja na vitrine (hoje, só a Amazon).
+    try:
+        dias_loja = int(oferta.get("menorPrecoLojaDias") or 0)
+    except (TypeError, ValueError):
+        dias_loja = 0
+    if dias_loja > 0:
+        loja = oferta.get("fonte") or "loja"
+        return f"📉 Menor preço em {dias_loja} dias, segundo a {loja}"
     historico = oferta.get("_historico_preco") or {}
     try:
         minimo = float(historico.get("minimo_anterior") or 0)

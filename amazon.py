@@ -7,6 +7,7 @@ Mesma ideia das outras lojas:
 Autenticacao em 2 passos: pega um token OAuth e usa ele nas chamadas.
 """
 from html.parser import HTMLParser
+import json
 import re
 import time
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
@@ -16,6 +17,7 @@ import requests
 import captacao
 import config
 import seguranca
+import store
 
 NOME = "Amazon"
 VALIDA_ANTES_PUBLICAR = True
@@ -85,6 +87,7 @@ class _ParserLista(HTMLParser):
             "product-brand-text": "brand",
             "product-title-text": "productName",
             "product-badge-label": "discountText",
+            "product-badge-message": "badgeMessage",
             "a-offscreen": "priceText",
             "a-text-strike": "originalText",
         }
@@ -156,6 +159,10 @@ def _normalizar_lista(card):
     }
     if card.get("expira_em"):
         oferta["expira_em"] = card["expira_em"]
+    # Selo que a própria Amazon mostra na vitrine, ex.: "Menor preço em 365 dias".
+    selo = re.search(r"Menor preço em (\d+) dias", card.get("badgeMessage") or "", re.I)
+    if selo:
+        oferta["menorPrecoLojaDias"] = int(selo.group(1))
     return oferta
 
 
@@ -218,9 +225,41 @@ def _baixar_lista(url):
     raise RuntimeError("Lista da Amazon redirecionou vezes demais")
 
 
+_CHAVE_RESERVA = "amazon_lista_reserva"
+
+
+def _lista_reserva():
+    """Última leitura boa salva no estado, se ainda estiver dentro do limite."""
+    try:
+        salvo = json.loads(store._estado(_CHAVE_RESERVA) or "null")
+    except (ValueError, TypeError):
+        return None, 0
+    if not salvo or salvo.get("url") != config.AMAZON_LIST_URL:
+        return None, 0
+    idade = (time.time() - float(salvo.get("em") or 0)) / 60
+    if idade > config.AMAZON_LISTA_RESERVA_MINUTOS:
+        return None, idade
+    return salvo.get("ofertas") or None, idade
+
+
 def _buscar_lista() -> list:
     parser = _ParserLista()
-    parser.feed(_baixar_lista(config.AMAZON_LIST_URL))
+    try:
+        html = _baixar_lista(config.AMAZON_LIST_URL)
+    except requests.HTTPError as erro:
+        status = getattr(erro.response, "status_code", None)
+        reserva, idade = (_lista_reserva() if status in _STATUS_TRANSITORIOS
+                          else (None, 0))
+        if not reserva:
+            raise
+        # A vitrine recusa datacenters com 503 em boa parte das rodadas; a
+        # leitura recente evita perder a Amazon na rodada inteira por isso.
+        print(f"   ⚠️  Amazon recusou a lista ({status}); usando a leitura "
+              f"de {int(idade)} min atrás.")
+        _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
+                            ofertas=[dict(oferta) for oferta in reserva])
+        return [dict(oferta) for oferta in reserva]
+    parser.feed(html)
     ofertas = {}
     for card in parser.ofertas[:config.AMAZON_FETCH_LIMIT]:
         try:
@@ -232,6 +271,13 @@ def _buscar_lista() -> list:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista da Amazon")
     _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
                         ofertas=[dict(oferta) for oferta in ofertas.values()])
+    try:
+        store._definir_estado(_CHAVE_RESERVA, json.dumps({
+            "url": config.AMAZON_LIST_URL, "em": time.time(),
+            "ofertas": list(ofertas.values()),
+        }, ensure_ascii=False))
+    except Exception as erro:
+        print(f"   ⚠️  Não salvei a reserva da lista da Amazon: {erro}")
     return list(ofertas.values())
 
 

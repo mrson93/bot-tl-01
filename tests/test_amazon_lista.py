@@ -1,8 +1,14 @@
+import tempfile
+import time
 import unittest
+from pathlib import Path
 from unittest.mock import Mock
 from unittest.mock import patch
 
+import requests
+
 import amazon
+import telegram_poster
 
 
 HTML = """
@@ -12,6 +18,7 @@ HTML = """
     <span class="product-brand-text"><bdi>WAP</bdi></span>
     <span class="product-title-text"><bdi>Aspirador de Pó Robô W310</bdi></span>
     <span class="product-badge-label">57% off</span>
+    <span class="product-badge-message">Menor preço em 365 dias</span>
     <span class="a-price"><span class="a-offscreen">R$509,90</span></span>
     <span class="basis-price-text a-text-strike">R$ 1.199,90</span>
   </div>
@@ -30,6 +37,47 @@ HTML = """
 class AmazonListaTest(unittest.TestCase):
     def setUp(self):
         amazon._cache_lista.update(url=None, em=0.0, ofertas=None)
+        pasta = tempfile.TemporaryDirectory()
+        self.addCleanup(pasta.cleanup)
+        banco = patch.object(amazon.store, "_DB", Path(pasta.name) / "estado.db")
+        banco.start()
+        self.addCleanup(banco.stop)
+
+    def test_selo_de_menor_preco_da_amazon_vai_para_o_post(self):
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=HTML):
+            ofertas = {o["oferta_id"]: o for o in amazon.buscar_ofertas()}
+        robo = ofertas["amazon_B0F9Z2DV83"]
+        self.assertEqual(365, robo["menorPrecoLojaDias"])
+        self.assertNotIn("menorPrecoLojaDias", ofertas["amazon_B0DPNHDC9B"])
+        self.assertEqual("📉 Menor preço em 365 dias, segundo a Amazon",
+                         telegram_poster.linha_historico(robo))
+
+    def _erro_503(self):
+        return requests.HTTPError("503", response=Mock(status_code=503))
+
+    def test_503_usa_a_ultima_leitura_boa_da_lista(self):
+        a, b, c, d = self._config()
+        with a, b, c, d:
+            with patch.object(amazon, "_baixar_lista", return_value=HTML):
+                amazon.buscar_ofertas()
+            amazon._cache_lista.update(url=None, em=0.0, ofertas=None)
+            with patch.object(amazon, "_baixar_lista", side_effect=self._erro_503()):
+                ofertas = amazon.buscar_ofertas()
+        self.assertEqual({"amazon_B0F9Z2DV83", "amazon_B0DPNHDC9B"},
+                         {o["oferta_id"] for o in ofertas})
+
+    def test_503_com_leitura_antiga_demais_continua_falhando(self):
+        a, b, c, d = self._config()
+        with a, b, c, d:
+            with patch.object(amazon, "_baixar_lista", return_value=HTML):
+                amazon.buscar_ofertas()
+            amazon._cache_lista.update(url=None, em=0.0, ofertas=None)
+            antigo = time.time() + (amazon.config.AMAZON_LISTA_RESERVA_MINUTOS + 1) * 60
+            with patch.object(amazon, "_baixar_lista", side_effect=self._erro_503()), \
+                 patch.object(amazon.time, "time", return_value=antigo):
+                with self.assertRaises(requests.HTTPError):
+                    amazon.buscar_ofertas()
 
     def test_revalidacao_reaproveita_lista_da_rodada_sem_novo_download(self):
         a, b, c, d = self._config()
