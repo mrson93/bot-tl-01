@@ -8,6 +8,10 @@
   // Menu e histórico de navegação do topo não são vitrines de produto.
   const MENU_DO_TOPO = "#navbar, #nav-main, [id^='nav-flyout'], .nav-timeline-img-holder, header";
   const LISTA_PADRAO = { listaId: "2ZUSMM2BR8LVZ", listaNome: "Ofertas" };
+  // Selo de oferta da Amazon ("Oferta", "Oferta Relâmpago"...), sem pegar "Ofertas".
+  const SELO_OFERTA = /^\s*Oferta\b(?!s)/i;
+  const ESCONDIDO = "tb-sem-oferta";
+  let soOfertas = false;
   let token = null;
   let fila = Promise.resolve();
 
@@ -108,6 +112,33 @@
     return rotulo;
   }
 
+  // O selo pode estar dentro de componentes com shadow DOM (loja de livros).
+  function temSeloOferta(raiz) {
+    for (const no of raiz.querySelectorAll("*")) {
+      if (no.shadowRoot && temSeloOferta(no.shadowRoot)) return true;
+      if (!no.children.length && SELO_OFERTA.test(no.textContent)) return true;
+    }
+    return false;
+  }
+
+  // Na loja de livros o cartão fica sozinho num bloco junto com a nossa caixa:
+  // esconder o bloco evita buracos no carrossel.
+  function blocoDoCartao(cartao) {
+    const pai = cartao.parentElement;
+    const soNosso = pai && [...pai.children].every((f) => f === cartao || f.classList.contains(MARCA));
+    return cartao.tagName.includes("-") && soNosso ? pai : cartao;
+  }
+
+  function filtrarOfertas() {
+    for (const cartao of document.querySelectorAll("[data-tb-asin]")) {
+      const esconder = soOfertas && !temSeloOferta(cartao.shadowRoot || cartao);
+      blocoDoCartao(cartao).classList.toggle(ESCONDIDO, esconder);
+      // Quando o cartão está dentro de um link, a caixa ficou do lado de fora.
+      const caixaFora = cartao.closest("a")?.previousElementSibling;
+      if (caixaFora?.classList.contains(MARCA)) caixaFora.classList.toggle(ESCONDIDO, esconder);
+    }
+  }
+
   async function marcar() {
     if (ASIN.test(location.pathname)) return; // na página do produto, use o botão da Amazon
     const { adicionados = {} } = await chrome.storage.local.get("adicionados");
@@ -138,6 +169,7 @@
       cartao.dataset.tbAsin = asin;
       cartao.parentElement.insertBefore(criarCaixa(asin, Boolean(adicionados[asin])), cartao);
     }
+    filtrarOfertas();
   }
 
   let agendado = null;
@@ -145,5 +177,16 @@
     clearTimeout(agendado);
     agendado = setTimeout(marcar, 400);
   }).observe(document.body, { childList: true, subtree: true });
-  marcar();
+  chrome.storage.onChanged.addListener((mudancas, area) => {
+    if (area === "sync" && "soOfertas" in mudancas) {
+      soOfertas = Boolean(mudancas.soOfertas.newValue);
+      filtrarOfertas();
+    }
+  });
+  // Os selos dentro de shadow DOM aparecem depois, sem avisar o observador acima.
+  setInterval(() => { if (soOfertas) filtrarOfertas(); }, 1500);
+  chrome.storage.sync.get("soOfertas").then((valores) => {
+    soOfertas = Boolean(valores.soOfertas);
+    marcar();
+  });
 })();

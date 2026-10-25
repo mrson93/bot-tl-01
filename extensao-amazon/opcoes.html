@@ -8,6 +8,8 @@
     h1 { font-size: 16px; margin: 0 0 8px; }
     label { display: block; margin: 12px 0 4px; font-weight: 600; }
     input { width: 100%; box-sizing: border-box; padding: 6px; }
+    .opcao { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+    .opcao input { width: auto; }
     button { margin-top: 10px; padding: 6px 12px; }
     small { color: #555; display: block; margin-top: 6px; }
   </style>
@@ -20,6 +22,8 @@
   <small>É o código no fim do endereço da lista (amazon.com.br/shop/.../list/<b>CÓDIGO</b>).</small>
   <label for="nome">Nome da lista</label>
   <input id="nome" placeholder="Ofertas">
+  <label class="opcao"><input type="checkbox" id="so-ofertas"> Mostrar só produtos com selo de oferta</label>
+  <small>Esconde da página os produtos sem a tag "Oferta". Vale na hora, sem salvar.</small>
   <button id="salvar">Salvar</button>
   <small id="estado"></small>
   <script src="opcoes.js"></script>

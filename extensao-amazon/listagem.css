@@ -17,3 +17,4 @@
 .tb-lista-ofertas[data-estado="ok"] { background: #e3f6e5; border-color: #2e8540; }
 .tb-lista-ofertas[data-estado="erro"] { background: #fde8e8; border-color: #c40000; }
 .tb-lista-ofertas[data-estado="enviando"] { opacity: .7; }
+.tb-sem-oferta { display: none !important; }
