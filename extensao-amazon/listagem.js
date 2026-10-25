@@ -5,6 +5,8 @@
 (() => {
   const ASIN = /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?=[/?#]|$)/;
   const MARCA = "tb-lista-ofertas";
+  // Menu e histórico de navegação do topo não são vitrines de produto.
+  const MENU_DO_TOPO = "#navbar, #nav-main, [id^='nav-flyout'], .nav-timeline-img-holder, header";
   const LISTA_PADRAO = { listaId: "2ZUSMM2BR8LVZ", listaNome: "Ofertas" };
   let token = null;
   let fila = Promise.resolve();
@@ -112,7 +114,7 @@
     const vistos = new Set();
     for (const link of document.querySelectorAll("a[href*='/dp/'], a[href*='/gp/product/']")) {
       const asin = asinDoLink(link.getAttribute("href"));
-      if (!asin) continue;
+      if (!asin || link.closest(MENU_DO_TOPO)) continue;
       const cartao = cartaoDoLink(link);
       if (!cartao || cartao.dataset.tbAsin || vistos.has(cartao)) continue;
       vistos.add(cartao);
@@ -125,6 +127,16 @@
       } else {
         cartao.prepend(caixa);
       }
+    }
+    // Páginas como a loja de livros usam componentes próprios sem link /dp/:
+    // o código do produto fica no atributo data-csa-c-item-id do cartão.
+    for (const cartao of document.querySelectorAll("[data-csa-c-type='item'][data-csa-c-item-id]")) {
+      const asin = cartao.getAttribute("data-csa-c-item-id");
+      if (!/^[A-Z0-9]{10}$/.test(asin || "") || cartao.closest(MENU_DO_TOPO)) continue;
+      if (cartao.dataset.tbAsin || cartao.closest("[data-tb-asin]")
+          || cartao.querySelector("[data-tb-asin], ." + MARCA) || !cartao.parentElement) continue;
+      cartao.dataset.tbAsin = asin;
+      cartao.parentElement.insertBefore(criarCaixa(asin, Boolean(adicionados[asin])), cartao);
     }
   }
 
