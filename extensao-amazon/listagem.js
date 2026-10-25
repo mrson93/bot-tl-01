@@ -8,10 +8,15 @@
   // Menu e histórico de navegação do topo não são vitrines de produto.
   const MENU_DO_TOPO = "#navbar, #nav-main, [id^='nav-flyout'], .nav-timeline-img-holder, header";
   const LISTA_PADRAO = { listaId: "2ZUSMM2BR8LVZ", listaNome: "Ofertas" };
-  // Selo de oferta da Amazon ("Oferta", "Oferta Relâmpago"...), sem pegar "Ofertas".
-  const SELO_OFERTA = /^\s*Oferta\b(?!s)/i;
+  // Tags da Amazon que indicam desconto de verdade. "Oferta" não pega "Ofertas".
+  const TAGS = {
+    oferta: /^\s*Oferta\b(?!s)/i,
+    menorPreco: /^\s*Menor preço\b/i,
+    prazo: /^\s*(Termina em|Oferta Relâmpago)\b/i,
+  };
+  const DESCONTO = /(?:^|\s|-)(\d{1,2})\s*%(?:\s*off)?\s*$/i;
   const ESCONDIDO = "tb-sem-oferta";
-  let soOfertas = false;
+  let filtro = { tags: [], descontoMin: 0 };
   let token = null;
   let fila = Promise.resolve();
 
@@ -89,6 +94,7 @@
   function criarCaixa(asin, jaAdicionado) {
     const rotulo = document.createElement("label");
     rotulo.className = MARCA;
+    rotulo.dataset.tbPara = asin;
     rotulo.addEventListener("click", (evento) => evento.stopPropagation());
     const caixa = document.createElement("input");
     caixa.type = "checkbox";
@@ -112,13 +118,41 @@
     return rotulo;
   }
 
-  // O selo pode estar dentro de componentes com shadow DOM (loja de livros).
-  function temSeloOferta(raiz) {
+  // As tags podem estar dentro de componentes com shadow DOM (loja de livros).
+  function lerTags(raiz, achadas = { desconto: 0 }) {
     for (const no of raiz.querySelectorAll("*")) {
-      if (no.shadowRoot && temSeloOferta(no.shadowRoot)) return true;
-      if (!no.children.length && SELO_OFERTA.test(no.textContent)) return true;
+      if (no.shadowRoot) lerTags(no.shadowRoot, achadas);
+      if (no.children.length || no.classList?.contains(MARCA)) continue;
+      const texto = no.textContent;
+      if (texto.length > 40) continue;
+      for (const [nome, regra] of Object.entries(TAGS)) {
+        if (regra.test(texto)) achadas[nome] = true;
+      }
+      const desconto = texto.match(DESCONTO);
+      if (desconto) achadas.desconto = Math.max(achadas.desconto, Number(desconto[1]));
     }
-    return false;
+    return achadas;
+  }
+
+  function passaNoFiltro(cartao) {
+    if (!filtro.tags.length && !filtro.descontoMin) return true;
+    const achadas = lerTags(cartao.shadowRoot || cartao);
+    if (filtro.tags.length && !filtro.tags.some((nome) => achadas[nome])) return false;
+    return achadas.desconto >= filtro.descontoMin;
+  }
+
+  function lerFiltro(valores) {
+    // "soOfertas" era a opção da versão 1.3, antes de existir a escolha de tags.
+    const tags = valores.filtroTags || (valores.soOfertas ? ["oferta"] : []);
+    filtro = { tags, descontoMin: Number(valores.descontoMin) || 0 };
+  }
+
+  // A caixa do cartão: dentro dele ou, se o cartão está num link, logo antes do link.
+  function caixaDoCartao(cartao) {
+    const linkPai = cartao.closest("a");
+    const vizinha = (linkPai || cartao).previousElementSibling;
+    if (vizinha?.classList.contains(MARCA)) return vizinha;
+    return cartao.querySelector(":scope > ." + MARCA);
   }
 
   // Na loja de livros o cartão fica sozinho num bloco junto com a nossa caixa:
@@ -131,11 +165,9 @@
 
   function filtrarOfertas() {
     for (const cartao of document.querySelectorAll("[data-tb-asin]")) {
-      const esconder = soOfertas && !temSeloOferta(cartao.shadowRoot || cartao);
+      const esconder = !passaNoFiltro(cartao);
       blocoDoCartao(cartao).classList.toggle(ESCONDIDO, esconder);
-      // Quando o cartão está dentro de um link, a caixa ficou do lado de fora.
-      const caixaFora = cartao.closest("a")?.previousElementSibling;
-      if (caixaFora?.classList.contains(MARCA)) caixaFora.classList.toggle(ESCONDIDO, esconder);
+      caixaDoCartao(cartao)?.classList.toggle(ESCONDIDO, esconder);
     }
   }
 
@@ -147,8 +179,13 @@
       const asin = asinDoLink(link.getAttribute("href"));
       if (!asin || link.closest(MENU_DO_TOPO)) continue;
       const cartao = cartaoDoLink(link);
-      if (!cartao || cartao.dataset.tbAsin || vistos.has(cartao)) continue;
+      if (!cartao || vistos.has(cartao)) continue;
       vistos.add(cartao);
+      // Páginas como a de ofertas reaproveitam o cartão para outro produto ao
+      // rolar e apagam a caixa: confere se ela ainda está lá e é deste produto.
+      const atual = caixaDoCartao(cartao);
+      if (cartao.dataset.tbAsin === asin && atual?.dataset.tbPara === asin) continue;
+      atual?.remove();
       cartao.dataset.tbAsin = asin;
       const caixa = criarCaixa(asin, Boolean(adicionados[asin]));
       // Dentro de um link, o clique abriria o produto: fica logo antes dele.
@@ -164,8 +201,11 @@
     for (const cartao of document.querySelectorAll("[data-csa-c-type='item'][data-csa-c-item-id]")) {
       const asin = cartao.getAttribute("data-csa-c-item-id");
       if (!/^[A-Z0-9]{10}$/.test(asin || "") || cartao.closest(MENU_DO_TOPO)) continue;
-      if (cartao.dataset.tbAsin || cartao.closest("[data-tb-asin]")
-          || cartao.querySelector("[data-tb-asin], ." + MARCA) || !cartao.parentElement) continue;
+      if (!cartao.parentElement || cartao.parentElement.closest("[data-tb-asin]")
+          || cartao.querySelector("[data-tb-asin], ." + MARCA)) continue;
+      const atual = caixaDoCartao(cartao);
+      if (cartao.dataset.tbAsin === asin && atual?.dataset.tbPara === asin) continue;
+      atual?.remove();
       cartao.dataset.tbAsin = asin;
       cartao.parentElement.insertBefore(criarCaixa(asin, Boolean(adicionados[asin])), cartao);
     }
@@ -178,15 +218,16 @@
     agendado = setTimeout(marcar, 400);
   }).observe(document.body, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((mudancas, area) => {
-    if (area === "sync" && "soOfertas" in mudancas) {
-      soOfertas = Boolean(mudancas.soOfertas.newValue);
+    if (area !== "sync" || !["filtroTags", "descontoMin", "soOfertas"].some((c) => c in mudancas)) return;
+    chrome.storage.sync.get(["filtroTags", "descontoMin", "soOfertas"]).then((valores) => {
+      lerFiltro(valores);
       filtrarOfertas();
-    }
+    });
   });
-  // Os selos dentro de shadow DOM aparecem depois, sem avisar o observador acima.
-  setInterval(() => { if (soOfertas) filtrarOfertas(); }, 1500);
-  chrome.storage.sync.get("soOfertas").then((valores) => {
-    soOfertas = Boolean(valores.soOfertas);
+  // As tags dentro de shadow DOM aparecem depois, sem avisar o observador acima.
+  setInterval(() => { if (filtro.tags.length || filtro.descontoMin) filtrarOfertas(); }, 1500);
+  chrome.storage.sync.get(["filtroTags", "descontoMin", "soOfertas"]).then((valores) => {
+    lerFiltro(valores);
     marcar();
   });
 })();
