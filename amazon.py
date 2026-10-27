@@ -6,6 +6,7 @@ Mesma ideia das outras lojas:
 
 Autenticacao em 2 passos: pega um token OAuth e usa ele nas chamadas.
 """
+from html import unescape
 from html.parser import HTMLParser
 import json
 import re
@@ -166,62 +167,74 @@ def _normalizar_lista(card):
     return oferta
 
 
-def _baixar_lista(url):
+_CABECALHOS_LISTA = {
+    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Upgrade-Insecure-Requests": "1",
+}
+# A página da lista só traz os primeiros produtos; o resto vem em páginas do
+# "Carregar mais", cada uma com o token da próxima.
+_MAX_PAGINAS_LISTA = 8
+_PAUSA_PAGINAS = 1.5
+_ESTADO_ROLAGEM = re.compile(
+    r'data-a-state="\{&quot;key&quot;:&quot;listScrollState&quot;\}">(\{.*?\})</script>', re.S)
+_TOKEN_PAGINA = re.compile(r'name="pageToken" value="([^"]+)"')
+_MAIS_PAGINAS = re.compile(r'name="shouldListLoadMoreFlag" value="(\w+)"')
+
+
+def _baixar_lista(url, sessao=None):
+    if sessao is None:
+        with requests.Session() as nova:
+            nova.headers.update(_CABECALHOS_LISTA)
+            return _baixar_lista(url, nova)
     atual = url
-    headers = {
-        "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Upgrade-Insecure-Requests": "1",
-    }
     # A vitrine usa cookies de sessão e devolve 503 de forma intermitente para
     # datacenters. Preservar a sessão entre redirecionamentos e espaçar as
     # tentativas evita transformar uma oscilação curta em falha da rodada.
-    with requests.Session() as sessao:
-        sessao.headers.update(headers)
-        for _ in range(6):
-            atual = seguranca.validar_url_https_em_hosts(
-                atual, _HOSTS_LISTA, "Lista da Amazon"
-            )
-            for tentativa in range(len(_ATRASOS_RETRY) + 1):
-                try:
-                    resposta = sessao.get(
-                        atual, timeout=30, allow_redirects=False, stream=True,
-                    )
-                except requests.RequestException:
-                    if tentativa == len(_ATRASOS_RETRY):
-                        raise
-                    time.sleep(_ATRASOS_RETRY[tentativa])
-                    continue
-                if (resposta.status_code not in _STATUS_TRANSITORIOS
-                        or tentativa == len(_ATRASOS_RETRY)):
-                    break
-                resposta.close()
-                time.sleep(_ATRASOS_RETRY[tentativa])
+    for _ in range(6):
+        atual = seguranca.validar_url_https_em_hosts(
+            atual, _HOSTS_LISTA, "Lista da Amazon"
+        )
+        for tentativa in range(len(_ATRASOS_RETRY) + 1):
             try:
-                if resposta.status_code in {301, 302, 303, 307, 308}:
-                    destino = resposta.headers.get("Location")
-                    if not destino:
-                        raise RuntimeError("Amazon redirecionou sem destino")
-                    atual = urljoin(atual, destino)
-                    continue
-                resposta.raise_for_status()
-                tamanho = int(resposta.headers.get("Content-Length") or 0)
-                if tamanho > _MAX_HTML:
+                resposta = sessao.get(
+                    atual, timeout=30, allow_redirects=False, stream=True,
+                )
+            except requests.RequestException:
+                if tentativa == len(_ATRASOS_RETRY):
+                    raise
+                time.sleep(_ATRASOS_RETRY[tentativa])
+                continue
+            if (resposta.status_code not in _STATUS_TRANSITORIOS
+                    or tentativa == len(_ATRASOS_RETRY)):
+                break
+            resposta.close()
+            time.sleep(_ATRASOS_RETRY[tentativa])
+        try:
+            if resposta.status_code in {301, 302, 303, 307, 308}:
+                destino = resposta.headers.get("Location")
+                if not destino:
+                    raise RuntimeError("Amazon redirecionou sem destino")
+                atual = urljoin(atual, destino)
+                continue
+            resposta.raise_for_status()
+            tamanho = int(resposta.headers.get("Content-Length") or 0)
+            if tamanho > _MAX_HTML:
+                raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
+            partes, total = [], 0
+            for parte in resposta.iter_content(64 * 1024):
+                total += len(parte)
+                if total > _MAX_HTML:
                     raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
-                partes, total = [], 0
-                for parte in resposta.iter_content(64 * 1024):
-                    total += len(parte)
-                    if total > _MAX_HTML:
-                        raise RuntimeError("Lista da Amazon excedeu o tamanho seguro")
-                    partes.append(parte)
-                return b"".join(partes).decode(resposta.encoding or "utf-8", "replace")
-            finally:
-                resposta.close()
+                partes.append(parte)
+            return b"".join(partes).decode(resposta.encoding or "utf-8", "replace")
+        finally:
+            resposta.close()
     raise RuntimeError("Lista da Amazon redirecionou vezes demais")
 
 
@@ -242,10 +255,52 @@ def _lista_reserva():
     return salvo.get("ofertas") or None, idade
 
 
+def _paginas_seguintes(html, sessao):
+    """Baixa as páginas do "Carregar mais"; uma falha só encerra a paginação."""
+    achado = _ESTADO_ROLAGEM.search(html)
+    if not achado:
+        return []
+    try:
+        estado = json.loads(achado.group(1))
+    except ValueError:
+        return []
+    vitrine, lista = str(estado.get("vanityHandle") or ""), str(estado.get("listId") or "")
+    if not re.fullmatch(r"[\w-]{1,64}", vitrine) or not re.fullmatch(r"[A-Z0-9]{6,20}", lista):
+        return []
+    token, continuar = estado.get("pageToken"), estado.get("shouldListLoadMoreFlag")
+    paginas, produtos = [], html.count("single-product-item-link")
+    for _ in range(_MAX_PAGINAS_LISTA):
+        if not (token and continuar) or produtos >= config.AMAZON_FETCH_LIMIT:
+            break
+        time.sleep(_PAUSA_PAGINAS)
+        url = (f"https://www.amazon.com.br/shop/{vitrine}/api/listItems?"
+               + urlencode({"listId": lista, "pageToken": token}))
+        try:
+            pagina = _baixar_lista(url, sessao)
+        except (requests.RequestException, RuntimeError) as erro:
+            status = getattr(getattr(erro, "response", None), "status_code", None)
+            print(f"   ⚠️  Lista da Amazon: parei na página {len(paginas) + 2} "
+                  f"({status or type(erro).__name__}); seguindo com o que veio.")
+            break
+        paginas.append(pagina)
+        produtos += pagina.count("single-product-item-link")
+        proximo = _TOKEN_PAGINA.search(pagina)
+        token = unescape(proximo.group(1)) if proximo else None
+        mais = _MAIS_PAGINAS.search(pagina)
+        continuar = bool(mais and mais.group(1).lower() == "true")
+    return paginas
+
+
 def _buscar_lista() -> list:
     parser = _ParserLista()
+    with requests.Session() as sessao:
+        sessao.headers.update(_CABECALHOS_LISTA)
+        return _ler_lista(parser, sessao)
+
+
+def _ler_lista(parser, sessao) -> list:
     try:
-        html = _baixar_lista(config.AMAZON_LIST_URL)
+        html = _baixar_lista(config.AMAZON_LIST_URL, sessao)
     except requests.HTTPError as erro:
         status = getattr(erro.response, "status_code", None)
         reserva, idade = (_lista_reserva() if status in _STATUS_TRANSITORIOS
@@ -259,7 +314,8 @@ def _buscar_lista() -> list:
         _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
                             ofertas=[dict(oferta) for oferta in reserva])
         return [dict(oferta) for oferta in reserva]
-    parser.feed(html)
+    for pagina in [html, *_paginas_seguintes(html, sessao)]:
+        parser.feed(pagina)
     ofertas = {}
     for card in parser.ofertas[:config.AMAZON_FETCH_LIMIT]:
         try:

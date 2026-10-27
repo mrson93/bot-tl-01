@@ -53,6 +53,29 @@ class AmazonListaTest(unittest.TestCase):
         self.assertEqual("📉 Menor preço em 365 dias, segundo a Amazon",
                          telegram_poster.linha_historico(robo))
 
+    def test_segue_as_paginas_do_carregar_mais(self):
+        inicio = HTML.split("</a>")[0] + "</a>" + (
+            '<script type="a-state" data-a-state="{&quot;key&quot;:&quot;listScrollState&quot;}">'
+            '{"listId":"2ZUSMM2BR8LVZ","vanityHandle":"emersonpettor",'
+            '"shouldListLoadMoreFlag":true,"pageToken":"T1"}</script>')
+        segunda = HTML.split("</a>")[1] + "</a>" + (
+            '<input type="hidden" name="pageToken" value="T2" class="pageToken"/>'
+            '<input type="hidden" name="shouldListLoadMoreFlag" value="false"/>')
+        urls = []
+
+        def baixar(url, sessao=None):
+            urls.append(url)
+            return inicio if len(urls) == 1 else segunda
+
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", side_effect=baixar), \
+             patch.object(amazon, "_PAUSA_PAGINAS", 0):
+            ofertas = amazon.buscar_ofertas()
+        self.assertEqual({"amazon_B0F9Z2DV83", "amazon_B0DPNHDC9B"},
+                         {o["oferta_id"] for o in ofertas})
+        self.assertEqual(2, len(urls))
+        self.assertIn("/shop/emersonpettor/api/listItems?listId=2ZUSMM2BR8LVZ&pageToken=T1", urls[1])
+
     def _erro_503(self):
         return requests.HTTPError("503", response=Mock(status_code=503))
 
