@@ -75,20 +75,51 @@ def _somar_cliques(resumos):
     return total
 
 
+LOJAS = ("Amazon", "Mercado Livre", "Shopee", "AliExpress")
+
+
 def _cliques_marketplaces(resumo):
-    """Resume cliques de Amazon e Mercado Livre e os canais conhecidos."""
+    """Resume cliques por loja e os canais conhecidos.
+
+    Amazon e Mercado Livre aparecem sempre: não têm vendas no relatório, então
+    o clique é o único sinal delas. Shopee e AliExpress só quando houve clique.
+    """
     if not resumo:
         return []
     linhas = []
     por_fonte = resumo.get("por_fonte") or {}
     por_fonte_canal = resumo.get("por_fonte_canal") or {}
-    for fonte in ("Amazon", "Mercado Livre"):
+    for fonte in LOJAS:
         quantidade = int(por_fonte.get(fonte) or 0)
+        if not quantidade and fonte in ("Shopee", "AliExpress"):
+            continue
         canais = por_fonte_canal.get(fonte) or {}
         detalhe = " · ".join(
             f"{canal} {qtd}" for canal, qtd in sorted(canais.items()) if qtd
         )
         linhas.append(f"{fonte}: {quantidade}" + (f" ({detalhe})" if detalhe else ""))
+    return linhas
+
+
+def _eficiencia_lojas(cliques, posts):
+    """Compara, por loja, cliques por post e fatia dos cliques com a meta."""
+    if not cliques or not posts:
+        return []
+    por_fonte = cliques.get("por_fonte") or {}
+    lojas = [f for f in LOJAS if posts.get(f) or por_fonte.get(f)]
+    total_cliques = sum(int(por_fonte.get(f) or 0) for f in lojas)
+    soma_metas = sum(config.percentual_loja(f) for f in lojas)
+    if not lojas or not total_cliques:
+        return []
+    linhas = []
+    for fonte in lojas:
+        qtd_posts = int(posts.get(fonte) or 0)
+        qtd_cliques = int(por_fonte.get(fonte) or 0)
+        por_post = _numero(qtd_cliques / qtd_posts) if qtd_posts else "-"
+        fatia = 100 * qtd_cliques / total_cliques
+        meta = 100 * config.percentual_loja(fonte) / soma_metas if soma_metas else 0
+        linhas.append(f"{fonte}: {qtd_posts} posts · {qtd_cliques} cliques · "
+                      f"{por_post}/post · {fatia:.0f}% dos cliques (meta {meta:.0f}%)")
     return linhas
 
 
@@ -335,7 +366,7 @@ def alertas_saude_fontes(saude):
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
            testes_ab=None, eventos=None, diario_ali=None, diario_shopee=None,
-           cliques_dia=None, saude=None):
+           cliques_dia=None, saude=None, posts_7d=None):
     """Relatório curto, em blocos estáveis, para leitura rápida no Telegram."""
     sucessos = sum(qtd for _, ok, _, qtd in linhas if ok)
     falhas = sum(qtd for _, ok, _, qtd in linhas if not ok)
@@ -461,6 +492,12 @@ def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
         cliques_lojas = _cliques_marketplaces(cliques)
         if cliques_lojas:
             blocos.append("Por loja: " + " · ".join(cliques_lojas))
+        eficiencia = _eficiencia_lojas(cliques, posts_7d)
+        if eficiencia:
+            blocos.append("Cliques por post, por loja:")
+            blocos.extend(f"• {linha}" for linha in eficiencia)
+            if "Mercado Livre" in " ".join(eficiencia):
+                blocos.append("(Mercado Livre conta só os cliques do site.)")
         if cliques.get("por_canal"):
             blocos.append("Por canal: " + " · ".join(
                 f"{nome} {qtd}" for nome, qtd in sorted(cliques["por_canal"].items())
@@ -669,7 +706,8 @@ def enviar_se_devido(agora=None, forcar=False):
                        sem_conversao, cliques, tendencias, testes_ab,
                        eventos, diario_ali=diario_ali,
                        diario_shopee=diario_shopee,
-                       cliques_dia=cliques_dia, saude=saude)}, timeout=30)
+                       cliques_dia=cliques_dia, saude=saude,
+                       posts_7d=publicacoes)}, timeout=30)
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(f"Telegram recusou o relatório: {corpo}")

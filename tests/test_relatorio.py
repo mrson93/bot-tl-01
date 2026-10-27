@@ -108,6 +108,19 @@ class RelatorioTest(unittest.TestCase):
         self.assertIn("Mercado Livre: só cliques do site", texto)
         self.assertIn("Por loja: Amazon: 4", texto)
 
+    def test_relatorio_compara_cliques_por_post_de_cada_loja_com_a_meta(self):
+        cliques = {"total": 30, "por_fonte": {"Shopee": 20, "Amazon": 10}}
+        with patch.object(relatorio.config, "PERCENTUAL_SHOPEE", 50), \
+             patch.object(relatorio.config, "PERCENTUAL_AMAZON", 50):
+            texto = relatorio._texto([], "02/09/2026", cliques=cliques,
+                                     posts_7d={"Shopee": 40, "Amazon": 5})
+        self.assertIn("• Amazon: 5 posts · 10 cliques · 2,00/post · "
+                      "33% dos cliques (meta 50%)", texto)
+        self.assertIn("• Shopee: 40 posts · 20 cliques · 0,50/post · "
+                      "67% dos cliques (meta 50%)", texto)
+        self.assertIn("Por loja: Amazon: 10 · Mercado Livre: 0 · Shopee: 20", texto)
+        self.assertNotIn("Mercado Livre conta só", texto)
+
     def test_resultado_diario_indisponivel_nao_vira_zero(self):
         texto = relatorio._texto([], "02/09/2026")
         self.assertIn("Cliques: indisponível", texto)
