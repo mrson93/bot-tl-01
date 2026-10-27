@@ -215,6 +215,8 @@ DIAS_BLOQUEIO_PRODUTO_SEMELHANTE = _int(
 MAX_POSTS_POR_DIA = max(0, _int("MAX_POSTS_POR_DIA", 60))
 MAX_POSTS_POR_LOJA_DIA = max(0, _int("MAX_POSTS_POR_LOJA_DIA", 3))
 MAX_POSTS_CONSECUTIVOS_FONTE = max(0, _int("MAX_POSTS_CONSECUTIVOS_FONTE", 3))
+# Dias de posts usados para comparar cada loja com a sua meta de participação.
+JANELA_EQUILIBRIO_DIAS = max(1, _int("JANELA_EQUILIBRIO_DIAS", 2))
 # Abaixo deste desconto, a oferta so entra se tiver um sinal comercial forte.
 DESCONTO_PREFERIDO = _float("DESCONTO_PREFERIDO", 30)
 VENDAS_EXCECAO_DESCONTO = max(0, _int("VENDAS_EXCECAO_DESCONTO", 1000))

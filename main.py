@@ -1205,7 +1205,8 @@ def _publicar_fila(fila, limite):
     pendentes = list(fila)
     selecionadas = []
     lojas_hoje = store.posts_por_loja_hoje()
-    fontes_hoje = store.posts_por_fonte_desde(time.time() - 7 * 86400)
+    fontes_hoje = store.posts_por_fonte_desde(
+        time.time() - config.JANELA_EQUILIBRIO_DIAS * 86400)
     ultima_fonte, fontes_consecutivas = store.sequencia_fonte_recente(
         config.MAX_POSTS_CONSECUTIVOS_FONTE
     )
@@ -1217,7 +1218,7 @@ def _publicar_fila(fila, limite):
     if fontes_fila:
         soma_metas = sum(config.percentual_loja(f) for f in fontes_fila) or 1
         total_7d = sum(fontes_hoje.get(f, 0) for f in fontes_fila)
-        print("   Equilíbrio 7 dias: " + " · ".join(
+        print(f"   Equilíbrio {config.JANELA_EQUILIBRIO_DIAS} dias: " + " · ".join(
             f"{f} {fontes_hoje.get(f, 0)} posts "
             f"({100 * fontes_hoje.get(f, 0) / (total_7d or 1):.0f}% vs meta "
             f"{100 * config.percentual_loja(f) / soma_metas:.0f}%)"
