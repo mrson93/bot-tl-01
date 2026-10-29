@@ -89,7 +89,8 @@ def avisar_estoque_lista(loja, ineditas, sessao=requests):
     return False
 
 
-def avisar_falha_lista(loja, erro, sessao=requests):
+def avisar_falha_lista(loja, erro, sessao=requests,
+                       impacto="Nenhuma oferta dessa loja será publicada nesta rodada."):
     """Avisa só após falhas seguidas; rearma após uma leitura bem-sucedida."""
     chave = f"falha_lista:{loja.lower().replace(' ', '_')}"
     estado = store._estado(chave)
@@ -105,8 +106,7 @@ def avisar_falha_lista(loja, erro, sessao=requests):
         return False
     detalhe = seguranca.redigir_segredos(erro)[:200]
     if _enviar_privado(f"⚠️ A lista da {loja} falhou em {falhas} rodadas "
-                      "consecutivas. Nenhuma oferta dessa loja será publicada "
-                      f"nesta rodada. {detalhe}", sessao):
+                      f"consecutivas. {impacto} {detalhe}", sessao):
         store._definir_estado(chave, "alertada")
         return True
     return False

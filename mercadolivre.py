@@ -8,8 +8,10 @@ import requests
 
 import config
 import mercadolivre_api
+import monitor
 import observabilidade
 import seguranca
+import store
 
 NOME = "Mercado Livre"
 VALIDA_ANTES_PUBLICAR = True
@@ -23,6 +25,8 @@ _MAX_PAGINAS = 20
 # Leitura da rodada reaproveitada na revalidação: evita refazer a busca na
 # API (que também avançaria o rodízio de categorias) a cada oferta.
 _VALIDADE_LEITURA = 15 * 60
+# Mesma chave que monitor.avisar_falha_lista monta para "Mercado Livre (lista manual)".
+_CHAVE_FALHA_LISTA = "falha_lista:mercado_livre_(lista_manual)"
 _ultima_leitura = {"em": 0.0, "ofertas": None}
 
 
@@ -233,6 +237,7 @@ def buscar_ofertas() -> list:
         try:
             for oferta in _buscar_lista():
                 ofertas[oferta["oferta_id"]] = oferta
+            store._definir_estado(_CHAVE_FALHA_LISTA, "normal")
         except Exception as erro:
             erro_lista = erro
     if mercadolivre_api.pode_publicar():
@@ -250,6 +255,20 @@ def buscar_ofertas() -> list:
             observabilidade.evento("fonte_falha", fonte="Mercado Livre API", motivo="erro")
     if not ofertas and erro_lista:
         raise erro_lista
+    if erro_lista:
+        # A API sozinha mantém a loja no ar, mas a curadoria manual sumiu:
+        # sem este aviso a falha da lista passaria despercebida.
+        print("   ⚠️  Lista do Mercado Livre falhou; seguindo só com a API: "
+              f"{seguranca.redigir_segredos(erro_lista)}")
+        observabilidade.evento("fonte_falha", fonte="Mercado Livre lista",
+                               motivo="erro")
+        try:
+            monitor.avisar_falha_lista(
+                "Mercado Livre (lista manual)", erro_lista,
+                impacto="Só os mais vendidos da API estão sendo publicados.")
+        except Exception as erro_alerta:
+            print("   ⚠️  Aviso da lista indisponível: "
+                  f"{seguranca.redigir_segredos(erro_alerta)}")
     if not ofertas:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
     _ultima_leitura.update(em=time.monotonic(), ofertas=[dict(o) for o in ofertas.values()])

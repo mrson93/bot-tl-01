@@ -133,6 +133,22 @@ class MercadoLivreTest(unittest.TestCase):
         self.assertEqual(URL_LISTA + "?page=2", baixar.call_args_list[1].args[0])
         self.assertEqual(URL_LISTA + "?page=3", baixar.call_args_list[2].args[0])
 
+    def test_lista_quebrada_avisa_mesmo_com_a_api_funcionando(self):
+        da_api = {"oferta_id": "mercadolivre_MLB9", "productName": "Fone"}
+        with patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", URL_LISTA), \
+             patch.object(mercadolivre, "_buscar_lista",
+                          side_effect=RuntimeError("Nenhuma oferta válida")), \
+             patch.object(mercadolivre.mercadolivre_api, "pode_publicar", return_value=True), \
+             patch.object(mercadolivre.mercadolivre_api, "buscar_mais_vendidos",
+                          return_value=[da_api]), \
+             patch.object(mercadolivre.mercadolivre_api, "resumo_diagnostico", return_value=""), \
+             patch.object(mercadolivre.monitor, "avisar_falha_lista") as avisar:
+            ofertas = mercadolivre.buscar_ofertas()
+        self.assertEqual(["mercadolivre_MLB9"], [o["oferta_id"] for o in ofertas])
+        avisar.assert_called_once()
+        self.assertEqual("Mercado Livre (lista manual)", avisar.call_args.args[0])
+        self.assertIn("API", avisar.call_args.kwargs["impacto"])
+
 
 if __name__ == "__main__":
     unittest.main()
