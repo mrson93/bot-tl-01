@@ -49,6 +49,10 @@ class FalhaHospedagemCard(RuntimeError):
     """O card não chegou a ser enviado ao Buffer e pode usar outra imagem."""
 
 
+class ImagemIlegivel(RuntimeError):
+    """O Buffer não conseguiu baixar a imagem e não criou o post."""
+
+
 def _credenciais() -> tuple[str, str]:
     return (
         os.getenv("BUFFER_API_KEY", "").strip(),
@@ -108,15 +112,35 @@ def publicar_no_canal(texto: str, card: Optional[bytes],
         if card:
             raise FalhaHospedagemCard(str(erro)) from None
         raise
-    entrada = {
-        "text": str(texto),
-        "channelId": canal,
-        "schedulingType": "automatic",
-        "mode": "shareNow",
-        "assets": ([{"image": {"url": url_imagem}}] if url_imagem else []),
-    }
-    if metadata:
-        entrada["metadata"] = metadata
+    # Às vezes o Buffer não consegue baixar a imagem. Ele recusa sem criar o
+    # post, então dá para tentar de novo com a foto do produto e, por fim, sem
+    # imagem, em vez de perder a entrega no canal.
+    imagens = [url_imagem]
+    if card and url_imagem and imagem_original:
+        imagens.append(_url_imagem(None, imagem_original))
+    if url_imagem:
+        imagens.append(None)
+    imagens = list(dict.fromkeys(imagens))
+    for posicao, imagem in enumerate(imagens):
+        entrada = {
+            "text": str(texto),
+            "channelId": canal,
+            "schedulingType": "automatic",
+            "mode": "shareNow",
+            "assets": ([{"image": {"url": imagem}}] if imagem else []),
+        }
+        if metadata:
+            entrada["metadata"] = metadata
+        try:
+            return _criar_post(chave, entrada)
+        except ImagemIlegivel:
+            if posicao == len(imagens) - 1:
+                raise
+            proxima = "foto do produto" if imagens[posicao + 1] else "sem imagem"
+            print(f"   ⚠️  Buffer não leu a imagem; tentando de novo com {proxima}.")
+
+
+def _criar_post(chave: str, entrada: dict) -> str:
     try:
         resposta = requests.post(
             API_URL,
@@ -150,7 +174,9 @@ def publicar_no_canal(texto: str, card: Optional[bytes],
         return post_id
     if resultado.get("message"):
         detalhe = seguranca.redigir_segredos(resultado["message"])[:300]
-        raise RuntimeError(f"Buffer recusou os dados da publicação: {detalhe}")
+        erro = (ImagemIlegivel if "image could not be read" in detalhe.lower()
+                else RuntimeError)
+        raise erro(f"Buffer recusou os dados da publicação: {detalhe}")
     raise RuntimeError("Buffer respondeu sem confirmar a publicação")
 
 

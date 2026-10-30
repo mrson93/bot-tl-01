@@ -53,6 +53,35 @@ class BufferFacebookTest(unittest.TestCase):
             entrada["assets"][0]["image"]["url"],
         )
 
+    def test_imagem_ilegivel_tenta_foto_do_produto_e_depois_sem_imagem(self):
+        ilegivel = Resposta({"data": {"createPost": {
+            "message": "Invalid post: Image could not be read from its URL."}}})
+        ok = Resposta({"data": {"createPost": {"post": {"id": "post_9"}}}})
+        with self.configuracao(), \
+             patch.object(buffer_facebook.site_publisher, "publicar_imagem_story",
+                          return_value="https://canaltabarato.com.br/story-assets/c.jpg"), \
+             patch.object(buffer_facebook.site_publisher, "verificar_imagem_publica_story"), \
+             patch.object(buffer_facebook.requests, "post",
+                          side_effect=[ilegivel, ilegivel, ok]) as post:
+            post_id = buffer_facebook.publicar(
+                "Oferta", b"\xff\xd8\xffcard", "https://http2.mlstatic.com/foto.jpg")
+        self.assertEqual("post_9", post_id)
+        assets = [c.kwargs["json"]["variables"]["input"]["assets"]
+                  for c in post.call_args_list]
+        self.assertEqual([
+            [{"image": {"url": "https://canaltabarato.com.br/story-assets/c.jpg"}}],
+            [{"image": {"url": "https://http2.mlstatic.com/foto.jpg"}}],
+            [],
+        ], assets)
+
+    def test_outra_recusa_do_buffer_nao_e_repetida(self):
+        recusa = Resposta({"data": {"createPost": {"message": "Invalid post: text too long"}}})
+        with self.configuracao(), \
+             patch.object(buffer_facebook.requests, "post", return_value=recusa) as post:
+            with self.assertRaisesRegex(RuntimeError, "text too long"):
+                buffer_facebook.publicar("Oferta", None, "https://http2.mlstatic.com/f.jpg")
+        self.assertEqual(1, post.call_count)
+
     def test_falha_incerta_nao_e_repetida(self):
         with self.configuracao(), \
              patch.object(buffer_facebook.requests, "post",

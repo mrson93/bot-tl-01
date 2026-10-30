@@ -4,9 +4,11 @@ Diferente do Telegram: limite de 300 caracteres, a imagem precisa ser enviada
 (upload) e o link vira um "facet" pra ficar clicavel.
 """
 from datetime import datetime, timezone
+from io import BytesIO
 from urllib.parse import urlsplit
 
 import requests
+from PIL import Image
 
 import config
 import seguranca
@@ -15,6 +17,8 @@ import observabilidade
 NOME = "Bluesky"
 TRACKING_ID = config.BLUESKY_TRACKING_ID  # vazio = usa o padrao da loja
 MAX_IMAGEM_BYTES = 1_000_000
+# Fotos maiores que o limite do Bluesky são baixadas até aqui e comprimidas.
+MAX_DOWNLOAD_BYTES = 8_000_000
 
 
 def _link_exibivel(link: str) -> str:
@@ -108,18 +112,24 @@ def _upload_imagem(jwt: str, url_imagem: str, oferta=None):
             tamanho = int(img.headers.get("Content-Length", 0))
         except (TypeError, ValueError):
             tamanho = 0
-        if tamanho > MAX_IMAGEM_BYTES:
-            return _imagem_omitida("imagem original maior que 1 MB")
+        if tamanho > MAX_DOWNLOAD_BYTES:
+            return _imagem_omitida("imagem original maior que 8 MB")
 
         dados = bytearray()
         for pedaco in img.iter_content(chunk_size=64 * 1024):
             if not pedaco:
                 continue
             dados.extend(pedaco)
-            if len(dados) > MAX_IMAGEM_BYTES:
-                return _imagem_omitida("imagem baixada ultrapassou 1 MB")
+            if len(dados) > MAX_DOWNLOAD_BYTES:
+                return _imagem_omitida("imagem baixada ultrapassou 8 MB")
     finally:
         img.close()
+    tipo_envio = img.headers.get("Content-Type", "image/jpeg")
+    if len(dados) > MAX_IMAGEM_BYTES:
+        try:
+            dados, tipo_envio = _comprimir(bytes(dados)), "image/jpeg"
+        except (OSError, ValueError, Image.DecompressionBombError):
+            return _imagem_omitida("não foi possível reduzir a imagem para 1 MB")
 
     try:
         r = requests.post(
@@ -127,7 +137,7 @@ def _upload_imagem(jwt: str, url_imagem: str, oferta=None):
             data=bytes(dados),
             headers={
                 "Authorization": f"Bearer {jwt}",
-                "Content-Type": img.headers.get("Content-Type", "image/jpeg"),
+                "Content-Type": tipo_envio,
             },
             timeout=30,
             allow_redirects=False,
@@ -141,6 +151,20 @@ def _upload_imagem(jwt: str, url_imagem: str, oferta=None):
     if not blob:
         return _imagem_omitida("Bluesky não retornou o identificador da imagem")
     return blob
+
+
+def _comprimir(dados: bytes) -> bytes:
+    """Reduz uma foto grande a um JPEG dentro do limite do Bluesky."""
+    with Image.open(BytesIO(dados)) as original:
+        foto = original.convert("RGB")
+    for lado, qualidade in ((2000, 85), (1600, 80), (1200, 75), (1000, 70)):
+        copia = foto.copy()
+        copia.thumbnail((lado, lado))
+        saida = BytesIO()
+        copia.save(saida, format="JPEG", quality=qualidade, optimize=True)
+        if saida.tell() <= MAX_IMAGEM_BYTES:
+            return saida.getvalue()
+    raise ValueError("imagem continua maior que 1 MB")
 
 
 def montar_texto(oferta: dict, link_afiliado: str) -> tuple:

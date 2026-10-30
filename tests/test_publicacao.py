@@ -14,11 +14,13 @@ class Resposta:
         self.text = str(corpo)
     def json(self):
         return self.corpo
+    def raise_for_status(self):
+        pass
 
 
 class ImagemGrande:
     status_code = 200
-    headers = {"Content-Type": "image/jpeg", "Content-Length": "1000001"}
+    headers = {"Content-Type": "image/jpeg", "Content-Length": "8000001"}
 
     def raise_for_status(self):
         pass
@@ -174,7 +176,7 @@ class PublicacaoTest(unittest.TestCase):
              patch.object(bluesky.requests, "get", return_value=ImagemGrande()) as baixar:
             self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
             self.assertTrue(baixar.call_args.kwargs["stream"])
-        self.assertIn("imagem original maior que 1 MB", saida.getvalue())
+        self.assertIn("imagem original maior que 8 MB", saida.getvalue())
         self.assertNotIn("cf.shopee.com.br", saida.getvalue())
 
     def test_bluesky_limita_imagem_mesmo_sem_content_length(self):
@@ -186,6 +188,32 @@ class PublicacaoTest(unittest.TestCase):
             self.assertIsNone(bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.jpg"))
         self.assertTrue(imagem.fechada)
         postar.assert_not_called()
+
+    def test_bluesky_comprime_foto_acima_de_1_mb_em_vez_de_descartar(self):
+        import os
+        from PIL import Image
+        bruto = Image.frombytes("RGB", (1500, 1500), os.urandom(1500 * 1500 * 3))
+        arquivo = io.BytesIO()
+        bruto.save(arquivo, format="PNG")
+        self.assertGreater(arquivo.tell(), bluesky.MAX_IMAGEM_BYTES)
+
+        class FotoGrande(ImagemEmPartes):
+            headers = {"Content-Type": "image/png"}
+
+            def iter_content(self, chunk_size):
+                return [arquivo.getvalue()]
+
+        endereco_publico = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        with patch("seguranca.socket.getaddrinfo", return_value=endereco_publico), \
+             patch.object(bluesky, "_pds", return_value="https://pds.test"), \
+             patch.object(bluesky.requests, "get", return_value=FotoGrande()), \
+             patch.object(bluesky.requests, "post",
+                          return_value=Resposta({"blob": {"ref": "x"}})) as postar:
+            self.assertEqual({"ref": "x"},
+                             bluesky._upload_imagem("jwt", "https://cf.shopee.com.br/x.png"))
+        enviado = postar.call_args.kwargs
+        self.assertLessEqual(len(enviado["data"]), bluesky.MAX_IMAGEM_BYTES)
+        self.assertEqual("image/jpeg", enviado["headers"]["Content-Type"])
 
     def test_bluesky_rejeita_hostname_que_resolve_para_rede_privada(self):
         endereco_privado = [(2, 1, 6, "", ("10.0.0.5", 443))]
