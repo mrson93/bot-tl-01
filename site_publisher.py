@@ -41,6 +41,25 @@ def _timestamp(valor):
         return None
 
 
+def ler_lista_amazon(lista_id):
+    """Cópia da lista de ideias da Amazon enviada pela extensão: (epoch, páginas)."""
+    resposta = requests.get(
+        _api_path("/api/amazon-list"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        params={"list_id": lista_id}, timeout=20, allow_redirects=False,
+    )
+    if resposta.status_code == 404:
+        return None
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou a lista da Amazon ({resposta.status_code})")
+    dados = resposta.json() or {}
+    paginas = [p for p in dados.get("pages") or [] if isinstance(p, str)]
+    capturada = _timestamp(dados.get("captured_at"))
+    if not paginas or not capturada:
+        return None
+    return capturada, paginas
+
+
 def publicar(fonte, oferta):
     api = seguranca.validar_url_https_publica(config.SITE_API_URL, "API do site")
     destino = fonte.gerar_link(oferta.get("productUrl"), config.SITE_TRACKING_ID,

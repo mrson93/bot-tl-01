@@ -124,6 +124,7 @@ jobs:
       AMAZON_KEYWORD: ${{ vars.AMAZON_KEYWORD }}
       AMAZON_KEYWORDS: ${{ vars.AMAZON_KEYWORDS }}
       AMAZON_FETCH_LIMIT: ${{ vars.AMAZON_FETCH_LIMIT || '100' }}
+      AMAZON_LISTA_SITE_MINUTOS: ${{ vars.AMAZON_LISTA_SITE_MINUTOS || '90' }}
       AMAZON_MARKETPLACE: "www.amazon.com.br"
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
       PERCENTUAL_AMAZON: ${{ vars.PERCENTUAL_AMAZON || '25' }}

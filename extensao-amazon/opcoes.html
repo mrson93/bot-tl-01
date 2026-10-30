@@ -30,8 +30,19 @@
   <label for="desconto-min">Desconto mínimo (%)</label>
   <input id="desconto-min" type="number" min="0" max="95" step="5" placeholder="0">
   <small>Com tags marcadas, aparece o produto que tiver qualquer uma delas. Tudo desmarcado e desconto 0 mostra todos. Vale na hora, sem salvar.</small>
+  <label for="vitrine">Vitrine</label>
+  <input id="vitrine" placeholder="emersonpettor">
+  <small>É o nome no endereço da lista (amazon.com.br/shop/<b>VITRINE</b>/list/...).</small>
   <button id="salvar">Salvar</button>
   <small id="estado"></small>
+  <h2>Enviar a lista para o bot</h2>
+  <small>A cada 30 minutos, com o navegador aberto, a extensão lê a lista e guarda uma cópia no site. Assim o bot não depende da Amazon aceitar o acesso dele.</small>
+  <label for="token">Token do site</label>
+  <input id="token" type="password" autocomplete="off" placeholder="cole o AMAZON_LIST_TOKEN">
+  <small>O mesmo valor do segredo AMAZON_LIST_TOKEN do site na Cloudflare. Fica só neste navegador.</small>
+  <button id="salvar-token">Salvar token</button>
+  <button id="enviar">Enviar agora</button>
+  <small id="envio"></small>
   <script src="opcoes.js"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ import requests
 import captacao
 import config
 import seguranca
+import site_publisher
 import store
 
 NOME = "Amazon"
@@ -298,7 +299,37 @@ def _buscar_lista() -> list:
         return _ler_lista(parser, sessao)
 
 
+def _lista_do_site():
+    """Páginas da lista que a extensão enviou ao site, se a cópia for recente."""
+    if not config.AMAZON_LISTA_SITE_MINUTOS or not site_publisher.esta_configurado():
+        return None
+    achado = re.search(r"/list/([A-Z0-9]{6,20})", config.AMAZON_LIST_URL or "")
+    if not achado:
+        return None
+    try:
+        copia = site_publisher.ler_lista_amazon(achado.group(1))
+    except (requests.RequestException, RuntimeError, ValueError) as erro:
+        print("   ⚠️  Cópia da lista da Amazon no site indisponível: "
+              f"{seguranca.redigir_segredos(erro)}")
+        return None
+    if not copia:
+        return None
+    capturada, paginas = copia
+    idade = max(0.0, (time.time() - capturada) / 60)
+    if idade > config.AMAZON_LISTA_SITE_MINUTOS:
+        print(f"   ℹ️  Cópia da lista da Amazon no site tem {int(idade)} min; "
+              "lendo a Amazon direto.")
+        return None
+    return paginas, capturada, idade
+
+
 def _ler_lista(parser, sessao) -> list:
+    copia = _lista_do_site()
+    if copia:
+        paginas, lida_em, idade = copia
+        print(f"   📥 Lista da Amazon: cópia enviada pela extensão há {int(idade)} min "
+              f"({len(paginas)} página(s)).")
+        return _ofertas_das_paginas(parser, paginas, lida_em)
     try:
         html = _baixar_lista(config.AMAZON_LIST_URL, sessao)
     except requests.HTTPError as erro:
@@ -314,7 +345,12 @@ def _ler_lista(parser, sessao) -> list:
         _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
                             ofertas=[dict(oferta) for oferta in reserva])
         return [dict(oferta) for oferta in reserva]
-    for pagina in [html, *_paginas_seguintes(html, sessao)]:
+    return _ofertas_das_paginas(parser, [html, *_paginas_seguintes(html, sessao)],
+                                time.time())
+
+
+def _ofertas_das_paginas(parser, paginas, lida_em) -> list:
+    for pagina in paginas:
         parser.feed(pagina)
     ofertas = {}
     for card in parser.ofertas[:config.AMAZON_FETCH_LIMIT]:
@@ -329,7 +365,7 @@ def _ler_lista(parser, sessao) -> list:
                         ofertas=[dict(oferta) for oferta in ofertas.values()])
     try:
         store._definir_estado(_CHAVE_RESERVA, json.dumps({
-            "url": config.AMAZON_LIST_URL, "em": time.time(),
+            "url": config.AMAZON_LIST_URL, "em": lida_em,
             "ofertas": list(ofertas.values()),
         }, ensure_ascii=False))
     except Exception as erro:

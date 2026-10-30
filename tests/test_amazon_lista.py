@@ -76,6 +76,44 @@ class AmazonListaTest(unittest.TestCase):
         self.assertEqual(2, len(urls))
         self.assertIn("/shop/emersonpettor/api/listItems?listId=2ZUSMM2BR8LVZ&pageToken=T1", urls[1])
 
+    def _site(self, copia=None, erro=None):
+        url = "https://www.amazon.com.br/shop/emersonpettor/list/2ZUSMM2BR8LVZ"
+        return (
+            patch.object(amazon.config, "AMAZON_LIST_URL", url),
+            patch.object(amazon.config, "AMAZON_LISTA_SITE_MINUTOS", 90),
+            patch.object(amazon.site_publisher, "esta_configurado", return_value=True),
+            patch.object(amazon.site_publisher, "ler_lista_amazon",
+                         return_value=copia, side_effect=erro),
+        )
+
+    def test_usa_copia_recente_da_extensao_sem_chamar_a_amazon(self):
+        a, b, c, d = self._config()
+        e, f, g, h = self._site((time.time() - 10 * 60, [HTML]))
+        with a, b, c, d, e, f, g, h as ler, \
+             patch.object(amazon, "_baixar_lista") as baixar:
+            ofertas = amazon.buscar_ofertas()
+            # A reserva guarda a hora da leitura da extensão, não a da rodada.
+            reserva, idade = amazon._lista_reserva()
+        baixar.assert_not_called()
+        ler.assert_called_once_with("2ZUSMM2BR8LVZ")
+        self.assertEqual({"amazon_B0F9Z2DV83", "amazon_B0DPNHDC9B"},
+                         {o["oferta_id"] for o in ofertas})
+        self.assertEqual(2, len(reserva))
+        self.assertGreaterEqual(idade, 9)
+
+    def test_copia_velha_ou_site_fora_do_ar_volta_a_ler_a_amazon(self):
+        for copia, erro in (((time.time() - 3 * 3600, [HTML]), None),
+                            (None, RuntimeError("Site recusou (500)")),
+                            (None, None)):
+            amazon._cache_lista.update(url=None, em=0.0, ofertas=None)
+            a, b, c, d = self._config()
+            e, f, g, h = self._site(copia, erro)
+            with a, b, c, d, e, f, g, h, \
+                 patch.object(amazon, "_baixar_lista", return_value=HTML) as baixar:
+                ofertas = amazon.buscar_ofertas()
+            baixar.assert_called()
+            self.assertEqual(2, len(ofertas))
+
     def _erro_503(self):
         return requests.HTTPError("503", response=Mock(status_code=503))
 
