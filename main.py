@@ -1001,7 +1001,9 @@ def buscar_candidatos(fonte) -> list:
         if total:
             observabilidade.evento("ofertas_rejeitadas", fonte=fonte.NOME,
                                     motivo=motivo, quantidade=total)
-    if fonte.NOME in {"Amazon", "Mercado Livre"}:
+    # Sem lista manual (Mercado Livre só pela API) não há estoque para repor.
+    if (fonte.NOME == "Amazon"
+            or (fonte.NOME == "Mercado Livre" and config.MERCADOLIVRE_LIST_URL)):
         ineditas = sum(not store.ja_postada(o["oferta_id"]) for o in comerciais)
         store.registrar_estoque_lista(fonte.NOME, ineditas, len(ofertas))
         try:

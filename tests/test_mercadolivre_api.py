@@ -66,8 +66,9 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertTrue(api.pode_publicar())
 
     def test_rodizio_de_categorias(self):
-        self.assertEqual(["MLB1574", "MLB5726"], api.categorias_da_rodada())
-        self.assertEqual(["MLB1000", "MLB1574"], api.categorias_da_rodada())
+        with patch.object(api.config, "MERCADOLIVRE_CATEGORIAS_POR_RODADA", 2):
+            self.assertEqual(["MLB1574", "MLB5726"], api.categorias_da_rodada())
+            self.assertEqual(["MLB1000", "MLB1574"], api.categorias_da_rodada())
 
     def test_mais_vendidos_de_produto_e_anuncio(self):
         def get(caminho, params=None):

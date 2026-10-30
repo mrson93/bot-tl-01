@@ -1,4 +1,4 @@
-"""Mais vendidos do Mercado Livre pela API oficial (complementa a lista manual).
+"""Mais vendidos do Mercado Livre pela API oficial (sozinha ou junto da lista manual).
 
 O acesso vem do aplicativo autorizado com scripts/autorizar_mercadolivre.py.
 O Mercado Livre troca o refresh token a cada renovação, então o mais recente
@@ -21,7 +21,6 @@ import store
 API = "https://api.mercadolibre.com"
 _HOSTS_PRODUTO = ("mercadolivre.com.br",)
 _HOSTS_IMAGEM = ("mlstatic.com",)
-_CATEGORIAS_POR_RODADA = 2
 _CHAVE_REFRESH = "ml_refresh_token"
 _CHAVE_ACESSO = "ml_access_token"
 _CHAVE_EXPIRA = "ml_access_expira"
@@ -99,7 +98,7 @@ def categorias_da_rodada() -> list:
         return []
     inicio = int(store._estado(_CHAVE_RODIZIO) or 0) % len(categorias)
     escolhidas = [categorias[(inicio + i) % len(categorias)]
-                  for i in range(min(_CATEGORIAS_POR_RODADA, len(categorias)))]
+                  for i in range(min(config.MERCADOLIVRE_CATEGORIAS_POR_RODADA, len(categorias)))]
     store._definir_estado(_CHAVE_RODIZIO, inicio + len(escolhidas))
     return escolhidas
 

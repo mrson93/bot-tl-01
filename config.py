@@ -184,6 +184,8 @@ MERCADOLIVRE_CATEGORIAS = tuple(c.strip().upper() for c in (
     _get("MERCADOLIVRE_CATEGORIAS")
     or "MLB1574,MLB5726,MLB1000,MLB1648,MLB1051,MLB1246,MLB1276,MLB263532,MLB1144,MLB1132,MLB1071,MLB1430"
 ).split(",") if c.strip())
+# Quantas categorias da lista acima a API lê por rodada (revezando entre elas).
+MERCADOLIVRE_CATEGORIAS_POR_RODADA = max(1, _int("MERCADOLIVRE_CATEGORIAS_POR_RODADA", 4))
 
 # --- Filtros ("o que e uma boa oferta") ---
 MIN_DISCOUNT = _float("MIN_DISCOUNT", 15)
