@@ -67,11 +67,13 @@ document.getElementById("salvar-token").addEventListener("click", async () => {
   await chrome.storage.local.set({ tokenSite: valor });
   token.value = "";
   token.placeholder = "token salvo (cole outro para trocar)";
-  envio.textContent = "Token salvo.";
+  await enviarAgora(); // confere o token na hora, sem esperar o próximo alarme
 });
 
-document.getElementById("enviar").addEventListener("click", async () => {
+async function enviarAgora() {
   envio.textContent = "Enviando…";
   await chrome.runtime.sendMessage({ tipo: "enviar-lista" });
   mostrarEnvio((await chrome.storage.local.get("ultimoEnvio")).ultimoEnvio);
-});
+}
+
+document.getElementById("enviar").addEventListener("click", enviarAgora);

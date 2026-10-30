@@ -57,10 +57,10 @@ async function lerLista(listaId, vitrine) {
 
 async function enviarLista() {
   const { tokenSite } = await chrome.storage.local.get("tokenSite");
-  if (!tokenSite) return { ok: false, erro: "Falta o token do site nas opções." };
   const opcoes = { ...PADRAO, ...(await chrome.storage.sync.get(["listaId", "vitrine"])) };
   let resultado;
   try {
+    if (!tokenSite) throw new Error("Falta salvar o token do site.");
     const paginas = await lerLista(opcoes.listaId, opcoes.vitrine);
     const produtos = paginas.reduce((n, p) => n + (p.match(/single-product-item-link/g) || []).length, 0);
     if (!produtos) throw new Error("A página da lista veio sem produtos.");
