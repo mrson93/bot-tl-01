@@ -127,8 +127,10 @@ def sincronizar(sessao=requests):
             store.registrar_entrega(oid, str(canal), True, preco, fonte,
                                     agora=momento)
             total += 1
+        # "o" é a primeira reserva: completar Facebook/X/Stories depois não
+        # pode trazer a oferta para o turno atual e gastar a cota dele.
         store.marcar_postada(
-            oid, preco=preco, fonte=fonte, agora=momento,
+            oid, preco=preco, fonte=fonte, agora=int(item.get("o") or momento),
             titulo=str(item.get("n") or "") or None,
             categoria=str(item.get("g") or "") or None,
             loja=str(item.get("l") or "") or None,
@@ -154,9 +156,11 @@ def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None
         return False
     canais.append(canal)
     oferta = oferta or {}
+    agora = int(time.time())
     diario["ofertas"][chave] = {
         "i": str(oferta_id), "f": str(fonte), "p": float(preco or 0),
-        "t": int(time.time()), "c": canais,
+        "t": agora, "o": int(item.get("o") or item.get("t") or agora),
+        "c": canais,
         "n": " ".join(str(oferta.get("productName") or "").split())[:100],
         "g": str(oferta.get("categoria") or "")[:30],
         "l": " ".join(str(oferta.get("shopName") or "").split())[:50],

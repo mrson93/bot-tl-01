@@ -59,6 +59,24 @@ class IdempotenciaTest(unittest.TestCase):
         )
         bom_dia.assert_called_once_with("2026-09-21", "Telegram")
 
+    def test_completar_canal_depois_nao_traz_a_oferta_para_o_turno_atual(self):
+        inicial = {"v": 1, "ofertas": {}, "bom_dia": {}}
+        sessao = self._sessao(inicial)
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=100):
+            idempotencia.reservar_oferta("produto", "Telegram", 50, "Shopee", sessao)
+        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+        sessao = self._sessao(salvo)
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=9000):
+            idempotencia.reservar_oferta("produto", "X", 50, "Shopee", sessao)
+        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+        item = next(iter(salvo["ofertas"].values()))
+        self.assertEqual((9000, 100), (item["t"], item["o"]))
+        with self._ambiente(), \
+             patch.object(idempotencia.store, "registrar_entrega"), \
+             patch.object(idempotencia.store, "marcar_postada") as postada:
+            idempotencia.sincronizar(self._sessao(salvo))
+        self.assertEqual(100, postada.call_args.kwargs["agora"])
+
     def test_diario_preserva_metadados_para_variedade_entre_execucoes(self):
         inicial = {"v": 1, "ofertas": {}, "bom_dia": {}}
         sessao = self._sessao(inicial)
