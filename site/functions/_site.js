@@ -36,18 +36,28 @@ export function slugify(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80)||'oferta';
 }
 
-export function normalizeCategory(value='') {
-  const key=slugify(value);
-  if(/infantil|bebe|crianca|brinquedo/.test(key)) return 'infantil';
+const CATEGORIES=['eletronicos','automotivo','infantil','ferramentas','esportes','cozinha','casa','moda','beleza','livros','pet','mercado','outros'];
+// Nomes que o bot usa e que viram uma categoria do site.
+const CATEGORY_ALIASES={esporte:'esportes',hidratacao:'cozinha'};
+
+// O bot já classifica pelo título com regras mais completas; o site só adivinha
+// quando recebe um nome da loja (ex.: "Home & Garden" do AliExpress) ou nada.
+export function normalizeCategory(value='',title='') {
+  const direct=slugify(value);
+  const known=CATEGORY_ALIASES[direct]||direct;
+  if(CATEGORIES.includes(known)&&known!=='outros') return known;
+  const key=slugify(`${value} ${title}`);
+  if(/infantil|bebe|crianca|brinquedo|toys|kids|baby/.test(key)) return 'infantil';
   if(/livr/.test(key)) return 'livros'; if(/\bpet\b/.test(key)) return 'pet';
-  if(/cozinha/.test(key)) return 'cozinha'; if(/ferrament|industrial/.test(key)) return 'ferramentas';
-  if(/automot|carro/.test(key)) return 'automotivo'; if(/esport|fitness|academia|creatina|whey|suplement/.test(key)) return 'esportes';
-  if(/sapato|moda|roupa|vestuario/.test(key)) return 'moda'; if(/eletron|tecnolog|informat/.test(key)) return 'eletronicos';
-  if(/beleza|saude|cosmetic/.test(key)) return 'beleza'; if(/casa|decor|moveis/.test(key)) return 'casa'; return 'outros';
+  if(/cozinha|kitchen/.test(key)) return 'cozinha'; if(/ferrament|industrial|\btools?\b|improvement/.test(key)) return 'ferramentas';
+  if(/automot|carro|automobile|motorcycle/.test(key)) return 'automotivo'; if(/esport|fitness|academia|creatina|whey|suplement|sports/.test(key)) return 'esportes';
+  if(/sapato|moda|roupa|vestuario|clothing|apparel|shoes|jewelry|watches/.test(key)) return 'moda'; if(/eletron|tecnolog|informat|electronic|phones|computer/.test(key)) return 'eletronicos';
+  if(/beleza|saude|cosmetic|beauty|health/.test(key)) return 'beleza'; if(/casa|decor|moveis|home|garden|furniture/.test(key)) return 'casa';
+  if(/alimento|bebida|mercado|food|grocery/.test(key)) return 'mercado'; return 'outros';
 }
 
 export function label(value='') {
-  const known={eletronicos:'Eletrônicos',automotivo:'Automotivo',infantil:'Infantil',ferramentas:'Ferramentas',esportes:'Esportes',cozinha:'Cozinha',casa:'Casa',moda:'Moda',beleza:'Beleza e saúde',livros:'Livros',pet:'Pet',outros:'Outros'};
+  const known={eletronicos:'Eletrônicos',automotivo:'Automotivo',infantil:'Infantil',ferramentas:'Ferramentas',esportes:'Esportes',cozinha:'Cozinha',casa:'Casa',moda:'Moda',beleza:'Beleza e saúde',livros:'Livros',pet:'Pet',mercado:'Mercado',outros:'Outros'};
   const key=slugify(value);
   if(known[key]) return known[key];
   return String(value).replace(/[_-]+/g,' ').replace(/(^|\s)(\p{L})/gu,

@@ -8,6 +8,7 @@ from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 import requests
 
 import config
+import desempenho
 import seguranca
 
 NOME = "Site"
@@ -60,10 +61,16 @@ def ler_lista_amazon(lista_id):
     return capturada, paginas
 
 
+def _categoria(oferta):
+    # A releitura de preço traz a oferta crua da loja, sem a categoria que o bot
+    # deu ao publicar; sem isto o site rebaixava tudo para "outros".
+    return oferta.get("categoria") or desempenho.categoria_produto(oferta)
+
+
 def publicar(fonte, oferta):
     api = seguranca.validar_url_https_publica(config.SITE_API_URL, "API do site")
     destino = fonte.gerar_link(oferta.get("productUrl"), config.SITE_TRACKING_ID,
-                               ["site", oferta.get("categoria") or "outros"])
+                               ["site", _categoria(oferta)])
     resposta = requests.post(
         api, headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
         json={
@@ -74,7 +81,7 @@ def publicar(fonte, oferta):
             "rating": oferta.get("ratingStar"), "sales": oferta.get("sales"),
             "shop": oferta.get("shopName"), "image_url": oferta.get("imageUrl"),
             "destination": destino, "source": fonte.NOME,
-            "category": oferta.get("categoria") or "outros",
+            "category": _categoria(oferta),
             "coupon_code": oferta.get("cupom"),
             "coupon_condition": oferta.get("cupomCondicao"),
             "coupon_expires_at": _timestamp(oferta.get("cupomExpiraEm")),
@@ -302,7 +309,7 @@ def _payload_atualizacao(oferta_id, oferta):
         "discount": oferta.get("priceDiscountRate"),
         "rating": oferta.get("ratingStar"), "sales": oferta.get("sales"),
         "shop": oferta.get("shopName"), "image_url": imagem,
-        "category": oferta.get("categoria") or "outros",
+        "category": _categoria(oferta),
         "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
     }
 

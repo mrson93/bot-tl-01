@@ -42,6 +42,27 @@ class DesempenhoTest(unittest.TestCase):
         self.assertTrue(desempenho.loja_oficial({"shopName": "Xiaomi Official Store"}))
         self.assertFalse(desempenho.loja_oficial({"shopName": "SORTUDO 1666"}))
 
+    def test_titulos_que_caiam_em_outros_ganham_categoria(self):
+        casos = {
+            "Chaleira Elétrica Inox 1,8l 1500w Aquecimento Rápido": "cozinha",
+            "Notebook ASUS Vivobook 15, Intel Core i5, 16 GB, 512 GB SSD": "eletronicos",
+            "Roku Streaming Stick Para Tv Hd/fhd Controle Por Voz": "eletronicos",
+            "Café Torrado E Moído Extraforte Café Italle 500g": "mercado",
+            "Ventilador de Teto Com Luz 3 em 1 com Controle Remoto": "casa",
+            "Kit 6 Pares Meias Lupo Cano Médio Algodão": "moda",
+            "Protetor Solar Facial Anthelios La Roche-Posay 30g": "beleza",
+            "Bravecto Cães 20-40kg 1000mg 1 Comp. Mastigável": "pet",
+            "Patinete Infantil 3 Rodas Led Dobrável": "infantil",
+            "Proteína Growth Whey Concentrado Em Pó Sabor Leite Em Pó": "esporte",
+        }
+        for titulo, categoria in casos.items():
+            self.assertEqual(categoria, desempenho.categoria_produto(titulo), titulo)
+
+    def test_empate_segue_o_produto_sem_inventar_chamada(self):
+        oferta = {"productName": "Frigideira Cerâmica Antiaderente Cabo Seguro"}
+        self.assertEqual(("cozinha", 0.5), desempenho.classificar_produto(oferta))
+        self.assertEqual("", desempenho.chamada_humana(oferta))
+
     def test_chave_metaforica_nao_e_ferramenta(self):
         oferta = {"productName": "O Poder do Autocontrole: A Chave para a Grandeza Pessoal"}
         self.assertEqual("outros", desempenho.categoria_produto(oferta))

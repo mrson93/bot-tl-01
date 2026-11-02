@@ -48,7 +48,14 @@ _REGRAS = (
      "Pra deixar cada etapa da cozinha um pouco mais simples 🍳",
     ),
      ("panela", "frigideira", "cozinha", "air fryer", "liquidificador",
-      "cafeteira", "garrafa", "copo", "pote", "faca", "talher")),
+      "cafeteira", "garrafa", "copo", "pote", "faca", "talher",
+      "chaleira", "sanduicheira", "batedeira", "micro ondas", "microondas",
+      "cooktop", "fogao", "geladeira", "cervejeira", "espremedor", "omeleteira",
+      "taca", "jarra", "faqueiro", "utensilio", "escorredor", "travessa",
+      "tabua de corte", "forma de gelo", "talheres", "cortador", "marmita", "assadeira", "mixer", "processador de alimentos",
+      "airfryer", "fritadeira", "pipoqueira", "panificadora", "pano de prato",
+      "panos de prato", "picador", "descascador", "azeiteiro", "waffle", "louca",
+      "jogo americano", "colher", "colheres")),
     ("ferramentas", (
      "Boa pra resolver pequenos reparos sem improviso 🔧",
      "Pra ter uma solução à mão quando algo precisar de ajuste 🔧",
@@ -64,7 +71,10 @@ _REGRAS = (
      ("ferramenta", "furadeira", "parafusadeira", "chave de fenda",
       "chave philips", "chave phillips", "chave allen", "chave inglesa",
       "chave de boca", "chave catraca", "alicate",
-      "serra", "broca", "multimetro", "solda")),
+      "serra", "broca", "multimetro", "solda",
+      "soquete", "soquetes", "jogo de chaves", "lavadora de alta pressao", "disco flap",
+      "epi", "botina", "trena", "nivel a laser", "esmerilhadeira", "lixadeira",
+      "chave combinada", "boca e estrela", "adesivo de rosca", "manta asfaltica")),
     ("casa", (
      "Pra deixar a casa mais prática e organizada 🏠",
      "Um detalhe que ajuda a deixar o lar mais gostoso 🏠",
@@ -78,7 +88,20 @@ _REGRAS = (
      "Uma ajuda simples para uma casa mais funcional 🏠",
     ),
      ("organizador", "prateleira", "luminaria", "lampada", "lustre", "cortina",
-      "tapete", "almofada", "aspirador", "limpeza", "cama", "banho")),
+      "tapete", "almofada", "aspirador", "limpeza", "cama", "banho",
+      "ventilador", "ar condicionado", "climatizador", "aquecedor", "travesseiro",
+      "colcha", "cobre leito", "lencol", "edredom", "toalha", "cadeira", "mesa",
+      "banqueta", "estante", "espelho", "natal", "natalino", "pisca pisca",
+      "guarda chuva", "lixeira", "detergente", "sabao", "amaciante", "alvejante",
+      "desinfetante", "limpador", "esfregao", "mangueira", "jardim", "tinta",
+      "papel de parede", "chuveiro", "purificador de agua", "refil", "maquina de lavar",
+      "lava e seca", "lava loucas", "difusor", "home spray", "organizadora",
+      "caixa organizadora", "decoracao", "refletor", "colchao", "sofa",
+      "escova de limpeza", "esfregador", "mop", "vassoura", "rodo",
+      "ventiladores", "ventilado", "maquina de costura", "saco de lixo", "sacos de lixo",
+      "varal", "pano de chao", "limpadores de ambientes", "pulverizador",
+      "mata mosquito", "filtro de barro", "purificador", "suporte tv", "split",
+      "btu", "painel ripado", "percarbonato", "desincrustante")),
     ("eletronicos", (
      "Tecnologia útil sem precisar pagar caro ⚡",
      "Um upgrade prático para a rotina digital ⚡",
@@ -95,7 +118,15 @@ _REGRAS = (
       "smartwatch", "caixa de som", "bluetooth", "camera", "monitor",
       "echo", "alexa", "smart speaker", "alto falante", "ipad", "tablet",
       "smartphone", "celular", "telefone", "relogio inteligente",
-      "smart watch", "filtro de linha", "extensao eletrica", "tomada")),
+      "smart watch", "filtro de linha", "extensao eletrica", "tomada",
+      "notebook", "macbook", "ssd", "pendrive", "memoria ram", "microfone",
+      "joystick", "gamepad", "manete", "xbox", "playstation", "nintendo",
+      "video game", "videogame", "console", "smart tv", "tv stick", "roku",
+      "chromecast", "fire tv", "streaming", "soundbar", "projetor", "impressora",
+      "roteador", "starlink", "airpods", "apple watch", "iphone", "kindle",
+      "filamento", "webcam", "placa de video", "processador", "switch",
+      "power bank", "gabinete", "pilha", "pilhas", "esp32", "localizador",
+      "galaxy", "fonte atx", "smart home")),
     ("beleza", (
      "Um cuidado a mais sem pesar no bolso ✨",
      "Pra reservar um momento de autocuidado na rotina ✨",
@@ -109,7 +140,16 @@ _REGRAS = (
      "Um mimo para quem gosta de se sentir bem ✨",
     ),
      ("perfume", "maquiagem", "batom", "creme", "serum", "shampoo",
-      "secador", "escova", "barbeador", "beleza", "skincare")),
+      "secador", "escova", "barbeador", "beleza", "skincare",
+      "desodorante", "protetor solar", "hidratante", "capilar", "condicionador",
+      "leave in", "cabelo", "colonia", "body splash", "sabonete", "aparador",
+      "cilios", "pestanas", "finalizador", "cachos", "retinol", "hialuronico",
+      "facial", "vitamina", "colageno", "biotina", "massageador", "termometro",
+      "esmalte", "base liquida", "rimel",
+      "magnesio", "melatonina", "coenzima", "psyllium", "frizz", "antifrizz",
+      "matizadora", "hair", "pore", "clareador", "redutor de pelos",
+      "eau de toilette", "eau de parfum", "pistola de massagem", "balanca corporal", "bioimpedancia",
+      "suplemento alimentar", "capsulas")),
     ("pet", (
      "Um mimo útil pro seu companheiro de quatro patas 🐾",
      "Pra deixar a rotina do seu pet mais confortável 🐾",
@@ -123,7 +163,10 @@ _REGRAS = (
      "Um reforço de cuidado para o seu melhor amigo 🐾",
     ),
      ("pet", "cachorro", "gato", "racao", "coleira", "comedouro",
-      "arranhador", "areia")),
+      "arranhador", "areia",
+      "antipulgas", "caes", "cao", "caes e gatos", "tapete higienico", "bravecto",
+      "simparic", "nexgard",
+      "whiskas", "sache", "pedigree", "golden")),
     ("infantil", (
      "Uma opção prática para a rotina com os pequenos 🧸",
      "Pra deixar os momentos das crianças ainda mais fáceis 🧸",
@@ -137,7 +180,10 @@ _REGRAS = (
      "Um achado carinhoso para a rotina com crianças 🧸",
     ),
      ("bebe", "infantil", "crianca", "brinquedo", "fralda", "mamadeira",
-      "carrinho", "boneca")),
+      "carrinho", "boneca",
+      "pampers", "lenco umedecido", "baby", "kids", "figurinhas", "pokemon",
+      "squishy", "travel system", "cadeirinha", "chupeta", "barbie", "lego",
+      "jogo de tabuleiro", "quebra cabeca", "xadrez", "educativo", "brinquedos")),
     ("automotivo", (
      "Boa pra deixar no carro e usar quando precisar 🚗",
      "Um item prático para quem vive na rua ou na estrada 🚗",
@@ -151,7 +197,8 @@ _REGRAS = (
      "Pra equipar o veículo com algo que pode fazer falta 🚗",
     ),
      ("automotivo", "carro", "moto", "veicular", "pneu", "capacete",
-      "suporte celular", "compressor")),
+      "suporte celular", "compressor",
+      "cera automotiva", "pretinho", "snow foam", "automotiva", "som automotivo")),
     ("esporte", (
      "Pra treinar com mais conforto e gastar menos 🏃",
      "Um incentivo a mais para colocar o corpo em movimento 🏃",
@@ -165,7 +212,10 @@ _REGRAS = (
      "Pra acompanhar seus objetivos de saúde e movimento 🏃",
     ),
      ("academia", "fitness", "esporte", "halter", "corrida", "bicicleta",
-      "tenis", "mochila", "creatina", "suplemento", "whey", "proteina")),
+      "tenis", "mochila", "creatina", "suplemento", "whey", "proteina",
+      "patinete", "patins", "pre treino", "running", "corrida", "skate", "yoga",
+      "natacao", "bike", "pneu de bicicleta", "ergometrica", "beach tennis",
+      "musculacao", "abdominal", "abdomen", "sit up", "hipercalorico")),
     ("moda", (
      "Uma peça versátil pra renovar o visual sem exagerar 💫",
      "Pra dar uma atualizada no guarda-roupa com praticidade 💫",
@@ -179,7 +229,29 @@ _REGRAS = (
      "Uma opção prática para variar o visual 💫",
     ),
      ("camisa", "camiseta", "vestido", "calca", "short", "jaqueta",
-      "bolsa", "sandalia", "sapato", "moda")),
+      "bolsa", "sandalia", "sapato", "moda",
+      "bermuda", "meia", "cueca", "calcinha", "blusa", "regata", "pijama", "bone",
+      "chinelo", "slide", "bota", "coturno", "sneaker", "relogio", "oculos",
+      "babuche", "t shirt", "tshirt", "moletom", "saia", "jeans", "lingerie",
+      "cinto", "carteira", "sutia", "mala", "mala de viagem", "mala de bordo")),
+    ("mercado", (
+     "Pra abastecer a despensa gastando menos 🛒",
+     "Um item da lista de compras com preço bom 🛒",
+     "Pra garantir o estoque de casa sem pagar caro 🛒",
+     "Boa pedida para a próxima compra do mês 🛒",
+     "Daqueles itens que sempre acabam antes da hora 🛒",
+     "Pra deixar a despensa em dia 🛒",
+     "Um achado para o carrinho do mercado 🛒",
+     "Pra repor o que não pode faltar em casa 🛒",
+     "Boa oportunidade para estocar 🛒",
+     "Pra economizar nas compras do dia a dia 🛒",
+    ),
+     ("cafe", "cafe em capsula", "cafe em graos", "azeite", "castanha", "castanhas",
+      "nuts", "cerveja", "whisky", "energetico", "red bull", "salgadinho",
+      "tamara", "papel higienico", "arroz", "feijao", "biscoito", "achocolatado",
+      "chocolate em barra", "refrigerante",
+      "cafeina", "supercoffee", "coffee", "vinho", "merlot", "chocolate ao leite",
+      "bombons", "desidratados", "ghee")),
 )
 
 # Termos que aparecem em títulos de outra categoria e não podem, sozinhos,
@@ -297,6 +369,12 @@ def classificar_produto(produto) -> tuple:
         "relogio inteligente", "smart watch",
     )):
         return "eletronicos", 0.98
+    # "Patinete infantil" ou "tênis infantil" interessam a quem compra para
+    # criança, não a quem procura esporte ou moda adulta.
+    if any(_contem_termo(normalizado, termo) for termo in (
+        "infantil", "infantis", "crianca", "criancas", "bebe", "bebes", "kids",
+    )):
+        return "infantil", 0.9
     if isinstance(produto, dict):
         categoria_pronta = str(produto.get("categoria") or "")
         if categoria_pronta in {regra[0] for regra in _REGRAS}:
@@ -318,16 +396,18 @@ def classificar_produto(produto) -> tuple:
             melhor = max(len(_normalizar(p).split()) for p in encontradas)
             confianca = min(0.98, 0.62 + 0.12 * (len(encontradas) - 1)
                             + 0.08 * (melhor - 1))
-            candidatas.append((confianca, len(encontradas), categoria))
+            inicio = min(_posicao_termo(normalizado, p) for p in encontradas)
+            candidatas.append((confianca, len(encontradas), -inicio, categoria))
     if not candidatas:
         return "outros", 0.0
     candidatas.sort(reverse=True)
     melhor = candidatas[0]
     # Empate entre duas categorias é um sinal de ambiguidade: melhor ficar sem
-    # chamada humana do que inventar contexto.
+    # chamada humana do que inventar contexto. A categoria ainda segue o termo
+    # que aparece primeiro, que costuma ser o produto ("Frigideira ... Cabo").
     if len(candidatas) > 1 and melhor[:2] == candidatas[1][:2]:
-        return "outros", 0.0
-    return melhor[2], melhor[0]
+        return melhor[3], 0.5
+    return melhor[3], melhor[0]
 
 
 def categoria_produto(produto) -> str:

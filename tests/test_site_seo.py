@@ -239,8 +239,10 @@ class SiteSeoTest(unittest.TestCase):
         publish = (site / "api" / "publish.js").read_text()
         refresh = (site / "api" / "refresh.js").read_text()
         self.assertIn("creatina|whey|suplement", helper)
-        self.assertIn("${body.category||''} ${title}", publish)
-        self.assertIn("${raw.category||''} ${title}", refresh)
+        self.assertIn("normalizeCategory(body.category,title)", publish)
+        self.assertIn("normalizeCategory(raw.category,title)", refresh)
+        # A releitura de preço não pode rebaixar uma categoria conhecida.
+        self.assertIn("category=CASE WHEN ?='outros' THEN COALESCE(category,'outros')", refresh)
 
     def test_paginas_de_confianca_foram_publicadas(self):
         for name in ("como-escolhemos", "faq", "privacidade", "termos", "exclusao-de-dados", "contato"):
