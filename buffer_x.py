@@ -19,14 +19,28 @@ _URL = re.compile(r"https://[^\s]+", re.IGNORECASE)
 _TCO_TAMANHO = 23
 
 
+# Faixas que o X conta como 1 caractere; o resto (emojis, CJK) conta 2.
+_PESO_SIMPLES = ((0x0000, 0x10FF), (0x2000, 0x200D), (0x2010, 0x201F), (0x2032, 0x2037))
+
+
+def _peso(trecho: str) -> int:
+    total = 0
+    for letra in trecho:
+        codigo = ord(letra)
+        if codigo == 0xFE0F:  # seletor de emoji: faz parte do emoji anterior
+            continue
+        total += 1 if any(ini <= codigo <= fim for ini, fim in _PESO_SIMPLES) else 2
+    return total
+
+
 def _comprimento_x(texto: str) -> int:
-    """Conta URLs como o X depois do encurtamento automático por t.co."""
+    """Conta como o X: URLs viram t.co e emojis valem 2 caracteres."""
     total = 0
     inicio = 0
     for encontrado in _URL.finditer(texto):
-        total += len(texto[inicio:encontrado.start()]) + _TCO_TAMANHO
+        total += _peso(texto[inicio:encontrado.start()]) + _TCO_TAMANHO
         inicio = encontrado.end()
-    return total + len(texto[inicio:])
+    return total + _peso(texto[inicio:])
 
 
 def _canal() -> str:

@@ -51,6 +51,18 @@ class BufferXTest(unittest.TestCase):
         self.assertIn("BARATO20", texto)
         self.assertIn("https://go.canaltabarato.com.br/abcdefgh", texto)
 
+    def test_emojis_contam_dois_caracteres_como_no_x(self):
+        self.assertEqual(4, buffer_x._comprimento_x("💰ℹ️"))
+        self.assertEqual(3, buffer_x._comprimento_x("Pão"))
+        oferta = {
+            "productName": "Chaleira Elétrica de Inox 1.8 Litros " * 6,
+            "price": 79.90, "precoOriginal": 129.90, "ratingStar": 4.8,
+            "sales": 12000, "shopName": "Loja Oficial", "cupom": "BARATO20",
+            "cupomCondicao": "Válido em compras acima de R$ 100",
+        }
+        texto = buffer_x.montar_texto(oferta, "https://go.canaltabarato.com.br/abc")
+        self.assertLessEqual(buffer_x._comprimento_x(texto), 280)
+
     def test_link_oficial_longo_conta_como_tco_sem_perder_atribuicao(self):
         oferta = {
             "fonte": "Mercado Livre", "productName": "Produto " * 100,
