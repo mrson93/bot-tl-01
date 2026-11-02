@@ -1,4 +1,11 @@
 const MIN_SECRET_LENGTH=32;
+// Redes buscam o link para montar a prévia logo após o post; isso não é clique.
+const AUTOMATED_AGENT=/bot(?:[\/\s;),]|$)|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|cardyb|whatsapp|embedly|skypeuripreview|preview|headless|lighthouse|curl\/|wget\/|python-|go-http-client|axios\/|node-fetch|okhttp/i;
+
+export function isAutomatedAgent(agent) {
+  const value=String(agent||'').trim();
+  return !value||(AUTOMATED_AGENT.test(value)&&!/cubot/i.test(value));
+}
 
 function bytesToHex(bytes) {
   return Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -66,6 +73,7 @@ export async function claimPublicAction({env,request,purpose,resource,windowSeco
 }
 
 export async function recordPublicMetric(context,purpose,resource,write) {
+  if(isAutomatedAgent(context.request.headers.get('User-Agent'))) return {accepted:false,reason:'automated'};
   const result=await claimPublicAction({
     env:context.env,request:context.request,purpose,resource,windowSeconds:300,
     limiter:context.env.METRICS_RATE_LIMITER,

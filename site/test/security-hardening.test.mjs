@@ -97,3 +97,15 @@ test('relatos não removem automaticamente ofertas da vitrine',async()=>{
   assert.doesNotMatch(discovery,/offer_feedback[\s\S]*quantity>=5/);
   assert.doesNotMatch(offerPage,/offer_feedback|reports>=/);
 });
+
+test('cliques de robôs de prévia não entram nas métricas',async()=>{
+  const {isAutomatedAgent}=await import('../functions/_abuse.js');
+  for(const agent of ['facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    'Twitterbot/1.0','TelegramBot (like TwitterBot)','Mozilla/5.0 (compatible; Bluesky Cardyb/1.1)',
+    'Mozilla/5.0 (compatible; Googlebot/2.1)','meta-externalagent/1.1','',null])
+    assert.equal(isAutomatedAgent(agent),true,String(agent));
+  for(const agent of ['Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0',
+    'Mozilla/5.0 (Linux; Android 13; CUBOT X30) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 [FBAN/EMA;FBAV/400.0]'])
+    assert.equal(isAutomatedAgent(agent),false,agent);
+});

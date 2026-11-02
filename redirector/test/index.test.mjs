@@ -96,3 +96,22 @@ test('relatório cruza loja e canal sem guardar dados pessoais',async()=>{
   });
   assert.equal(JSON.stringify(body).includes('ip'),false);
 });
+
+test('não conta a prévia que as redes buscam como clique',async()=>{
+  let clicks=0;
+  const DB={prepare(sql){return {bind(){return this;},
+    async first(){return {destination:'https://shopee.com.br/oferta'};},
+    async run(){if(sql.includes('INSERT INTO clicks')) clicks+=1;return {meta:{changes:1}};}};}};
+  for(const agent of ['facebookexternalhit/1.1','Twitterbot/1.0','TelegramBot (like TwitterBot)',
+    'Mozilla/5.0 (compatible; Bluesky Cardyb/1.1)','WhatsApp/2.23.20.0','']){
+    const request=new Request('https://go.canaltabarato.com.br/abcdefgh',{headers:{
+      'CF-Connecting-IP':'203.0.113.10','User-Agent':agent}});
+    assert.equal((await worker.fetch(request,env({DB}))).status,302);
+  }
+  assert.equal(clicks,0);
+  const pessoa=new Request('https://go.canaltabarato.com.br/abcdefgh',{headers:{
+    'CF-Connecting-IP':'203.0.113.11',
+    'User-Agent':'Mozilla/5.0 (Linux; Android 13; CUBOT X30) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36'}});
+  await worker.fetch(pessoa,env({DB}));
+  assert.equal(clicks,1);
+});

@@ -1,4 +1,11 @@
 const MIN_SECRET_LENGTH=32;
+// Redes buscam o link para montar a prévia logo após o post; isso não é clique.
+const AUTOMATED_AGENT=/bot(?:[\/\s;),]|$)|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|cardyb|whatsapp|embedly|skypeuripreview|preview|headless|lighthouse|curl\/|wget\/|python-|go-http-client|axios\/|node-fetch|okhttp/i;
+
+export function isAutomatedAgent(agent) {
+  const value=String(agent||'').trim();
+  return !value||(AUTOMATED_AGENT.test(value)&&!/cubot/i.test(value));
+}
 
 function hex(bytes) {
   return Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -32,6 +39,7 @@ export async function shouldRecordClick(request,env,slug) {
   if(secret.length<MIN_SECRET_LENGTH) return false;
   const ip=String(request.headers.get('CF-Connecting-IP')||'unknown').slice(0,64);
   const agent=String(request.headers.get('User-Agent')||'unknown').slice(0,180);
+  if(isAutomatedAgent(request.headers.get('User-Agent'))) return false;
   const client=await hmac(secret,`${ip}\n${agent}`);
   if(env.CLICK_RATE_LIMITER?.limit){
     try{
