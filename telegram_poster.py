@@ -405,22 +405,60 @@ _BENEFICIOS_SHOPEE_VIP = (
 )
 
 
-def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
-    """Divulga a assinatura com um resumo cauteloso dos benefícios oficiais."""
+_MENSAGENS_AMAZON_PRIME = (
+    ("🎬 <b>TESTE O AMAZON PRIME GRÁTIS</b>\n\n"
+     "Prime Video, frete grátis e ofertas exclusivas para membros na mesma "
+     "assinatura. Veja se o período de teste aparece para a sua conta."),
+    ("📦 <b>FRETE GRÁTIS E PRIME VIDEO</b>\n\n"
+     "Quem compra na Amazon com frequência pode aproveitar o Prime. Confira os "
+     "benefícios e as regras diretamente na Amazon."),
+    ("💡 <b>DICA PARA AS OFERTAS EXCLUSIVAS PRIME</b>\n\n"
+     "Algumas ofertas da Amazon só valem para membros Prime. Veja se o teste "
+     "grátis está disponível para a sua conta."),
+)
+
+_BENEFICIOS_AMAZON_PRIME = (
+    "🎁 <b>Benefícios informados pela Amazon:</b>\n"
+    "• Frete grátis em milhões de produtos elegíveis\n"
+    "• Prime Video\n"
+    "• Amazon Music\n"
+    "• Ofertas exclusivas para membros Prime"
+)
+
+_MENSAGENS_MELI_MAIS = (
+    ("📦 <b>CONHEÇA O MELI+</b>\n\n"
+     "A assinatura do Mercado Livre junta frete grátis e entretenimento. "
+     "Veja os planos e confira o que vale para a sua conta."),
+    ("🛒 <b>VOCÊ JÁ VIU O MELI+?</b>\n\n"
+     "Quem compra com frequência no Mercado Livre pode encontrar vantagens "
+     "extras. Confira os planos diretamente no Mercado Livre."),
+)
+
+_BENEFICIOS_MELI_MAIS = (
+    "🎁 <b>Benefícios informados pelo Mercado Livre:</b>\n"
+    "• Frete grátis em compras elegíveis\n"
+    "• Streaming e entretenimento, conforme o plano"
+)
+
+_AVISO_ASSINATURA = ("<i>Confira se o período grátis aparece para a sua conta. "
+                     "Preço, benefícios, elegibilidade e disponibilidade podem "
+                     "mudar; confirme tudo antes de assinar.</i>")
+
+
+def postar_assinatura(link_afiliado: str, mensagens, beneficios, botao,
+                      nome: str, variante=0) -> None:
+    """Divulga uma assinatura (Shopee VIP, Prime, Meli+) com texto cauteloso."""
     link_afiliado = seguranca.validar_url_https_publica(
-        link_afiliado, "Link do Shopee VIP"
+        link_afiliado, f"Link do {nome}"
     )
-    texto = _MENSAGENS_SHOPEE_VIP[int(variante) % len(_MENSAGENS_SHOPEE_VIP)]
-    texto += ("\n\n" + _BENEFICIOS_SHOPEE_VIP +
-              "\n\n<i>Confira se o período grátis aparece para a sua conta. "
-              "Preço, benefícios, elegibilidade e disponibilidade podem "
-              "mudar; confirme tudo antes de assinar.</i>")
+    texto = mensagens[int(variante) % len(mensagens)]
+    texto += "\n\n" + beneficios + "\n\n" + _AVISO_ASSINATURA
     dados = {
         "chat_id": config.TELEGRAM_CHANNEL,
         "text": texto,
         "parse_mode": "HTML",
         "reply_markup": {"inline_keyboard": [[{
-            "text": "👑 Conhecer o Shopee VIP", "url": link_afiliado,
+            "text": botao, "url": link_afiliado,
         }]]},
     }
     ultimo = None
@@ -433,14 +471,32 @@ def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
             corpo = resposta.json()
             if corpo.get("ok"):
                 return
-            ultimo = RuntimeError(f"Telegram recusou Shopee VIP: {corpo}")
+            ultimo = RuntimeError(f"Telegram recusou {nome}: {corpo}")
         except requests.RequestException as erro:
             ultimo = erro
         if tentativa + 1 < config.HTTP_MAX_TENTATIVAS:
             time.sleep(tentativa + 1)
     raise RuntimeError(seguranca.redigir_segredos(
-        f"Nao foi possivel publicar o Shopee VIP: {ultimo}"
+        f"Nao foi possivel publicar o {nome}: {ultimo}"
     ))
+
+
+def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
+    """Divulga a assinatura com um resumo cauteloso dos benefícios oficiais."""
+    postar_assinatura(link_afiliado, _MENSAGENS_SHOPEE_VIP, _BENEFICIOS_SHOPEE_VIP,
+                      "👑 Conhecer o Shopee VIP", "Shopee VIP", variante)
+
+
+def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
+    postar_assinatura(
+        link_afiliado, _MENSAGENS_AMAZON_PRIME,
+        "🆓 <b>Para contas elegíveis:</b> teste grátis\n\n" + _BENEFICIOS_AMAZON_PRIME,
+        "🎬 Testar o Prime grátis", "Amazon Prime", variante)
+
+
+def postar_meli_mais(link_afiliado: str, variante=0) -> None:
+    postar_assinatura(link_afiliado, _MENSAGENS_MELI_MAIS, _BENEFICIOS_MELI_MAIS,
+                      "📦 Conhecer o Meli+", "Meli+", variante)
 
 
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:

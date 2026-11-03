@@ -235,19 +235,24 @@ def publicar_loja(fonte):
         raise RuntimeError(f"Site recusou o atalho da loja ({resposta.status_code})")
 
 
-def publicar_shopee_vip(link_afiliado):
-    """Mantém no site o atalho rastreável da assinatura Shopee VIP."""
+def publicar_assinatura(nome, link_afiliado, hosts):
+    """Mantém no site o atalho rastreável de uma assinatura (VIP, Prime, Meli+)."""
     destino = seguranca.validar_url_https_em_hosts(
-        link_afiliado, ("shopee.com.br",), "Link do Shopee VIP"
+        link_afiliado, hosts, f"Link do {nome}"
     )
     resposta = requests.post(
         _api_path("/api/stores"),
         headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
-        json={"source": "Shopee VIP", "destination": destino},
+        json={"source": nome, "destination": destino},
         timeout=15, allow_redirects=False,
     )
     if not 200 <= resposta.status_code < 300:
-        raise RuntimeError(f"Site recusou o Shopee VIP ({resposta.status_code})")
+        raise RuntimeError(f"Site recusou o {nome} ({resposta.status_code})")
+
+
+def publicar_shopee_vip(link_afiliado):
+    """Mantém no site o atalho rastreável da assinatura Shopee VIP."""
+    publicar_assinatura("Shopee VIP", link_afiliado, ("shopee.com.br",))
 
 
 def gerar_rascunho_blog():

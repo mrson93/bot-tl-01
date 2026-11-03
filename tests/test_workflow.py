@@ -63,8 +63,10 @@ class WorkflowTest(unittest.TestCase):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
         self.assertIn("campanha:", workflow)
         self.assertIn("inputs.campanha != ''", workflow)
-        self.assertIn("inputs.campanha == 'shopee_vip'", workflow)
-        self.assertIn("python main.py --campanha shopee_vip", workflow)
+        self.assertIn('["shopee_vip","amazon_prime","meli_mais"]', workflow)
+        # O nome da campanha passa por variável de ambiente, nunca colado no comando.
+        self.assertIn('python main.py --campanha "$CAMPANHA"', workflow)
+        self.assertIn("CAMPANHA: ${{ inputs.campanha }}", workflow)
 
     def test_configuracoes_operacionais_vem_de_variaveis_seguras(self):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")

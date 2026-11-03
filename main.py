@@ -109,35 +109,75 @@ def sincronizar_links_lojas_site(lojas, agora=None):
     return atualizados
 
 
-def sincronizar_shopee_vip_site(agora=None):
-    """Publica uma vez ao dia o destino do banner rastreável do Shopee VIP."""
-    if (not config.SHOPEE_VIP_ATIVO or not config.SHOPEE_VIP_URL
-            or not site_publisher.esta_configurado()):
-        return False
+# Assinaturas divulgadas em campanha recorrente. Cada uma tem link afiliado,
+# hosts aceitos, atalho rastreável no site e textos próprios por rede.
+ASSINATURAS = {
+    "shopee_vip": {
+        "nome": "Shopee VIP", "slug": "shopee-vip", "hosts": ("shopee.com.br",),
+        "url": "SHOPEE_VIP_URL", "ativo": "SHOPEE_VIP_ATIVO",
+        "dias": "SHOPEE_VIP_DIAS", "horas": "SHOPEE_VIP_HORAS",
+        "postar": "postar_shopee_vip", "emoji": "👑",
+    },
+    "amazon_prime": {
+        "nome": "Amazon Prime", "slug": "amazon-prime",
+        "hosts": ("amzn.to", "amazon.com.br"),
+        "url": "AMAZON_PRIME_TESTE_URL", "ativo": "AMAZON_PRIME_ATIVO",
+        "dias": "AMAZON_PRIME_DIAS", "horas": "AMAZON_PRIME_HORAS",
+        "postar": "postar_amazon_prime", "emoji": "🎬",
+    },
+    "meli_mais": {
+        "nome": "Meli+", "slug": "meli-mais",
+        "hosts": ("meli.la", "mercadolivre.com.br"),
+        "url": "MELI_MAIS_URL", "ativo": "MELI_MAIS_ATIVO",
+        "dias": "MELI_MAIS_DIAS", "horas": "MELI_MAIS_HORAS",
+        "postar": "postar_meli_mais", "emoji": "📦",
+    },
+}
+
+
+def _link_assinatura(chave):
+    item = ASSINATURAS[chave]
+    url = getattr(config, item["url"])
+    if not getattr(config, item["ativo"]) or not url:
+        return ""
     try:
-        seguranca.validar_url_https_em_hosts(
-            config.SHOPEE_VIP_URL, ("shopee.com.br",), "Link do Shopee VIP"
+        return seguranca.validar_url_https_em_hosts(
+            url, item["hosts"], f"Link do {item['nome']}"
         )
     except ValueError as erro:
         print(f"   ⚠️  {erro}")
+        return ""
+
+
+def sincronizar_assinatura_site(chave, agora=None):
+    """Publica uma vez ao dia o destino do atalho rastreável da assinatura."""
+    item = ASSINATURAS[chave]
+    link = _link_assinatura(chave)
+    if not link or not site_publisher.esta_configurado():
         return False
     agora = agora or datetime.now(FUSO_BRASILIA)
     data = agora.date().isoformat()
-    if store.link_loja_site_sincronizado(data, "Shopee VIP"):
+    if store.link_loja_site_sincronizado(data, item["nome"]):
         return True
     try:
-        site_publisher.publicar_shopee_vip(config.SHOPEE_VIP_URL)
-        store.marcar_link_loja_site_sincronizado(data, "Shopee VIP")
-        print("👑 Link do Shopee VIP atualizado no site.")
+        site_publisher.publicar_assinatura(item["nome"], link, item["hosts"])
+        store.marcar_link_loja_site_sincronizado(data, item["nome"])
+        print(f"{item['emoji']} Link do {item['nome']} atualizado no site.")
         return True
     except Exception as erro:
-        print("   ⚠️  Link do Shopee VIP indisponível no site: "
+        print(f"   ⚠️  Link do {item['nome']} indisponível no site: "
               f"{seguranca.redigir_segredos(erro)}")
         return False
 
 
-def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
+def sincronizar_shopee_vip_site(agora=None):
+    """Publica uma vez ao dia o destino do banner rastreável do Shopee VIP."""
+    return sincronizar_assinatura_site("shopee_vip", agora)
+
+
+def publicar_assinatura_se_preciso(chave, agora=None, alertas_cupom=0, forcar=False):
     """Publica em cada rede pendente ou imediatamente quando solicitado."""
+    item = ASSINATURAS[chave]
     agora = agora or datetime.now(FUSO_BRASILIA)
     if agora.tzinfo is None:
         agora = agora.replace(tzinfo=FUSO_BRASILIA)
@@ -145,26 +185,22 @@ def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
         agora = agora.astimezone(FUSO_BRASILIA)
     destinos = []
     if telegram_poster.esta_configurada():
-        destinos.append(("Telegram", telegram_poster.postar_shopee_vip))
+        destinos.append(("Telegram", getattr(telegram_poster, item["postar"])))
     if bluesky.esta_configurada():
-        destinos.append(("Bluesky", bluesky.postar_shopee_vip))
-    if (not config.SHOPEE_VIP_ATIVO or not config.SHOPEE_VIP_URL
+        destinos.append(("Bluesky", getattr(bluesky, item["postar"])))
+    if (not getattr(config, item["ativo"]) or not getattr(config, item["url"])
             or not destinos):
         return False
-    if (not forcar and (agora.weekday() not in config.SHOPEE_VIP_DIAS
-                        or agora.hour not in config.SHOPEE_VIP_HORAS
+    if (not forcar and (agora.weekday() not in getattr(config, item["dias"])
+                        or agora.hour not in getattr(config, item["horas"])
                         or alertas_cupom)):
         return False
-    try:
-        link_direto = seguranca.validar_url_https_em_hosts(
-            config.SHOPEE_VIP_URL, ("shopee.com.br",), "Link do Shopee VIP"
-        )
-    except ValueError as erro:
-        print(f"   ⚠️  {erro}")
+    link_direto = _link_assinatura(chave)
+    if not link_direto:
         return False
     data = agora.date().isoformat()
     janela = "manha" if agora.hour < 15 else "noite"
-    campanha = f"shopee_vip_{janela}"
+    campanha = f"{chave}_{janela}"
     if not forcar:
         destinos = [
             (canal, postar) for canal, postar in destinos
@@ -173,9 +209,9 @@ def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
         if not destinos:
             return False
     link = link_direto
-    if sincronizar_shopee_vip_site(agora):
+    if sincronizar_assinatura_site(chave, agora):
         try:
-            link = site_publisher.link_publico_loja("shopee-vip")
+            link = site_publisher.link_publico_loja(item["slug"])
         except Exception:
             link = link_direto
     publicadas = 0
@@ -184,19 +220,29 @@ def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
             postar(link, agora.toordinal())
             store.marcar_campanha_enviada(data, campanha, canal)
             observabilidade.evento(
-                "campanha_publicada", canal=canal, fonte="Shopee VIP",
+                "campanha_publicada", canal=canal, fonte=item["nome"],
                 motivo="manual" if forcar else "automatica",
             )
-            print(f"👑 Shopee VIP divulgado no {canal}.")
+            print(f"{item['emoji']} {item['nome']} divulgado no {canal}.")
             publicadas += 1
         except Exception as erro:
             observabilidade.evento(
-                "campanha_falha", canal=canal, fonte="Shopee VIP",
+                "campanha_falha", canal=canal, fonte=item["nome"],
                 motivo="erro_canal_manual" if forcar else "erro_canal_automatico",
             )
-            print(f"   ⚠️  Divulgação do Shopee VIP no {canal} adiada: "
+            print(f"   ⚠️  Divulgação do {item['nome']} no {canal} adiada: "
                   f"{seguranca.redigir_segredos(erro)}")
     return bool(publicadas)
+
+
+def publicar_shopee_vip_se_preciso(agora=None, alertas_cupom=0, forcar=False):
+    return publicar_assinatura_se_preciso("shopee_vip", agora, alertas_cupom, forcar)
+
+
+def publicar_assinaturas_se_preciso(agora=None, alertas_cupom=0):
+    """Campanhas automáticas de todas as assinaturas; devolve quantas saíram."""
+    return sum(int(publicar_assinatura_se_preciso(chave, agora, alertas_cupom))
+               for chave in ASSINATURAS)
 
 
 class _MaisVendidosMercadoLivre:
@@ -237,6 +283,8 @@ def executar_campanha(nome):
     """Executa somente uma campanha conhecida, sem iniciar a busca de ofertas."""
     campanhas = {
         "shopee_vip": lambda: publicar_shopee_vip_se_preciso(forcar=True),
+        "amazon_prime": lambda: publicar_assinatura_se_preciso("amazon_prime", forcar=True),
+        "meli_mais": lambda: publicar_assinatura_se_preciso("meli_mais", forcar=True),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
     }
     executar = campanhas.get(str(nome or "").strip().lower())
@@ -1331,6 +1379,9 @@ def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
     observabilidade.evento("execucao_iniciada")
     sincronizar_shopee_vip_site()
+    for chave in ASSINATURAS:
+        if chave != "shopee_vip":
+            sincronizar_assinatura_site(chave)
     gerar_rascunho_blog_seguro()
     limite = config.limite_posts_por_rodada()
     turno, inicio_turno, fim_turno = turnos.janela()
@@ -1344,7 +1395,7 @@ def rodar_uma_vez() -> int:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()
         if restantes <= 0:
             print(f"🛑 Limite diário de {config.MAX_POSTS_POR_DIA} ofertas atingido.")
-            vip = int(publicar_shopee_vip_se_preciso())
+            vip = publicar_assinaturas_se_preciso()
             observabilidade.evento("execucao_concluida", motivo="limite_diario",
                                     quantidade=vip)
             return vip
@@ -1369,11 +1420,11 @@ def rodar_uma_vez() -> int:
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)
-    vip = int(publicar_shopee_vip_se_preciso(alertas_cupom=alertas_cupom))
+    vip = publicar_assinaturas_se_preciso(alertas_cupom=alertas_cupom)
     # Depois das ofertas: o guia do dia nunca atrasa a publicação nas redes.
     guias.gerar_guia_do_dia()
     print(f"🏁 Rodada concluida. {total} oferta(s), {alertas_cupom} alerta(s) de "
-          f"cupom e {vip} divulgação(ões) VIP.")
+          f"cupom e {vip} divulgação(ões) de assinatura.")
     observabilidade.evento("execucao_concluida",
                             quantidade=total + alertas_cupom + vip)
     return total + alertas_cupom + vip

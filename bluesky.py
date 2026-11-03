@@ -359,24 +359,14 @@ def postar_bom_dia(mensagem: str) -> None:
         ))
 
 
-def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
-    """Divulga o Shopee VIP em texto curto, com o link clicável."""
-    del variante  # Mantém a mesma interface usada pela campanha do Telegram.
+def postar_assinatura(texto_sem_link: str, link_afiliado: str, nome: str) -> None:
+    """Divulga uma assinatura em texto curto, com o link clicável no fim."""
     link_afiliado = seguranca.validar_url_https_publica(
-        link_afiliado, "Link do Shopee VIP"
+        link_afiliado, f"Link do {nome}"
     )
-    texto = (
-        "👑 SHOPEE VIP\n\n"
-        "🆓 Contas elegíveis: 1 mês grátis\n"
-        "💳 Depois: R$ 9,90/mês; renovação automática\n\n"
-        "✓ Frete grátis acima de R$ 10\n"
-        "✓ Cupons mensais\n"
-        "✓ Atendimento prioritário\n"
-        "✓ 35% off Meu Pet Club\n\n"
-        f"Confira as condições: {link_afiliado}"
-    )
+    texto = f"{texto_sem_link}\n\nConfira as condições: {link_afiliado}"
     if len(texto) > 300:
-        raise ValueError("A mensagem do Shopee VIP ultrapassa 300 caracteres")
+        raise ValueError(f"A mensagem do {nome} ultrapassa 300 caracteres")
     inicio = len(texto[:texto.rindex(link_afiliado)].encode("utf-8"))
     sess = _sessao()
     record = {
@@ -401,8 +391,39 @@ def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
     )
     if not 200 <= resposta.status_code < 300:
         raise RuntimeError(seguranca.redigir_segredos(
-            f"Bluesky recusou Shopee VIP: {resposta.text}"
+            f"Bluesky recusou {nome}: {resposta.text}"
         ))
+
+
+def postar_shopee_vip(link_afiliado: str, variante=0) -> None:
+    """Divulga o Shopee VIP em texto curto, com o link clicável."""
+    del variante  # Mantém a mesma interface usada pela campanha do Telegram.
+    postar_assinatura(
+        "👑 SHOPEE VIP\n\n"
+        "🆓 Contas elegíveis: 1 mês grátis\n"
+        "💳 Depois: R$ 9,90/mês; renovação automática\n\n"
+        "✓ Frete grátis acima de R$ 10\n"
+        "✓ Cupons mensais\n"
+        "✓ Atendimento prioritário\n"
+        "✓ 35% off Meu Pet Club", link_afiliado, "Shopee VIP")
+
+
+def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
+    del variante
+    postar_assinatura(
+        "🎬 AMAZON PRIME\n\n"
+        "🆓 Contas elegíveis: teste grátis\n\n"
+        "✓ Frete grátis em produtos elegíveis\n"
+        "✓ Prime Video e Amazon Music\n"
+        "✓ Ofertas exclusivas para membros", link_afiliado, "Amazon Prime")
+
+
+def postar_meli_mais(link_afiliado: str, variante=0) -> None:
+    del variante
+    postar_assinatura(
+        "📦 MELI+ (MERCADO LIVRE)\n\n"
+        "✓ Frete grátis em compras elegíveis\n"
+        "✓ Streaming e entretenimento, conforme o plano", link_afiliado, "Meli+")
 
 
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
