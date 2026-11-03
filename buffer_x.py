@@ -111,18 +111,19 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
               f"{fmt.chamada_compra(oferta)}:\n\n{link}")
     selo = fmt.linha_black_friday(oferta)
+    prime = fmt.linha_prime(oferta)
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
 
     def montar(titulo_atual):
         return "\n\n".join(parte for parte in (
-            selo, titulo_atual, linha_preco, " · ".join(reputacao),
+            selo, titulo_atual, "\n".join(p for p in (linha_preco, prime) if p), " · ".join(reputacao),
             "\n".join(parte for parte in (linha_cupom, linha_condicao) if parte),
             rodape,
         ) if parte)
 
     texto = montar(titulo)
-    for reduzir in ("vendedor", "vendas", "avaliacao", "condicao", "cupom"):
+    for reduzir in ("vendedor", "vendas", "avaliacao", "condicao", "cupom", "prime"):
         if _comprimento_x(texto) <= _LIMITE_TEXTO:
             break
         if reduzir == "vendedor":
@@ -133,8 +134,10 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
             reputacao = [item for item in reputacao if not item.startswith("⭐")]
         elif reduzir == "condicao":
             linha_condicao = ""
-        else:
+        elif reduzir == "cupom":
             linha_cupom = ""
+        elif prime:
+            prime = "👑 Exclusivo para membros Prime"
         texto = montar(titulo)
     if _comprimento_x(texto) > _LIMITE_TEXTO:
         fixos = montar("")

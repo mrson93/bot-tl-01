@@ -14,6 +14,7 @@
     menorPreco: /^\s*Menor preço\b/i,
     prazo: /^\s*(Termina em|Oferta Relâmpago)\b/i,
     blackFriday: /\bBlack\s*Friday\b/i,
+    prime: /exclusiv\w*\s+(?:para\s+)?(?:membros\s+)?Prime|Prime\s+exclusiv|^\s*Oferta\s+Prime\b|Prime\s+Day/i,
   };
   const DESCONTO = /(?:^|\s|-)(\d{1,2})\s*%(?:\s*off)?\s*$/i;
   const ESCONDIDO = "tb-sem-oferta";

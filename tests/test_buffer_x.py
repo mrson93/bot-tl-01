@@ -81,6 +81,27 @@ class BufferXTest(unittest.TestCase):
         sem_selo = dict(oferta, blackFriday=False)
         self.assertNotIn("Black Friday", buffer_x.montar_texto(sem_selo, link))
 
+    def test_oferta_exclusiva_prime_leva_o_link_do_teste_gratis(self):
+        import bluesky
+        import facebook
+        import telegram_poster
+        teste = "https://www.amazon.com.br/amazonprime?tag=canaltabarato-20"
+        oferta = {"fonte": "Amazon", "exclusivoPrime": True,
+                  "productName": "Echo Dot 5ª geração " * 6, "price": 299.0,
+                  "precoOriginal": 449.0, "shopName": "Amazon"}
+        link = "https://go.canaltabarato.com.br/abc"
+        with patch.object(telegram_poster.config, "AMAZON_PRIME_TESTE_URL", teste):
+            legenda = telegram_poster.montar_legenda(oferta, link)
+            self.assertIn(f'<a href="{teste}">Teste o Prime grátis</a>', legenda)
+            self.assertIn(f"Teste o Prime grátis: {teste}", facebook.montar_texto(oferta, link))
+            texto_x = buffer_x.montar_texto(oferta, link)
+            self.assertIn("👑 Exclusivo para membros Prime", texto_x)
+            self.assertLessEqual(buffer_x._comprimento_x(texto_x), 280)
+            texto_bsky, _ = bluesky.montar_texto(dict(oferta, productName="Echo Dot"), link)
+            self.assertIn("👑 Exclusivo para membros Prime", texto_bsky)
+            comum = dict(oferta, exclusivoPrime=False)
+            self.assertNotIn("Prime", telegram_poster.montar_legenda(comum, link))
+
     def test_link_oficial_longo_conta_como_tco_sem_perder_atribuicao(self):
         oferta = {
             "fonte": "Mercado Livre", "productName": "Produto " * 100,

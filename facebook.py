@@ -88,6 +88,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
     prazo = fmt.linha_prazo(oferta)
     if prazo:
         linhas.append(prazo)
+    prime = fmt.linha_prime(oferta)
+    if prime:
+        linhas.append(prime)
 
     reputacao = []
     if oferta.get("ratingStar"):

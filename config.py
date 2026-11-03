@@ -149,6 +149,11 @@ ALIEXPRESS_LANGUAGE = _get("ALIEXPRESS_LANGUAGE") or "pt"
 AMAZON_CREDENTIAL_ID = _get("AMAZON_CREDENTIAL_ID")
 AMAZON_CREDENTIAL_SECRET = _get("AMAZON_CREDENTIAL_SECRET")
 AMAZON_ASSOCIATE_TAG = _get("AMAZON_ASSOCIATE_TAG")
+# Página de teste grátis do Prime (Prime Video incluso), com a tag de afiliado.
+# Vai nos posts de ofertas exclusivas para membros Prime.
+AMAZON_PRIME_TESTE_URL = _get("AMAZON_PRIME_TESTE_URL") or (
+    f"https://www.amazon.com.br/amazonprime?tag={AMAZON_ASSOCIATE_TAG}"
+    if AMAZON_ASSOCIATE_TAG else "")
 AMAZON_LIST_URL = _get("AMAZON_LIST_URL")
 AMAZON_LIST_SOURCE_TAGS = tuple(
     tag.strip() for tag in (_get("AMAZON_LIST_SOURCE_TAGS") or "").split(",")

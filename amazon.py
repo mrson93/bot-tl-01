@@ -169,6 +169,10 @@ def _normalizar_lista(card):
     selos = f"{card.get('discountText') or ''} {card.get('badgeMessage') or ''}"
     if re.search(r"black\s*friday", selos, re.I):
         oferta["blackFriday"] = True
+    # "Oferta exclusiva Prime", "Exclusivo Prime", "Oferta Prime Day"...
+    if re.search(r"exclusiv\w*\s+(?:para\s+)?(?:membros\s+)?prime|prime\s+exclusiv|"
+                 r"oferta\s+prime\b|prime\s+day", selos, re.I):
+        oferta["exclusivoPrime"] = True
     return oferta
 
 

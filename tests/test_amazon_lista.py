@@ -61,6 +61,14 @@ class AmazonListaTest(unittest.TestCase):
         self.assertTrue(ofertas["amazon_B0F9Z2DV83"].get("blackFriday"))
         self.assertNotIn("blackFriday", ofertas["amazon_B0DPNHDC9B"])
 
+    def test_selo_exclusivo_prime_marca_a_oferta(self):
+        html = HTML.replace("Menor preço em 365 dias", "Oferta exclusiva Prime")
+        a, b, c, d = self._config()
+        with a, b, c, d, patch.object(amazon, "_baixar_lista", return_value=html):
+            ofertas = {o["oferta_id"]: o for o in amazon.buscar_ofertas()}
+        self.assertTrue(ofertas["amazon_B0F9Z2DV83"].get("exclusivoPrime"))
+        self.assertNotIn("exclusivoPrime", ofertas["amazon_B0DPNHDC9B"])
+
     def test_segue_as_paginas_do_carregar_mais(self):
         inicio = HTML.split("</a>")[0] + "</a>" + (
             '<script type="a-state" data-a-state="{&quot;key&quot;:&quot;listScrollState&quot;}">'

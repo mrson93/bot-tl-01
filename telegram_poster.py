@@ -57,6 +57,26 @@ def linha_black_friday(oferta: dict) -> str:
     return f"🖤 Oferta Black Friday da {nome_plataforma(oferta)}"
 
 
+def link_teste_prime(oferta: dict) -> str:
+    """Link afiliado do teste grátis do Prime, só em oferta exclusiva Prime."""
+    if not oferta.get("exclusivoPrime") or not config.AMAZON_PRIME_TESTE_URL:
+        return ""
+    try:
+        return seguranca.validar_url_https_publica(
+            config.AMAZON_PRIME_TESTE_URL, "Link do teste Prime")
+    except ValueError:
+        return ""
+
+
+def linha_prime(oferta: dict) -> str:
+    """Aviso em texto puro, com o link do teste quando houver."""
+    if not oferta.get("exclusivoPrime"):
+        return ""
+    link = link_teste_prime(oferta)
+    aviso = "👑 Exclusivo para membros Prime"
+    return f"{aviso} · Teste o Prime grátis: {link}" if link else aviso
+
+
 def chamada_inicial(oferta: dict) -> str:
     """Usa a mesma abertura editorial em todas as redes sociais."""
     # O selo da loja vale mais que a frase editorial e abre o post.
@@ -247,6 +267,11 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     prazo = linha_prazo(oferta)
     if prazo:
         linhas.append(f"<b>{prazo}</b>")
+    if oferta.get("exclusivoPrime"):
+        link_prime = link_teste_prime(oferta)
+        linhas.append("<b>👑 Exclusivo para membros Prime</b>" + (
+            f' · <a href="{html.escape(link_prime, quote=True)}">Teste o Prime grátis</a>'
+            if link_prime else ""))
 
     # linha de reputacao
     reput = []

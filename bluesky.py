@@ -235,7 +235,9 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     linha_preco_base = linha_preco
     historico = fmt.linha_historico(oferta)
     prazo = fmt.linha_prazo(oferta)
-    extras = "\n".join(parte for parte in (prazo, historico) if parte)
+    # Sem o link do teste: o Bluesky só torna clicável o link da oferta.
+    prime = "👑 Exclusivo para membros Prime" if oferta.get("exclusivoPrime") else ""
+    extras = "\n".join(parte for parte in (prazo, prime, historico) if parte)
     if extras:
         linha_preco = f"{linha_preco}\n{extras}" if linha_preco else extras
     texto = montar(titulo)
