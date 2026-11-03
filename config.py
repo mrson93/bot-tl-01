@@ -312,6 +312,9 @@ MAX_POSTS_PER_RUN = _int("MAX_POSTS_PER_RUN", 3)
 MAX_POSTS_PER_RUN_FORA_PICO = _int("MAX_POSTS_PER_RUN_FORA_PICO", 0)
 # Um cupom oficial ativo deve passar na frente da fila normal na próxima rodada.
 CUPOM_PRIORIDADE_BONUS = _float("CUPOM_PRIORIDADE_BONUS", 1000)
+# Produto com selo "Oferta Black Friday" na Amazon passa à frente das demais
+# ofertas, mas abaixo de cupom oficial (que costuma acabar antes).
+BLACK_FRIDAY_BONUS = _float("BLACK_FRIDAY_BONUS", 500)
 # Um alerta de cupom e uma mensagem separada da oferta. So e criado quando a
 # propria API devolve codigo E pagina de resgate; assim nao propagamos cupons
 # copiados, vencidos ou sem destino verificavel.

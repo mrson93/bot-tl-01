@@ -13,6 +13,7 @@
     oferta: /^\s*Oferta\b(?!s)/i,
     menorPreco: /^\s*Menor preço\b/i,
     prazo: /^\s*(Termina em|Oferta Relâmpago)\b/i,
+    blackFriday: /\bBlack\s*Friday\b/i,
   };
   const DESCONTO = /(?:^|\s|-)(\d{1,2})\s*%(?:\s*off)?\s*$/i;
   const ESCONDIDO = "tb-sem-oferta";

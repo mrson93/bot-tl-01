@@ -43,3 +43,7 @@ CREATE TABLE IF NOT EXISTS alert_subscriptions (chat_id TEXT NOT NULL,keyword TE
 CREATE TABLE IF NOT EXISTS alert_deliveries (chat_id TEXT NOT NULL,offer_id TEXT NOT NULL,sent_at INTEGER NOT NULL,PRIMARY KEY (chat_id,offer_id));
 CREATE INDEX IF NOT EXISTS idx_alert_deliveries_sent ON alert_deliveries(chat_id,sent_at);
 CREATE TABLE IF NOT EXISTS amazon_list_pages (list_id TEXT NOT NULL,idx INTEGER NOT NULL,html TEXT NOT NULL,captured_at INTEGER NOT NULL,PRIMARY KEY (list_id,idx));
+CREATE INDEX IF NOT EXISTS idx_clicks_offer_time ON clicks(offer_id,clicked_at);
+CREATE INDEX IF NOT EXISTS idx_offers_category_discount ON offers(category,discount DESC);
+CREATE INDEX IF NOT EXISTS idx_offers_category_checked ON offers(category,COALESCE(last_checked_at,published_at) DESC);
+CREATE INDEX IF NOT EXISTS idx_offers_shop_checked ON offers(shop,COALESCE(last_checked_at,published_at) DESC);

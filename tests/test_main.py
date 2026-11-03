@@ -748,6 +748,14 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "peso_loja", return_value=1.2):
             self.assertEqual(60, main.pontuacao(oferta))
 
+    def test_black_friday_da_amazon_passa_a_frente(self):
+        comum = {"fonte": "Amazon", "oferta_id": "a", "priceDiscountRate": 60, "comissao": 0}
+        black = {"fonte": "Amazon", "oferta_id": "b", "priceDiscountRate": 20, "comissao": 0,
+                 "blackFriday": True}
+        with patch.object(main.store, "multiplicador_desempenho", return_value=1), \
+             patch.object(main.config, "peso_loja", return_value=1):
+            self.assertGreater(main.pontuacao(black), main.pontuacao(comum))
+
     def test_fonte_desativada_nao_entra_na_consulta(self):
         with patch.object(main.shopee, "esta_configurada", return_value=True), \
              patch.object(main.aliexpress, "esta_configurada", return_value=True), \

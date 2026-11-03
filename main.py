@@ -862,6 +862,8 @@ def pontuacao(oferta: dict) -> float:
     # acabar antes da próxima rodada; entram no topo sem ignorar filtros.
     if str(oferta.get("cupom") or "").strip():
         nota += config.CUPOM_PRIORIDADE_BONUS
+    if oferta.get("blackFriday"):
+        nota += config.BLACK_FRIDAY_BONUS
     return nota
 
 

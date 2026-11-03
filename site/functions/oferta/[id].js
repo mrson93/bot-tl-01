@@ -11,7 +11,7 @@ export async function onRequestGet({params,env}) {
   const since30d=Math.floor(Date.now()/1000)-30*86400;
   const [pricesResult,relatedResult]=await env.DB.batch([
     env.DB.prepare('SELECT price,observed_at FROM (SELECT price,observed_at FROM offer_prices WHERE offer_id=? AND observed_at>=? ORDER BY observed_at DESC LIMIT 30) recent ORDER BY observed_at ASC').bind(id,since30d),
-    env.DB.prepare(`SELECT id,title,price,original_price,discount,rating,sales,shop,image_url,source,category,published_at,cataloged_at,last_checked_at,availability,coupon_code,coupon_condition,coupon_expires_at,payment_label FROM offers WHERE id!=? AND availability!='unavailable'${relatedFilter} ORDER BY discount DESC,COALESCE(last_checked_at,published_at) DESC LIMIT 3`).bind(...relatedValues),
+    env.DB.prepare(`SELECT id,title,price,original_price,discount,rating,sales,shop,image_url,source,category,published_at,cataloged_at,last_checked_at,availability,coupon_code,coupon_condition,coupon_expires_at,payment_label FROM offers WHERE id!=? AND availability!='unavailable'${relatedFilter} ORDER BY discount DESC LIMIT 3`).bind(...relatedValues),
   ]);
   const canonical=`${SITE}${offerPath(offer)}`,productName=shorten(offer.title,180),sourceName=shorten(offer.source||'loja parceira',30),title=shorten(`${productName} por ${money(offer.price)} | Tá Barato`,65),description=shorten(`${productName} por ${money(offer.price)}${offer.discount?` com ${Math.round(offer.discount)}% de desconto`:''} na ${sourceName}. Confira preço e condições.`,155);
   const checked=new Date(Number(offer.last_checked_at||offer.published_at)*1000),checkedText=checked.toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'});

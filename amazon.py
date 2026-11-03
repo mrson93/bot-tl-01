@@ -165,6 +165,10 @@ def _normalizar_lista(card):
     selo = re.search(r"Menor preço em (\d+) dias", card.get("badgeMessage") or "", re.I)
     if selo:
         oferta["menorPrecoLojaDias"] = int(selo.group(1))
+    # Selo "Oferta Black Friday" da Amazon: o bot publica esses primeiro.
+    selos = f"{card.get('discountText') or ''} {card.get('badgeMessage') or ''}"
+    if re.search(r"black\s*friday", selos, re.I):
+        oferta["blackFriday"] = True
     return oferta
 
 

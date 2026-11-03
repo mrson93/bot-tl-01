@@ -9,13 +9,26 @@ const CONFIG={
     description:name=>`Produtos da ${name} com preço atualizado, desconto e condições para comparar.`}
 };
 
+// A lista de lojas e categorias muda pouco; relê-la a cada visita lia a tabela
+// inteira de ofertas. Fica guardada na memória do isolate por 10 minutos.
+const VALUES_TTL_MS=10*60*1000;
+const valuesMemo=new Map();
+
+async function collectionValues(env,column) {
+  const memo=valuesMemo.get(column);
+  if(memo&&memo.expires>Date.now()) return memo.rows;
+  const result=await env.DB.prepare(
+    `SELECT DISTINCT ${column} value FROM offers WHERE availability!='unavailable' AND ${column} IS NOT NULL AND TRIM(${column})!=''`
+  ).all();
+  const rows=result.results||[];
+  valuesMemo.set(column,{rows,expires:Date.now()+VALUES_TTL_MS});
+  return rows;
+}
+
 export async function collectionPage(env,kind,requestedSlug) {
   const config=CONFIG[kind];
   if(!config) return notFound();
-  const values=await env.DB.prepare(
-    `SELECT DISTINCT ${config.column} value FROM offers WHERE availability!='unavailable' AND ${config.column} IS NOT NULL AND TRIM(${config.column})!=''`
-  ).all();
-  const selected=(values.results||[]).find(row=>slugify(row.value)===requestedSlug);
+  const selected=(await collectionValues(env,config.column)).find(row=>slugify(row.value)===requestedSlug);
   if(!selected) return notFound(kind==='category'?'Categoria não encontrada':'Loja não encontrada');
 
   const clickSince=Math.floor(Date.now()/1000)-86400;
