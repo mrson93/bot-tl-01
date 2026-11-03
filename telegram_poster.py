@@ -425,21 +425,6 @@ _BENEFICIOS_AMAZON_PRIME = (
     "• Ofertas exclusivas para membros Prime"
 )
 
-_MENSAGENS_MELI_MAIS = (
-    ("📦 <b>CONHEÇA O MELI+</b>\n\n"
-     "A assinatura do Mercado Livre junta frete grátis e entretenimento. "
-     "Veja os planos e confira o que vale para a sua conta."),
-    ("🛒 <b>VOCÊ JÁ VIU O MELI+?</b>\n\n"
-     "Quem compra com frequência no Mercado Livre pode encontrar vantagens "
-     "extras. Confira os planos diretamente no Mercado Livre."),
-)
-
-_BENEFICIOS_MELI_MAIS = (
-    "🎁 <b>Benefícios informados pelo Mercado Livre:</b>\n"
-    "• Frete grátis em compras elegíveis\n"
-    "• Streaming e entretenimento, conforme o plano"
-)
-
 _AVISO_ASSINATURA = ("<i>Confira se o período grátis aparece para a sua conta. "
                      "Preço, benefícios, elegibilidade e disponibilidade podem "
                      "mudar; confirme tudo antes de assinar.</i>")
@@ -447,7 +432,7 @@ _AVISO_ASSINATURA = ("<i>Confira se o período grátis aparece para a sua conta.
 
 def postar_assinatura(link_afiliado: str, mensagens, beneficios, botao,
                       nome: str, variante=0) -> None:
-    """Divulga uma assinatura (Shopee VIP, Prime, Meli+) com texto cauteloso."""
+    """Divulga uma assinatura (Shopee VIP, Prime) com texto cauteloso."""
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, f"Link do {nome}"
     )
@@ -492,11 +477,6 @@ def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
         link_afiliado, _MENSAGENS_AMAZON_PRIME,
         "🆓 <b>Para contas elegíveis:</b> teste grátis\n\n" + _BENEFICIOS_AMAZON_PRIME,
         "🎬 Testar o Prime grátis", "Amazon Prime", variante)
-
-
-def postar_meli_mais(link_afiliado: str, variante=0) -> None:
-    postar_assinatura(link_afiliado, _MENSAGENS_MELI_MAIS, _BENEFICIOS_MELI_MAIS,
-                      "📦 Conhecer o Meli+", "Meli+", variante)
 
 
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:

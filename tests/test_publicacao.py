@@ -65,21 +65,16 @@ class Redirecionamento:
 
 
 class PublicacaoTest(unittest.TestCase):
-    def test_prime_e_meli_mais_usam_texto_cauteloso_e_botao(self):
+    def test_prime_usa_texto_cauteloso_e_botao(self):
         with patch.object(telegram_poster.config, "TELEGRAM_CHANNEL", "@canal"), \
              patch.object(telegram_poster.requests, "post",
                           return_value=Resposta({"ok": True})) as postar:
             telegram_poster.postar_amazon_prime("https://amzn.to/3UNB0OD", 0)
             prime = postar.call_args.kwargs["json"]
-            telegram_poster.postar_meli_mais("https://meli.la/abc", 1)
-            meli = postar.call_args.kwargs["json"]
         self.assertIn("Prime Video", prime["text"])
         self.assertIn("elegibilidade", prime["text"])
         self.assertEqual("https://amzn.to/3UNB0OD",
                          prime["reply_markup"]["inline_keyboard"][0][0]["url"])
-        self.assertIn("Mercado Livre", meli["text"])
-        self.assertEqual("📦 Conhecer o Meli+",
-                         meli["reply_markup"]["inline_keyboard"][0][0]["text"])
 
     def test_shopee_vip_usa_texto_cauteloso_e_botao_rastreavel(self):
         with patch.object(telegram_poster.config, "TELEGRAM_CHANNEL", "@canal"), \

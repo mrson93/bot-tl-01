@@ -225,18 +225,6 @@ export const SETTINGS = Object.freeze({
     category: "campanhas", label: "Horas do Amazon Prime", type: "hours", default: "12,13,20,21",
     hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
   },
-  MELI_MAIS_ATIVO: {
-    category: "campanhas", label: "Divulgação Meli+", type: "boolean", default: "true",
-    hint: "Só publica depois que o link afiliado do Meli+ for cadastrado no GitHub (MELI_MAIS_URL).",
-  },
-  MELI_MAIS_DIAS: {
-    category: "campanhas", label: "Dias do Meli+", type: "weekdays", default: "3,6",
-    hint: "Use números de 0 a 6: 0 segunda, 1 terça, 2 quarta, 3 quinta, 4 sexta, 5 sábado e 6 domingo.",
-  },
-  MELI_MAIS_HORAS: {
-    category: "campanhas", label: "Horas do Meli+", type: "hours", default: "12,13,20,21",
-    hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
-  },
 
   PESO_COMISSAO: {
     category: "selecao", label: "Peso da comissão", type: "float", default: "1", min: 0, max: 3,

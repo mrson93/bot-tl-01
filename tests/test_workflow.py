@@ -63,7 +63,7 @@ class WorkflowTest(unittest.TestCase):
         workflow = Path(".github/workflows/bot.yml").read_text(encoding="utf-8")
         self.assertIn("campanha:", workflow)
         self.assertIn("inputs.campanha != ''", workflow)
-        self.assertIn('["shopee_vip","amazon_prime","meli_mais"]', workflow)
+        self.assertIn('["shopee_vip","amazon_prime"]', workflow)
         # O nome da campanha passa por variável de ambiente, nunca colado no comando.
         self.assertIn('python main.py --campanha "$CAMPANHA"', workflow)
         self.assertIn("CAMPANHA: ${{ inputs.campanha }}", workflow)

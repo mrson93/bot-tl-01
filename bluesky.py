@@ -418,14 +418,6 @@ def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
         "✓ Ofertas exclusivas para membros", link_afiliado, "Amazon Prime")
 
 
-def postar_meli_mais(link_afiliado: str, variante=0) -> None:
-    del variante
-    postar_assinatura(
-        "📦 MELI+ (MERCADO LIVRE)\n\n"
-        "✓ Frete grátis em compras elegíveis\n"
-        "✓ Streaming e entretenimento, conforme o plano", link_afiliado, "Meli+")
-
-
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Publica alerta de cupom sem imagem, mantendo o link clicavel."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")

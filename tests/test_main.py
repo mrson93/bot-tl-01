@@ -344,38 +344,24 @@ class MainTest(unittest.TestCase):
         self.assertEqual("Bluesky", marcar.call_args_list[1].args[2])
         self.assertEqual("shopee_vip_noite", marcar.call_args_list[2].args[1])
 
-    def test_prime_e_meli_mais_usam_seus_dias_links_e_campanhas(self):
+    def test_prime_usa_seus_dias_link_e_campanha(self):
         terca = datetime(2026, 11, 3, 12, 15, tzinfo=main.FUSO_BRASILIA)
         quinta = datetime(2026, 11, 5, 20, 15, tzinfo=main.FUSO_BRASILIA)
         with patch.object(main.config, "AMAZON_PRIME_ATIVO", True), \
              patch.object(main.config, "AMAZON_PRIME_TESTE_URL", "https://amzn.to/3UNB0OD"), \
              patch.object(main.config, "AMAZON_PRIME_DIAS", [1]), \
              patch.object(main.config, "AMAZON_PRIME_HORAS", [12]), \
-             patch.object(main.config, "MELI_MAIS_ATIVO", True), \
-             patch.object(main.config, "MELI_MAIS_URL", "https://meli.la/abc"), \
-             patch.object(main.config, "MELI_MAIS_DIAS", [3]), \
-             patch.object(main.config, "MELI_MAIS_HORAS", [20]), \
              patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
              patch.object(main.bluesky, "esta_configurada", return_value=False), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
              patch.object(main.store, "campanha_enviada", return_value=False), \
              patch.object(main.store, "marcar_campanha_enviada") as marcar, \
-             patch.object(main.telegram_poster, "postar_amazon_prime") as prime, \
-             patch.object(main.telegram_poster, "postar_meli_mais") as meli:
+             patch.object(main.telegram_poster, "postar_amazon_prime") as prime:
             self.assertTrue(main.publicar_assinatura_se_preciso("amazon_prime", terca))
-            self.assertFalse(main.publicar_assinatura_se_preciso("meli_mais", terca))
-            self.assertTrue(main.publicar_assinatura_se_preciso("meli_mais", quinta))
+            self.assertFalse(main.publicar_assinatura_se_preciso("amazon_prime", quinta))
+        prime.assert_called_once()
         self.assertEqual("https://amzn.to/3UNB0OD", prime.call_args.args[0])
-        self.assertEqual("https://meli.la/abc", meli.call_args.args[0])
-        self.assertEqual("amazon_prime_manha", marcar.call_args_list[0].args[1])
-        self.assertEqual("meli_mais_noite", marcar.call_args_list[1].args[1])
-
-    def test_meli_mais_sem_link_cadastrado_nao_publica(self):
-        with patch.object(main.config, "MELI_MAIS_URL", ""), \
-             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
-             patch.object(main.telegram_poster, "postar_meli_mais") as meli:
-            self.assertFalse(main.publicar_assinatura_se_preciso("meli_mais", forcar=True))
-        meli.assert_not_called()
+        marcar.assert_called_once_with("2026-11-03", "amazon_prime_manha", "Telegram")
 
     def test_shopee_vip_espera_quando_ha_alerta_urgente_de_cupom(self):
         momento = datetime(2026, 9, 7, 19, 15, tzinfo=main.FUSO_BRASILIA)

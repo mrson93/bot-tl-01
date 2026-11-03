@@ -236,7 +236,7 @@ def publicar_loja(fonte):
 
 
 def publicar_assinatura(nome, link_afiliado, hosts):
-    """Mantém no site o atalho rastreável de uma assinatura (VIP, Prime, Meli+)."""
+    """Mantém no site o atalho rastreável de uma assinatura (VIP, Prime)."""
     destino = seguranca.validar_url_https_em_hosts(
         link_afiliado, hosts, f"Link do {nome}"
     )

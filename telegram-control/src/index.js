@@ -50,11 +50,6 @@ const CAMPAIGNS = Object.freeze({
     emoji: "🎬",
     activeSetting: "AMAZON_PRIME_ATIVO",
   },
-  meli_mais: {
-    label: "Meli+",
-    emoji: "📦",
-    activeSetting: "MELI_MAIS_ATIVO",
-  },
 });
 
 function textResponse(text, status = 200) {

@@ -116,10 +116,6 @@ jobs:
       AMAZON_PRIME_ATIVO: ${{ vars.AMAZON_PRIME_ATIVO || 'true' }}
       AMAZON_PRIME_DIAS: ${{ vars.AMAZON_PRIME_DIAS || '1,4' }}
       AMAZON_PRIME_HORAS: ${{ vars.AMAZON_PRIME_HORAS || '12,13,20,21' }}
-      MELI_MAIS_URL: ${{ vars.MELI_MAIS_URL }}
-      MELI_MAIS_ATIVO: ${{ vars.MELI_MAIS_ATIVO || 'true' }}
-      MELI_MAIS_DIAS: ${{ vars.MELI_MAIS_DIAS || '3,6' }}
-      MELI_MAIS_HORAS: ${{ vars.MELI_MAIS_HORAS || '12,13,20,21' }}
       ALIEXPRESS_TRACKING_ID: default
       ALIEXPRESS_SITE_TRACKING_ID: ${{ vars.ALIEXPRESS_SITE_TRACKING_ID }}
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui
@@ -255,8 +251,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && inputs.teste_facebook == true && inputs.somente_pendentes != true
         run: python main.py --teste-facebook-real
 
-      - name: Publicar campanha de assinatura (Shopee VIP, Amazon Prime, Meli+)
-        if: github.ref == 'refs/heads/main' && contains(fromJSON('["shopee_vip","amazon_prime","meli_mais"]'), inputs.campanha) && inputs.somente_pendentes != true
+      - name: Publicar campanha de assinatura (Shopee VIP, Amazon Prime)
+        if: github.ref == 'refs/heads/main' && contains(fromJSON('["shopee_vip","amazon_prime"]'), inputs.campanha) && inputs.somente_pendentes != true
         run: python main.py --campanha "$CAMPANHA"
         env:
           CAMPANHA: ${{ inputs.campanha }}
@@ -266,7 +262,7 @@ jobs:
         run: python main.py --campanha mercadolivre_mais_vendido
 
       - name: Recusar campanha desconhecida
-        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","meli_mais","mercadolivre_mais_vendido"]'), inputs.campanha)
+        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","mercadolivre_mais_vendido"]'), inputs.campanha)
         run: exit 1
 
       - name: Enviar somente o relatorio privado

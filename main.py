@@ -125,13 +125,6 @@ ASSINATURAS = {
         "dias": "AMAZON_PRIME_DIAS", "horas": "AMAZON_PRIME_HORAS",
         "postar": "postar_amazon_prime", "emoji": "🎬",
     },
-    "meli_mais": {
-        "nome": "Meli+", "slug": "meli-mais",
-        "hosts": ("meli.la", "mercadolivre.com.br"),
-        "url": "MELI_MAIS_URL", "ativo": "MELI_MAIS_ATIVO",
-        "dias": "MELI_MAIS_DIAS", "horas": "MELI_MAIS_HORAS",
-        "postar": "postar_meli_mais", "emoji": "📦",
-    },
 }
 
 
@@ -284,7 +277,6 @@ def executar_campanha(nome):
     campanhas = {
         "shopee_vip": lambda: publicar_shopee_vip_se_preciso(forcar=True),
         "amazon_prime": lambda: publicar_assinatura_se_preciso("amazon_prime", forcar=True),
-        "meli_mais": lambda: publicar_assinatura_se_preciso("meli_mais", forcar=True),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
     }
     executar = campanhas.get(str(nome or "").strip().lower())

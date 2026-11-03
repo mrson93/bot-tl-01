@@ -4,7 +4,6 @@ const STORES={
   Shopee:{slug:'shopee',name:'Shopee'},
   'Shopee VIP':{slug:'shopee-vip',name:'Shopee VIP'},
   'Amazon Prime':{slug:'amazon-prime',name:'Amazon Prime'},
-  'Meli+':{slug:'meli-mais',name:'Meli+'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
 };

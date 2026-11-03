@@ -136,17 +136,12 @@ def _horas(nome, padrao):
             if x.strip().isdigit() and 0 <= int(x) <= 23]
 
 
-# Mesma campanha recorrente para as assinaturas da Amazon (Prime) e do Mercado
-# Livre (Meli+), em dias diferentes do Shopee VIP para não repetir no mesmo dia.
-# O link do Prime é o mesmo usado nas ofertas exclusivas Prime.
+# Mesma campanha recorrente para a assinatura da Amazon (Prime), em dias
+# diferentes do Shopee VIP para não repetir no mesmo dia. O link do Prime é o
+# mesmo usado nas ofertas exclusivas Prime.
 AMAZON_PRIME_ATIVO = _bool("AMAZON_PRIME_ATIVO", True)
 AMAZON_PRIME_DIAS = _dias("AMAZON_PRIME_DIAS", "1,4")
 AMAZON_PRIME_HORAS = _horas("AMAZON_PRIME_HORAS", "12,13,20,21")
-# Link afiliado do Meli+ gerado no painel de afiliados do Mercado Livre (meli.la).
-MELI_MAIS_URL = _get("MELI_MAIS_URL")
-MELI_MAIS_ATIVO = _bool("MELI_MAIS_ATIVO", True)
-MELI_MAIS_DIAS = _dias("MELI_MAIS_DIAS", "3,6")
-MELI_MAIS_HORAS = _horas("MELI_MAIS_HORAS", "12,13,20,21")
 
 # --- AliExpress (API de afiliado) ---
 ALIEXPRESS_APP_KEY = _get("ALIEXPRESS_APP_KEY")
