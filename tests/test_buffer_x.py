@@ -63,6 +63,24 @@ class BufferXTest(unittest.TestCase):
         texto = buffer_x.montar_texto(oferta, "https://go.canaltabarato.com.br/abc")
         self.assertLessEqual(buffer_x._comprimento_x(texto), 280)
 
+    def test_selo_black_friday_abre_o_post_em_todas_as_redes(self):
+        import facebook
+        import telegram_poster
+        oferta = {
+            "fonte": "Amazon", "blackFriday": True,
+            "productName": "Robô Aspirador WAP " * 8, "price": 509.90,
+            "precoOriginal": 1199.90, "shopName": "WAP",
+        }
+        link = "https://go.canaltabarato.com.br/abc"
+        selo = "🖤 Oferta Black Friday da Amazon"
+        texto_x = buffer_x.montar_texto(oferta, link)
+        self.assertTrue(texto_x.startswith(selo))
+        self.assertLessEqual(buffer_x._comprimento_x(texto_x), 280)
+        self.assertTrue(telegram_poster.montar_legenda(oferta, link).startswith(selo))
+        self.assertIn(selo, facebook.montar_texto(oferta, link))
+        sem_selo = dict(oferta, blackFriday=False)
+        self.assertNotIn("Black Friday", buffer_x.montar_texto(sem_selo, link))
+
     def test_link_oficial_longo_conta_como_tco_sem_perder_atribuicao(self):
         oferta = {
             "fonte": "Mercado Livre", "productName": "Produto " * 100,

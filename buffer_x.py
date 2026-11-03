@@ -110,12 +110,13 @@ def montar_texto(oferta: dict, link_afiliado: str) -> str:
         reputacao.append(f"🏬 {str(oferta['shopName']).strip()}")
     rodape = (f"🛒 {fmt.rotulo_publicidade(oferta)} · "
               f"{fmt.chamada_compra(oferta)}:\n\n{link}")
+    selo = fmt.linha_black_friday(oferta)
     titulo = fmt.limpar_titulo(oferta.get("productName") or "Oferta", 0)
     titulo = re.sub(r"(?:\.{3,}|…)+$", "", titulo).rstrip() or "Oferta"
 
     def montar(titulo_atual):
         return "\n\n".join(parte for parte in (
-            titulo_atual, linha_preco, " · ".join(reputacao),
+            selo, titulo_atual, linha_preco, " · ".join(reputacao),
             "\n".join(parte for parte in (linha_cupom, linha_condicao) if parte),
             rodape,
         ) if parte)

@@ -50,8 +50,19 @@ def abertura(desconto: float) -> str:
     return ""
 
 
+def linha_black_friday(oferta: dict) -> str:
+    """Selo "Oferta Black Friday" que a própria Amazon mostra no produto."""
+    if not oferta.get("blackFriday"):
+        return ""
+    return f"🖤 Oferta Black Friday da {nome_plataforma(oferta)}"
+
+
 def chamada_inicial(oferta: dict) -> str:
     """Usa a mesma abertura editorial em todas as redes sociais."""
+    # O selo da loja vale mais que a frase editorial e abre o post.
+    selo = linha_black_friday(oferta)
+    if selo:
+        return selo
     return (desempenho.chamada_humana(oferta)
             if config.CHAMADAS_HUMANAS_ATIVAS
             and experimentos.usa_chamada_humana(oferta) else "")
