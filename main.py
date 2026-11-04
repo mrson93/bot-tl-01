@@ -1017,7 +1017,10 @@ def buscar_candidatos(fonte) -> list:
         oid = oferta["oferta_id"]
         preco = float(oferta.get("price") or 0)
         curada = bool(oferta.get("curadoriaManual")) and fonte.NOME in {"Amazon", "Mercado Livre"}
-        motivo = (None if curada and store.ja_postada(oid) else
+        # Item da lista curada sai uma vez só; com selo Black Friday ele volta
+        # pela regra normal (intervalo de dias ou queda de preço).
+        uma_vez = curada and not oferta.get("blackFriday")
+        motivo = (None if uma_vez and store.ja_postada(oid) else
                   store.avaliar_elegibilidade(oid, preco,
                       config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))
         # Uma entrega que falhou continua elegivel mesmo durante o cooldown.
@@ -1035,8 +1038,10 @@ def buscar_candidatos(fonte) -> list:
     ) or "nenhuma rejeicao"
     com_cupom = sum(bool(str(o.get("cupom") or "").strip()) for o in ofertas)
     com_prazo = sum(1 for o in ofertas if segundos_restantes(o))
+    black_friday = sum(1 for o in candidatos if o.get("blackFriday"))
     print(f"   Diagnostico {fonte.NOME}: elegiveis={len(candidatos)}; {detalhes}; "
-          f"com_cupom_na_api={com_cupom}; com_prazo={com_prazo}.")
+          f"com_cupom_na_api={com_cupom}; com_prazo={com_prazo}; "
+          f"black_friday={black_friday}.")
     observabilidade.evento("ofertas_elegiveis", fonte=fonte.NOME,
                             quantidade=len(candidatos))
     for motivo, total in rejeicoes.items():
@@ -1306,10 +1311,19 @@ def _publicar_fila(fila, limite):
         # haveria outra chance de publicá-la.
         urgentes = [(i, o) for i, o in elegiveis
                     if (segundos_restantes(o) or URGENTE_SEGUNDOS + 1) <= URGENTE_SEGUNDOS]
+        # Selo "Oferta Black Friday" também fura a divisão, até a loja ocupar
+        # BLACK_FRIDAY_MAX_PERCENTUAL da janela, para o canal não virar uma loja só.
+        total_janela = sum(fontes_hoje.get(f, 0) for f in fontes_disponiveis)
+        black_friday = [
+            (i, o) for i, o in elegiveis if o.get("blackFriday")
+            and 100 * (fontes_hoje.get(o.get("fonte"), 0) + 1) / (total_janela + 1)
+            <= config.BLACK_FRIDAY_MAX_PERCENTUAL
+        ]
         if urgentes:
             indice, _ = min(urgentes, key=lambda par: segundos_restantes(par[1]))
+        elif black_friday:
+            indice = black_friday[0][0]
         elif soma_pesos:
-            total_janela = sum(fontes_hoje.get(f, 0) for f in fontes_disponiveis)
             def deficit(par):
                 _, oferta = par
                 fonte = oferta.get("fonte")

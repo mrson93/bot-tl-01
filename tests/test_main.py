@@ -29,6 +29,33 @@ class MainTest(unittest.TestCase):
                     unittest.mock.Mock(NOME="Telegram"), unittest.mock.Mock(NOME="Facebook")]):
                 self.assertEqual(1, len(main.buscar_candidatos(Fonte)))
 
+    def test_item_curado_com_selo_black_friday_volta_pela_regra_normal(self):
+        import tempfile
+        import time as _time
+        from pathlib import Path
+        oferta = {"oferta_id": "amazon_B0F9Z2DV83", "fonte": "Amazon",
+                  "productName": "Robô aspirador", "price": 500,
+                  "priceDiscountRate": 50, "curadoriaManual": True, "blackFriday": True}
+        class Fonte:
+            NOME = "Amazon"
+            @staticmethod
+            def buscar_ofertas():
+                return [dict(oferta)]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[
+                 unittest.mock.Mock(NOME="Telegram")]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "avisar_estoque_lista"):
+            antigo = _time.time() - 10 * 86400
+            main.store.marcar_postada(oferta["oferta_id"], 500, 50, "Amazon", agora=antigo)
+            main.store.registrar_entrega(oferta["oferta_id"], "Telegram", True, 500, "Amazon")
+            # Publicado há 10 dias: com o selo, pode sair de novo.
+            self.assertEqual(1, len(main.buscar_candidatos(Fonte)))
+            main.store.marcar_postada(oferta["oferta_id"], 500, 50, "Amazon")
+            # Publicado agora: respeita o intervalo antes de repetir.
+            self.assertEqual([], main.buscar_candidatos(Fonte))
+
     def test_cota_da_tarde_pausa_rodada_sem_bloquear_outros_turnos(self):
         with patch.object(main.turnos, "janela", return_value=("tarde", 100, 200)), \
              patch.object(main.store, "posts_entre", return_value=20), \
@@ -98,6 +125,30 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "percentual_loja", side_effect=lambda f: 90 if f == "Shopee" else 10):
             self.assertEqual(1, main._publicar_fila(fila, 1))
         self.assertEqual("a1", publicar.call_args.args[1]["oferta_id"])
+
+    def test_black_friday_fura_divisao_ate_o_teto_da_loja(self):
+        shopee = type("Fonte", (), {"NOME": "Shopee"})()
+        amazon = type("Fonte", (), {"NOME": "Amazon"})()
+        fila = [
+            {"_fonte_obj": shopee, "fonte": "Shopee", "oferta_id": "s1", "productName": "Panela", "categoria": "cozinha"},
+            {"_fonte_obj": amazon, "fonte": "Amazon", "oferta_id": "a1", "productName": "Fone",
+             "categoria": "eletronicos", "blackFriday": True},
+        ]
+        def rodar(posts_amazon):
+            with patch.object(main.store, "posts_por_fonte_desde",
+                              return_value={"Amazon": posts_amazon, "Shopee": 60}), \
+                 patch.object(main.store, "posts_por_loja_hoje", return_value={}), \
+                 patch.object(main.store, "marcar_postada"), \
+                 patch.object(main.config, "BLACK_FRIDAY_MAX_PERCENTUAL", 50), \
+                 patch.object(main, "publicar", return_value=1) as publicar, \
+                 patch.object(main.config, "percentual_loja",
+                              side_effect=lambda f: 90 if f == "Shopee" else 10):
+                main._publicar_fila([dict(o) for o in fila], 1)
+            return publicar.call_args.args[1]["oferta_id"]
+        # Amazon com 30 de 90 posts (33%): o selo passa à frente da meta de 10%.
+        self.assertEqual("a1", rodar(30))
+        # Amazon já com 60 de 120 posts (50%): volta a valer a divisão.
+        self.assertEqual("s1", rodar(60))
 
     def test_lista_curada_prioriza_desconto_e_prazo_oficial(self):
         fonte = type("Fonte", (), {"NOME": "Mercado Livre"})()

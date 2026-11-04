@@ -338,6 +338,9 @@ CUPOM_PRIORIDADE_BONUS = _float("CUPOM_PRIORIDADE_BONUS", 1000)
 # Produto com selo "Oferta Black Friday" na Amazon passa à frente das demais
 # ofertas, mas abaixo de cupom oficial (que costuma acabar antes).
 BLACK_FRIDAY_BONUS = _float("BLACK_FRIDAY_BONUS", 500)
+# Com selo Black Friday, a loja pode passar da sua meta de divisão até esta
+# fatia dos posts da janela de equilíbrio (0 desliga o atalho).
+BLACK_FRIDAY_MAX_PERCENTUAL = max(0.0, min(100.0, _float("BLACK_FRIDAY_MAX_PERCENTUAL", 50)))
 # Um alerta de cupom e uma mensagem separada da oferta. So e criado quando a
 # propria API devolve codigo E pagina de resgate; assim nao propagamos cupons
 # copiados, vencidos ou sem destino verificavel.

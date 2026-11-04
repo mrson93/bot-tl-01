@@ -132,6 +132,7 @@ jobs:
       AMAZON_MARKETPLACE: "www.amazon.com.br"
       AMAZON_ATIVA: ${{ vars.AMAZON_ATIVA || 'false' }}
       PERCENTUAL_AMAZON: ${{ vars.PERCENTUAL_AMAZON || '25' }}
+      BLACK_FRIDAY_MAX_PERCENTUAL: ${{ vars.BLACK_FRIDAY_MAX_PERCENTUAL || '50' }}
       PESO_AMAZON: ${{ vars.PESO_AMAZON || '1' }}
       AMAZON_PAGES: ${{ vars.AMAZON_PAGES || '3' }}
       MERCADOLIVRE_LIST_URL: ${{ vars.MERCADOLIVRE_LIST_URL }}
