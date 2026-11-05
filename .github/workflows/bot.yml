@@ -117,6 +117,9 @@ jobs:
       AMAZON_PRIME_ATIVO: ${{ vars.AMAZON_PRIME_ATIVO || 'true' }}
       AMAZON_PRIME_DIAS: ${{ vars.AMAZON_PRIME_DIAS || '1,4' }}
       AMAZON_PRIME_HORAS: ${{ vars.AMAZON_PRIME_HORAS || '12,13,20,21' }}
+      CONVITE_TELEGRAM_ATIVO: ${{ vars.CONVITE_TELEGRAM_ATIVO || 'true' }}
+      CONVITE_TELEGRAM_DIAS: ${{ vars.CONVITE_TELEGRAM_DIAS || '0,3,6' }}
+      CONVITE_TELEGRAM_HORAS: ${{ vars.CONVITE_TELEGRAM_HORAS || '18,19' }}
       ALIEXPRESS_TRACKING_ID: default
       ALIEXPRESS_SITE_TRACKING_ID: ${{ vars.ALIEXPRESS_SITE_TRACKING_ID }}
       # ids de rastreio por canal: crie no painel do AliExpress e preencha aqui

@@ -414,6 +414,20 @@ class MainTest(unittest.TestCase):
         self.assertEqual("https://amzn.to/3UNB0OD", prime.call_args.args[0])
         marcar.assert_called_once_with("2026-11-03", "amazon_prime_manha", "Telegram")
 
+    def test_convite_do_telegram_sai_so_no_bluesky_sem_atalho_no_site(self):
+        domingo = datetime(2026, 11, 8, 19, 10, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=True), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "publicar_assinatura") as site, \
+             patch.object(main.store, "campanha_enviada", return_value=False), \
+             patch.object(main.store, "marcar_campanha_enviada") as marcar, \
+             patch.object(main.bluesky, "postar_convite_telegram") as bluesky:
+            self.assertTrue(main.publicar_assinatura_se_preciso("convite_telegram", domingo))
+        site.assert_not_called()
+        self.assertEqual("https://t.me/CanalTaBarato", bluesky.call_args.args[0])
+        marcar.assert_called_once_with("2026-11-08", "convite_telegram_noite", "Bluesky")
+
     def test_shopee_vip_espera_quando_ha_alerta_urgente_de_cupom(self):
         momento = datetime(2026, 9, 7, 19, 15, tzinfo=main.FUSO_BRASILIA)
         with patch.object(main.config, "SHOPEE_VIP_ATIVO", True), \
@@ -805,14 +819,24 @@ class MainTest(unittest.TestCase):
             sorteio.assert_called_once_with(30, 30)
 
     def test_pontuacao_usa_historico_com_bonus_limitado(self):
-        oferta = {"fonte": "Shopee", "oferta_id": "x", "categoria": "cozinha",
+        oferta = {"fonte": "Shopee", "oferta_id": "x", "categoria": "moda",
                   "priceDiscountRate": 50, "comissao": 0.1}
         with patch.object(main.store, "multiplicador_desempenho", return_value=1.2), \
              patch.object(main.config, "peso_loja", return_value=1):
             self.assertEqual(66, main.pontuacao(oferta))
 
+    def test_tipo_e_faixa_de_preco_que_ja_venderam_ganham_pontos(self):
+        base = {"fonte": "Shopee", "oferta_id": "x", "priceDiscountRate": 50, "comissao": 0}
+        with patch.object(main.store, "multiplicador_desempenho", return_value=1), \
+             patch.object(main.config, "peso_loja", return_value=1):
+            moda_cara = main.pontuacao(dict(base, categoria="moda", price=300))
+            moda_media = main.pontuacao(dict(base, categoria="moda", price=80))
+            whey_medio = main.pontuacao(dict(base, categoria="esporte", price=80))
+        self.assertEqual(6, moda_media - moda_cara)
+        self.assertEqual(10, whey_medio - moda_media)
+
     def test_pontuacao_respeita_preferencia_moderada_da_loja(self):
-        oferta = {"fonte": "Shopee", "oferta_id": "x", "categoria": "cozinha",
+        oferta = {"fonte": "Shopee", "oferta_id": "x", "categoria": "moda",
                   "priceDiscountRate": 50, "comissao": 0}
         with patch.object(main.store, "multiplicador_desempenho", return_value=1), \
              patch.object(main.config, "peso_loja", return_value=1.2):

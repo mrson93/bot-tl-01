@@ -359,12 +359,13 @@ def postar_bom_dia(mensagem: str) -> None:
         ))
 
 
-def postar_assinatura(texto_sem_link: str, link_afiliado: str, nome: str) -> None:
+def postar_assinatura(texto_sem_link: str, link_afiliado: str, nome: str,
+                      chamada: str = "Confira as condições:") -> None:
     """Divulga uma assinatura em texto curto, com o link clicável no fim."""
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, f"Link do {nome}"
     )
-    texto = f"{texto_sem_link}\n\nConfira as condições: {link_afiliado}"
+    texto = f"{texto_sem_link}\n\n{chamada} {link_afiliado}"
     if len(texto) > 300:
         raise ValueError(f"A mensagem do {nome} ultrapassa 300 caracteres")
     inicio = len(texto[:texto.rindex(link_afiliado)].encode("utf-8"))
@@ -416,6 +417,22 @@ def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
         "✓ Frete grátis em produtos elegíveis\n"
         "✓ Prime Video e Amazon Music\n"
         "✓ Ofertas exclusivas para membros", link_afiliado, "Amazon Prime")
+
+
+_CONVITES_TELEGRAM = (
+    "📣 Ofertas o dia todo no Telegram\n\n"
+    "Shopee, Amazon e Mercado Livre com preço conferido, cupons e Black Friday, "
+    "direto no seu celular.",
+    "🔔 Não perca as próximas ofertas\n\n"
+    "No nosso canal do Telegram chegam primeiro os cupons e as promoções que "
+    "acabam rápido.",
+)
+
+
+def postar_convite_telegram(link: str, variante=0) -> None:
+    """Convida quem segue no Bluesky para o canal do Telegram."""
+    postar_assinatura(_CONVITES_TELEGRAM[int(variante) % len(_CONVITES_TELEGRAM)],
+                      link, "Convite do Telegram", chamada="Entre no canal:")
 
 
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:

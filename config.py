@@ -145,6 +145,12 @@ def _horas(nome, padrao):
 AMAZON_PRIME_ATIVO = _bool("AMAZON_PRIME_ATIVO", True)
 AMAZON_PRIME_DIAS = _dias("AMAZON_PRIME_DIAS", "1,4")
 AMAZON_PRIME_HORAS = _horas("AMAZON_PRIME_HORAS", "12,13,20,21")
+# Convite do canal do Telegram, publicado no Bluesky: o Telegram tinha só 82
+# inscritos e o Bluesky é onde está a audiência.
+CONVITE_TELEGRAM_URL = _get("CONVITE_TELEGRAM_URL") or "https://t.me/CanalTaBarato"
+CONVITE_TELEGRAM_ATIVO = _bool("CONVITE_TELEGRAM_ATIVO", True)
+CONVITE_TELEGRAM_DIAS = _dias("CONVITE_TELEGRAM_DIAS", "0,3,6")
+CONVITE_TELEGRAM_HORAS = _horas("CONVITE_TELEGRAM_HORAS", "18,19")
 
 # --- AliExpress (API de afiliado) ---
 ALIEXPRESS_APP_KEY = _get("ALIEXPRESS_APP_KEY")
@@ -297,6 +303,14 @@ RELATORIO_MINUTO = max(0, min(59, _int("RELATORIO_MINUTO", 30)))
 RELATORIO_ALERTA_MIN_POSTS = _int("RELATORIO_ALERTA_MIN_POSTS", 10)
 # Pontos extras na seleção para lojas que se identificam como oficiais.
 LOJA_OFICIAL_BONUS = _float("LOJA_OFICIAL_BONUS", 10)
+# O que já vendeu (01/08 a 05/11/2026): suplementos, casa, cozinha e pet, de
+# R$ 30 a R$ 120. Essas ofertas ganham um empurrão, sem passar à frente de uma
+# promoção muito melhor de outro tipo.
+CATEGORIAS_QUE_VENDEM = tuple(c.strip() for c in (
+    _get("CATEGORIAS_QUE_VENDEM") or "esporte,cozinha,casa,pet,hidratacao").split(",") if c.strip())
+CATEGORIA_QUE_VENDE_BONUS = _float("CATEGORIA_QUE_VENDE_BONUS", 10)
+FAIXA_PRECO_QUE_VENDE = (_float("FAIXA_PRECO_QUE_VENDE_MIN", 30), _float("FAIXA_PRECO_QUE_VENDE_MAX", 120))
+FAIXA_PRECO_QUE_VENDE_BONUS = _float("FAIXA_PRECO_QUE_VENDE_BONUS", 6)
 # Endereço público do site usado em links compartilháveis (ex.: Top 5 do WhatsApp).
 SITE_PUBLICO_URL = _get("SITE_PUBLICO_URL") or "https://canaltabarato.com.br"
 # Hora de Brasília em que o administrador recebe o Top 5 pronto para o WhatsApp.

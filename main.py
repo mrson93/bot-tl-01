@@ -125,6 +125,13 @@ ASSINATURAS = {
         "dias": "AMAZON_PRIME_DIAS", "horas": "AMAZON_PRIME_HORAS",
         "postar": "postar_amazon_prime", "emoji": "🎬",
     },
+    # Sem atalho no site e só no Bluesky: não é assinatura, é o próprio canal.
+    "convite_telegram": {
+        "nome": "Convite do Telegram", "slug": None, "hosts": ("t.me",),
+        "url": "CONVITE_TELEGRAM_URL", "ativo": "CONVITE_TELEGRAM_ATIVO",
+        "dias": "CONVITE_TELEGRAM_DIAS", "horas": "CONVITE_TELEGRAM_HORAS",
+        "postar": "postar_convite_telegram", "emoji": "📣", "canais": ("Bluesky",),
+    },
 }
 
 
@@ -146,7 +153,7 @@ def sincronizar_assinatura_site(chave, agora=None):
     """Publica uma vez ao dia o destino do atalho rastreável da assinatura."""
     item = ASSINATURAS[chave]
     link = _link_assinatura(chave)
-    if not link or not site_publisher.esta_configurado():
+    if not link or not item.get("slug") or not site_publisher.esta_configurado():
         return False
     agora = agora or datetime.now(FUSO_BRASILIA)
     data = agora.date().isoformat()
@@ -177,9 +184,10 @@ def publicar_assinatura_se_preciso(chave, agora=None, alertas_cupom=0, forcar=Fa
     else:
         agora = agora.astimezone(FUSO_BRASILIA)
     destinos = []
-    if telegram_poster.esta_configurada():
+    canais = item.get("canais", ("Telegram", "Bluesky"))
+    if "Telegram" in canais and telegram_poster.esta_configurada():
         destinos.append(("Telegram", getattr(telegram_poster, item["postar"])))
-    if bluesky.esta_configurada():
+    if "Bluesky" in canais and bluesky.esta_configurada():
         destinos.append(("Bluesky", getattr(bluesky, item["postar"])))
     if (not getattr(config, item["ativo"]) or not getattr(config, item["url"])
             or not destinos):
@@ -898,6 +906,17 @@ def pontuacao(oferta: dict) -> float:
     # Loja oficial passa mais confiança a quem ainda não conhece o canal.
     if desempenho.loja_oficial(oferta):
         nota += config.LOJA_OFICIAL_BONUS
+    # Tipos de produto e faixa de preço que já viraram venda no canal.
+    categoria = oferta.get("categoria") or desempenho.categoria_produto(oferta)
+    if categoria in config.CATEGORIAS_QUE_VENDEM:
+        nota += config.CATEGORIA_QUE_VENDE_BONUS
+    try:
+        preco = float(oferta.get("price") or 0)
+    except (TypeError, ValueError):
+        preco = 0
+    minimo, maximo = config.FAIXA_PRECO_QUE_VENDE
+    if minimo <= preco <= maximo:
+        nota += config.FAIXA_PRECO_QUE_VENDE_BONUS
     # Cupons retornados oficialmente pelas plataformas são escassos e podem
     # acabar antes da próxima rodada; entram no topo sem ignorar filtros.
     if str(oferta.get("cupom") or "").strip():
