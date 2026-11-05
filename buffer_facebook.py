@@ -8,6 +8,7 @@ from typing import Optional
 from PIL import Image
 import requests
 
+import config
 import seguranca
 import site_publisher
 import store
@@ -16,9 +17,14 @@ import store
 API_URL = "https://api.buffer.com"
 _CHANNEL_ID = re.compile(r"^[0-9a-f]{24}$", re.IGNORECASE)
 _MAX_IMAGEM_HOSPEDADA = 850_000
-# O Buffer costuma ficar em "sending" por mais de 4 s. Esperar um pouco mais
-# evita registrar como falha um post que já está saindo (e gastar outra rodada).
-_ESPERAS_ENVIO = (2, 3, 5, 8)
+# O plano grátis do Buffer aceita 100 chamadas por dia e 3.000 por mês, somando
+# Facebook e X. Por isso cada post confere o estado uma vez só, depois de uma
+# espera, e "sending" já conta como entregue: insistir esgotava a cota e o
+# Buffer passava a recusar tudo com 429.
+_ESPERA_ANTES_DE_CONFERIR = 6
+_ESTADO_CHAMADAS = "buffer_chamadas_24h"
+_ESTADO_PAUSA = "buffer_pausado_ate"
+_PAUSA_PADRAO = {"15m": 15 * 60, "24h": 24 * 3600, "30d": 24 * 3600}
 
 _CREATE_POST = """
 mutation CreateFacebookPost($input: CreatePostInput!) {
@@ -43,6 +49,66 @@ mutation RetryBufferPost($input: EditPostInput!) {
   }
 }
 """.strip()
+
+
+class BufferSemCota(RuntimeError):
+    """A cota de chamadas do Buffer acabou; tentar agora só piora o bloqueio."""
+
+
+def _chamadas_recentes(agora=None):
+    agora = agora or time.time()
+    try:
+        chamadas = [float(t) for t in str(store._estado(_ESTADO_CHAMADAS) or "").split(",") if t]
+    except ValueError:
+        chamadas = []
+    return [t for t in chamadas if agora - t < 86400]
+
+
+def pausado_ate(agora=None):
+    """Momento até quando o Buffer recusa chamadas, ou 0 se está livre."""
+    try:
+        ate = float(store._estado(_ESTADO_PAUSA) or 0)
+    except ValueError:
+        ate = 0
+    return ate if ate > (agora or time.time()) else 0
+
+
+def pode_chamar(quantidade=3, agora=None) -> bool:
+    """Há cota para criar um post e conferir o estado dele nas últimas 24 h."""
+    agora = agora or time.time()
+    return (not pausado_ate(agora)
+            and len(_chamadas_recentes(agora)) + quantidade <= config.BUFFER_MAX_CHAMADAS_DIA)
+
+
+def _chamar(chave: str, corpo: dict, timeout: int):
+    """Toda chamada ao Buffer passa aqui: conta a cota e pausa ao receber 429."""
+    agora = time.time()
+    if pausado_ate(agora):
+        raise BufferSemCota("Buffer em pausa pelo limite de chamadas")
+    chamadas = _chamadas_recentes(agora) + [agora]
+    store._definir_estado(_ESTADO_CHAMADAS, ",".join(f"{t:.0f}" for t in chamadas))
+    resposta = requests.post(
+        API_URL,
+        headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
+        json=corpo, timeout=timeout, allow_redirects=False,
+    )
+    if resposta.status_code == 429:
+        try:
+            erro = ((resposta.json() or {}).get("errors") or [{}])[0]
+        except ValueError:
+            erro = {}
+        extras = erro.get("extensions") or {}
+        janela = str(extras.get("window") or "")
+        try:
+            espera = float(extras.get("retryAfter") or resposta.headers.get("Retry-After") or 0)
+        except (TypeError, ValueError):
+            espera = 0
+        espera = espera or _PAUSA_PADRAO.get(janela, 3600)
+        store._definir_estado(_ESTADO_PAUSA, f"{agora + espera:.0f}")
+        raise BufferSemCota(
+            f"Buffer atingiu o limite de chamadas (janela {janela or 'não informada'}); "
+            f"pausado por {espera / 3600:.1f} h")
+    return resposta
 
 
 class FalhaHospedagemCard(RuntimeError):
@@ -142,16 +208,7 @@ def publicar_no_canal(texto: str, card: Optional[bytes],
 
 def _criar_post(chave: str, entrada: dict) -> str:
     try:
-        resposta = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {chave}",
-                "Content-Type": "application/json",
-            },
-            json={"query": _CREATE_POST, "variables": {"input": entrada}},
-            timeout=30,
-            allow_redirects=False,
-        )
+        resposta = _chamar(chave, {"query": _CREATE_POST, "variables": {"input": entrada}}, 30)
     except requests.RequestException:
         # Uma falha de transporte pode ocorrer depois de o Buffer aceitar o
         # post. Não repetimos automaticamente para não criar duplicatas.
@@ -184,13 +241,7 @@ def consultar_status(post_id: str, api_key: Optional[str] = None) -> str:
     """Consulta a entrega real; criar um post não significa que ele foi enviado."""
     chave = (api_key or os.getenv("BUFFER_API_KEY", "")).strip()
     try:
-        resposta = requests.post(
-            API_URL,
-            headers={"Authorization": f"Bearer {chave}",
-                     "Content-Type": "application/json"},
-            json={"query": _GET_POST, "variables": {"input": {"id": post_id}}},
-            timeout=20, allow_redirects=False,
-        )
+        resposta = _chamar(chave, {"query": _GET_POST, "variables": {"input": {"id": post_id}}}, 20)
         corpo = resposta.json() or {}
     except (requests.RequestException, ValueError):
         raise RuntimeError("Não foi possível confirmar a entrega pelo Buffer") from None
@@ -206,13 +257,8 @@ def retentar_post_com_erro(post_id: str, api_key: Optional[str] = None) -> None:
     """Reenvia o mesmo registro em erro, sem criar um segundo post na fila."""
     chave = (api_key or os.getenv("BUFFER_API_KEY", "")).strip()
     try:
-        resposta = requests.post(
-            API_URL,
-            headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
-            json={"query": _EDIT_POST,
-                  "variables": {"input": {"id": post_id, "mode": "shareNow"}}},
-            timeout=30, allow_redirects=False,
-        )
+        resposta = _chamar(chave, {"query": _EDIT_POST,
+                                   "variables": {"input": {"id": post_id, "mode": "shareNow"}}}, 30)
         corpo = resposta.json() or {}
     except (requests.RequestException, ValueError):
         raise RuntimeError("Não foi possível reenviar o post em erro no Buffer") from None
@@ -224,28 +270,25 @@ def retentar_post_com_erro(post_id: str, api_key: Optional[str] = None) -> None:
 
 def publicar_confirmado(oferta_id: str, canal_nome: str, criar,
                         api_key: Optional[str] = None) -> str:
-    """Evita duplicar posts em fila e só confirma entrega quando status=sent."""
+    """Evita duplicar posts em fila e confirma a entrega com uma consulta só."""
+    if not pode_chamar():
+        raise BufferSemCota("Cota diária de chamadas do Buffer esgotada; o canal espera")
     info = store.buffer_post_info(oferta_id, canal_nome)
     post_id = info[0] if info else None
     if not post_id:
         post_id = str(criar())
         store.registrar_buffer_post(oferta_id, canal_nome, post_id)
         info = store.buffer_post_info(oferta_id, canal_nome)
-    for tentativa in range(len(_ESPERAS_ENVIO) + 1):
-        status = consultar_status(post_id, api_key)
-        if status == "sent":
-            return post_id
-        if status == "error" and info:
-            criado_em, ultimo_retry = info[1], info[2]
-            agora = int(time.time())
-            if agora - criado_em >= 86400 and (not ultimo_retry or agora - ultimo_retry >= 86400):
-                store.marcar_retry_buffer(oferta_id, canal_nome, agora)
-                retentar_post_com_erro(post_id, api_key)
-                info = store.buffer_post_info(oferta_id, canal_nome)
-                continue
-        if status not in {"sending"} or tentativa == len(_ESPERAS_ENVIO):
-            break
-        time.sleep(_ESPERAS_ENVIO[tentativa])
+        time.sleep(_ESPERA_ANTES_DE_CONFERIR)
+    status = consultar_status(post_id, api_key)
+    if status in {"sent", "sending"}:
+        return post_id
+    if status == "error" and info:
+        criado_em, ultimo_retry = info[1], info[2]
+        agora = int(time.time())
+        if agora - criado_em >= 86400 and (not ultimo_retry or agora - ultimo_retry >= 86400):
+            store.marcar_retry_buffer(oferta_id, canal_nome, agora)
+            retentar_post_com_erro(post_id, api_key)
     raise RuntimeError(f"Buffer recebeu o post {post_id}, mas estado atual: {status}")
 
 

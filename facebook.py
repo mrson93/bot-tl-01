@@ -35,7 +35,8 @@ def pode_publicar() -> bool:
             and (limite == 0 or store.posts_canal_hoje(NOME) < limite)
             and store.posts_canal_entre(NOME, inicio, fim) < turnos.COTAS[NOME][turno]
             and (not buffer_facebook.esta_configurado()
-                 or store.posts_canal_desde(NOME, time.time() - 86400) < 30))
+                 or (store.posts_canal_desde(NOME, time.time() - 86400) < 30
+                     and buffer_facebook.pode_chamar())))
 
 
 def _endpoint(recurso: str) -> str:

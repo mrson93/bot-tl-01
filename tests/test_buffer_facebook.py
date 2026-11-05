@@ -136,26 +136,29 @@ class BufferFacebookTest(unittest.TestCase):
         import store
         with tempfile.TemporaryDirectory() as pasta, \
              patch.object(store, "_DB", Path(pasta) / "estado.db"), \
-             patch.object(buffer_facebook, "consultar_status", return_value="scheduled"):
+             patch.object(buffer_facebook, "consultar_status", return_value="scheduled"), \
+             patch.object(buffer_facebook.time, "sleep"):
             criar = unittest.mock.Mock(return_value="post_123")
             for _ in range(2):
                 with self.assertRaisesRegex(RuntimeError, "scheduled"):
                     buffer_facebook.publicar_confirmado("oferta-1", "Facebook", criar)
             criar.assert_called_once()
 
-    def test_post_ainda_enviando_aguarda_ate_confirmar(self):
+    def test_post_enviando_conta_como_entregue_com_uma_consulta(self):
         import tempfile
         from pathlib import Path
         import store
         with tempfile.TemporaryDirectory() as pasta, \
              patch.object(store, "_DB", Path(pasta) / "estado.db"), \
              patch.object(buffer_facebook, "consultar_status",
-                          side_effect=["sending", "sending", "sending", "sent"]), \
+                          side_effect=["sending"]) as consultar, \
              patch.object(buffer_facebook.time, "sleep") as esperar:
             criar = unittest.mock.Mock(return_value="post_123")
             self.assertEqual("post_123", buffer_facebook.publicar_confirmado(
                 "oferta-1", "Facebook", criar))
-        self.assertEqual([2, 3, 5], [c.args[0] for c in esperar.call_args_list])
+        # Uma espera e uma consulta: insistir gastava a cota diária do Buffer.
+        self.assertEqual([6], [c.args[0] for c in esperar.call_args_list])
+        consultar.assert_called_once()
 
     def test_post_em_erro_e_retentado_no_mesmo_id_apos_24_horas(self):
         import tempfile
@@ -169,13 +172,40 @@ class BufferFacebookTest(unittest.TestCase):
                 con.execute("UPDATE buffer_posts SET criado_em=100000")
             criar = unittest.mock.Mock()
             with patch.object(buffer_facebook, "consultar_status",
-                              side_effect=["error", "sent"]), \
+                              side_effect=["error"]), \
                  patch.object(buffer_facebook, "retentar_post_com_erro") as retentar:
-                self.assertEqual("post_123", buffer_facebook.publicar_confirmado(
-                    "oferta-1", "Facebook", criar))
+                # O reenvio é confirmado na rodada seguinte, sem gastar outra consulta agora.
+                with self.assertRaises(RuntimeError):
+                    buffer_facebook.publicar_confirmado("oferta-1", "Facebook", criar)
             criar.assert_not_called()
             retentar.assert_called_once_with("post_123", None)
             self.assertEqual(200000, store.buffer_post_info("oferta-1", "Facebook")[2])
+
+    def test_429_pausa_o_buffer_e_cota_diaria_bloqueia_novas_chamadas(self):
+        import tempfile
+        from pathlib import Path
+        import store
+        resposta = unittest.mock.Mock(status_code=429, headers={})
+        resposta.json.return_value = {"errors": [{"message": "Rate limit exceeded", "extensions": {
+            "code": "RATE_LIMIT_EXCEEDED", "window": "24h"}}]}
+        with tempfile.TemporaryDirectory() as pasta, \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"), \
+             patch.object(buffer_facebook.config, "BUFFER_MAX_CHAMADAS_DIA", 5), \
+             patch.object(buffer_facebook.time, "time", return_value=1_000_000), \
+             patch.object(buffer_facebook.requests, "post", return_value=resposta) as post:
+            self.assertTrue(buffer_facebook.pode_chamar())
+            with self.assertRaises(buffer_facebook.BufferSemCota):
+                buffer_facebook.consultar_status("post_1", "x" * 30)
+            # Janela de 24 h: pausa um dia e não chama mais o Buffer até lá.
+            self.assertEqual(1_000_000 + 86400, buffer_facebook.pausado_ate())
+            self.assertFalse(buffer_facebook.pode_chamar())
+            with self.assertRaises(buffer_facebook.BufferSemCota):
+                buffer_facebook.consultar_status("post_1", "x" * 30)
+            self.assertEqual(1, post.call_count)
+            store._definir_estado("buffer_pausado_ate", 0)
+            # Cota: 1 chamada feita + 3 previstas cabe em 5; com mais uma, não.
+            self.assertTrue(buffer_facebook.pode_chamar(4))
+            self.assertFalse(buffer_facebook.pode_chamar(5))
 
 
 if __name__ == "__main__":

@@ -81,6 +81,9 @@ FACEBOOK_TRACKING_ID = _get("FACEBOOK_TRACKING_ID") or "facebook"
 # Zero desativa apenas o limite configurável; a proteção obrigatória de
 # 30 publicações por 24 h e as cotas por turno no Buffer continuam ativas.
 FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 30))
+# Chamadas ao Buffer em 24 h, somando Facebook e X. O plano grátis aceita 100
+# por dia e 3.000 em 30 dias; 90 deixa folga e cabe no limite mensal.
+BUFFER_MAX_CHAMADAS_DIA = max(0, _int("BUFFER_MAX_CHAMADAS_DIA", 90))
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro

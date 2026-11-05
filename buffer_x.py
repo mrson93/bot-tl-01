@@ -61,7 +61,8 @@ def pode_publicar() -> bool:
     turno, inicio, fim = turnos.janela()
     return (esta_configurada()
             and store.posts_canal_entre(NOME, inicio, fim) < turnos.COTAS[NOME][turno]
-            and store.posts_canal_desde(NOME, time.time() - 86400) < 45)
+            and store.posts_canal_desde(NOME, time.time() - 86400) < 45
+            and buffer_api.pode_chamar())
 
 
 def _preco(valor) -> str:
