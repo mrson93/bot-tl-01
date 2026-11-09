@@ -7,8 +7,10 @@ const envio = document.getElementById("envio");
 
 const tags = [...document.querySelectorAll(".tag")];
 const descontoMin = document.getElementById("desconto-min");
+const vendasMin = document.getElementById("vendas-min");
+const ordenarVendas = document.getElementById("ordenar-vendas");
 
-chrome.storage.sync.get(["listaId", "listaNome", "vitrine", "filtroTags", "descontoMin", "soOfertas"]).then((valores) => {
+chrome.storage.sync.get(["listaId", "listaNome", "vitrine", "filtroTags", "descontoMin", "soOfertas", "vendasMin", "ordenarVendas"]).then((valores) => {
   campo.value = valores.listaId || "2ZUSMM2BR8LVZ";
   nome.value = valores.listaNome || "Ofertas";
   vitrine.value = valores.vitrine || "emersonpettor";
@@ -16,16 +18,22 @@ chrome.storage.sync.get(["listaId", "listaNome", "vitrine", "filtroTags", "desco
   const marcadas = valores.filtroTags || (valores.soOfertas ? ["oferta"] : []);
   for (const caixa of tags) caixa.checked = marcadas.includes(caixa.value);
   descontoMin.value = valores.descontoMin || "";
+  vendasMin.value = String(valores.vendasMin || 0);
+  ordenarVendas.checked = Boolean(valores.ordenarVendas);
 });
 
 function salvarFiltro() {
   chrome.storage.sync.set({
     filtroTags: tags.filter((caixa) => caixa.checked).map((caixa) => caixa.value),
     descontoMin: Math.min(95, Math.max(0, Number(descontoMin.value) || 0)),
+    vendasMin: Number(vendasMin.value) || 0,
+    ordenarVendas: ordenarVendas.checked,
   });
 }
 for (const caixa of tags) caixa.addEventListener("change", salvarFiltro);
 descontoMin.addEventListener("input", salvarFiltro);
+vendasMin.addEventListener("change", salvarFiltro);
+ordenarVendas.addEventListener("change", salvarFiltro);
 
 document.getElementById("salvar").addEventListener("click", async () => {
   const valor = campo.value.trim().toUpperCase();

@@ -17,8 +17,11 @@
     prime: /exclusiv\w*\s+(?:para\s+)?(?:membros\s+)?Prime|Prime\s+exclusiv|^\s*Oferta\s+Prime\b|Prime\s+Day/i,
   };
   const DESCONTO = /(?:^|\s|-)(\d{1,2})\s*%(?:\s*off)?\s*$/i;
+  // Selo da Amazon: "Mais de 1 mil compras no mês passado", "50+ compras...".
+  const COMPRAS = /(\d+(?:[.,]\d+)?)\s*(mil)?\s*\+?\s*compras?\b/i;
   const ESCONDIDO = "tb-sem-oferta";
-  let filtro = { tags: [], descontoMin: 0 };
+  const OPCOES = ["filtroTags", "descontoMin", "soOfertas", "vendasMin", "ordenarVendas"];
+  let filtro = { tags: [], descontoMin: 0, vendasMin: 0, ordenar: false };
   let token = null;
   let fila = Promise.resolve();
 
@@ -120,12 +123,22 @@
     return rotulo;
   }
 
+  function lerCompras(texto) {
+    const achado = texto.match(COMPRAS);
+    if (!achado) return 0;
+    const numero = Number(achado[1].replace(",", "."));
+    // "1.5 mil" é 1500; "2.000" (ponto de milhar) é 2000.
+    if (achado[2]) return Math.round(numero * 1000);
+    return Number(achado[1].replace(/[.,]/g, ""));
+  }
+
   // As tags podem estar dentro de componentes com shadow DOM (loja de livros).
-  function lerTags(raiz, achadas = { desconto: 0 }) {
+  function lerTags(raiz, achadas = { desconto: 0, vendas: 0 }) {
     for (const no of raiz.querySelectorAll("*")) {
       if (no.shadowRoot) lerTags(no.shadowRoot, achadas);
       if (no.children.length || no.classList?.contains(MARCA)) continue;
       const texto = no.textContent;
+      if (texto.length <= 60) achadas.vendas = Math.max(achadas.vendas, lerCompras(texto));
       if (texto.length > 40) continue;
       for (const [nome, regra] of Object.entries(TAGS)) {
         if (regra.test(texto)) achadas[nome] = true;
@@ -136,17 +149,24 @@
     return achadas;
   }
 
-  function passaNoFiltro(cartao) {
-    if (!filtro.tags.length && !filtro.descontoMin) return true;
-    const achadas = lerTags(cartao.shadowRoot || cartao);
+  function filtroLigado() {
+    return Boolean(filtro.tags.length || filtro.descontoMin || filtro.vendasMin || filtro.ordenar);
+  }
+
+  function passaNoFiltro(achadas) {
     if (filtro.tags.length && !filtro.tags.some((nome) => achadas[nome])) return false;
-    return achadas.desconto >= filtro.descontoMin;
+    return achadas.desconto >= filtro.descontoMin && achadas.vendas >= filtro.vendasMin;
   }
 
   function lerFiltro(valores) {
     // "soOfertas" era a opção da versão 1.3, antes de existir a escolha de tags.
     const tags = valores.filtroTags || (valores.soOfertas ? ["oferta"] : []);
-    filtro = { tags, descontoMin: Number(valores.descontoMin) || 0 };
+    filtro = {
+      tags,
+      descontoMin: Number(valores.descontoMin) || 0,
+      vendasMin: Number(valores.vendasMin) || 0,
+      ordenar: Boolean(valores.ordenarVendas),
+    };
   }
 
   // A caixa do cartão: dentro dele ou, se o cartão está num link, logo antes do link.
@@ -165,12 +185,65 @@
     return cartao.tagName.includes("-") && soNosso ? pai : cartao;
   }
 
+  // O item da vitrine que muda de lugar: o cartão, ou o bloco que guarda o
+  // cartão e a nossa caixa quando ela fica fora dele (antes do link).
+  function itemDaVitrine(cartao) {
+    const linkPai = cartao.closest("a");
+    if (linkPai && linkPai.parentElement && caixaDoCartao(cartao) === linkPai.previousElementSibling) {
+      return linkPai.parentElement;
+    }
+    return blocoDoCartao(cartao);
+  }
+
+  // Mais compras no mês primeiro; sem selo vai para o fim, na ordem da Amazon.
+  function ordenarPorVendas(itens) {
+    const grupos = new Map();
+    for (const [item, vendas] of itens) {
+      const pai = item.parentElement;
+      if (!pai) continue;
+      if (!grupos.has(pai)) grupos.set(pai, []);
+      grupos.get(pai).push([item, vendas]);
+    }
+    for (const [pai, lista] of grupos) {
+      if (lista.length < 2) continue;
+      const exibicao = getComputedStyle(pai).display;
+      const flexivel = /flex|grid/.test(exibicao);
+      lista.forEach(([item], i) => { item.dataset.tbOrdem ??= String(i); });
+      const ordenada = [...lista].sort((a, b) => b[1] - a[1]
+        || Number(a[0].dataset.tbOrdem) - Number(b[0].dataset.tbOrdem));
+      if (flexivel) {
+        // Em grade ou flex, a ordem visual muda sem mexer no HTML da Amazon.
+        ordenada.forEach(([item], i) => { item.style.order = String(i); });
+        continue;
+      }
+      const atual = [...pai.children].filter((f) => lista.some(([item]) => item === f));
+      if (atual.every((item, i) => item === ordenada[i][0])) continue;
+      // Lista comum: reposiciona os itens nas vagas que eles já ocupavam.
+      const vagas = atual.map((item) => {
+        const marcador = document.createComment("tb");
+        pai.insertBefore(marcador, item);
+        return marcador;
+      });
+      vagas.forEach((marcador, i) => marcador.replaceWith(ordenada[i][0]));
+    }
+  }
+
+  function desfazerOrdem() {
+    for (const item of document.querySelectorAll("[data-tb-ordem]")) item.style.order = "";
+  }
+
   function filtrarOfertas() {
+    const ligado = filtroLigado();
+    const itens = [];
     for (const cartao of document.querySelectorAll("[data-tb-asin]")) {
-      const esconder = !passaNoFiltro(cartao);
+      const achadas = ligado ? lerTags(cartao.shadowRoot || cartao) : null;
+      const esconder = ligado && !passaNoFiltro(achadas);
       blocoDoCartao(cartao).classList.toggle(ESCONDIDO, esconder);
       caixaDoCartao(cartao)?.classList.toggle(ESCONDIDO, esconder);
+      if (filtro.ordenar && !esconder) itens.push([itemDaVitrine(cartao), achadas.vendas]);
     }
+    if (filtro.ordenar) ordenarPorVendas(itens);
+    else desfazerOrdem();
   }
 
   async function marcar() {
@@ -220,15 +293,15 @@
     agendado = setTimeout(marcar, 400);
   }).observe(document.body, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((mudancas, area) => {
-    if (area !== "sync" || !["filtroTags", "descontoMin", "soOfertas"].some((c) => c in mudancas)) return;
-    chrome.storage.sync.get(["filtroTags", "descontoMin", "soOfertas"]).then((valores) => {
+    if (area !== "sync" || !OPCOES.some((c) => c in mudancas)) return;
+    chrome.storage.sync.get(OPCOES).then((valores) => {
       lerFiltro(valores);
       filtrarOfertas();
     });
   });
   // As tags dentro de shadow DOM aparecem depois, sem avisar o observador acima.
-  setInterval(() => { if (filtro.tags.length || filtro.descontoMin) filtrarOfertas(); }, 1500);
-  chrome.storage.sync.get(["filtroTags", "descontoMin", "soOfertas"]).then((valores) => {
+  setInterval(() => { if (filtroLigado()) filtrarOfertas(); }, 1500);
+  chrome.storage.sync.get(OPCOES).then((valores) => {
     lerFiltro(valores);
     marcar();
   });

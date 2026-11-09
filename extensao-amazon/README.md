@@ -24,6 +24,11 @@ que o bot lê), sem abrir abas. O checkbox fica verde quando a Amazon responde
 
 Para usar outra lista, clique no ícone da extensão e troque o código.
 
+No ícone da extensão também dá para escolher um **mínimo de compras no mês
+passado** e ligar **Ordenar pelos mais comprados**. Os dois usam o selo "Mais de
+X compras no mês passado" que a Amazon mostra nos cartões; produto sem o selo vai
+para o fim da página (ou some, se houver mínimo).
+
 ## Enviar a lista para o bot
 
 A Amazon recusa com 503 boa parte das leituras feitas do GitHub (IP de

@@ -7,7 +7,7 @@
     body { font: 14px/1.4 Arial, sans-serif; margin: 16px; width: 320px; color: #111; }
     h1 { font-size: 16px; margin: 0 0 8px; }
     label { display: block; margin: 12px 0 4px; font-weight: 600; }
-    input { width: 100%; box-sizing: border-box; padding: 6px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 6px; }
     h2 { font-size: 14px; margin: 18px 0 0; }
     .opcao { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-weight: normal; }
     .opcao input { width: auto; }
@@ -31,6 +31,18 @@
   <label class="opcao"><input type="checkbox" class="tag" value="prime"> Tag "Exclusivo Prime"</label>
   <label for="desconto-min">Desconto mínimo (%)</label>
   <input id="desconto-min" type="number" min="0" max="95" step="5" placeholder="0">
+  <label for="vendas-min">Mínimo de compras no mês passado</label>
+  <select id="vendas-min">
+    <option value="0">Qualquer (mostra também sem o selo)</option>
+    <option value="50">50+</option>
+    <option value="100">100+</option>
+    <option value="500">500+</option>
+    <option value="1000">1 mil+</option>
+    <option value="5000">5 mil+</option>
+    <option value="10000">10 mil+</option>
+  </select>
+  <label class="opcao"><input type="checkbox" id="ordenar-vendas"> Ordenar pelos mais comprados</label>
+  <small>Usa o selo "Mais de X compras no mês passado" da Amazon. Produto sem o selo vai para o fim.</small>
   <small>Com tags marcadas, aparece o produto que tiver qualquer uma delas. Tudo desmarcado e desconto 0 mostra todos. Vale na hora, sem salvar.</small>
   <label for="vitrine">Vitrine</label>
   <input id="vitrine" placeholder="emersonpettor">
