@@ -363,6 +363,21 @@ def alertas_saude_fontes(saude):
     return alertas
 
 
+def alerta_cliques_zerados(cliques_links_dia, posts_dia, minimo_posts=10):
+    """Dia com posts e nenhum clique nos links curtos é contagem quebrada.
+
+    Aconteceu em 05/11/2026: o redirecionador foi publicado sem o segredo
+    ABUSE_HASH_SECRET e parou de registrar cliques sem dar erro nenhum.
+    """
+    if cliques_links_dia is None or posts_dia < minimo_posts:
+        return None
+    if int(cliques_links_dia.get("total") or 0) > 0:
+        return None
+    return (f"Links curtos: 0 cliques ontem com {posts_dia} posts. O contador "
+            "deve estar quebrado; confira o segredo ABUSE_HASH_SECRET do "
+            "redirecionador (go.canaltabarato.com.br)")
+
+
 def _texto(linhas, data, conversoes=None, conversoes_shopee=None,
            alertas=None, sem_conversao=None, cliques=None, tendencias=None,
            testes_ab=None, eventos=None, diario_ali=None, diario_shopee=None,
@@ -643,6 +658,7 @@ def enviar_se_devido(agora=None, forcar=False):
         inicio_7d.timestamp(), ids_convertidos
     )
     cliques_resumos, cliques_dia_resumos = [], []
+    cliques_links_dia = None
     provedores_cliques = []
     if shortlinks.esta_configurado():
         provedores_cliques.append(("links próprios", shortlinks))
@@ -650,9 +666,12 @@ def enviar_se_devido(agora=None, forcar=False):
         provedores_cliques.append(("site", site_publisher))
     for nome_provedor, provedor in provedores_cliques:
         try:
-            cliques_dia_resumos.append(provedor.resumo_cliques(
+            resumo_dia = provedor.resumo_cliques(
                 datetime.fromtimestamp(inicio), datetime.fromtimestamp(fim)
-            ))
+            )
+            cliques_dia_resumos.append(resumo_dia)
+            if provedor is shortlinks:
+                cliques_links_dia = resumo_dia
         except Exception as erro:
             print(f"⚠️ Cliques de ontem ({nome_provedor}) indisponiveis: "
                   f"{seguranca.redigir_segredos(erro)}")
@@ -681,6 +700,10 @@ def enviar_se_devido(agora=None, forcar=False):
                   f"{seguranca.redigir_segredos(erro)}")
 
     publicacoes_dia = store.publicacoes_por_fonte(inicio, fim)
+    alerta_cliques = alerta_cliques_zerados(
+        cliques_links_dia, sum(publicacoes_dia.values()))
+    if alerta_cliques:
+        alertas.insert(0, alerta_cliques)
     publicacoes_dia_canal = store.publicacoes_por_fonte_canal(inicio, fim)
     for fonte, resumo_diario in (("AliExpress", diario_ali),
                                  ("Shopee", diario_shopee)):

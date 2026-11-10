@@ -339,5 +339,17 @@ class RelatorioTest(unittest.TestCase):
         marcar.assert_called_once_with("2026-08-16")
 
 
+class AlertaCliquesZeradosTest(unittest.TestCase):
+    def test_avisa_quando_ha_posts_e_nenhum_clique_nos_links(self):
+        alerta = relatorio.alerta_cliques_zerados({"total": 0}, 55)
+        self.assertIn("0 cliques ontem com 55 posts", alerta)
+        self.assertIn("ABUSE_HASH_SECRET", alerta)
+
+    def test_nao_avisa_com_cliques_poucos_posts_ou_sem_dados(self):
+        self.assertIsNone(relatorio.alerta_cliques_zerados({"total": 3}, 55))
+        self.assertIsNone(relatorio.alerta_cliques_zerados({"total": 0}, 4))
+        self.assertIsNone(relatorio.alerta_cliques_zerados(None, 55))
+
+
 if __name__ == "__main__":
     unittest.main()
