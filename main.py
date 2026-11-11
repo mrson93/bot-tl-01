@@ -573,7 +573,8 @@ def diagnosticar_cupons_aliexpress(agora=None):
     """Uma vez por dia registra no log as promoções oficiais do AliExpress."""
     agora = agora or datetime.now(FUSO_BRASILIA)
     chave = f"diag_cupons_aliexpress:{agora.date().isoformat()}"
-    if not aliexpress.esta_configurada() or store._estado(chave):
+    if (not aliexpress.esta_configurada() or not config.loja_ativa(aliexpress.NOME)
+            or store._estado(chave)):
         return
     try:
         nomes = aliexpress.diagnosticar_promocoes()
@@ -1408,8 +1409,10 @@ def rodar_uma_vez() -> int:
     restantes_turno = turnos.COTAS["Ofertas"][turno] - store.posts_entre(inicio_turno, fim_turno)
     if restantes_turno <= 0:
         print(f"🛑 Cota do turno {turno} atingida. Outras redes continuam até o limite diário.")
-        observabilidade.evento("execucao_concluida", motivo="limite_turno", quantidade=0)
-        return 0
+        # As campanhas de assinatura têm hora marcada e não gastam a cota.
+        vip = publicar_assinaturas_se_preciso()
+        observabilidade.evento("execucao_concluida", motivo="limite_turno", quantidade=vip)
+        return vip
     limite = min(limite, restantes_turno)
     if config.MAX_POSTS_POR_DIA:
         restantes = config.MAX_POSTS_POR_DIA - store.posts_hoje()

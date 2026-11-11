@@ -417,3 +417,26 @@ class EstadoRemotoTest(unittest.TestCase):
                                      "GH_TOKEN": "segredo"}):
             self.assertEqual(1, estado_remoto.limpar_artefatos_antigos(2, sessao))
         self.assertTrue(sessao.delete.call_args.args[0].endswith("/3"))
+
+
+class PostGitTest(unittest.TestCase):
+    def test_repete_em_erro_500_e_devolve_a_resposta_boa(self):
+        from unittest.mock import Mock, patch
+        ruim, boa = Mock(status_code=500), Mock(status_code=201)
+        sessao = Mock()
+        sessao.post.side_effect = [ruim, boa]
+        with patch.object(estado_remoto.time, "sleep") as espera:
+            resposta = estado_remoto._post_git(sessao, "https://api.github.com/x", {}, {})
+        self.assertIs(boa, resposta)
+        self.assertEqual(2, sessao.post.call_count)
+        espera.assert_called_once()
+
+    def test_devolve_o_ultimo_erro_500_para_o_chamador_tratar(self):
+        from unittest.mock import Mock, patch
+        sessao = Mock()
+        sessao.post.return_value = Mock(status_code=500)
+        with patch.object(estado_remoto.time, "sleep"):
+            resposta = estado_remoto._post_git(sessao, "https://api.github.com/x", {}, {})
+        self.assertEqual(500, resposta.status_code)
+        self.assertEqual(3, sessao.post.call_count)
+

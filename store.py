@@ -10,9 +10,10 @@ from pathlib import Path
 _DB = Path(__file__).parent / "postadas.db"
 
 
-@contextmanager
-def _conn():
-    con = sqlite3.connect(_DB, timeout=30)
+_ESQUEMAS_PRONTOS = set()
+
+
+def _criar_esquema(con):
     con.execute("CREATE TABLE IF NOT EXISTS postadas (id TEXT PRIMARY KEY, postada_em INTEGER)")
     existentes = {r[1] for r in con.execute("PRAGMA table_info(postadas)")}
     for nome, tipo in (("preco", "REAL"), ("desconto", "REAL"), ("fonte", "TEXT"),
@@ -47,6 +48,18 @@ def _conn():
     con.execute("CREATE INDEX IF NOT EXISTS idx_vendas_produto_historico ON vendas_produto_diarias(fonte,oferta_id,data)")
     con.execute("CREATE TABLE IF NOT EXISTS precos_produto_diarios (data TEXT NOT NULL, fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, preco REAL NOT NULL, PRIMARY KEY(fonte,oferta_id,data))")
     con.commit()
+
+
+@contextmanager
+def _conn():
+    con = sqlite3.connect(_DB, timeout=30)
+    # O esquema é conferido uma vez por arquivo, não a cada consulta: uma
+    # rodada abre milhares de conexões e repetia ~25 comandos em cada uma.
+    chave = str(_DB)
+    if chave not in _ESQUEMAS_PRONTOS or not con.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='precos_produto_diarios'").fetchone():
+        _criar_esquema(con)
+        _ESQUEMAS_PRONTOS.add(chave)
     try:
         yield con
         con.commit()
@@ -402,7 +415,7 @@ def marcar_resumo_cupons_enviado(data_hora):
 
 def resumo_periodo(inicio, fim):
     with _conn() as con:
-        return con.execute("SELECT canal,sucesso,fonte,COUNT(*) FROM entregas_log WHERE entregue_em>=? AND entregue_em<? GROUP BY canal,sucesso,fonte", (int(inicio), int(fim))).fetchall()
+        return con.execute("SELECT canal,sucesso,fonte,COUNT(DISTINCT id) FROM entregas_log WHERE entregue_em>=? AND entregue_em<? GROUP BY canal,sucesso,fonte", (int(inicio), int(fim))).fetchall()
 
 
 def publicacoes_por_fonte(inicio, fim):

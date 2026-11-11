@@ -359,6 +359,27 @@ def _restaurar_de_branch(sessao, repositorio, token, ref):
     return _descriptografar(protegido)
 
 
+def _post_git(sessao, url, headers, corpo, timeout=30, tentativas=3):
+    """POST de objeto git com nova tentativa em erro 5xx ou de rede.
+
+    Blob, árvore e commit são endereçados pelo conteúdo: repetir não duplica
+    nada, e um 500 passageiro do GitHub não derruba mais a execução.
+    """
+    for tentativa in range(tentativas):
+        ultima = tentativa + 1 >= tentativas
+        try:
+            resposta = sessao.post(url, headers=headers, json=corpo,
+                                   timeout=timeout, allow_redirects=False)
+        except (requests.ConnectionError, requests.Timeout):
+            if ultima:
+                raise
+        else:
+            status = getattr(resposta, "status_code", None)
+            if ultima or not (isinstance(status, int) and status >= 500):
+                return resposta
+        time.sleep(2 * (tentativa + 1))
+
+
 def salvar_branch(sessao=requests):
     """Substitui um snapshot criptografado numa branch técnica sem histórico."""
     configuracao = _configuracao_github()
@@ -371,26 +392,23 @@ def salvar_branch(sessao=requests):
         raise RuntimeError("Estado remoto excedeu o limite de seguranca")
     repositorio, token = configuracao
     headers = _headers(token)
-    resposta = sessao.post(
-        _api_git(repositorio, "blobs"), headers=headers,
-        json={"content": base64.b64encode(protegido).decode("ascii"),
-              "encoding": "base64"}, timeout=60, allow_redirects=False,
+    resposta = _post_git(
+        sessao, _api_git(repositorio, "blobs"), headers,
+        {"content": base64.b64encode(protegido).decode("ascii"),
+         "encoding": "base64"}, timeout=60,
     )
     resposta.raise_for_status()
     blob_sha = str(resposta.json().get("sha") or "")
-    resposta = sessao.post(
-        _api_git(repositorio, "trees"), headers=headers,
-        json={"tree": [{"path": ARQUIVO_BRANCH, "mode": "100644",
-                         "type": "blob", "sha": blob_sha}]},
-        timeout=30, allow_redirects=False,
+    resposta = _post_git(
+        sessao, _api_git(repositorio, "trees"), headers,
+        {"tree": [{"path": ARQUIVO_BRANCH, "mode": "100644",
+                    "type": "blob", "sha": blob_sha}]},
     )
     resposta.raise_for_status()
     tree_sha = str(resposta.json().get("sha") or "")
-    resposta = sessao.post(
-        _api_git(repositorio, "commits"), headers=headers,
-        json={"message": "Atualiza estado criptografado do bot",
-              "tree": tree_sha},
-        timeout=30, allow_redirects=False,
+    resposta = _post_git(
+        sessao, _api_git(repositorio, "commits"), headers,
+        {"message": "Atualiza estado criptografado do bot", "tree": tree_sha},
     )
     resposta.raise_for_status()
     commit_sha = str(resposta.json().get("sha") or "")

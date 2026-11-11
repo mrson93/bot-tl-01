@@ -59,6 +59,24 @@ class IdempotenciaTest(unittest.TestCase):
         )
         bom_dia.assert_called_once_with("2026-09-21", "Telegram")
 
+    def test_sincronizar_de_novo_nao_duplica_o_log_de_entregas(self):
+        import tempfile
+        from pathlib import Path
+        diario = {"v": 1, "ofertas": {"x": {
+            "i": "produto", "f": "Amazon", "p": 100, "t": 123, "o": 100,
+            "c": ["Telegram", "X"],
+        }}, "bom_dia": {}}
+        store = idempotencia.store
+        with tempfile.TemporaryDirectory() as pasta, self._ambiente(), \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"):
+            self.assertEqual(2, idempotencia.sincronizar(self._sessao(diario)))
+            # Rodadas seguintes encontram tudo no SQLite e não regravam nada.
+            self.assertEqual(0, idempotencia.sincronizar(self._sessao(diario)))
+            self.assertEqual(0, idempotencia.sincronizar(self._sessao(diario)))
+            linhas = store.resumo_periodo(0, 1000)
+            self.assertEqual(100, store.quando_postada("produto"))
+        self.assertEqual([1, 1], sorted(qtd for _, _, _, qtd in linhas))
+
     def test_completar_canal_depois_nao_traz_a_oferta_para_o_turno_atual(self):
         inicial = {"v": 1, "ofertas": {}, "bom_dia": {}}
         sessao = self._sessao(inicial)

@@ -120,9 +120,15 @@ def sincronizar(sessao=requests):
         preco = float(item.get("p") or 0)
         momento = int(item.get("t") or time.time())
         for canal in item.get("c") or []:
+            # Só o que falta no SQLite: regravar tudo a cada rodada duplicava
+            # centenas de linhas no log e inflava o relatório diário.
+            if not store.canal_pendente(oid, str(canal)):
+                continue
             store.registrar_entrega(oid, str(canal), True, preco, fonte,
                                     agora=momento)
             total += 1
+        if store.ja_postada(oid):
+            continue
         # "o" é a primeira reserva: completar Facebook/X/Stories depois não
         # pode trazer a oferta para o turno atual e gastar a cota dele.
         store.marcar_postada(
