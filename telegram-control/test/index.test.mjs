@@ -499,6 +499,7 @@ test("agendador privado dispara relatorio apenas no horario configurado", async 
     calls.push({ url: String(url), options });
     if (String(url).includes("/actions/variables?")) {
       return Response.json({ variables: [
+        { name: "RELATORIO_DIARIO_ATIVO", value: "true" },
         { name: "RELATORIO_HORA", value: "11" },
         { name: "RELATORIO_MINUTO", value: "30" },
       ] });
@@ -511,6 +512,21 @@ test("agendador privado dispara relatorio apenas no horario configurado", async 
   calls.length = 0;
   assert.equal(await runScheduledReport({ scheduledTime: matching + 15 * 60000 }, env, fakeFetch), false);
   assert.equal(calls.some((call) => call.url.includes("/dispatches")), false);
+});
+
+test("relatório diário desligado não dispara no horário", async () => {
+  const calls = [];
+  const fakeFetch = async (url) => {
+    calls.push(String(url));
+    return Response.json({ variables: [
+      { name: "RELATORIO_HORA", value: "11" },
+      { name: "RELATORIO_MINUTO", value: "30" },
+    ] });
+  };
+  assert.equal(await runScheduledReport({
+    scheduledTime: Date.parse("2026-08-25T14:30:00Z"),
+  }, env, fakeFetch), false);
+  assert.equal(calls.some((url) => url.includes("/dispatches")), false);
 });
 
 test("agendador recupera leitura de variáveis após um 504 temporário", async () => {

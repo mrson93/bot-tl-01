@@ -220,6 +220,7 @@ jobs:
       RELATORIO_ALERTA_MIN_POSTS: ${{ vars.RELATORIO_ALERTA_MIN_POSTS || '10' }}
       FALHAS_CONSECUTIVAS_ALERTA: ${{ vars.FALHAS_CONSECUTIVAS_ALERTA || '3' }}
       RELATORIO_AUTOMATICO_NA_EXECUCAO: "false"
+      TOP_WHATSAPP_ATIVO: ${{ vars.TOP_WHATSAPP_ATIVO || 'false' }}
       # janela que atravessa a meia-noite: 06:00 ate 00:59 do dia seguinte.
       # Entre 01:00 e 05:59 o bot nao posta -- mas quem economiza minutos do
       # Actions e o proprio cron-job.org nao chamar nessas horas.

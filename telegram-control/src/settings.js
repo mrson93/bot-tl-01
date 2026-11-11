@@ -163,6 +163,14 @@ export const SETTINGS = Object.freeze({
     hint: "Zero desliga o limite. Evita que um único vendedor domine o canal.",
   },
 
+  RELATORIO_DIARIO_ATIVO: {
+    category: "relatorio", label: "Relatório diário automático", type: "boolean", default: "false",
+    hint: "Envia sozinho o relatório no horário abaixo. Desligado, o relatório só sai quando você pede pelo painel.",
+  },
+  TOP_WHATSAPP_ATIVO: {
+    category: "relatorio", label: "Top 5 do dia no privado", type: "boolean", default: "false",
+    hint: "Envia no privado, a partir das 18h, as 5 melhores ofertas do dia prontas para o WhatsApp.",
+  },
   RELATORIO_HORA: {
     category: "relatorio", label: "Hora do relatório", type: "integer", default: "11", min: 0, max: 23,
     hint: "O controlador verifica o horário a cada 15 minutos.",

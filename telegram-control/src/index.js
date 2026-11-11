@@ -673,6 +673,7 @@ function brasiliaTime(date) {
 
 export async function runScheduledReport(controller, env, fetchImpl = fetch) {
   const variables = await getVariables(env, fetchImpl);
+  if (effectiveValue("RELATORIO_DIARIO_ATIVO", variables) !== "true") return false;
   const now = brasiliaTime(new Date(controller?.scheduledTime || Date.now()));
   const hour = effectiveValue("RELATORIO_HORA", variables).padStart(2, "0");
   const minute = effectiveValue("RELATORIO_MINUTO", variables).padStart(2, "0");

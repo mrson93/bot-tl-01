@@ -314,7 +314,7 @@ FAIXA_PRECO_QUE_VENDE_BONUS = _float("FAIXA_PRECO_QUE_VENDE_BONUS", 6)
 # Endereço público do site usado em links compartilháveis (ex.: Top 5 do WhatsApp).
 SITE_PUBLICO_URL = _get("SITE_PUBLICO_URL") or "https://canaltabarato.com.br"
 # Hora de Brasília em que o administrador recebe o Top 5 pronto para o WhatsApp.
-TOP_WHATSAPP_ATIVO = _bool("TOP_WHATSAPP_ATIVO", True)
+TOP_WHATSAPP_ATIVO = _bool("TOP_WHATSAPP_ATIVO", False)
 TOP_WHATSAPP_HORA = _int("TOP_WHATSAPP_HORA", 18)
 # Abaixo deste número de produtos inéditos, o relatório pede itens novos na lista curada.
 ESTOQUE_LISTA_ALERTA = _int("ESTOQUE_LISTA_ALERTA", 10)
