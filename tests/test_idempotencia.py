@@ -41,6 +41,44 @@ class IdempotenciaTest(unittest.TestCase):
             ))
         sessao.patch.assert_not_called()
 
+    def test_liberar_desfaz_a_reserva_do_canal_que_recusou(self):
+        diario = {"v": 1, "ofertas": {}, "bom_dia": {}}
+        sessao = self._sessao(diario)
+        with self._ambiente():
+            idempotencia.reservar_oferta("produto", "X", 50, "Shopee", sessao)
+            salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+            sessao = self._sessao(salvo)
+            self.assertTrue(idempotencia.liberar_oferta("produto", "X", "Shopee", sessao))
+            salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+            self.assertEqual({}, salvo["ofertas"])
+            # Liberada, a próxima rodada consegue reservar e publicar de novo.
+            self.assertTrue(idempotencia.reservar_oferta(
+                "produto", "X", 50, "Shopee", self._sessao(salvo)))
+            sessao = self._sessao(salvo)
+            self.assertFalse(idempotencia.liberar_oferta("produto", "X", "Shopee", sessao))
+            sessao.patch.assert_not_called()
+
+    def test_repostagem_passa_por_reserva_antiga_mas_nao_pela_de_hoje(self):
+        dia = 86400
+        antigo = {"v": 1, "ofertas": {}, "bom_dia": {}}
+        sessao = self._sessao(antigo)
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=10 * dia):
+            idempotencia.reservar_oferta("produto", "Telegram", 100, "Shopee", sessao)
+        salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+        with self._ambiente(), patch.object(idempotencia.time, "time", return_value=12 * dia):
+            # Sem ser repostagem, a reserva antiga continua valendo.
+            self.assertFalse(idempotencia.reservar_oferta(
+                "produto", "Telegram", 80, "Shopee", self._sessao(salvo)))
+            sessao = self._sessao(salvo)
+            self.assertTrue(idempotencia.reservar_oferta(
+                "produto", "Telegram", 80, "Shopee", sessao, repostar=True))
+            salvo = json.loads(sessao.patch.call_args.kwargs["json"]["body"])
+            item = next(iter(salvo["ofertas"].values()))
+            self.assertEqual((["Telegram"], 80.0, 12 * dia), (item["c"], item["p"], item["o"]))
+            # A própria repostagem também sai uma vez só.
+            self.assertFalse(idempotencia.reservar_oferta(
+                "produto", "Telegram", 80, "Shopee", self._sessao(salvo), repostar=True))
+
     def test_sincroniza_reservas_no_sqlite_local(self):
         diario = {"v": 1, "ofertas": {"x": {
             "i": "produto", "f": "Amazon", "p": 100, "t": 123,

@@ -607,6 +607,31 @@ class MainTest(unittest.TestCase):
         primeiro.postar.assert_not_called()
         segundo.postar.assert_not_called()
 
+    def test_canal_que_recusa_libera_a_reserva_e_falha_incerta_nao(self):
+        class Fonte:
+            NOME = "Shopee"
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://oferta.test"
+
+        recusa = unittest.mock.Mock(NOME="X", TRACKING_ID="x")
+        recusa.postar.side_effect = RuntimeError("Buffer recusou a publicação (429)")
+        incerta = unittest.mock.Mock(NOME="Facebook", TRACKING_ID="facebook")
+        incerta.postar.side_effect = RuntimeError(
+            "Buffer ficou sem confirmação da publicação")
+        oferta = {"oferta_id": "x", "productUrl": "https://produto.test", "price": 50}
+        with patch.object(main, "canais_ativos", return_value=[recusa, incerta]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega"), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "avisar_falha_total_publicacao"), \
+             patch.object(main.idempotencia, "reservar_oferta", return_value=True), \
+             patch.object(main.idempotencia, "liberar_oferta") as liberar:
+            self.assertEqual(0, main.publicar(Fonte, oferta))
+        liberar.assert_called_once_with("x", "X", "Shopee")
+
     def test_falha_do_link_proprio_usa_afiliado_oficial(self):
         class Fonte:
             NOME = "Shopee"

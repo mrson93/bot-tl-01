@@ -410,6 +410,29 @@ def _revalidar_antes_de_publicar(fonte, oferta):
     return oferta
 
 
+def _publicacao_recusada(erro) -> bool:
+    """Indica falha em que a publicação com certeza não saiu.
+
+    Só essas liberam a reserva do diário para nova tentativa. Erro de rede ou
+    resposta sem confirmação fica reservado: o post pode estar no ar.
+    """
+    texto = str(erro).lower()
+    if "sem confirma" in texto:
+        return False
+    return (isinstance(erro, (ValueError, buffer_x.buffer_api.BufferSemCota))
+            or "recusou" in texto or "mas estado atual" in texto)
+
+
+def _liberar_reserva(oid, canal, fonte, erro):
+    if not _publicacao_recusada(erro):
+        return
+    try:
+        idempotencia.liberar_oferta(oid, canal, fonte)
+    except Exception as erro_diario:
+        print(f"   ⚠️  Reserva de {canal} não liberada: "
+              f"{seguranca.redigir_segredos(erro_diario)}")
+
+
 def publicar(fonte, oferta: dict) -> int:
     """Publica em todos os canais ativos, cada um com seu link rastreado.
     Retorna quantos canais aceitaram."""
@@ -423,6 +446,7 @@ def publicar(fonte, oferta: dict) -> int:
     resultados = {}
     repeticao = ({"repetir_apos_dias": config.DIAS_ANTES_DE_REPETIR}
                  if oferta.get("_motivo") == "repescagem" else {})
+    repostar = oferta.get("_motivo") in {"queda_preco", "repescagem"}
     ativos = canais_ativos()
     for canal in CANAIS:
         if canal not in ativos and canal.esta_configurada():
@@ -433,6 +457,7 @@ def publicar(fonte, oferta: dict) -> int:
                                   canal=canal.NOME, motivo="entrega_ja_concluida")
             resultados[canal.NOME] = "✅ já entregue"
             continue
+        reservado = False
         try:
             link = fonte.gerar_link(oferta.get("productUrl"),
                                     getattr(canal, "TRACKING_ID", "") or None,
@@ -448,13 +473,15 @@ def publicar(fonte, oferta: dict) -> int:
                     print("   ⚠️  Link proprio indisponivel; usando afiliado oficial: "
                           f"{seguranca.redigir_segredos(erro_link)}")
             if not idempotencia.reservar_oferta(
-                    oid, canal.NOME, preco, fonte.NOME, oferta=oferta):
+                    oid, canal.NOME, preco, fonte.NOME, oferta=oferta,
+                    repostar=repostar):
                 store.registrar_entrega(
                     oid, canal.NOME, True, preco, fonte.NOME
                 )
                 resultados[canal.NOME] = "✅ já entregue"
                 print(f"   🛡️  {canal.NOME}: repetição evitada pelo diário remoto.")
                 continue
+            reservado = True
             canal.postar(oferta, link)
             store.registrar_entrega(oid, canal.NOME, True, preco, fonte.NOME)
             observabilidade.evento("publicacao_sucesso", oferta_id=oid,
@@ -471,13 +498,17 @@ def publicar(fonte, oferta: dict) -> int:
                                     motivo="erro_canal")
             print(f"   ⚠️  {canal.NOME} recusou: {erro}")
             resultados[canal.NOME] = "❌ falhou"
+            if reservado:
+                _liberar_reserva(oid, canal.NOME, fonte.NOME, e)
     # O site funciona como o feed próprio: toda oferta escolhida para uma
     # nova rodada deve atualizar sua data de publicação, mesmo que o produto
     # já exista no catálogo.
-    if site_publisher.esta_configurado() and store.canal_pendente(oid, "Site", preco_pendencia):
+    if site_publisher.esta_configurado() and store.canal_pendente(
+            oid, "Site", preco_pendencia, **repeticao):
+        reservado = False
         try:
             reservado = idempotencia.reservar_oferta(
-                oid, "Site", preco, fonte.NOME, oferta=oferta
+                oid, "Site", preco, fonte.NOME, oferta=oferta, repostar=repostar
             )
             if not reservado:
                 store.registrar_entrega(oid, "Site", True, preco, fonte.NOME)
@@ -499,6 +530,8 @@ def publicar(fonte, oferta: dict) -> int:
                                     motivo="erro_site")
             print(f"   ⚠️  Site recusou: {erro}")
             resultados["Site"] = "❌ falhou"
+            if reservado:
+                _liberar_reserva(oid, "Site", fonte.NOME, e)
     elif site_publisher.esta_configurado():
         resultados["Site"] = "✅ já entregue"
     if resultados:

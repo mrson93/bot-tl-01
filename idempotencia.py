@@ -143,8 +143,14 @@ def sincronizar(sessao=requests):
     return total
 
 
-def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None):
-    """Reserva antes do POST externo; False significa que ja foi reservado."""
+def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None,
+                    repostar=False):
+    """Reserva antes do POST externo; False significa que ja foi reservado.
+
+    `repostar` vale para a oferta que volta por queda de preço ou repescagem:
+    uma reserva de dias anteriores não bloqueia a nova publicação, mas a de
+    hoje continua bloqueando (a repostagem também sai uma vez só).
+    """
     try:
         diario, contexto = _ler(sessao)
     except Exception as erro:
@@ -154,11 +160,14 @@ def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None
     chave = _chave(oferta_id, fonte)
     item = diario["ofertas"].get(chave, {})
     canais = list(item.get("c") or [])
+    agora = int(time.time())
     if canal in canais:
-        return False
+        if not repostar or int(item.get("t") or agora) >= store._inicio_do_dia(agora):
+            return False
+        # Nova rodada da mesma oferta: os canais voltam a reservar um a um.
+        item, canais = {}, []
     canais.append(canal)
     oferta = oferta or {}
-    agora = int(time.time())
     diario["ofertas"][chave] = {
         "i": str(oferta_id), "f": str(fonte), "p": float(preco or 0),
         "t": agora, "o": int(item.get("o") or item.get("t") or agora),
@@ -167,6 +176,34 @@ def reservar_oferta(oferta_id, canal, preco, fonte, sessao=requests, oferta=None
         "g": str(oferta.get("categoria") or "")[:30],
         "l": " ".join(str(oferta.get("shopName") or "").split())[:50],
     }
+    try:
+        _salvar(diario, contexto, sessao)
+    except DiarioRemotoIndisponivel:
+        raise
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
+    return True
+
+
+def liberar_oferta(oferta_id, canal, fonte, sessao=requests):
+    """Desfaz a reserva de um canal que recusou a publicação.
+
+    Sem isso a próxima rodada encontrava a reserva, dava a oferta como
+    entregue e ela nunca chegava ao canal.
+    """
+    try:
+        diario, contexto = _ler(sessao)
+    except Exception as erro:
+        raise DiarioRemotoIndisponivel(str(erro)) from erro
+    if diario is None:
+        return False
+    chave = _chave(oferta_id, fonte)
+    item = diario["ofertas"].get(chave)
+    if not item or canal not in (item.get("c") or []):
+        return False
+    item["c"] = [nome for nome in item["c"] if nome != canal]
+    if not item["c"]:
+        del diario["ofertas"][chave]
     try:
         _salvar(diario, contexto, sessao)
     except DiarioRemotoIndisponivel:
