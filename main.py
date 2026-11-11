@@ -1395,11 +1395,6 @@ def _publicar_fila(fila, limite):
     return postadas
 
 
-def rodar_loja(fonte, limite: int) -> int:
-    """Compatibilidade para executar uma loja isoladamente."""
-    return _publicar_fila(_ordenar_candidatos(buscar_candidatos(fonte)), limite)
-
-
 def rodar_uma_vez() -> int:
     """Busca lojas em paralelo e compara todas as ofertas antes de publicar."""
     observabilidade.evento("execucao_iniciada")

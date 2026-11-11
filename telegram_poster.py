@@ -106,12 +106,6 @@ def chamada_compra(oferta: dict) -> str:
     return f"{acao} {prep.upper()} {fonte.upper()}"
 
 
-# separadores que os marketplaces usam antes de emendar palavra-chave
-_SEPARADORES = (" - ", " – ", " — ", " | ", " • ", ", ")
-# abaixo disso o primeiro pedaco nao e nome de produto, e so um prefixo solto
-_MINIMO_UTIL = 25
-
-
 def limpar_titulo(titulo: str, limite: int = None) -> str:
     """Deixa o nome do produto apresentavel SEM cortar no meio da palavra.
 

@@ -50,10 +50,6 @@ def _url(repositorio, issue):
     return f"https://api.github.com/repos/{repositorio}/issues/{issue}"
 
 
-def _vazio():
-    return {"v": 1, "ofertas": {}, "bom_dia": {}}
-
-
 def _ler(sessao=requests):
     configuracao = _configuracao()
     if configuracao is None:

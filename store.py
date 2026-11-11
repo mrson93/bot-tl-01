@@ -80,19 +80,6 @@ def posts_entre(inicio, fim):
         ).fetchone()[0])
 
 
-def postada_hoje(oferta_id, agora=None):
-    with _conn() as con:
-        return con.execute("SELECT 1 FROM postadas WHERE id=? AND postada_em>=?", (str(oferta_id), _inicio_do_dia(agora))).fetchone() is not None
-
-
-def postada_nos_ultimos(oferta_id, dias, agora=None):
-    if dias <= 0:
-        return postada_hoje(oferta_id, agora)
-    limite = int(agora or time.time()) - dias * 86400
-    with _conn() as con:
-        return con.execute("SELECT 1 FROM postadas WHERE id=? AND postada_em>=?", (str(oferta_id), limite)).fetchone() is not None
-
-
 def quando_postada(oferta_id):
     with _conn() as con:
         row = con.execute("SELECT postada_em FROM postadas WHERE id=?", (str(oferta_id),)).fetchone()
@@ -411,12 +398,6 @@ def resumo_cupons_enviado(data_hora):
 
 def marcar_resumo_cupons_enviado(data_hora):
     _definir_estado("resumo_cupons:" + str(data_hora), "1")
-
-
-def minutos_desde_ultima_postagem():
-    with _conn() as con:
-        row = con.execute("SELECT MAX(postada_em) FROM postadas").fetchone()
-    return None if not row[0] else (int(time.time()) - int(row[0])) / 60
 
 
 def resumo_periodo(inicio, fim):
