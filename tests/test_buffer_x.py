@@ -6,6 +6,18 @@ import buffer_x
 
 
 class BufferXTest(unittest.TestCase):
+    def setUp(self):
+        # Banco temporário: sem isso as chamadas simuladas eram contadas no
+        # postadas.db real e, após 90 em 24 h, o teste da cota falhava.
+        import tempfile
+        from pathlib import Path
+        import store
+        pasta = tempfile.TemporaryDirectory()
+        self.addCleanup(pasta.cleanup)
+        banco = patch.object(store, "_DB", Path(pasta.name) / "estado.db")
+        banco.start()
+        self.addCleanup(banco.stop)
+
     def test_limite_do_x_por_turno_e_24_horas(self):
         with patch.object(buffer_x, "esta_configurada", return_value=True), \
              patch.object(buffer_x.turnos, "janela", return_value=("manha", 100, 200)), \

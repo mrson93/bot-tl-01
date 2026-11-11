@@ -16,6 +16,18 @@ class Resposta:
 
 
 class BufferFacebookTest(unittest.TestCase):
+    def setUp(self):
+        # Banco temporário: sem isso as chamadas simuladas eram contadas no
+        # postadas.db real e, após 90 em 24 h, o teste da cota falhava.
+        import tempfile
+        from pathlib import Path
+        import store
+        pasta = tempfile.TemporaryDirectory()
+        self.addCleanup(pasta.cleanup)
+        banco = patch.object(store, "_DB", Path(pasta.name) / "estado.db")
+        banco.start()
+        self.addCleanup(banco.stop)
+
     def configuracao(self):
         return patch.dict(os.environ, {
             "BUFFER_API_KEY": "buffer-chave-secreta-comprida",
