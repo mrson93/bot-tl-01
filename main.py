@@ -890,11 +890,6 @@ def motivo_rejeicao_filtro(oferta: dict):
     return None
 
 
-def passa_no_filtro(oferta: dict) -> bool:
-    """Diz se a oferta e boa o bastante para postar, segundo os filtros do .env."""
-    return motivo_rejeicao_filtro(oferta) is None
-
-
 def ganho_por_venda(oferta: dict) -> float:
     """Quanto essa venda deve pagar de comissao, em reais."""
     return float(oferta.get("price") or 0) * float(oferta.get("comissao") or 0)

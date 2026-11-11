@@ -21,9 +21,9 @@ class StoreTest(unittest.TestCase):
 
     def test_buffer_reutiliza_post_pendente_e_permite_nova_oferta_depois_de_entrega(self):
         store.registrar_buffer_post("produto", "Facebook", "post-1")
-        self.assertEqual("post-1", store.buffer_post("produto", "Facebook"))
+        self.assertEqual("post-1", store.buffer_post_info("produto", "Facebook")[0])
         store.registrar_entrega("produto", "Facebook", True, agora=9999999999)
-        self.assertIsNone(store.buffer_post("produto", "Facebook"))
+        self.assertIsNone(store.buffer_post_info("produto", "Facebook"))
 
     def test_historico_de_preco_ignora_dia_atual_e_guarda_menor_do_dia(self):
         dia = 86400
@@ -116,6 +116,15 @@ class StoreTest(unittest.TestCase):
         self.assertFalse(store.canal_pendente("x", "Telegram", 50))
         self.assertTrue(store.canal_pendente("x", "Bluesky", 50))
 
+    def test_so_queda_de_preco_relevante_reabre_canal_entregue(self):
+        store.registrar_entrega("x", "Telegram", True, 100, "Shopee")
+        with patch.object(store.config, "QUEDA_PRECO_REPOST_PERCENT", 15):
+            # Um centavo a menos não justifica voltar à fila.
+            self.assertFalse(store.canal_pendente("x", "Telegram", 99.99))
+            self.assertFalse(store.ha_canal_pendente("x", ["Telegram"], 90))
+            self.assertTrue(store.canal_pendente("x", "Telegram", 85))
+            self.assertTrue(store.ha_canal_pendente("x", ["Telegram"], 80))
+
     def test_retomada_identifica_canal_sem_registro_e_nao_repete_lista_curada(self):
         store.marcar_postada("ml1", preco=100, fonte="Mercado Livre")
         store.registrar_entrega("ml1", "Telegram", True, 100, "Mercado Livre")
@@ -123,12 +132,6 @@ class StoreTest(unittest.TestCase):
         store.registrar_entrega("ml1", "Facebook", True, 100, "Mercado Livre")
         self.assertFalse(store.ha_canal_pendente("ml1", ["Telegram", "Facebook"], None))
         self.assertFalse(store.canal_pendente("ml1", "Telegram", None))
-
-    def test_janela_movel_conta_ofertas_antes_e_depois_da_meia_noite(self):
-        store.marcar_postada("antiga", agora=100)
-        store.marcar_postada("nova", agora=86410)
-        self.assertEqual(2, store.posts_desde(10))
-        self.assertEqual(1, store.posts_desde(101))
 
     def test_repescagem_libera_entrega_antiga_sem_repetir_canal_recente(self):
         agora = int(datetime.now().timestamp())

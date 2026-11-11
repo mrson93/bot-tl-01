@@ -116,6 +116,19 @@ Novas variáveis:
 | `SHOPEE_VIP_ATIVO` | `true` | Ativa banner no site e divulgação recorrente no Telegram |
 | `SHOPEE_VIP_DIAS` | `0,2,5` | Segunda, quarta e sábado (`0` é segunda e `6` é domingo) |
 | `SHOPEE_VIP_HORAS` | `10,11,19,20` | Janelas da manhã e da noite para divulgar o VIP |
+| `AMAZON_PRIME_TESTE_URL` | link do teste com a sua tag | Link afiliado do teste grátis do Prime, usado na campanha e nas ofertas exclusivas Prime |
+| `AMAZON_PRIME_ATIVO` | `true` | Ativa a divulgação recorrente do Amazon Prime no Telegram e no Bluesky |
+| `AMAZON_PRIME_DIAS` | `1,4` | Terça e sexta |
+| `AMAZON_PRIME_HORAS` | `12,13,20,21` | Janelas do almoço e da noite para divulgar o Prime |
+| `CONVITE_TELEGRAM_URL` | `https://t.me/CanalTaBarato` | Link do canal divulgado no Bluesky |
+| `CONVITE_TELEGRAM_ATIVO` | `true` | Convida os seguidores do Bluesky para o canal do Telegram |
+| `CONVITE_TELEGRAM_DIAS` | `0,3,6` | Segunda, quinta e domingo |
+| `CONVITE_TELEGRAM_HORAS` | `18,19` | Janela do convite |
+| `BLACK_FRIDAY_BONUS` | `500` | Pontos extras para oferta com o selo "Oferta Black Friday" |
+| `BLACK_FRIDAY_MAX_PERCENTUAL` | `50` | Até que fatia dos posts recentes uma loja pode ocupar furando a divisão entre lojas com ofertas Black Friday |
+| `CATEGORIAS_QUE_VENDEM` | `esporte,cozinha,casa,pet,hidratacao` | Categorias que já viraram venda e ganham `CATEGORIA_QUE_VENDE_BONUS` (padrão `10`) |
+| `FAIXA_PRECO_QUE_VENDE_MIN` / `_MAX` | `30` / `120` | Faixa de preço que já vendeu e ganha `FAIXA_PRECO_QUE_VENDE_BONUS` (padrão `6`) |
+| `BUFFER_MAX_CHAMADAS_DIA` | `90` | Teto de chamadas ao Buffer em 24 h (o plano gratuito aceita 100); acima disso Facebook e X esperam |
 | `BLOG_RASCUNHO_AUTOMATICO` | `true` | Cria no máximo um comparativo diário no painel, sempre como rascunho |
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.

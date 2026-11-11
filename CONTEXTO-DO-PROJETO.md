@@ -366,7 +366,6 @@ Hosts atualmente permitidos incluem domínios oficiais de Shopee, AliExpress,
 Amazon e Mercado Livre. A allowlist precisa continuar sincronizada entre:
 
 - `redirector/wrangler.jsonc`;
-- `redirector/wrangler.toml.example`;
 - `site/wrangler.toml.example`;
 - validações do código e respectivos testes.
 

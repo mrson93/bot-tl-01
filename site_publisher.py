@@ -250,11 +250,6 @@ def publicar_assinatura(nome, link_afiliado, hosts):
         raise RuntimeError(f"Site recusou o {nome} ({resposta.status_code})")
 
 
-def publicar_shopee_vip(link_afiliado):
-    """Mantém no site o atalho rastreável da assinatura Shopee VIP."""
-    publicar_assinatura("Shopee VIP", link_afiliado, ("shopee.com.br",))
-
-
 def gerar_rascunho_blog():
     """Pede ao site um comparativo diário, sempre salvo como rascunho."""
     if not esta_configurado() or not config.BLOG_RASCUNHO_AUTOMATICO:

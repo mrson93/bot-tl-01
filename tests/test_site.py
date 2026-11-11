@@ -191,7 +191,8 @@ class SitePublisherTest(unittest.TestCase):
                           "https://canaltabarato.pages.dev/api/publish"), \
              patch.object(site_publisher.config, "SITE_API_TOKEN", "segredo"), \
              patch.object(site_publisher.requests, "post", return_value=resposta) as post:
-            site_publisher.publicar_shopee_vip("https://u.shopee.com.br/shopeevip?code=x")
+            site_publisher.publicar_assinatura(
+                "Shopee VIP", "https://u.shopee.com.br/shopeevip?code=x", ("shopee.com.br",))
             link = site_publisher.link_publico_loja("shopee-vip")
         self.assertEqual("Shopee VIP", post.call_args.kwargs["json"]["source"])
         self.assertEqual("https://canaltabarato.pages.dev/loja/shopee-vip", link)

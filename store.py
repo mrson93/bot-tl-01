@@ -7,6 +7,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+import config
+
 _DB = Path(__file__).parent / "postadas.db"
 
 
@@ -75,14 +77,6 @@ def _inicio_do_dia(agora=None):
 def ja_postada(oferta_id):
     with _conn() as con:
         return con.execute("SELECT 1 FROM postadas WHERE id=?", (str(oferta_id),)).fetchone() is not None
-
-
-def posts_desde(inicio):
-    """Conta a fila global em uma janela móvel, inclusive após a meia-noite."""
-    with _conn() as con:
-        return int(con.execute(
-            "SELECT COUNT(*) FROM postadas WHERE postada_em>=?", (int(inicio),)
-        ).fetchone()[0])
 
 
 def posts_entre(inicio, fim):
@@ -174,11 +168,6 @@ def registrar_entrega(oferta_id, canal, sucesso, preco=None, fonte=None, erro=No
         con.execute("INSERT INTO entregas_log(id,canal,sucesso,preco,fonte,erro,entregue_em) VALUES(?,?,?,?,?,?,?)", dados)
 
 
-def buffer_post(oferta_id, canal):
-    info = buffer_post_info(oferta_id, canal)
-    return info[0] if info else None
-
-
 def buffer_post_info(oferta_id, canal):
     with _conn() as con:
         entregue = con.execute(
@@ -265,6 +254,20 @@ def saude_fontes(inicio, fim):
     return saude
 
 
+def _caiu_o_bastante(preco, anterior):
+    """Só a queda que justifica repostar reabre um canal já entregue.
+
+    Antes qualquer centavo a menos reabria a oferta e ela voltava ao topo da
+    fila a cada rodada, sem nunca ser repostada.
+    """
+    if preco is None or anterior is None:
+        return False
+    queda = max(0.0, float(config.QUEDA_PRECO_REPOST_PERCENT))
+    if queda <= 0:
+        return float(preco) < float(anterior)
+    return float(preco) <= float(anterior) * (1 - queda / 100)
+
+
 def canal_pendente(oferta_id, canal, preco=None, repetir_apos_dias=None, agora=None):
     with _conn() as con:
         row = con.execute("SELECT sucesso,preco,entregue_em FROM entregas WHERE id=? AND canal=?", (str(oferta_id), canal)).fetchone()
@@ -275,7 +278,7 @@ def canal_pendente(oferta_id, canal, preco=None, repetir_apos_dias=None, agora=N
         corte = min(_inicio_do_dia(momento), momento - max(0, repetir_apos_dias) * 86400)
         if row[2] < corte:
             return True
-    return preco is not None and row[1] is not None and float(preco) < float(row[1])
+    return _caiu_o_bastante(preco, row[1])
 
 
 def ha_canal_pendente(oferta_id, canais, preco=None):
@@ -287,8 +290,7 @@ def ha_canal_pendente(oferta_id, canais, preco=None):
                            (str(oferta_id), *canais)).fetchall()
     entregues = {row[0]: row for row in rows}
     return any(canal not in entregues or not entregues[canal][1]
-               or (preco is not None and entregues[canal][2] is not None
-                   and float(preco) < float(entregues[canal][2]))
+               or _caiu_o_bastante(preco, entregues[canal][2])
                for canal in canais)
 
 

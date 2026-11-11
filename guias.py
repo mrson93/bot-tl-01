@@ -26,7 +26,8 @@ import site_publisher
 import store
 
 FUSO = ZoneInfo("America/Sao_Paulo")
-MIN_PRODUTOS = 4
+# Só com a Shopee ativa, exigir 4 deixou o blog sem guia novo por dias.
+MIN_PRODUTOS = 3
 MAX_PRODUTOS = 5
 _MESES = ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
           "agosto", "setembro", "outubro", "novembro", "dezembro")

@@ -707,7 +707,6 @@ class MainTest(unittest.TestCase):
              patch.object(main.store, "registrar_entrega"), \
              patch.object(main.shortlinks, "esta_configurado", return_value=True), \
              patch.object(main.shortlinks, "criar", return_value=curto), \
-             patch.object(main.shortlinks, "eh_proprio", return_value=True), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False):
             self.assertEqual(1, main.publicar(Fonte, oferta))
         canal.postar.assert_called_once_with(oferta, curto)
@@ -1283,8 +1282,8 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "MIN_SALES", 50), \
              patch.object(main.config, "MIN_PRICE", 10), \
              patch.object(main.config, "MIN_GANHO", 3):
-            self.assertFalse(main.passa_no_filtro(fraca))
-            self.assertTrue(main.passa_no_filtro(forte))
+            self.assertIsNotNone(main.motivo_rejeicao_filtro(fraca))
+            self.assertIsNone(main.motivo_rejeicao_filtro(forte))
 
     def test_curadoria_manual_nao_exige_metrica_que_lista_nao_informa(self):
         oferta = {"price": 28.90, "priceDiscountRate": 0,
@@ -1295,7 +1294,7 @@ class MainTest(unittest.TestCase):
              patch.object(main.config, "MIN_RATING", 4), \
              patch.object(main.config, "MIN_PRICE", 10), \
              patch.object(main.config, "MIN_GANHO", 3):
-            self.assertTrue(main.passa_no_filtro(oferta))
+            self.assertIsNone(main.motivo_rejeicao_filtro(oferta))
 
     def test_diagnostico_identifica_regra_comercial_que_rejeitou(self):
         oferta = {"price": 5, "priceDiscountRate": 80,
