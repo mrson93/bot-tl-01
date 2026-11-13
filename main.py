@@ -1065,9 +1065,11 @@ def buscar_candidatos(fonte) -> list:
         oid = oferta["oferta_id"]
         preco = float(oferta.get("price") or 0)
         curada = bool(oferta.get("curadoriaManual")) and fonte.NOME in {"Amazon", "Mercado Livre"}
-        # Item da lista curada sai uma vez só; com selo Black Friday ele volta
-        # pela regra normal (intervalo de dias ou queda de preço).
-        uma_vez = curada and not oferta.get("blackFriday")
+        # Item da lista curada que segue em promoção (ou com selo Black Friday)
+        # volta pela regra normal: após DIAS_ANTES_DE_REPETIR dias ou com queda
+        # de preço. Sem desconto, sai uma vez só.
+        em_promocao = float(oferta.get("priceDiscountRate") or 0) > 0
+        uma_vez = curada and not oferta.get("blackFriday") and not em_promocao
         motivo = (None if uma_vez and store.ja_postada(oid) else
                   store.avaliar_elegibilidade(oid, preco,
                       config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))

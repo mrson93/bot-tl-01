@@ -29,6 +29,36 @@ class MainTest(unittest.TestCase):
                     unittest.mock.Mock(NOME="Telegram"), unittest.mock.Mock(NOME="Facebook")]):
                 self.assertEqual(1, len(main.buscar_candidatos(Fonte)))
 
+    def test_item_curado_em_promocao_volta_apos_7_dias_e_sem_desconto_nao(self):
+        import tempfile
+        import time as _time
+        from pathlib import Path
+        base = {"fonte": "Amazon", "productName": "Fone Bluetooth", "price": 100,
+                "curadoriaManual": True}
+        ofertas = [dict(base, oferta_id="amazon_PROMO", priceDiscountRate=30),
+                   dict(base, oferta_id="amazon_CHEIO", priceDiscountRate=0)]
+        class Fonte:
+            NOME = "Amazon"
+            @staticmethod
+            def buscar_ofertas():
+                return [dict(o) for o in ofertas]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main.config, "DIAS_ANTES_DE_REPETIR", 7), \
+             patch.object(main, "canais_ativos", return_value=[
+                 unittest.mock.Mock(NOME="Telegram")]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "avisar_estoque_lista"):
+            for oid in ("amazon_PROMO", "amazon_CHEIO"):
+                main.store.marcar_postada(oid, 100, 30, "Amazon", agora=int(_time.time()) - 3 * 86400)
+                main.store.registrar_entrega(oid, "Telegram", True, 100, "Amazon")
+            self.assertEqual([], main.buscar_candidatos(Fonte))
+            for oid in ("amazon_PROMO", "amazon_CHEIO"):
+                main.store.marcar_postada(oid, 100, 30, "Amazon", agora=int(_time.time()) - 8 * 86400)
+            candidatos = main.buscar_candidatos(Fonte)
+        self.assertEqual(["amazon_PROMO"], [c["oferta_id"] for c in candidatos])
+        self.assertEqual("repescagem", candidatos[0]["_motivo"])
+
     def test_item_curado_com_selo_black_friday_volta_pela_regra_normal(self):
         import tempfile
         import time as _time
