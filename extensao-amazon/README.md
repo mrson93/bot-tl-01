@@ -29,6 +29,22 @@ passado** e ligar **Ordenar pelos mais comprados**. Os dois usam o selo "Mais de
 X compras no mês passado" que a Amazon mostra nos cartões; produto sem o selo vai
 para o fim da página (ou some, se houver mínimo).
 
+## Limpeza automática da lista
+
+A Amazon aceita no máximo **400 produtos** numa lista de ideias; cheia, ela
+recusa qualquer item novo (até pelo botão dela) e o checkbox fica vermelho.
+
+Por isso, a cada 3 dias, na primeira página da Amazon aberta neste navegador, a
+extensão remove da lista:
+
+- produtos que saíram de promoção (sem preço riscado e sem selo de oferta);
+- produtos com desconto abaixo de 20% que também não são populares (menos de
+  1.000 avaliações e menos de 500 compras no mês).
+
+Produtos adicionados pela extensão nas últimas 24 h nunca são removidos. O
+intervalo e o desconto mínimo ficam no ícone da extensão, que também mostra o
+resultado da última limpeza e tem o botão para limpar na próxima página.
+
 ## Enviar a lista para o bot
 
 A Amazon recusa com 503 boa parte das leituras feitas do GitHub (IP de

@@ -44,6 +44,16 @@
   <label class="opcao"><input type="checkbox" id="ordenar-vendas"> Ordenar pelos mais comprados</label>
   <small>Usa o selo "Mais de X compras no mês passado" da Amazon. Produto sem o selo vai para o fim.</small>
   <small>Com tags marcadas, aparece o produto que tiver qualquer uma delas. Tudo desmarcado e desconto 0 mostra todos. Vale na hora, sem salvar.</small>
+  <h2>Limpeza automática da lista</h2>
+  <small>A Amazon aceita no máximo 400 produtos na lista. A cada intervalo, ao abrir qualquer página da Amazon, a extensão remove os que saíram de promoção e os de desconto baixo que não são populares.</small>
+  <label class="opcao"><input type="checkbox" id="limpeza-ativa"> Limpar a lista automaticamente</label>
+  <label for="limpeza-dias">A cada quantos dias</label>
+  <input id="limpeza-dias" type="number" min="1" max="30" placeholder="3">
+  <label for="limpeza-desconto">Desconto mínimo para ficar (%)</label>
+  <input id="limpeza-desconto" type="number" min="0" max="90" step="5" placeholder="20">
+  <small>Abaixo desse desconto, o produto só fica se tiver pelo menos 1.000 avaliações ou 500 compras no mês. Produtos adicionados pela extensão nas últimas 24 h nunca são removidos.</small>
+  <button id="limpar-agora">Limpar na próxima página da Amazon</button>
+  <small id="limpeza"></small>
   <label for="vitrine">Vitrine</label>
   <input id="vitrine" placeholder="emersonpettor">
   <small>É o nome no endereço da lista (amazon.com.br/shop/<b>VITRINE</b>/list/...).</small>

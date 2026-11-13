@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tá Barato · Lista de Ofertas",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Marque produtos nas páginas da Amazon e eles vão para a sua lista de ofertas, sem abrir cada um. Também envia a lista ao site do canal para o bot.",
   "permissions": [
     "storage",
@@ -20,7 +20,8 @@
         "https://www.amazon.com.br/*"
       ],
       "js": [
-        "listagem.js"
+        "listagem.js",
+        "limpeza.js"
       ],
       "css": [
         "listagem.css"
