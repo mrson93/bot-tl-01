@@ -59,6 +59,36 @@ class MainTest(unittest.TestCase):
         self.assertEqual(["amazon_PROMO"], [c["oferta_id"] for c in candidatos])
         self.assertEqual("repescagem", candidatos[0]["_motivo"])
 
+    def test_oferta_bem_clicada_volta_uma_vez_no_dia_seguinte(self):
+        import tempfile
+        import time as _time
+        from pathlib import Path
+        oferta = {"oferta_id": "shopee_1_2", "fonte": "Shopee", "productName": "Fone",
+                  "price": 100, "priceDiscountRate": 50, "sales": 900, "ratingStar": 4.9}
+        class Fonte:
+            NOME = "Shopee"
+            @staticmethod
+            def buscar_ofertas():
+                return [dict(oferta)]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main, "canais_ativos", return_value=[
+                 unittest.mock.Mock(NOME="Telegram")]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main, "ofertas_mais_clicadas", return_value={"shopee_1_2": 7}):
+            ontem = int(_time.time()) - 86400
+            main.store.marcar_postada("shopee_1_2", 100, 50, "Shopee", agora=ontem)
+            main.store.registrar_entrega("shopee_1_2", "Telegram", True, 100, "Shopee", agora=ontem)
+            candidatos = main.buscar_candidatos(Fonte)
+            self.assertEqual("mais_clicada", candidatos[0]["_motivo"])
+            # Preço subiu: não volta.
+            oferta["price"] = 120
+            self.assertEqual([], main.buscar_candidatos(Fonte))
+            oferta["price"] = 100
+            # Já repostada por esse motivo: não volta de novo.
+            main.store._definir_estado("repost_clicada:shopee_1_2", "2026-11-13")
+            self.assertEqual([], main.buscar_candidatos(Fonte))
+
     def test_item_curado_com_selo_black_friday_volta_pela_regra_normal(self):
         import tempfile
         import time as _time

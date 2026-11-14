@@ -1,5 +1,5 @@
 import {safeUrl} from '../_lib.js';
-import {claimPublicAction,isAutomatedAgent} from '../_abuse.js';
+import {claimPublicAction,isLikelyPerson} from '../_abuse.js';
 
 function saoPauloDay() {
   return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -7,7 +7,7 @@ function saoPauloDay() {
 
 async function recordClick(context,mediaId,offerId) {
   const {env}=context;
-  if(isAutomatedAgent(context.request.headers.get('User-Agent'))) return;
+  if(!isLikelyPerson(context.request,context.env)) return;
   const claim=await claimPublicAction({
     env,request:context.request,purpose:'story-click',resource:mediaId,windowSeconds:300,
     limiter:env.METRICS_RATE_LIMITER,

@@ -24,3 +24,12 @@ Para impedir contagens repetidas, o Worker mantém apenas um HMAC temporário e
 não reversível. O binding `CLICK_RATE_LIMITER` adiciona o limite por cliente no edge.
 
 Se o serviço falhar, o bot publica o link oficial de afiliado sem interromper a oferta.
+
+## O que conta como clique
+
+Só acessos `GET` vindos do Brasil (`CLICK_COUNTRIES`, padrão `BR`) e de
+navegador que não se identifica como robô. Em 13/11/2026, 21 de 21 acessos
+observados em 9 minutos vinham de datacenters fora do Brasil, vários com
+user-agent de navegador comum; antes disso cada post do Bluesky "recebia" de 6
+a 13 cliques que não eram de pessoas.
+

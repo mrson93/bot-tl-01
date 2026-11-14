@@ -89,6 +89,11 @@ BUFFER_MAX_CHAMADAS_DIA = max(0, _int("BUFFER_MAX_CHAMADAS_DIA", 90))
 # por post e dois canais, 90 chamadas cobrem ~22 ofertas das ~55 do dia.
 BUFFER_NOTA_PERCENTIL = max(0.0, min(95.0, _float("BUFFER_NOTA_PERCENTIL", 60)))
 BUFFER_CANAIS = ("Facebook", "X")
+# Oferta que teve cliques de verdade volta uma vez no dia seguinte, em outro
+# horário, se o preço não subiu.
+REPOST_CLICADAS_ATIVO = _bool("REPOST_CLICADAS_ATIVO", True)
+REPOST_CLICADAS_MIN_CLIQUES = max(1, _int("REPOST_CLICADAS_MIN_CLIQUES", 3))
+REPOST_CLICADAS_POR_DIA = max(0, _int("REPOST_CLICADAS_POR_DIA", 3))
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro

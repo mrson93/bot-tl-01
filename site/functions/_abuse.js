@@ -1,10 +1,22 @@
 const MIN_SECRET_LENGTH=32;
 // Redes buscam o link para montar a prévia logo após o post; isso não é clique.
-const AUTOMATED_AGENT=/bot(?:[\/\s;),]|$)|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|cardyb|whatsapp|embedly|skypeuripreview|preview|headless|lighthouse|curl\/|wget\/|python-|go-http-client|axios\/|node-fetch|okhttp/i;
+const AUTOMATED_AGENT=/bot(?:[\/\s;),\d.]|$)|crawler|spider|facebookexternalhit|facebookcatalog|meta-externalagent|cardyb|whatsapp|embedly|skypeuripreview|preview|headless|lighthouse|lightpanda|skywatch|piiksi|\+https?:\/\/|curl\/|wget\/|python-|go-http-client|axios\/|node-fetch|okhttp/i;
 
 export function isAutomatedAgent(agent) {
   const value=String(agent||'').trim();
   return !value||(AUTOMATED_AGENT.test(value)&&!/cubot/i.test(value));
+}
+
+// Os links são de lojas brasileiras e o canal é em português. Fora do Brasil,
+// quase tudo que abre um link é robô de datacenter se passando por navegador
+// (medido em 13/11/2026: 21 acessos em 9 minutos, nenhum do Brasil).
+export function isLikelyPerson(request,env={}) {
+  if(request.method&&request.method!=='GET') return false;
+  if(isAutomatedAgent(request.headers.get('User-Agent'))) return false;
+  const country=String(request.cf?.country||request.headers.get('CF-IPCountry')||'').toUpperCase();
+  const allowed=String(env.CLICK_COUNTRIES||'BR').toUpperCase().split(',').map(c=>c.trim()).filter(Boolean);
+  // País desconhecido (testes, desenvolvimento local) não bloqueia.
+  return !country||country==='XX'||allowed.includes(country);
 }
 
 function bytesToHex(bytes) {
@@ -73,7 +85,7 @@ export async function claimPublicAction({env,request,purpose,resource,windowSeco
 }
 
 export async function recordPublicMetric(context,purpose,resource,write) {
-  if(isAutomatedAgent(context.request.headers.get('User-Agent'))) return {accepted:false,reason:'automated'};
+  if(!isLikelyPerson(context.request,context.env)) return {accepted:false,reason:'automated'};
   const result=await claimPublicAction({
     env:context.env,request:context.request,purpose,resource,windowSeconds:300,
     limiter:context.env.METRICS_RATE_LIMITER,

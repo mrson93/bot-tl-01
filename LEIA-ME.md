@@ -130,6 +130,9 @@ Novas variáveis:
 | `FAIXA_PRECO_QUE_VENDE_MIN` / `_MAX` | `30` / `120` | Faixa de preço que já vendeu e ganha `FAIXA_PRECO_QUE_VENDE_BONUS` (padrão `6`) |
 | `BUFFER_MAX_CHAMADAS_DIA` | `90` | Teto de chamadas ao Buffer em 24 h (o plano gratuito aceita 100); acima disso Facebook e X esperam |
 | `BUFFER_NOTA_PERCENTIL` | `60` | Facebook e X recebem só ofertas com nota acima deste percentil das últimas publicadas (60 = as 40% melhores) |
+| `REPOST_CLICADAS_ATIVO` | `true` | Reposta uma vez, no dia seguinte, a oferta que teve cliques reais e não subiu de preço |
+| `REPOST_CLICADAS_MIN_CLIQUES` | `3` | Cliques (do Brasil, sem robôs) em 48 h para a oferta voltar |
+| `REPOST_CLICADAS_POR_DIA` | `3` | Máximo de repostagens por esse motivo no dia |
 | `BLOG_RASCUNHO_AUTOMATICO` | `true` | Cria no máximo um comparativo diário no painel, sempre como rascunho |
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.

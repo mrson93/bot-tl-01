@@ -6,6 +6,7 @@ Como usar:
   python main.py --once     roda so uma vez (bom pra testar)
   python main.py --check    so confere se as configuracoes estao certas
 """
+import json
 import random
 import sys
 import time
@@ -445,8 +446,10 @@ def publicar(fonte, oferta: dict) -> int:
     preco_pendencia = None if oferta.get("curadoriaManual") and fonte.NOME in {"Amazon", "Mercado Livre"} else preco
     resultados = {}
     repeticao = ({"repetir_apos_dias": config.DIAS_ANTES_DE_REPETIR}
-                 if oferta.get("_motivo") == "repescagem" else {})
-    repostar = oferta.get("_motivo") in {"queda_preco", "repescagem"}
+                 if oferta.get("_motivo") == "repescagem" else
+                 {"repetir_apos_dias": 0}
+                 if oferta.get("_motivo") == "mais_clicada" else {})
+    repostar = oferta.get("_motivo") in {"queda_preco", "repescagem", "mais_clicada"}
     ativos = canais_ativos()
     for canal in CANAIS:
         if canal not in ativos and canal.esta_configurada():
@@ -911,6 +914,48 @@ def merece_buffer(oferta: dict) -> bool:
     return oferta["_buffer"]
 
 
+def ofertas_mais_clicadas(agora=None) -> dict:
+    """Cliques das últimas 48 h por oferta, lidos no máximo uma vez por hora."""
+    if (not config.REPOST_CLICADAS_ATIVO or not config.REPOST_CLICADAS_POR_DIA
+            or not shortlinks.esta_configurado()):
+        return {}
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    chave = "cliques_48h"
+    try:
+        salvo = json.loads(store._estado(chave) or "null")
+    except (TypeError, ValueError):
+        salvo = None
+    if not salvo or agora.timestamp() - float(salvo.get("em") or 0) > 3600:
+        try:
+            resumo = shortlinks.resumo_cliques(agora - timedelta(hours=48), agora)
+            salvo = {"em": agora.timestamp(), "por_oferta": resumo.get("por_oferta") or {}}
+        except Exception as erro:
+            print(f"   ⚠️  Cliques por oferta indisponíveis: {seguranca.redigir_segredos(erro)}")
+            salvo = {"em": agora.timestamp(), "por_oferta": {}}
+        store._definir_estado(chave, json.dumps(salvo))
+    return {oid: int(qtd) for oid, qtd in salvo["por_oferta"].items()
+            if int(qtd) >= config.REPOST_CLICADAS_MIN_CLIQUES}
+
+
+def _pode_repostar_clicada(oid, preco, clicadas, agora=None) -> bool:
+    """Postada num dia anterior recente, bem clicada, sem aumento de preço e
+    ainda não repostada por este motivo."""
+    if oid not in clicadas:
+        return False
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    postada = store.quando_postada(oid)
+    inicio_hoje = agora.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    if not postada or postada >= inicio_hoje or postada < inicio_hoje - 3 * 86400:
+        return False
+    anterior = store.preco_quando_postada(oid)
+    if anterior and preco > float(anterior):
+        return False
+    if store._estado(f"repost_clicada:{oid}"):
+        return False
+    feitos = int(store._estado(f"repost_clicadas:{agora.date().isoformat()}") or 0)
+    return feitos < config.REPOST_CLICADAS_POR_DIA
+
+
 def ganho_por_venda(oferta: dict) -> float:
     """Quanto essa venda deve pagar de comissao, em reais."""
     return float(oferta.get("price") or 0) * float(oferta.get("comissao") or 0)
@@ -1048,6 +1093,7 @@ def buscar_candidatos(fonte) -> list:
     nomes_canais = [c.NOME for c in canais_ativos()]
     if site_publisher.esta_configurado():
         nomes_canais.append("Site")
+    clicadas = ofertas_mais_clicadas()
     canais_buffer = [n for n in nomes_canais if n in config.BUFFER_CANAIS]
     canais_gerais = [n for n in nomes_canais if n not in config.BUFFER_CANAIS]
     candidatos = []
@@ -1096,6 +1142,9 @@ def buscar_candidatos(fonte) -> list:
         motivo = (None if uma_vez and store.ja_postada(oid) else
                   store.avaliar_elegibilidade(oid, preco,
                       config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))
+        if motivo is None and _pode_repostar_clicada(oid, preco, clicadas):
+            motivo = "mais_clicada"
+            oferta["_cliques"] = clicadas[oid]
         # Uma entrega que falhou continua elegivel mesmo durante o cooldown.
         # Facebook e X só contam como pendentes para as melhores ofertas.
         preco_pendente = None if curada else preco
@@ -1235,7 +1284,7 @@ def _ordenar_candidatos(candidatos):
                                 quantidade=bloqueadas_semelhanca)
     candidatos = elegiveis
     prioridade = {"canal_pendente": 4, "queda_preco": 3,
-                  "inedita": 2, "repescagem": 1}
+                  "mais_clicada": 3, "inedita": 2, "repescagem": 1}
 
     def chave(oferta):
         motivo = oferta.get("_motivo")
@@ -1435,6 +1484,12 @@ def _publicar_fila(fila, limite):
             loja=oferta.get("shopName"), imagem=oferta.get("imageUrl")
         )
         postadas += 1
+        if oferta.get("_motivo") == "mais_clicada":
+            hoje = datetime.now(FUSO_BRASILIA).date().isoformat()
+            store._definir_estado(f"repost_clicada:{oid}", hoje)
+            store._definir_estado(f"repost_clicadas:{hoje}",
+                                  int(store._estado(f"repost_clicadas:{hoje}") or 0) + 1)
+            print(f"   🔁 Repostada por ter sido bem clicada ({oferta.get('_cliques')} cliques).")
         store.registrar_nota_publicada(pontuacao(oferta))
         fontes_hoje[fonte.NOME] = fontes_hoje.get(fonte.NOME, 0) + 1
         if fonte.NOME == ultima_fonte:

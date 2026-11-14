@@ -115,3 +115,28 @@ test('não conta a prévia que as redes buscam como clique',async()=>{
   await worker.fetch(pessoa,env({DB}));
   assert.equal(clicks,1);
 });
+
+test('conta só cliques do Brasil e ignora robôs de datacenter',async()=>{
+  let clicks=0;
+  const DB={prepare(sql){return {bind(){return this;},
+    async first(){return {destination:'https://shopee.com.br/oferta'};},
+    async run(){if(sql.includes('INSERT INTO clicks')) clicks+=1;return {meta:{changes:1}};}};}};
+  const navegador='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36';
+  const acessar=(ip,pais,agent=navegador,method='GET')=>worker.fetch(
+    new Request('https://go.canaltabarato.com.br/abcdefgh',{method,headers:{
+      'CF-Connecting-IP':ip,'CF-IPCountry':pais,'User-Agent':agent}}),env({DB}));
+  // Navegador "comum" vindo de datacenter nos EUA ou na Alemanha: não conta.
+  await acessar('203.0.113.20','US');
+  await acessar('203.0.113.21','DE');
+  // Robôs vistos nos acessos reais, mesmo com IP brasileiro.
+  for(const agent of ['Mozilla/5.0 (Windows NT 10.0; Win64; x64; trendictionbot0.5.0; trendiction search)',
+    'Mozilla/5.0 (compatible; SkyWatch/1.0; +https://github.com/skywatch-bsky)',
+    'Mozilla/5.0 (compatible; piiksi/1.0; +https://piiksi.app)','Lightpanda/1.0','Go-http-client/1.1']){
+    await acessar('203.0.113.22','BR',agent);
+  }
+  await acessar('203.0.113.23','BR',navegador,'HEAD');
+  assert.equal(clicks,0);
+  await acessar('203.0.113.24','BR');
+  assert.equal(clicks,1);
+});
+
