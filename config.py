@@ -84,6 +84,11 @@ FACEBOOK_MAX_POSTS_DIA = max(0, _int("FACEBOOK_MAX_POSTS_DIA", 30))
 # Chamadas ao Buffer em 24 h, somando Facebook e X. O plano grátis aceita 100
 # por dia e 3.000 em 30 dias; 90 deixa folga e cabe no limite mensal.
 BUFFER_MAX_CHAMADAS_DIA = max(0, _int("BUFFER_MAX_CHAMADAS_DIA", 90))
+# Facebook e X (via Buffer) recebem só as melhores ofertas: a nota precisa
+# estar acima deste percentil das últimas ofertas publicadas. Com ~2 chamadas
+# por post e dois canais, 90 chamadas cobrem ~22 ofertas das ~55 do dia.
+BUFFER_NOTA_PERCENTIL = max(0.0, min(95.0, _float("BUFFER_NOTA_PERCENTIL", 60)))
+BUFFER_CANAIS = ("Facebook", "X")
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro

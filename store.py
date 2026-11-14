@@ -305,6 +305,23 @@ def _definir_estado(chave, valor):
         con.execute("INSERT INTO estado(chave,valor) VALUES(?,?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor", (chave, str(valor)))
 
 
+_CHAVE_NOTAS = "notas_publicadas"
+
+
+def registrar_nota_publicada(nota, limite=80):
+    """Guarda a nota das últimas ofertas publicadas (janela móvel)."""
+    notas = notas_publicadas()
+    notas.append(round(float(nota), 2))
+    _definir_estado(_CHAVE_NOTAS, json.dumps(notas[-limite:]))
+
+
+def notas_publicadas():
+    try:
+        return [float(n) for n in json.loads(_estado(_CHAVE_NOTAS) or "[]")]
+    except (TypeError, ValueError):
+        return []
+
+
 def registrar_estoque_lista(loja, ineditas, total, agora=None):
     """Guarda quantos produtos inéditos restam numa lista curada."""
     slug = str(loja).lower().replace(" ", "_")

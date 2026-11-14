@@ -129,6 +129,7 @@ Novas variáveis:
 | `CATEGORIAS_QUE_VENDEM` | `esporte,cozinha,casa,pet,hidratacao` | Categorias que já viraram venda e ganham `CATEGORIA_QUE_VENDE_BONUS` (padrão `10`) |
 | `FAIXA_PRECO_QUE_VENDE_MIN` / `_MAX` | `30` / `120` | Faixa de preço que já vendeu e ganha `FAIXA_PRECO_QUE_VENDE_BONUS` (padrão `6`) |
 | `BUFFER_MAX_CHAMADAS_DIA` | `90` | Teto de chamadas ao Buffer em 24 h (o plano gratuito aceita 100); acima disso Facebook e X esperam |
+| `BUFFER_NOTA_PERCENTIL` | `60` | Facebook e X recebem só ofertas com nota acima deste percentil das últimas publicadas (60 = as 40% melhores) |
 | `BLOG_RASCUNHO_AUTOMATICO` | `true` | Cria no máximo um comparativo diário no painel, sempre como rascunho |
 
 Para descobrir o `TELEGRAM_ADMIN_ID`, envie uma mensagem privada ao bot e consulte `https://api.telegram.org/botSEU_TOKEN/getUpdates`. Copie somente o número de `chat.id` para um GitHub Secret; não compartilhe a URL preenchida.

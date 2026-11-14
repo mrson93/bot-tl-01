@@ -662,6 +662,40 @@ class MainTest(unittest.TestCase):
             self.assertEqual(0, main.publicar(Fonte, oferta))
         liberar.assert_called_once_with("x", "X", "Shopee")
 
+    def test_buffer_recebe_so_as_melhores_ofertas(self):
+        historico = [float(n) for n in range(10, 110, 4)]  # 25 notas: 10..106
+        with patch.object(main.store, "notas_publicadas", return_value=historico), \
+             patch.object(main.config, "BUFFER_NOTA_PERCENTIL", 60), \
+             patch.object(main, "pontuacao", side_effect=lambda o: o["nota"]):
+            self.assertTrue(main.merece_buffer({"nota": 80}))
+            self.assertFalse(main.merece_buffer({"nota": 40}))
+        # Com pouco histórico, ninguém é barrado.
+        with patch.object(main.store, "notas_publicadas", return_value=historico[:5]):
+            self.assertTrue(main.merece_buffer({"nota": 1}))
+
+    def test_oferta_fraca_nao_vai_para_facebook_e_x(self):
+        class Fonte:
+            NOME = "Shopee"
+
+            @staticmethod
+            def gerar_link(*args):
+                return "https://oferta.test"
+
+        telegram = unittest.mock.Mock(NOME="Telegram", TRACKING_ID="telegram")
+        x = unittest.mock.Mock(NOME="X", TRACKING_ID="x")
+        oferta = {"oferta_id": "o1", "productUrl": "https://produto.test",
+                  "price": 50, "_buffer": False}
+        with patch.object(main, "canais_ativos", return_value=[telegram, x]), \
+             patch.object(main.store, "canal_pendente", return_value=True), \
+             patch.object(main.store, "registrar_entrega"), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=False), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.monitor, "avisar_falha_total_publicacao"), \
+             patch.object(main.idempotencia, "reservar_oferta", return_value=True):
+            self.assertEqual(1, main.publicar(Fonte, oferta))
+        telegram.postar.assert_called_once()
+        x.postar.assert_not_called()
+
     def test_falha_do_link_proprio_usa_afiliado_oficial(self):
         class Fonte:
             NOME = "Shopee"

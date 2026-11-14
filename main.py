@@ -452,6 +452,9 @@ def publicar(fonte, oferta: dict) -> int:
         if canal not in ativos and canal.esta_configurada():
             resultados[canal.NOME] = "⏸ limite do turno ou de 24 h"
     for canal in ativos:
+        if canal.NOME in config.BUFFER_CANAIS and not merece_buffer(oferta):
+            resultados[canal.NOME] = "⏭ fora das melhores do dia"
+            continue
         if not store.canal_pendente(oid, canal.NOME, preco_pendencia, **repeticao):
             observabilidade.evento("publicacao_ignorada", oferta_id=oid,
                                   canal=canal.NOME, motivo="entrega_ja_concluida")
@@ -890,6 +893,24 @@ def motivo_rejeicao_filtro(oferta: dict):
     return None
 
 
+def merece_buffer(oferta: dict) -> bool:
+    """Facebook e X ficam com as melhores ofertas, dentro da cota do Buffer.
+
+    Compara a nota da oferta com as das últimas publicadas; com pouco
+    histórico (menos de 20), todas passam.
+    """
+    if "_buffer" in oferta:
+        return oferta["_buffer"]
+    notas = sorted(store.notas_publicadas())
+    percentil = config.BUFFER_NOTA_PERCENTIL
+    if percentil <= 0 or len(notas) < 20:
+        oferta["_buffer"] = True
+    else:
+        corte = notas[min(len(notas) - 1, int(len(notas) * percentil / 100))]
+        oferta["_buffer"] = pontuacao(oferta) >= corte
+    return oferta["_buffer"]
+
+
 def ganho_por_venda(oferta: dict) -> float:
     """Quanto essa venda deve pagar de comissao, em reais."""
     return float(oferta.get("price") or 0) * float(oferta.get("comissao") or 0)
@@ -1027,6 +1048,8 @@ def buscar_candidatos(fonte) -> list:
     nomes_canais = [c.NOME for c in canais_ativos()]
     if site_publisher.esta_configurado():
         nomes_canais.append("Site")
+    canais_buffer = [n for n in nomes_canais if n in config.BUFFER_CANAIS]
+    canais_gerais = [n for n in nomes_canais if n not in config.BUFFER_CANAIS]
     candidatos = []
     comerciais = []
     rejeicoes = {
@@ -1074,8 +1097,13 @@ def buscar_candidatos(fonte) -> list:
                   store.avaliar_elegibilidade(oid, preco,
                       config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))
         # Uma entrega que falhou continua elegivel mesmo durante o cooldown.
-        if motivo or store.ha_canal_pendente(oid, nomes_canais,
-                                             None if curada else preco):
+        # Facebook e X só contam como pendentes para as melhores ofertas.
+        preco_pendente = None if curada else preco
+        pendente = (store.ha_canal_pendente(oid, canais_gerais, preco_pendente)
+                    or (canais_buffer
+                        and store.ha_canal_pendente(oid, canais_buffer, preco_pendente)
+                        and merece_buffer(oferta)))
+        if motivo or pendente:
             oferta["_motivo"] = motivo or "canal_pendente"
             if motivo == "queda_preco":
                 oferta["_preco_publicacao_anterior"] = store.preco_quando_postada(oid)
@@ -1407,6 +1435,7 @@ def _publicar_fila(fila, limite):
             loja=oferta.get("shopName"), imagem=oferta.get("imageUrl")
         )
         postadas += 1
+        store.registrar_nota_publicada(pontuacao(oferta))
         fontes_hoje[fonte.NOME] = fontes_hoje.get(fonte.NOME, 0) + 1
         if fonte.NOME == ultima_fonte:
             fontes_consecutivas += 1
