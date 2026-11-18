@@ -24,6 +24,12 @@ _MAX_IMAGEM_HOSPEDADA = 850_000
 _ESPERA_ANTES_DE_CONFERIR = 6
 _ESTADO_CHAMADAS = "buffer_chamadas_24h"
 _ESTADO_PAUSA = "buffer_pausado_ate"
+# O Buffer devolve em cada resposta quantas chamadas restam (RateLimit-*).
+# Guardamos a leitura da janela de 30 dias para repartir o que sobra pelos
+# dias até ela renovar: estourar essa janela parava Facebook e X por dias.
+_ESTADO_LIMITE = "buffer_limite_30d"
+_LIMITE_MENSAL_MINIMO = 1000  # abaixo disso o cabeçalho é de outra janela
+_LIMITE_AVISADO = False
 _PAUSA_PADRAO = {"15m": 15 * 60, "24h": 24 * 3600, "30d": 24 * 3600}
 
 _CREATE_POST = """
@@ -73,11 +79,58 @@ def pausado_ate(agora=None):
     return ate if ate > (agora or time.time()) else 0
 
 
+def _numero(valor):
+    try:
+        return float(str(valor).split(",")[0].split(";")[0].strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _registrar_limite(cabecalhos, agora):
+    """Guarda o saldo da janela de 30 dias que o Buffer informa."""
+    try:
+        limite = _numero(cabecalhos.get("RateLimit-Limit") or cabecalhos.get("X-RateLimit-Limit"))
+        restante = _numero(cabecalhos.get("RateLimit-Remaining")
+                           or cabecalhos.get("X-RateLimit-Remaining"))
+        reset = _numero(cabecalhos.get("RateLimit-Reset") or cabecalhos.get("X-RateLimit-Reset"))
+    except AttributeError:
+        return
+    if limite is None or restante is None or limite < _LIMITE_MENSAL_MINIMO:
+        return
+    # Reset pode vir em segundos até renovar ou como horário Unix.
+    reset_em = (reset if reset and reset > 1_000_000_000 else agora + (reset or 30 * 86400))
+    store._definir_estado(_ESTADO_LIMITE, f"{restante:.0f},{reset_em:.0f},{agora:.0f}")
+    global _LIMITE_AVISADO
+    if not _LIMITE_AVISADO:
+        _LIMITE_AVISADO = True
+        print(f"   📊 Buffer: {restante:.0f} de {limite:.0f} chamadas restantes, renova em "
+              f"{max(0, reset_em - agora) / 86400:.1f} dia(s); teto de 24 h agora: "
+              f"{limite_diario(agora)}.")
+
+
+def limite_diario(agora=None) -> int:
+    """Chamadas permitidas em 24 h: o teto fixo ou o saldo do mês por dia restante."""
+    agora = agora or time.time()
+    teto = config.BUFFER_MAX_CHAMADAS_DIA
+    try:
+        restante, reset_em, lido_em = (float(x) for x in
+                                       str(store._estado(_ESTADO_LIMITE) or "").split(","))
+    except ValueError:
+        return teto
+    if reset_em <= agora:
+        return teto
+    # O saldo lido já desconta as chamadas feitas antes da leitura; somamos as
+    # das últimas 24 h feitas até ali para comparar com o total do dia.
+    antes = len([t for t in _chamadas_recentes(agora) if t <= lido_em])
+    dias = max(1.0, (reset_em - agora) / 86400)
+    return max(0, min(teto, int((restante + antes) / dias)))
+
+
 def pode_chamar(quantidade=3, agora=None) -> bool:
     """Há cota para criar um post e conferir o estado dele nas últimas 24 h."""
     agora = agora or time.time()
     return (not pausado_ate(agora)
-            and len(_chamadas_recentes(agora)) + quantidade <= config.BUFFER_MAX_CHAMADAS_DIA)
+            and len(_chamadas_recentes(agora)) + quantidade <= limite_diario(agora))
 
 
 def _chamar(chave: str, corpo: dict, timeout: int):
@@ -92,6 +145,7 @@ def _chamar(chave: str, corpo: dict, timeout: int):
         headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
         json=corpo, timeout=timeout, allow_redirects=False,
     )
+    _registrar_limite(getattr(resposta, "headers", None) or {}, agora)
     if resposta.status_code == 429:
         try:
             erro = ((resposta.json() or {}).get("errors") or [{}])[0]

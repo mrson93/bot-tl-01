@@ -219,6 +219,35 @@ class BufferFacebookTest(unittest.TestCase):
             self.assertTrue(buffer_facebook.pode_chamar(4))
             self.assertFalse(buffer_facebook.pode_chamar(5))
 
+    def test_saldo_mensal_do_buffer_reparte_o_teto_de_24h(self):
+        import tempfile
+        from pathlib import Path
+        import store
+        agora = 2_000_000_000
+        with tempfile.TemporaryDirectory() as pasta, \
+             patch.object(store, "_DB", Path(pasta) / "estado.db"), \
+             patch.object(buffer_facebook.config, "BUFFER_MAX_CHAMADAS_DIA", 90):
+            # Sem leitura do Buffer vale o teto fixo.
+            self.assertEqual(90, buffer_facebook.limite_diario(agora))
+            # Cabeçalho da janela de 15 min (limite 100) não mexe no teto.
+            buffer_facebook._registrar_limite(
+                {"RateLimit-Limit": "100", "RateLimit-Remaining": "3"}, agora)
+            self.assertEqual(90, buffer_facebook.limite_diario(agora))
+            # 300 restantes e 10 dias até renovar: 30 por dia.
+            buffer_facebook._registrar_limite({
+                "RateLimit-Limit": "3000", "RateLimit-Remaining": "300",
+                "RateLimit-Reset": str(10 * 86400)}, agora)
+            self.assertEqual(30, buffer_facebook.limite_diario(agora))
+            self.assertTrue(buffer_facebook.pode_chamar(30, agora))
+            self.assertFalse(buffer_facebook.pode_chamar(31, agora))
+            # Saldo folgado não passa do teto fixo.
+            buffer_facebook._registrar_limite({
+                "RateLimit-Limit": "3000", "RateLimit-Remaining": "2900",
+                "RateLimit-Reset": str(agora + 20 * 86400)}, agora)
+            self.assertEqual(90, buffer_facebook.limite_diario(agora))
+            # Depois da renovação volta ao teto fixo.
+            self.assertEqual(90, buffer_facebook.limite_diario(agora + 21 * 86400))
+
 
 if __name__ == "__main__":
     unittest.main()

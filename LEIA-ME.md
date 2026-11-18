@@ -128,7 +128,7 @@ Novas variáveis:
 | `BLACK_FRIDAY_MAX_PERCENTUAL` | `50` | Até que fatia dos posts recentes uma loja pode ocupar furando a divisão entre lojas com ofertas Black Friday |
 | `CATEGORIAS_QUE_VENDEM` | `esporte,cozinha,casa,pet,hidratacao` | Categorias que já viraram venda e ganham `CATEGORIA_QUE_VENDE_BONUS` (padrão `10`) |
 | `FAIXA_PRECO_QUE_VENDE_MIN` / `_MAX` | `30` / `120` | Faixa de preço que já vendeu e ganha `FAIXA_PRECO_QUE_VENDE_BONUS` (padrão `6`) |
-| `BUFFER_MAX_CHAMADAS_DIA` | `90` | Teto de chamadas ao Buffer em 24 h (o plano gratuito aceita 100); acima disso Facebook e X esperam |
+| `BUFFER_MAX_CHAMADAS_DIA` | `90` | Teto de chamadas ao Buffer em 24 h (o plano gratuito aceita 100); acima disso Facebook e X esperam. O bot também lê o saldo da janela de 30 dias que o Buffer informa e baixa esse teto quando preciso, para o saldo durar até a renovação |
 | `BUFFER_NOTA_PERCENTIL` | `60` | Facebook e X recebem só ofertas com nota acima deste percentil das últimas publicadas (60 = as 40% melhores) |
 | `REPOST_CLICADAS_ATIVO` | `true` | Reposta uma vez, no dia seguinte, a oferta que teve cliques reais e não subiu de preço |
 | `REPOST_CLICADAS_MIN_CLIQUES` | `3` | Cliques (do Brasil, sem robôs) em 48 h para a oferta voltar |
