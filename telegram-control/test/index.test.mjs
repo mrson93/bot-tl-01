@@ -295,6 +295,8 @@ test("campanha Shopee VIP possui execucao individual com confirmacao", async () 
     JSON.parse(call.options.body).reply_markup?.inline_keyboard?.flat().some(
       (button) => button.callback_data === "campaign:shopee_vip:ask"));
   assert.ok(menu);
+  assert.ok(JSON.parse(menu.options.body).reply_markup.inline_keyboard.flat().some(
+    (button) => button.callback_data === "campaign:cartao_amazon:ask"));
 
   calls.length = 0;
   await worker.fetch(request(callback("campaign:shopee_vip:ask")), env, fakeFetch);

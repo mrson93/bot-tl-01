@@ -233,6 +233,18 @@ export const SETTINGS = Object.freeze({
     category: "campanhas", label: "Horas do Amazon Prime", type: "hours", default: "12,13,20,21",
     hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
   },
+  CARTAO_AMAZON_ATIVO: {
+    category: "campanhas", label: "Divulgação Cartão Amazon", type: "boolean", default: "true",
+    hint: "Posts recorrentes do Cartão Amazon (cupom AFILIADO35) no Telegram e no Bluesky.",
+  },
+  CARTAO_AMAZON_DIAS: {
+    category: "campanhas", label: "Dias do Cartão Amazon", type: "weekdays", default: "3,6",
+    hint: "Use números de 0 a 6: 0 segunda, 1 terça, 2 quarta, 3 quinta, 4 sexta, 5 sábado e 6 domingo.",
+  },
+  CARTAO_AMAZON_HORAS: {
+    category: "campanhas", label: "Horas do Cartão Amazon", type: "hours", default: "12,13,20,21",
+    hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
+  },
 
   PESO_COMISSAO: {
     category: "selecao", label: "Peso da comissão", type: "float", default: "1", min: 0, max: 3,

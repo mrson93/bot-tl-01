@@ -50,6 +50,11 @@ const CAMPAIGNS = Object.freeze({
     emoji: "🎬",
     activeSetting: "AMAZON_PRIME_ATIVO",
   },
+  cartao_amazon: {
+    label: "Cartão Amazon",
+    emoji: "💳",
+    activeSetting: "CARTAO_AMAZON_ATIVO",
+  },
 });
 
 function textResponse(text, status = 200) {
