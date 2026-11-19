@@ -308,7 +308,11 @@ def _buscar_lista() -> list:
 
 
 def _lista_do_site():
-    """Páginas da lista que a extensão enviou ao site, se a cópia for recente."""
+    """Páginas da lista que a extensão enviou ao site: (páginas, epoch, idade em min).
+
+    Devolve a cópia enquanto ela servir de reserva; quem chama decide se ela
+    é recente o bastante para dispensar a leitura direta.
+    """
     if not config.AMAZON_LISTA_SITE_MINUTOS or not site_publisher.esta_configurado():
         return None
     achado = re.search(r"/list/([A-Z0-9]{6,20})", config.AMAZON_LIST_URL or "")
@@ -324,7 +328,7 @@ def _lista_do_site():
         return None
     capturada, paginas = copia
     idade = max(0.0, (time.time() - capturada) / 60)
-    if idade > config.AMAZON_LISTA_SITE_MINUTOS:
+    if idade > max(config.AMAZON_LISTA_SITE_MINUTOS, config.AMAZON_LISTA_RESERVA_MINUTOS):
         print(f"   ℹ️  Cópia da lista da Amazon no site tem {int(idade)} min; "
               "lendo a Amazon direto.")
         return None
@@ -333,17 +337,26 @@ def _lista_do_site():
 
 def _ler_lista(parser, sessao) -> list:
     copia = _lista_do_site()
-    if copia:
+    if copia and copia[2] <= config.AMAZON_LISTA_SITE_MINUTOS:
         paginas, lida_em, idade = copia
         print(f"   📥 Lista da Amazon: cópia enviada pela extensão há {int(idade)} min "
               f"({len(paginas)} página(s)).")
         return _ofertas_das_paginas(parser, paginas, lida_em)
+    if copia:
+        print(f"   ℹ️  Cópia da lista da Amazon no site tem {int(copia[2])} min; "
+              "lendo a Amazon direto.")
     try:
         html = _baixar_lista(config.AMAZON_LIST_URL, sessao)
     except requests.HTTPError as erro:
         status = getattr(erro.response, "status_code", None)
         reserva, idade = (_lista_reserva() if status in _STATUS_TRANSITORIOS
                           else (None, 0))
+        if copia and status in _STATUS_TRANSITORIOS and (not reserva or copia[2] < idade):
+            # Sem o navegador ligado, a cópia da extensão ainda é a leitura
+            # mais nova que temos; o GitHub costuma levar 503 da Amazon.
+            print(f"   ⚠️  Amazon recusou a lista ({status}); usando a cópia da "
+                  f"extensão de {int(copia[2])} min atrás.")
+            return _ofertas_das_paginas(parser, copia[0], copia[1])
         if not reserva:
             raise
         # A vitrine recusa datacenters com 503 em boa parte das rodadas; a
@@ -353,15 +366,40 @@ def _ler_lista(parser, sessao) -> list:
         _cache_lista.update(url=config.AMAZON_LIST_URL, em=time.monotonic(),
                             ofertas=[dict(oferta) for oferta in reserva])
         return [dict(oferta) for oferta in reserva]
-    return _ofertas_das_paginas(parser, [html, *_paginas_seguintes(html, sessao)],
-                                time.time())
+    seguintes = _paginas_seguintes(html, sessao)
+    paginas = [html, *seguintes]
+    if copia and _paginacao_interrompida(html, seguintes):
+        # A Amazon cortou a leitura no meio: completa com o resto da cópia da
+        # extensão. Os produtos lidos agora vêm antes e prevalecem.
+        print(f"   ↪️  Completando a lista com a cópia da extensão de {int(copia[2])} min.")
+        paginas += copia[0]
+    return _ofertas_das_paginas(parser, paginas, time.time())
+
+
+def _paginacao_interrompida(html, seguintes):
+    """A última página lida ainda dizia que havia mais produtos."""
+    produtos = sum(p.count("single-product-item-link") for p in [html, *seguintes])
+    if produtos >= config.AMAZON_FETCH_LIMIT:
+        return False
+    ultima = seguintes[-1] if seguintes else html
+    if seguintes:
+        mais = _MAIS_PAGINAS.search(ultima)
+        return bool(mais and mais.group(1).lower() == "true" and _TOKEN_PAGINA.search(ultima))
+    achado = _ESTADO_ROLAGEM.search(html)
+    try:
+        estado = json.loads(achado.group(1)) if achado else {}
+    except ValueError:
+        return False
+    return bool(estado.get("pageToken") and estado.get("shouldListLoadMoreFlag"))
 
 
 def _ofertas_das_paginas(parser, paginas, lida_em) -> list:
     for pagina in paginas:
         parser.feed(pagina)
     ofertas = {}
-    for card in parser.ofertas[:config.AMAZON_FETCH_LIMIT]:
+    for card in parser.ofertas:
+        if len(ofertas) >= config.AMAZON_FETCH_LIMIT:
+            break
         try:
             oferta = _normalizar_lista(card)
             ofertas.setdefault(oferta["oferta_id"], oferta)

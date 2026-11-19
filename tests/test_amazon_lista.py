@@ -144,6 +144,26 @@ class AmazonListaTest(unittest.TestCase):
         self.assertEqual({"amazon_B0F9Z2DV83", "amazon_B0DPNHDC9B"},
                          {o["oferta_id"] for o in ofertas})
 
+    def test_503_usa_a_copia_da_extensao_mesmo_passada_dos_90_min(self):
+        a, b, c, d = self._config()
+        e, f, g, h = self._site((time.time() - 3 * 3600, [HTML]))
+        with a, b, c, d, e, f, g, h, \
+             patch.object(amazon, "_lista_reserva", return_value=(None, 0)), \
+             patch.object(amazon, "_baixar_lista", side_effect=self._erro_503()) as baixar:
+            ofertas = amazon.buscar_ofertas()
+        baixar.assert_called()
+        self.assertEqual({"amazon_B0F9Z2DV83", "amazon_B0DPNHDC9B"},
+                         {o["oferta_id"] for o in ofertas})
+
+    def test_copia_mais_velha_que_a_reserva_nao_e_usada(self):
+        a, b, c, d = self._config()
+        e, f, g, h = self._site((time.time() - 7 * 3600, [HTML]))
+        with a, b, c, d, e, f, g, h, \
+             patch.object(amazon, "_lista_reserva", return_value=(None, 0)), \
+             patch.object(amazon, "_baixar_lista", side_effect=self._erro_503()):
+            with self.assertRaises(requests.HTTPError):
+                amazon.buscar_ofertas()
+
     def test_503_com_leitura_antiga_demais_continua_falhando(self):
         a, b, c, d = self._config()
         with a, b, c, d:
