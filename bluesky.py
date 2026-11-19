@@ -419,6 +419,17 @@ def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
         "✓ Ofertas exclusivas para membros", link_afiliado, "Amazon Prime")
 
 
+def postar_cartao_amazon(link_afiliado: str, variante=0) -> None:
+    del variante
+    postar_assinatura(
+        "💳 CARTÃO AMAZON\n\n"
+        f"🎟 35% off na 1ª compra com o cartão (até R$ 50): {config.CARTAO_AMAZON_CUPOM}\n\n"
+        "✓ Prime em até 21x sem juros\n"
+        "✓ Cartão Amazon em até 18x sem juros\n"
+        "Sujeito a análise de crédito.", link_afiliado, "Cartão Amazon",
+        chamada="Veja as regras:")
+
+
 _CONVITES_TELEGRAM = (
     "📣 Ofertas o dia todo no Telegram\n\n"
     "Shopee, Amazon e Mercado Livre com preço conferido, cupons e Black Friday, "

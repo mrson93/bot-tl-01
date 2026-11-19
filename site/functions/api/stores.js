@@ -4,6 +4,7 @@ const STORES={
   Shopee:{slug:'shopee',name:'Shopee'},
   'Shopee VIP':{slug:'shopee-vip',name:'Shopee VIP'},
   'Amazon Prime':{slug:'amazon-prime',name:'Amazon Prime'},
+  'Cartão Amazon':{slug:'cartao-amazon',name:'Cartão Amazon'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
 };

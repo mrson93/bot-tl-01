@@ -474,6 +474,44 @@ class MainTest(unittest.TestCase):
         self.assertEqual("https://amzn.to/3UNB0OD", prime.call_args.args[0])
         marcar.assert_called_once_with("2026-11-03", "amazon_prime_manha", "Telegram")
 
+    def test_cartao_amazon_sai_nos_seus_dias_com_o_link_do_associado(self):
+        quinta = datetime(2026, 11, 19, 20, 15, tzinfo=main.FUSO_BRASILIA)
+        terca = datetime(2026, 11, 17, 20, 15, tzinfo=main.FUSO_BRASILIA)
+        link = "https://www.amazon.com.br/associadoscartaoamazon?tag=canaltabarato-20"
+        with patch.object(main.config, "CARTAO_AMAZON_URL", link), \
+             patch.object(main.config, "CARTAO_AMAZON_DIAS", [3]), \
+             patch.object(main.config, "CARTAO_AMAZON_HORAS", [20]), \
+             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=True), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main.store, "campanha_enviada", return_value=False), \
+             patch.object(main.store, "marcar_campanha_enviada") as marcar, \
+             patch.object(main.telegram_poster, "postar_cartao_amazon") as telegram, \
+             patch.object(main.bluesky, "postar_cartao_amazon") as bluesky:
+            self.assertFalse(main.publicar_assinatura_se_preciso("cartao_amazon", terca))
+            self.assertTrue(main.publicar_assinatura_se_preciso("cartao_amazon", quinta))
+        self.assertEqual(link, telegram.call_args.args[0])
+        self.assertEqual(link, bluesky.call_args.args[0])
+        marcar.assert_any_call("2026-11-19", "cartao_amazon_noite", "Bluesky")
+
+    def test_textos_do_cartao_amazon_cabem_e_trazem_o_cupom(self):
+        link = "https://canaltabarato.com.br/loja/cartao-amazon"
+        with patch.object(main.bluesky, "_sessao", return_value={"accessJwt": "x", "did": "d"}), \
+             patch.object(main.bluesky.requests, "post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {"uri": "at://x"}
+            main.bluesky.postar_cartao_amazon(link)
+        texto = post.call_args.kwargs["json"]["record"]["text"]
+        self.assertIn("AFILIADO35", texto)
+        self.assertLessEqual(len(texto), 300)
+        with patch.object(main.telegram_poster.requests, "post") as post:
+            post.return_value.json.return_value = {"ok": True}
+            main.telegram_poster.postar_cartao_amazon(link, 1)
+        dados = post.call_args.kwargs["json"]
+        self.assertIn("<code>AFILIADO35</code>", dados["text"])
+        self.assertIn("análise de crédito", dados["text"])
+        self.assertEqual(link, dados["reply_markup"]["inline_keyboard"][0][0]["url"])
+
     def test_convite_do_telegram_sai_so_no_bluesky_sem_atalho_no_site(self):
         domingo = datetime(2026, 11, 8, 19, 10, tzinfo=main.FUSO_BRASILIA)
         with patch.object(main.telegram_poster, "esta_configurada", return_value=True), \

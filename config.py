@@ -155,6 +155,16 @@ def _horas(nome, padrao):
 AMAZON_PRIME_ATIVO = _bool("AMAZON_PRIME_ATIVO", True)
 AMAZON_PRIME_DIAS = _dias("AMAZON_PRIME_DIAS", "1,4")
 AMAZON_PRIME_HORAS = _horas("AMAZON_PRIME_HORAS", "12,13,20,21")
+# Cartão Amazon: a Amazon paga ao associado por cartão aprovado pedido pelo
+# link dele (programa "Recompensa do Cartão Amazon"). Dias livres das outras
+# campanhas; o cupom AFILIADO35 vale para quem pedir o cartão após 19/11/2026.
+CARTAO_AMAZON_URL = _get("CARTAO_AMAZON_URL") or (
+    f"https://www.amazon.com.br/associadoscartaoamazon?tag={AMAZON_ASSOCIATE_TAG}"
+    if _get("AMAZON_ASSOCIATE_TAG") else "")
+CARTAO_AMAZON_ATIVO = _bool("CARTAO_AMAZON_ATIVO", True)
+CARTAO_AMAZON_DIAS = _dias("CARTAO_AMAZON_DIAS", "3,6")
+CARTAO_AMAZON_HORAS = _horas("CARTAO_AMAZON_HORAS", "12,13,20,21")
+CARTAO_AMAZON_CUPOM = _get("CARTAO_AMAZON_CUPOM") or "AFILIADO35"
 # Convite do canal do Telegram, publicado no Bluesky: o Telegram tinha só 82
 # inscritos e o Bluesky é onde está a audiência.
 CONVITE_TELEGRAM_URL = _get("CONVITE_TELEGRAM_URL") or "https://t.me/CanalTaBarato"

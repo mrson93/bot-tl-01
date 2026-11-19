@@ -425,13 +425,13 @@ _AVISO_ASSINATURA = ("<i>Confira se o período grátis aparece para a sua conta.
 
 
 def postar_assinatura(link_afiliado: str, mensagens, beneficios, botao,
-                      nome: str, variante=0) -> None:
+                      nome: str, variante=0, aviso=None) -> None:
     """Divulga uma assinatura (Shopee VIP, Prime) com texto cauteloso."""
     link_afiliado = seguranca.validar_url_https_publica(
         link_afiliado, f"Link do {nome}"
     )
     texto = mensagens[int(variante) % len(mensagens)]
-    texto += "\n\n" + beneficios + "\n\n" + _AVISO_ASSINATURA
+    texto += "\n\n" + beneficios + "\n\n" + (aviso or _AVISO_ASSINATURA)
     dados = {
         "chat_id": config.TELEGRAM_CHANNEL,
         "text": texto,
@@ -471,6 +471,35 @@ def postar_amazon_prime(link_afiliado: str, variante=0) -> None:
         link_afiliado, _MENSAGENS_AMAZON_PRIME,
         "🆓 <b>Para contas elegíveis:</b> teste grátis\n\n" + _BENEFICIOS_AMAZON_PRIME,
         "🎬 Testar o Prime grátis", "Amazon Prime", variante)
+
+
+_MENSAGENS_CARTAO_AMAZON = (
+    ("💳 <b>CARTÃO AMAZON COM 35% OFF NA 1ª COMPRA</b>\n\n"
+     "Quem pedir o Cartão Amazon ganha 35% de desconto na primeira compra com "
+     "ele, até R$ 50, usando o cupom <code>{cupom}</code>."),
+    ("💡 <b>VAI COMPRAR NA AMAZON? VEJA O CARTÃO DELA</b>\n\n"
+     "Parcelamento maior nas compras da Amazon e cupom de 35% (até R$ 50) na "
+     "primeira compra com o cartão: <code>{cupom}</code>."),
+)
+
+_BENEFICIOS_CARTAO_AMAZON = (
+    "🎁 <b>Vantagens informadas pela Amazon:</b>\n"
+    "• 35% off na 1ª compra com o cartão, até R$ 50 (cupom <code>{cupom}</code>)\n"
+    "• Cartão Amazon Prime em até 21x sem juros\n"
+    "• Cartão Amazon em até 18x sem juros"
+)
+
+_AVISO_CARTAO = ("<i>Sujeito a análise de crédito. O cupom vale só na primeira compra "
+                 "de quem pedir o cartão a partir de 19/11/2026; confira as regras "
+                 "na página da Amazon antes de pedir.</i>")
+
+
+def postar_cartao_amazon(link_afiliado: str, variante=0) -> None:
+    cupom = html.escape(config.CARTAO_AMAZON_CUPOM)
+    postar_assinatura(
+        link_afiliado, tuple(m.format(cupom=cupom) for m in _MENSAGENS_CARTAO_AMAZON),
+        _BENEFICIOS_CARTAO_AMAZON.format(cupom=cupom),
+        "💳 Pedir o Cartão Amazon", "Cartão Amazon", variante, aviso=_AVISO_CARTAO)
 
 
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:

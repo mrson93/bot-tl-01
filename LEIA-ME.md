@@ -120,6 +120,11 @@ Novas variáveis:
 | `AMAZON_PRIME_ATIVO` | `true` | Ativa a divulgação recorrente do Amazon Prime no Telegram e no Bluesky |
 | `AMAZON_PRIME_DIAS` | `1,4` | Terça e sexta |
 | `AMAZON_PRIME_HORAS` | `12,13,20,21` | Janelas do almoço e da noite para divulgar o Prime |
+| `CARTAO_AMAZON_URL` | página do cartão com a sua tag | Link da Recompensa do Cartão Amazon (R$ 30 por cartão aprovado); pode trocar pelo link do SiteStripe |
+| `CARTAO_AMAZON_ATIVO` | `true` | Ativa a divulgação do Cartão Amazon no Telegram, no Bluesky e no atalho do site |
+| `CARTAO_AMAZON_DIAS` | `3,6` | Quinta e domingo |
+| `CARTAO_AMAZON_HORAS` | `12,13,20,21` | Janelas do almoço e da noite |
+| `CARTAO_AMAZON_CUPOM` | `AFILIADO35` | Cupom de 35% (até R$ 50) na 1ª compra com o cartão, mostrado no post |
 | `CONVITE_TELEGRAM_URL` | `https://t.me/CanalTaBarato` | Link do canal divulgado no Bluesky |
 | `CONVITE_TELEGRAM_ATIVO` | `true` | Convida os seguidores do Bluesky para o canal do Telegram |
 | `CONVITE_TELEGRAM_DIAS` | `0,3,6` | Segunda, quinta e domingo |
