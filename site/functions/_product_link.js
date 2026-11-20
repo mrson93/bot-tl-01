@@ -45,6 +45,9 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
   for (let salto = 0; url && salto < 5; salto += 1) {
     const produto = parseProductLink(url.toString());
     if (produto) return produto;
+    // Link "compartilhar" do programa de afiliados: abre o perfil de afiliado
+    // e o produto vai codificado no parâmetro ref, sem o MLB no endereço.
+    if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) return { erro: "perfil_afiliado" };
     if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON])) return null;
     let resposta;
     try {

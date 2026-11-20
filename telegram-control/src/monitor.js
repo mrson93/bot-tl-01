@@ -48,6 +48,9 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
   for (let salto = 0; url && salto < 5; salto += 1) {
     const produto = parseProductLink(url.toString());
     if (produto) return produto;
+    // Link "compartilhar" do programa de afiliados: abre o perfil de afiliado
+    // e o produto vai codificado no parâmetro ref, sem o MLB no endereço.
+    if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) return { erro: "perfil_afiliado" };
     if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON])) return null;
     let resposta;
     try {
@@ -103,6 +106,7 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
   if (name === "add") {
     if (!argumento) return reply("Use: /add <link do produto na Amazon ou no Mercado Livre>");
     const produto = await resolveProductLink(argumento, fetchImpl);
+    if (produto?.erro === "perfil_afiliado") return reply("❌ Esse link abre a página de perfil de afiliado do Mercado Livre, não a do produto, e nele não dá para saber qual é o produto. Abra o produto e copie o link da barra de endereços (ele tem /p/MLB… ou MLB-…).");
     if (!produto) {
       return reply("❌ Não reconheci o produto. Mande o link da página do produto na Amazon (com /dp/ASIN) ou no Mercado Livre (com MLB).");
     }

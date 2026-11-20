@@ -117,3 +117,9 @@ test('segue meli.la se identificando, até a página do produto',async()=>{
   assert.equal(pedidos.length,2);
   assert.match(pedidos[0],/TaBaratoAlertaBot/);
 });
+
+test('link de perfil de afiliado explica o que mandar',async()=>{
+  const fetcher=async()=>new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?matt_word=x&ref=abc'}});
+  const resposta=await handlePriceAlert({DB:fakeDb()},'55','https://meli.la/1e8sTgB',1000,fetcher);
+  assert.match(resposta,/perfil de afiliado/);
+});

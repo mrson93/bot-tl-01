@@ -65,6 +65,7 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
   if(!pedido) return null;
   if(pedido.precoInvalido) return 'Não entendi o preço. Mande o link e o valor assim: <code>https://… 199,90</code>';
   const produto=await resolveProductLink(pedido.link,fetcher);
+  if(produto?.erro==='perfil_afiliado') return 'Esse link abre a página de perfil de afiliado do Mercado Livre, não a do produto, e nele não dá para saber qual é o produto. Abra o produto e copie o link da barra de endereços (ele tem /p/MLB… ou MLB-…).';
   if(!produto) return 'Não reconheci esse produto. Mande o link da página do produto no Mercado Livre.';
   if(produto.loja!=='mercadolivre'){
     return 'Por enquanto os alertas de preço funcionam só com produtos do <b>Mercado Livre</b>. A Amazon entra em breve.';
