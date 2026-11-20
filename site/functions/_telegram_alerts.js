@@ -1,5 +1,6 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {MENU,MENU_AJUDA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert} from './_price_alerts.js';
+import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert} from './_price_alerts.js';
+import {PERGUNTA_BUSCA,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -52,7 +53,7 @@ function ajuda(env) {
     '2️⃣ Cole o link aqui. Se quiser, já mande o preço junto: <code>https://… 199,90</code>',
     '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque. O alerta vale 1 ano (você pode mudar).',
     '',
-    `Também dá para mandar uma palavra, como <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.`,
+    '🔎 Não tem o link? Toque em <b>Buscar produto</b> ou mande só o nome, como <code>air fryer</code>, e escolha nos resultados. Ali também dá para pedir aviso quando o canal postar oferta disso.',
     '',
     `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa. Guardo só o número do seu chat; /parar apaga tudo.`,
   ].join('\n');
@@ -65,7 +66,45 @@ const NOVO=[
   'No app: abra o produto → <b>Compartilhar</b> → <b>Copiar link</b>.',
   '',
   'Se já souber quanto quer pagar, mande junto: <code>https://… 199,90</code>',
+  '',
+  'Sem o link? Toque em 🔎 <b>Buscar produto</b>.',
 ].join('\n');
+
+async function buscar(env,termoDigitado,now,fetcher=fetch) {
+  const termo=termoBusca(termoDigitado);
+  if(!termo) return {text:'Mande de 2 a 60 letras, por exemplo: <code>air fryer mondial</code>',markup:MENU};
+  const itens=await buscarProdutos(env,termo,fetcher,now);
+  return formatarResultados(termo,itens,validKeyword(termo));
+}
+
+async function criarPalavra(env,chatId,keyword,now) {
+  const count=await env.DB.prepare('SELECT COUNT(*) total FROM alert_subscriptions WHERE chat_id=?').bind(chatId).first();
+  if(Number(count?.total||0)>=MAX_KEYWORDS_PER_CHAT){
+    return `Você já tem ${MAX_KEYWORDS_PER_CHAT} alertas de palavra. Remova um com /remover antes de criar outro.`;
+  }
+  await env.DB.prepare('INSERT OR IGNORE INTO alert_subscriptions(chat_id,keyword,created_at) VALUES(?,?,?)').bind(chatId,keyword,now).run();
+  return `✅ Combinado! Aviso quando aparecer oferta de <b>${html(keyword)}</b>.\n/meusalertas para ver todos.`;
+}
+
+// Botões da busca e da palavra; o resto vai para os botões do cartão.
+export async function handleAlertCallback(env,chatId,dados,now=Math.floor(Date.now()/1000),fetcher=fetch) {
+  const texto=String(dados||'');
+  if(texto==='bn') return {answer:'Buscar',...perguntaBusca()};
+  const palavra=texto.match(/^k:(.{3,40})$/);
+  if(palavra){
+    const keyword=validKeyword(palavra[1]);
+    if(!keyword) return {answer:'Palavra inválida'};
+    return {answer:'Alerta de palavra',text:await criarPalavra(env,chatId,keyword,now),markup:null};
+  }
+  const escolha=texto.match(/^b:(ml|sp):([A-Za-z0-9_]{3,60})$/);
+  if(escolha){
+    const extra=escolha[1]==='sp'?await lerShopee(env,escolha[2],fetcher):null;
+    const r=await handleStartProduct(env,chatId,`${escolha[1]}_${escolha[2]}`,now,'busca',extra);
+    if(!r) return {answer:'Produto inválido'};
+    return {answer:'Alerta criado',...(typeof r==='string'?{text:r,markup:null}:r)};
+  }
+  return handleCallback(env,chatId,texto,now);
+}
 
 export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   const message=update?.message;
@@ -76,6 +115,9 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   const texto=message.text.trim();
   if(texto===MENU_NOVO) return {text:NOVO,markup:MENU};
   if(texto===MENU_AJUDA) return {text:ajuda(env),markup:MENU};
+  if(texto===MENU_BUSCA) return perguntaBusca();
+  const respondeuBusca=message.reply_to_message?.from?.is_bot&&String(message.reply_to_message.text||'').startsWith(PERGUNTA_BUSCA);
+  if(respondeuBusca&&!/https?:\/\//i.test(texto)) return buscar(env,texto,now);
   const escolha=await handlePriceChoice(env,chatId,texto,now);
   if(escolha) return escolha;
   const {command,argument}=texto===MENU_LISTA?{command:'meusalertas',argument:''}:parseCommand(texto);
@@ -85,6 +127,7 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   }
   if(command==='start') return [{text:ajuda(env),markup:MENU},{text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
   if(command==='ajuda'||command==='help') return {text:ajuda(env),markup:MENU};
+  if(command==='buscar') return argument?buscar(env,argument,now):perguntaBusca();
   if(command==='meusalertas'){
     const result=await env.DB.prepare('SELECT keyword FROM alert_subscriptions WHERE chat_id=? ORDER BY created_at').bind(chatId).all();
     const keywords=(result.results||[]).map(row=>row.keyword);
@@ -114,15 +157,12 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
     return `Alerta removido: ${html(keyword)}`;
   }
   if(command==='alerta'&&/https?:\/\//i.test(argument)) return handlePriceAlert(env,chatId,argument,now);
+  // Texto solto agora é busca; /alerta palavra continua criando o alerta por palavra.
+  if(command==='alerta'&&!texto.startsWith('/')) return buscar(env,argument,now);
   if(command==='alerta'){
     const keyword=validKeyword(argument);
     if(!keyword) return 'Use de 3 a 40 letras, com até 4 palavras. Exemplo: <code>air fryer</code>';
-    const count=await env.DB.prepare('SELECT COUNT(*) total FROM alert_subscriptions WHERE chat_id=?').bind(chatId).first();
-    if(Number(count?.total||0)>=MAX_KEYWORDS_PER_CHAT){
-      return `Você já tem ${MAX_KEYWORDS_PER_CHAT} alertas. Remova um com /remover antes de criar outro.`;
-    }
-    await env.DB.prepare('INSERT OR IGNORE INTO alert_subscriptions(chat_id,keyword,created_at) VALUES(?,?,?)').bind(chatId,keyword,now).run();
-    return `✅ Combinado! Aviso quando aparecer oferta de <b>${html(keyword)}</b>.\n/meusalertas para ver todos.`;
+    return criarPalavra(env,chatId,keyword,now);
   }
   return {text:ajuda(env),markup:MENU};
 }

@@ -92,12 +92,12 @@ test('palavras são normalizadas e casam só com palavra inteira',()=>{
 test('cria, lista, limita, remove e apaga alertas em conversa privada',async()=>{
   const DB=database(),env={DB};
   assert.match(t(await handleUpdate(env,message('/start'))),/Alertas de preço do Tá Barato/);
-  assert.match(await handleUpdate(env,message('Air Fryer')),/air fryer/);
-  await handleUpdate(env,message('Air Fryer'));
+  assert.match(await handleUpdate(env,message('/alerta Air Fryer')),/air fryer/);
+  await handleUpdate(env,message('/alerta Air Fryer'));
   assert.equal(DB.subscriptions.length,1);
-  for(const item of ['cafeteira','fone bluetooth','tenis corrida','mochila']) await handleUpdate(env,message(item));
+  for(const item of ['cafeteira','fone bluetooth','tenis corrida','mochila']) await handleUpdate(env,message(`/alerta ${item}`));
   assert.equal(DB.subscriptions.length,MAX_KEYWORDS_PER_CHAT);
-  assert.match(await handleUpdate(env,message('notebook')),/já tem 5 alertas/);
+  assert.match(await handleUpdate(env,message('/alerta notebook')),/já tem 5 alertas/);
   assert.match(t(await handleUpdate(env,message('/meusalertas'))),/cafeteira/);
   await handleUpdate(env,message('/remover cafeteira'));
   assert.equal(DB.subscriptions.length,MAX_KEYWORDS_PER_CHAT-1);
@@ -116,8 +116,8 @@ test('ignora grupos e mensagens sem texto',async()=>{
 
 test('avisa quem pediu a palavra uma única vez por oferta e respeita o limite diário',async()=>{
   const DB=database(),env={DB,TELEGRAM_ALERTS_BOT_TOKEN:'token'};
-  await handleUpdate(env,message('air fryer',1));
-  await handleUpdate(env,message('cafeteira',2));
+  await handleUpdate(env,message('/alerta air fryer',1));
+  await handleUpdate(env,message('/alerta cafeteira',2));
   const calls=[];
   const fetcher=async(url,init)=>{calls.push(JSON.parse(init.body));return {status:200};};
   const offer={id:'shopee_1_2',title:'Fritadeira Air Fryer 4L',price:299.9,discount:40};
@@ -135,7 +135,7 @@ test('avisa quem pediu a palavra uma única vez por oferta e respeita o limite d
 
 test('quem bloqueou o bot tem os dados apagados e sem token nada é enviado',async()=>{
   const DB=database(),env={DB,TELEGRAM_ALERTS_BOT_TOKEN:'token'};
-  await handleUpdate(env,message('air fryer',7));
+  await handleUpdate(env,message('/alerta air fryer',7));
   const offer={id:'o1',title:'Air fryer',price:199,discount:0};
   assert.equal(await notifyOfferAlerts({DB},offer,1000,async()=>({status:200})),0);
   await notifyOfferAlerts(env,offer,1000,async()=>({status:403}));

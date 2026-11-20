@@ -1,6 +1,6 @@
 import {readJsonLimited} from '../_lib.js';
-import {ensureAlertTables,handleUpdate,sendTelegram} from '../_telegram_alerts.js';
-import {handleCallback,telegram,telegramArquivo} from '../_price_alerts.js';
+import {ensureAlertTables,handleAlertCallback,handleUpdate,sendTelegram} from '../_telegram_alerts.js';
+import {telegram,telegramArquivo} from '../_price_alerts.js';
 
 // Toque num botão dentro da mensagem: só vale no privado e só para o dono.
 export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
@@ -9,7 +9,7 @@ export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(D
   if(chat?.type!=='private'||!/^\d{1,20}$/.test(chatId)||String(consulta?.from?.id)!==chatId){
     return telegram(env,'answerCallbackQuery',{callback_query_id:consulta?.id},fetcher);
   }
-  const r=await handleCallback(env,chatId,consulta.data,now);
+  const r=await handleAlertCallback(env,chatId,consulta.data,now,fetcher);
   await telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:String(r.answer||'').slice(0,190)},fetcher);
   const markup=r.markup===null?undefined:r.markup;
   if(r.photo) return enviarGrafico(env,chatId,consulta,r,markup,fetcher);

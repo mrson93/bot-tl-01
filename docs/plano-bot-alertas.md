@@ -20,7 +20,7 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   atual com o histórico (percentil do último ano). No cartão, no aviso e na lista.
 
 ### Etapa 2 — Buscar pelo nome (ideia 2)
-- [ ] `🔎 Buscar produto` no menu: a pessoa digita "air fryer mondial", recebe
+- [x] `🔎 Buscar produto` no menu: a pessoa digita "air fryer mondial", recebe
   até 5 resultados com foto/preço em botões e cria o alerta com um toque.
 - Shopee: a API de afiliados aceita busca por palavra (`productOfferV2(keyword)`),
   mas as credenciais da Shopee estão só no GitHub. Precisa cadastrar
@@ -28,6 +28,11 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   pela pessoa dona da conta.
 - Mercado Livre: testar se a busca da API (`/sites/MLB/search`) responde com o
   acesso atual; se não, a busca fica só na Shopee.
+- Feito em 20/11/2026: busca no catálogo do site (ML e Shopee que o canal já
+  postou) + Shopee ao vivo quando as chaves estiverem no site. A busca do ML
+  recusa sem token (403) e o token do ML só pode ficar no Python (troca a cada
+  uso), então o ML entra pelo catálogo. Texto solto virou busca; o alerta por
+  palavra continua no botão dos resultados e em `/alerta palavra`.
 
 ### Etapa 3 — Volta ao bot e ao canal (ideias 4 e 11)
 - [ ] **Resumo semanal opcional** (segunda, 10h): "seus produtos: 2 caíram, 1 subiu,

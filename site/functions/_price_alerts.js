@@ -19,7 +19,8 @@ const BLOCOS='▁▂▃▄▅▆▇█';
 export const MENU_NOVO='➕ Novo alerta';
 export const MENU_LISTA='📋 Meus alertas';
 export const MENU_AJUDA='❓ Ajuda';
-export const MENU={keyboard:[[{text:MENU_NOVO},{text:MENU_LISTA}],[{text:MENU_AJUDA}]],resize_keyboard:true,is_persistent:true};
+export const MENU_BUSCA='🔎 Buscar produto';
+export const MENU={keyboard:[[{text:MENU_NOVO},{text:MENU_BUSCA}],[{text:MENU_LISTA},{text:MENU_AJUDA}]],resize_keyboard:true,is_persistent:true};
 // Teclado do cadastro antigo: quem ainda tiver esses botões na tela continua atendido.
 const ANTIGOS_MENOR=new Set(['🔥 Menor preço do histórico','🔥 Menor preço real']);
 const ANTIGO_VALOR='💰 Definir um valor';
@@ -222,14 +223,17 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
 }
 
 // Botão "Avisar quando baixar" dos posts do canal: /start ml_MLB123 ou sp_LOJA_ITEM.
-export async function handleStartProduct(env,chatId,payload,now=Math.floor(Date.now()/1000)) {
+// A busca pelo nome usa o mesmo caminho (origem 'busca'), às vezes já com nome e preço.
+export async function handleStartProduct(env,chatId,payload,now=Math.floor(Date.now()/1000),origem='canal',extra=null) {
   const achado=String(payload||'').match(/^(ml|sp)_([A-Za-z0-9_]{3,60})$/);
   if(!achado) return null;
   const produto=achado[1]==='ml'
     ?(/^MLB\d+$/i.test(achado[2])?{loja:'mercadolivre',id_produto:achado[2].toUpperCase(),tipo:null}:null)
     :(/^\d+_\d+$/.test(achado[2])?{loja:'shopee',id_produto:achado[2],tipo:null}:null);
   if(!produto) return null;
-  return cadastrarAlerta(env,chatId,produto,null,now,'canal');
+  const dados=extra&&extra.loja===produto.loja&&extra.id_produto===produto.id_produto
+    ?{...produto,nome:extra.nome||null,preco:Number(extra.preco)>0?Number(extra.preco):null}:produto;
+  return cadastrarAlerta(env,chatId,dados,null,now,origem);
 }
 
 async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
@@ -263,6 +267,13 @@ async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
      SELECT ?1,price,NULL,1,observed_at FROM offer_prices
      WHERE offer_id=?2 AND observed_at>=?3 AND price>0 AND NOT EXISTS(SELECT 1 FROM monitor_leituras WHERE produto_id=?1)`,
   ).bind(linha.id,ofertaId,now-365*86400).run();
+  // Veio da busca com preço lido agora: vira a primeira leitura (o cartão já mostra o preço).
+  if(produto.preco>0){
+    await env.DB.prepare(
+      `INSERT INTO monitor_leituras(produto_id,preco,preco_antigo,disponivel,lido_em)
+       SELECT ?1,?2,NULL,1,?3 WHERE NOT EXISTS(SELECT 1 FROM monitor_leituras WHERE produto_id=?1)`,
+    ).bind(linha.id,produto.preco,now).run();
+  }
   const ultima=await env.DB.prepare('SELECT preco FROM monitor_leituras WHERE produto_id=? AND disponivel=1 AND preco>0 ORDER BY lido_em DESC LIMIT 1')
     .bind(linha.id).first();
   const alerta=await env.DB.prepare(

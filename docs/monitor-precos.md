@@ -174,3 +174,18 @@ painel ganha o botão da campanha do bot de alertas).
   com o token e o segredo que já tem, junto com o menu de comandos e a descrição.
 - **Admin**: `/estatisticas` no painel mostra pessoas, alertas por tipo e
   origem, produtos por loja, avisos enviados e os produtos com mais alertas.
+
+## Busca pelo nome (etapa 2 do plano)
+
+- `🔎 Buscar produto` no menu, `/buscar air fryer` ou só o nome solto.
+  O botão do menu pede o nome com o campo de resposta do Telegram (force_reply).
+- Fontes (`site/functions/_product_search.js`): até 3 do catálogo do site
+  (tabela `offers`, só Mercado Livre e Shopee) e a Shopee ao vivo pela API de
+  afiliados completa até 5. A Shopee só entra com `SHOPEE_APP_ID` e
+  `SHOPEE_SECRET` nos secrets do Cloudflare Pages; sem eles, ou com erro, fica
+  só o catálogo.
+- Produto já acompanhado mostra há quantos dias e o termômetro.
+- Botão numerado cria o alerta (origem `busca`). Da Shopee, o site lê nome e
+  preço na hora e grava como primeira leitura.
+- Botão "🔔 Avisar quando o canal postar …" cria o alerta por palavra antigo.
+
