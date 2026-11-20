@@ -127,3 +127,9 @@ test("/lista mostra o último preço", async () => {
   assert.match(respostas[0], /#1 Mercado Livre: Fone/);
   assert.match(respostas[0], /R\$ 79,90 · 🌙 na fila/);
 });
+
+test("reconhece links da Shopee no /add", () => {
+  assert.deepEqual(parseProductLink("https://shopee.com.br/Fone-JBL-i.123.456?x=1"),
+    { loja: "shopee", id_produto: "123_456", tipo: null });
+  assert.equal(parseProductLink("https://shopee.com.br/opaanlp/1791562791/23894195354").id_produto, "1791562791_23894195354");
+});

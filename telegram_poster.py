@@ -293,6 +293,25 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     return "\n".join(linhas)
 
 
+def link_alerta(oferta: dict) -> str:
+    """Link que abre o bot de alertas já com o produto (vazio se não couber).
+
+    Só para lojas que o monitor lê pela API oficial: Mercado Livre e Shopee.
+    """
+    if not config.ALERTA_BOT_BOTAO_POSTS or not re.fullmatch(r"[A-Za-z0-9_]{5,32}", config.ALERTA_BOT_USUARIO):
+        return ""
+    oferta_id = str(oferta.get("oferta_id") or "")
+    ml = re.fullmatch(r"mercadolivre_(MLB\d+)", oferta_id, re.I)
+    sp = re.fullmatch(r"shopee_(\d+)_(\d+)", oferta_id)
+    if ml:
+        payload = f"ml_{ml.group(1).upper()}"
+    elif sp:
+        payload = f"sp_{sp.group(1)}_{sp.group(2)}"
+    else:
+        return ""
+    return f"https://t.me/{config.ALERTA_BOT_USUARIO}?start={payload}" if len(payload) <= 64 else ""
+
+
 def postar(oferta: dict, link_afiliado: str) -> None:
     """Envia a oferta para o canal, com foto, texto e botao de compra."""
     link_afiliado = seguranca.validar_url_https_publica(
@@ -302,6 +321,9 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     botao = {
         "inline_keyboard": [[{"text": "🛒 Ver oferta", "url": link_afiliado}]]
     }
+    alerta = link_alerta(oferta)
+    if alerta:
+        botao["inline_keyboard"].append([{"text": "🔔 Avisar quando baixar", "url": alerta}])
     dados = {
         "chat_id": config.TELEGRAM_CHANNEL,
         "photo": oferta.get("imageUrl"),

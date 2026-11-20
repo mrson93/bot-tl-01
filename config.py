@@ -178,6 +178,9 @@ CLAUDE_PRO_HORAS = _horas("CLAUDE_PRO_HORAS", "")
 # Divulgação do bot público de alertas de preço (@TaBaratoAlertaDePrecoBot).
 ALERTA_BOT_URL = _get("ALERTA_BOT_URL") or "https://t.me/TaBaratoAlertaDePrecoBot?start=canal"
 ALERTA_BOT_ATIVO = _bool("ALERTA_BOT_ATIVO", True)
+# Botão "Avisar quando baixar" nas ofertas do canal (lojas com leitura pela API).
+ALERTA_BOT_USUARIO = _get("ALERTA_BOT_USUARIO") or "TaBaratoAlertaDePrecoBot"
+ALERTA_BOT_BOTAO_POSTS = _bool("ALERTA_BOT_BOTAO_POSTS", True)
 ALERTA_BOT_DIAS = _dias("ALERTA_BOT_DIAS", "1,4")
 ALERTA_BOT_HORAS = _horas("ALERTA_BOT_HORAS", "15,16")
 CONVITE_TELEGRAM_URL = _get("CONVITE_TELEGRAM_URL") or "https://t.me/CanalTaBarato"

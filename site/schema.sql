@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_offers_shop_checked ON offers(shop,COALESCE(last_
 -- Monitor de preços (migração 0022).
 CREATE TABLE IF NOT EXISTS monitor_produtos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  loja TEXT NOT NULL CHECK (loja IN ('amazon','mercadolivre')),
+  loja TEXT NOT NULL CHECK (loja IN ('amazon','mercadolivre','shopee')),
   id_produto TEXT NOT NULL,
   tipo TEXT,
   nome TEXT,

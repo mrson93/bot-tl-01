@@ -60,13 +60,13 @@ test('respeita o limite por pessoa e recusa a Amazon por enquanto',async()=>{
   const cheio=fakeDb({'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:5}});
   assert.match(await handlePriceAlert({DB:cheio},'55',LINK,1000,semRede),/já tem 5 produtos/);
   const amazon=await handlePriceAlert({DB:fakeDb()},'55','https://www.amazon.com.br/dp/B0C1234567',1000,semRede);
-  assert.match(amazon,/só com produtos do <b>Mercado Livre<\/b>/);
+  assert.match(amazon,/com produtos do <b>Mercado Livre<\/b> e da <b>Shopee<\/b>/);
 });
 
 test('link colado na conversa vira alerta de preço; número remove',async()=>{
   const db=fakeDb({'INSERT INTO monitor_produtos':{id:3,nome:'Fone'},'alerta_precos a JOIN':[{id:30,nome:'Fone',id_produto:'MLB123'}]});
   const criado=await handleUpdate({DB:db},{message:{text:LINK,chat:{id:55,type:'private'}}},1000);
-  assert.match(criado.text,/menor preço real/);
+  assert.match(criado.text,/menor preço do histórico/);
   assert.equal(criado.markup.keyboard[0][1].text,'💰 Definir um valor');
   const removido=await handleUpdate({DB:db},{message:{text:'/remover 1',chat:{id:55,type:'private'}}},1000);
   assert.match(removido,/removido: Fone/);
@@ -149,7 +149,7 @@ test('nome vem do endereço ou da prévia da página',async()=>{
   assert.equal((await resolveProductLink('https://meli.la/x',fetcher)).nome,'Power Bank Anker 25000mAh');
 });
 
-test('escolha entre menor preço real e um valor',async()=>{
+test('escolha entre menor preço do histórico e um valor',async()=>{
   const {handlePriceChoice}=await import('../functions/_price_alerts.js');
   const recente={id:7,nome:'Power Bank Anker',id_produto:'MLB1'};
   const db=fakeDb({'ORDER BY a.criado_em DESC':recente});
@@ -159,9 +159,35 @@ test('escolha entre menor preço real e um valor',async()=>{
   assert.match(valor.text,/R\$\s?599,90/);
   const update=db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET preco_alvo'));
   assert.deepEqual(update[1],[599.9,7,'55']);
-  const menor=await handlePriceChoice({DB:db},'55','🔥 Menor preço real',1000);
-  assert.match(menor.text,/menor preço real/);
+  const menor=await handlePriceChoice({DB:db},'55','🔥 Menor preço do histórico',1000);
+  assert.match(menor.text,/menor preço do histórico/);
   assert.equal(await handlePriceChoice({DB:db},'55','air fryer',1000),null);
   const semAlerta=await handlePriceChoice({DB:fakeDb()},'55','599,90',1000);
   assert.match(semAlerta,/Primeiro cole o link/);
+});
+
+test('reconhece os links da Shopee, inclusive o destino do link curto',async()=>{
+  const {parseProductLink}=await import('../functions/_product_link.js');
+  assert.deepEqual(parseProductLink('https://shopee.com.br/Fone-Bluetooth-JBL-i.123456.987654321?sp_atk=x'),
+    {loja:'shopee',id_produto:'123456_987654321',tipo:null,nome:'Fone Bluetooth JBL'});
+  assert.equal(parseProductLink('https://shopee.com.br/product/123456/987654321').id_produto,'123456_987654321');
+  assert.equal(parseProductLink('https://shopee.com.br/opaanlp/1791562791/23894195354?__mobile__=1').id_produto,'1791562791_23894195354');
+});
+
+test('botão do canal cria o alerta do produto e copia o histórico do site',async()=>{
+  const {handleStartProduct}=await import('../functions/_price_alerts.js');
+  const db=fakeDb({
+    'SELECT title FROM offers':{title:'Power Bank Anker 25000mAh'},
+    'INSERT INTO monitor_produtos':{id:21,nome:'Power Bank Anker 25000mAh'},
+    'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:0},
+    'COUNT(DISTINCT produto_id)':{total:0},
+  });
+  const resposta=await handleStartProduct({DB:db},'55','sp_1791562791_23894195354',1000);
+  assert.match(resposta.text,/Power Bank Anker/);
+  assert.equal(resposta.markup.keyboard[0][0].text,'🔥 Menor preço do histórico');
+  const copia=db.executados.find(([sql])=>sql.includes('FROM offer_prices'));
+  assert.deepEqual(copia[1].slice(0,2),[21,'shopee_1791562791_23894195354']);
+  assert.equal(await handleStartProduct({DB:db},'55','xx_123',1000),null);
+  const comando=await handleUpdate({DB:fakeDb({'INSERT INTO monitor_produtos':{id:3,nome:'Fone'}})},{message:{text:'/start ml_MLB123',chat:{id:55,type:'private'}}},1000);
+  assert.match(comando.text,/Fone/);
 });

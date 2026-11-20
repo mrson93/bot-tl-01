@@ -22,14 +22,15 @@ import amazon
 import config
 import mercadolivre_api
 import seguranca
+import shopee
 import shortlinks
 import site_publisher
 import store
 import telegram_poster
 
 FUSO = ZoneInfo("America/Sao_Paulo")
-NOME_LOJA = {"mercadolivre": "Mercado Livre", "amazon": "Amazon"}
-PREFIXO_OFERTA = {"mercadolivre": "mercadolivre_", "amazon": "amazon_"}
+NOME_LOJA = {"mercadolivre": "Mercado Livre", "amazon": "Amazon", "shopee": "Shopee"}
+PREFIXO_OFERTA = {"mercadolivre": "mercadolivre_", "amazon": "amazon_", "shopee": "shopee_"}
 
 
 # --- Regra de "oferta de verdade" (função pura, sem rede) -------------------
@@ -217,6 +218,20 @@ def coletar(produtos, pausa=None):
     elif ml:
         print("   ⚠️ Monitor: API do Mercado Livre não configurada.")
 
+    sp = [p for p in produtos if p.get("loja") == "shopee"]
+    if sp and shopee.esta_configurada():
+        try:
+            por_id = shopee.consultar_monitor([p["id_produto"] for p in sp], pausa)
+        except Exception as erro:
+            erros += len(sp)
+            por_id = {}
+            print(f"   ⚠️ Monitor: API da Shopee falhou: {seguranca.redigir_segredos(erro)[:160]}")
+        for produto in sp:
+            if produto["id_produto"] in por_id:
+                leituras[produto["id"]] = por_id[produto["id_produto"]]
+    elif sp:
+        print("   ⚠️ Monitor: API da Shopee não configurada.")
+
     az = [p for p in produtos if p.get("loja") == "amazon"]
     if az:
         if store._estado("amazon_api_status") != "liberada" or not amazon.credenciais_api_configuradas():
@@ -234,10 +249,13 @@ def coletar(produtos, pausa=None):
     return leituras, erros
 
 
-def _link_afiliado(produto, leitura):
+def _link_afiliado(produto, leitura, canal="telegram"):
     url = (leitura or {}).get("url") or produto.get("link_afiliado")
     if not url:
         return None
+    if produto["loja"] == "shopee":
+        # O subId do link curto diz de onde veio a venda (canal ou alerta).
+        return shopee.gerar_link(url, canal)
     if produto["loja"] == "mercadolivre":
         if not mercadolivre_api.parametros_afiliado():
             return None
@@ -255,7 +273,7 @@ def _atualizacoes(produtos, leituras):
         for campo in ("nome", "categoria", "imagem"):
             if leitura.get(campo) and leitura[campo] != produto.get(campo):
                 dados[campo] = leitura[campo]
-        if not produto.get("link_afiliado"):
+        if not produto.get("link_afiliado") and produto.get("loja") != "shopee":
             try:
                 link = _link_afiliado(produto, leitura)
             except Exception:
@@ -292,7 +310,8 @@ def _enviar(chat_id, legenda, imagem, link):
 
 def _link_rastreado(produto, leitura, canal):
     """Link de afiliado passando pelo go. (conta os cliques por canal)."""
-    link = produto.get("link_afiliado") or _link_afiliado(produto, leitura)
+    link = (None if produto["loja"] == "shopee" else produto.get("link_afiliado")) \
+        or _link_afiliado(produto, leitura, canal)
     if not link:
         raise RuntimeError("sem link de afiliado confirmado")
     oferta_id = PREFIXO_OFERTA[produto["loja"]] + str(produto["id_produto"]).upper()

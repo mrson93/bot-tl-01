@@ -141,6 +141,7 @@ jobs:
       CARTAO_AMAZON_DIAS: ${{ vars.CARTAO_AMAZON_DIAS || '3,6' }}
       CARTAO_AMAZON_HORAS: ${{ vars.CARTAO_AMAZON_HORAS || '12,13,20,21' }}
       ALERTA_BOT_URL: ${{ vars.ALERTA_BOT_URL }}
+      ALERTA_BOT_BOTAO_POSTS: ${{ vars.ALERTA_BOT_BOTAO_POSTS || 'true' }}
       ALERTA_BOT_ATIVO: ${{ vars.ALERTA_BOT_ATIVO || 'true' }}
       ALERTA_BOT_DIAS: ${{ vars.ALERTA_BOT_DIAS || '1,4' }}
       ALERTA_BOT_HORAS: ${{ vars.ALERTA_BOT_HORAS || '15,16' }}

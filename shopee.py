@@ -173,6 +173,46 @@ def consultar_produtos(oferta_ids) -> dict:
     return resultado
 
 
+def consultar_monitor(ids, pausa=0.5) -> dict:
+    """Leituras do monitor de preços: {"LOJA_ITEM": leitura} pela API oficial.
+
+    A API de afiliados não informa estoque: produto que não volta na consulta
+    conta como indisponível naquela leitura.
+    """
+    resultado = {}
+    for indice, identificador in enumerate(ids or []):
+        match = re.fullmatch(r"(\d+)_(\d+)", str(identificador))
+        if not match:
+            continue
+        if indice and pausa:
+            time.sleep(pausa)
+        shop_id, item_id = (int(valor) for valor in match.groups())
+        query = f"""
+        {{
+          productOfferV2(shopId: {shop_id}, itemId: {item_id}, limit: 1, page: 1) {{
+            nodes {{ itemId shopId productName price priceMin priceMax imageUrl productLink offerLink }}
+          }}
+        }}
+        """
+        nodes = ((_executar(query).get("productOfferV2") or {}).get("nodes") or [])
+        node = next((n for n in nodes if str(n.get("shopId")) == str(shop_id)
+                     and str(n.get("itemId")) == str(item_id)), None)
+        if not node:
+            resultado[identificador] = {"preco": None, "preco_antigo": None, "disponivel": False}
+            continue
+        try:
+            preco = float(node.get("price") or node.get("priceMin") or 0) or None
+        except (TypeError, ValueError):
+            preco = None
+        resultado[identificador] = {
+            "nome": " ".join(str(node.get("productName") or "").split()) or None,
+            "preco": preco, "preco_antigo": None, "disponivel": bool(preco),
+            "imagem": node.get("imageUrl"), "url": node.get("productLink") or node.get("offerLink"),
+            "categoria": None,
+        }
+    return resultado
+
+
 _TERMOS_CAMPANHA = re.compile(
     r"\b(cupom|cupons|voucher|frete\s+gr[aá]tis|cashback|desconto)\b",
     re.IGNORECASE,

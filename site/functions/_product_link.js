@@ -3,7 +3,8 @@
 
 const HOSTS_ML = ["mercadolivre.com.br", "mercadolivre.com"];
 const HOSTS_AMAZON = ["amazon.com.br"];
-const HOSTS_CURTOS = ["meli.la", "amzn.to", "mercadolivre.com"];
+const HOSTS_CURTOS = ["meli.la", "amzn.to", "mercadolivre.com", "s.shopee.com.br", "shope.ee"];
+const HOSTS_SHOPEE = ["shopee.com.br"];
 const IDENTIFICACAO = { "User-Agent": "TaBaratoAlertaBot/1.0 (+https://canaltabarato.com.br)" };
 
 function hostDe(url, hosts) {
@@ -23,7 +24,9 @@ function lerUrl(valor) {
 // "carregador-portatil-power-bank" -> "Carregador portatil power bank" (provisório:
 // a primeira leitura da API troca pelo título oficial).
 function nomeDoEndereco(trecho) {
-  const texto = decodeURIComponent(String(trecho || "").split("/").filter(Boolean).pop() || "")
+  let parte = String(trecho || "").split("/").filter(Boolean).pop() || "";
+  try { parte = decodeURIComponent(parte); } catch { /* mantém como veio */ }
+  const texto = parte
     .replace(/_JM$/i, "").replace(/[-_]+/g, " ").trim();
   return texto.length >= 6 ? (texto[0].toUpperCase() + texto.slice(1)).slice(0, 160) : null;
 }
@@ -41,6 +44,14 @@ export function parseProductLink(valor) {
   if (hostDe(url, HOSTS_AMAZON)) {
     const asin = url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|exec\/obidos\/asin)\/([A-Z0-9]{10})(?:[/?]|$)/i);
     return asin ? { loja: "amazon", id_produto: asin[1].toUpperCase(), tipo: null } : null;
+  }
+  if (hostDe(url, HOSTS_SHOPEE)) {
+    // shopee.com.br/nome-do-produto-i.LOJA.ITEM
+    const nomeado = url.pathname.match(/^\/(.+)-i\.(\d+)\.(\d+)\/?$/);
+    if (nomeado) return { loja: "shopee", id_produto: `${nomeado[2]}_${nomeado[3]}`, tipo: null, nome: nomeDoEndereco(nomeado[1]) };
+    // /product/LOJA/ITEM e /opaanlp/LOJA/ITEM (destino dos links curtos s.shopee.com.br)
+    const direto = url.pathname.match(/^\/[a-z_-]+\/(\d+)\/(\d+)\/?$/i);
+    if (direto) return { loja: "shopee", id_produto: `${direto[1]}_${direto[2]}`, tipo: null };
   }
   if (hostDe(url, HOSTS_ML)) {
     const params = new URLSearchParams(`${url.search.slice(1)}&${url.hash.slice(1)}`);
@@ -81,7 +92,7 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
     if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) {
       return (await produtoDoPerfil(url, fetchImpl)) || { erro: "perfil_afiliado" };
     }
-    if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON])) return null;
+    if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON, ...HOSTS_SHOPEE])) return null;
     let resposta;
     try {
       // O meli.la recusa (403) pedidos sem User-Agent; o bot se identifica.

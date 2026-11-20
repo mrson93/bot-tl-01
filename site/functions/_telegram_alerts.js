@@ -1,5 +1,5 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
+import {deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -48,15 +48,15 @@ const HELP=[
   'Eu aviso no seu privado quando o preço baixar de verdade.',
   '',
   '<b>Alerta de preço de um produto</b>',
-  '• Cole o link do produto do Mercado Livre e, se quiser, o preço que você quer pagar:',
+  '• Cole o link do produto do Mercado Livre ou da Shopee e, se quiser, o preço que você quer pagar:',
   '<code>https://www.mercadolivre.com.br/... 199,90</code>',
-  '• Sem preço, eu aviso quando for o menor preço real (comparado com o histórico).',
+  '• Sem preço, eu aviso quando for o menor preço do histórico (comparado com o histórico).',
   '',
   '<b>Alerta por palavra</b>',
   '• Envie uma palavra, por exemplo: <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.',
   '',
   '• /meusalertas — ver seus alertas',
-  '• /preco 1 599,90 — trocar o valor do alerta nº 1 · /menor 1 — voltar ao menor preço real',
+  '• /preco 1 599,90 — trocar o valor do alerta nº 1 · /menor 1 — voltar ao menor preço do histórico',
   '• /remover air fryer ou /remover 2 — apagar um alerta',
   '• /parar — apagar todos os seus dados',
   '',
@@ -72,6 +72,10 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   const escolha=await handlePriceChoice(env,chatId,message.text,now);
   if(escolha) return escolha;
   const {command,argument}=parseCommand(message.text);
+  if(command==='start'&&argument){
+    const produto=await handleStartProduct(env,chatId,argument,now);
+    if(produto) return produto;
+  }
   if(command==='start'||command==='ajuda'||command==='help') return HELP;
   if(command==='meusalertas'){
     const result=await env.DB.prepare('SELECT keyword FROM alert_subscriptions WHERE chat_id=? ORDER BY created_at').bind(chatId).all();

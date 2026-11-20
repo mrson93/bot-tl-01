@@ -5,7 +5,7 @@ import {resolveProductLink} from './_product_link.js';
 // produto (com ou sem preço); a coleta do monitor (a cada 2 h, no GitHub)
 // decide quem avisar e o site entrega a mensagem com o token do bot.
 const TELEGRAM_API='https://api.telegram.org';
-const HOSTS_LINK=['go.canaltabarato.com.br','mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to'];
+const HOSTS_LINK=['go.canaltabarato.com.br','mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee'];
 const MOTIVOS=new Set(['alvo','menor_preco','abaixo_media']);
 
 function limite(env,nome,padrao) {
@@ -56,7 +56,8 @@ async function enviar(env,chatId,texto,botao,now,fetcher) {
   return resposta.status;
 }
 
-export const BOTAO_MENOR='🔥 Menor preço real';
+export const BOTAO_MENOR='🔥 Menor preço do histórico';
+const BOTAO_MENOR_ANTIGO='🔥 Menor preço real';
 export const BOTAO_VALOR='💰 Definir um valor';
 const TECLADO={keyboard:[[{text:BOTAO_MENOR},{text:BOTAO_VALOR}]],resize_keyboard:true,one_time_keyboard:true};
 const SEM_TECLADO={remove_keyboard:true};
@@ -87,7 +88,7 @@ export async function handlePriceChoice(env,chatId,texto,now=Math.floor(Date.now
       alvo=parsePrice(comando[3]);
       if(!alvo) return 'Use assim: <code>/preco 1 599,90</code> (o número vem de /meusalertas).';
     }
-  }else if(valor===BOTAO_MENOR){
+  }else if(valor===BOTAO_MENOR||valor===BOTAO_MENOR_ANTIGO){
     alvo=null;
   }else if(valor===BOTAO_VALOR){
     alerta=await alertaRecente(env,chatId,now);
@@ -103,7 +104,7 @@ export async function handlePriceChoice(env,chatId,texto,now=Math.floor(Date.now
     .bind(alvo,alerta.id,chatId).run();
   return {
     text:alvo?`✅ Combinado! Aviso quando ${nomeCurto(alerta)} ficar em <b>${html(money(alvo))}</b> ou menos.`
-      :`✅ Combinado! Aviso quando ${nomeCurto(alerta)} chegar ao <b>menor preço real</b> do histórico.`,
+      :`✅ Combinado! Aviso quando ${nomeCurto(alerta)} chegar ao <b>menor preço do histórico</b> do histórico.`,
     markup:SEM_TECLADO,
   };
 }
@@ -118,10 +119,33 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
   if(pedido.precoInvalido) return 'Não entendi o preço. Mande o link e o valor assim: <code>https://… 199,90</code>';
   const produto=await resolveProductLink(pedido.link,fetcher);
   if(produto?.erro==='perfil_afiliado') return 'Esse link abre a página de perfil de afiliado do Mercado Livre, não a do produto, e nele não dá para saber qual é o produto. Abra o produto e copie o link da barra de endereços (ele tem /p/MLB… ou MLB-…).';
-  if(!produto) return 'Não reconheci esse produto. Mande o link da página do produto no Mercado Livre.';
-  if(produto.loja!=='mercadolivre'){
-    return 'Por enquanto os alertas de preço funcionam só com produtos do <b>Mercado Livre</b>. A Amazon entra em breve.';
+  if(!produto) return 'Não reconheci esse produto. Mande o link da página do produto no Mercado Livre ou na Shopee.';
+  if(produto.loja==='amazon'){
+    return 'Por enquanto os alertas de preço funcionam com produtos do <b>Mercado Livre</b> e da <b>Shopee</b>. A Amazon entra em breve.';
   }
+  return cadastrarAlerta(env,chatId,produto,pedido.alvo,now);
+}
+
+const PREFIXO_OFERTA={mercadolivre:'mercadolivre_',shopee:'shopee_',amazon:'amazon_'};
+
+// Botão "Avisar quando baixar" dos posts do canal: /start ml_MLB123 ou sp_LOJA_ITEM.
+export async function handleStartProduct(env,chatId,payload,now=Math.floor(Date.now()/1000)) {
+  const achado=String(payload||'').match(/^(ml|sp)_([A-Za-z0-9_]{3,60})$/);
+  if(!achado) return null;
+  const produto=achado[1]==='ml'
+    ?(/^MLB\d+$/i.test(achado[2])?{loja:'mercadolivre',id_produto:achado[2].toUpperCase(),tipo:null}:null)
+    :(/^\d+_\d+$/.test(achado[2])?{loja:'shopee',id_produto:achado[2],tipo:null}:null);
+  if(!produto) return null;
+  return cadastrarAlerta(env,chatId,produto,null,now);
+}
+
+async function cadastrarAlerta(env,chatId,produto,alvo,now) {
+  const ofertaId=PREFIXO_OFERTA[produto.loja]+produto.id_produto;
+  if(!produto.nome){
+    const oferta=await env.DB.prepare('SELECT title FROM offers WHERE id=?').bind(ofertaId).first();
+    if(oferta?.title) produto={...produto,nome:String(oferta.title).slice(0,160)};
+  }
+  const pedido={alvo};
   const existente=await env.DB.prepare('SELECT id,nome FROM monitor_produtos WHERE loja=? AND id_produto=?')
     .bind(produto.loja,produto.id_produto).first();
   const meus=await env.DB.prepare('SELECT COUNT(*) AS total FROM alerta_precos WHERE chat_id=? AND ativo=1 AND expira_em>? AND produto_id<>?')
@@ -146,11 +170,18 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
      ON CONFLICT(chat_id,produto_id) DO UPDATE SET preco_alvo=excluded.preco_alvo,ativo=1,criado_em=excluded.criado_em,
        expira_em=excluded.expira_em,ultimo_aviso_em=NULL,ultimo_aviso_preco=NULL`,
   ).bind(chatId,linha.id,pedido.alvo,now,now+diasValidade(env)*86400).run();
+  // Produto que já passou pelo canal: o histórico diário do site vira o ponto
+  // de partida, para comparar com meses de preço desde o primeiro dia.
+  await env.DB.prepare(
+    `INSERT INTO monitor_leituras(produto_id,preco,preco_antigo,disponivel,lido_em)
+     SELECT ?1,price,NULL,1,observed_at FROM offer_prices
+     WHERE offer_id=?2 AND observed_at>=?3 AND price>0 AND NOT EXISTS(SELECT 1 FROM monitor_leituras WHERE produto_id=?1)`,
+  ).bind(linha.id,ofertaId,now-120*86400).run();
   const ultima=await env.DB.prepare('SELECT preco FROM monitor_leituras WHERE produto_id=? AND disponivel=1 AND preco>0 ORDER BY lido_em DESC LIMIT 1')
     .bind(linha.id).first();
   const nome=linha.nome?`<b>${html(String(linha.nome).slice(0,120))}</b>`:'esse produto';
   const quando=pedido.alvo?`quando chegar a <b>${html(money(pedido.alvo))}</b> ou menos`
-    :'quando for o <b>menor preço real</b> (comparado com o histórico, sem desconto falso)';
+    :'quando for o <b>menor preço do histórico</b> (comparado com o histórico, sem desconto falso)';
   const mensagem=[
     `✅ Combinado! Vou acompanhar ${nome} e aviso ${quando}.`,
     ultima?.preco?`Preço agora: ${html(money(ultima.preco))}.`:'A primeira leitura do preço sai em até 2 horas.',
@@ -176,7 +207,7 @@ export function formatPriceAlertList(alertas) {
   return alertas.map((a,i)=>{
     const nome=html(String(a.nome||`Produto ${a.id_produto}`).slice(0,90));
     const atual=a.atual?`agora ${html(money(a.atual))}`:'aguardando a primeira leitura';
-    const alvo=a.preco_alvo?`quero até ${html(money(a.preco_alvo))}`:'menor preço real';
+    const alvo=a.preco_alvo?`quero até ${html(money(a.preco_alvo))}`:'menor preço do histórico';
     return `${i+1}. ${nome}\n   ${atual} · ${alvo}`;
   }).join('\n');
 }

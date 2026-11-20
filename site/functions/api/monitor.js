@@ -10,10 +10,10 @@ const MAX_REQUEST_BYTES=200_000;
 const MAX_LEITURAS=500;
 const RETENCAO_DIAS=120;
 const FUSO_BRASILIA=3*3600;
-const HOSTS_LINK=['mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','go.canaltabarato.com.br'];
+const HOSTS_LINK=['mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee','go.canaltabarato.com.br'];
 // Produto lido na coleta: do canal (admin) ou com alerta de preço ativo.
 const MONITORADO='((p.ativo=1 AND p.canal=1) OR EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND a.ativo=1 AND a.expira_em>?1))';
-const HOSTS_IMAGEM=['mlstatic.com','media-amazon.com','ssl-images-amazon.com'];
+const HOSTS_IMAGEM=['mlstatic.com','media-amazon.com','ssl-images-amazon.com','susercontent.com','shopee.com.br'];
 
 function numero(valor) {
   const n=Number(valor);
