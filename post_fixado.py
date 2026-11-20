@@ -15,6 +15,7 @@ import bluesky
 import buffer_facebook
 import buffer_x
 import config
+import facebook
 import instagram_stories
 import seguranca
 import store
@@ -163,6 +164,40 @@ def _instagram():
     instagram_stories._aguardar_container(container_id)
     instagram_stories._post(f"{conta}/media_publish", {"creation_id": container_id}, repetir_rede=False)
     return "publicado no feed (fixe à mão)"
+
+
+def _graph(caminho):
+    versao = str(config.FACEBOOK_GRAPH_API_VERSION or "")
+    return f"https://graph.facebook.com/{versao}/{caminho}"
+
+
+def trocar_facebook():
+    """Publica no Facebook pela Graph API com a arte e apaga o post só de texto."""
+    if store.campanha_enviada(DATA, CAMPANHA, "Facebook com arte"):
+        print("   · Facebook com arte: já feito.")
+        return False
+    cabecalho = {"Authorization": f"Bearer {config.FACEBOOK_PAGE_ACCESS_TOKEN}"}
+    feed = requests.get(facebook._endpoint("posts"), headers=cabecalho, timeout=30,
+                        params={"fields": "id,message,full_picture,created_time", "limit": 15})
+    feed.raise_for_status()
+    antigos = [post["id"] for post in feed.json().get("data") or []
+               if str(post.get("message") or "").startswith("🔥 Economizar ficou mais fácil")
+               and "TaBaratoAlertaDePrecoBot" in str(post.get("message") or "")
+               and not post.get("full_picture")]
+    novo = facebook._publicar("photos", {"message": TEXTO_FACEBOOK}, arquivo=ARTE.read_bytes())
+    post_id = str(novo.get("post_id") or novo.get("id"))
+    store.marcar_campanha_enviada(DATA, CAMPANHA, "Facebook com arte")
+    print("   ✅ Facebook: publicado com a arte.")
+    fixado = requests.post(_graph(post_id), headers=cabecalho, data={"is_pinned": "true"}, timeout=30)
+    print("   ✅ Facebook: fixado." if fixado.ok else
+          f"   ⚠️ Facebook: não consegui fixar ({fixado.status_code}); fixe à mão.")
+    for antigo in antigos:
+        apagado = requests.delete(_graph(antigo), headers=cabecalho, timeout=30)
+        print("   🗑 Facebook: post antigo sem arte apagado." if apagado.ok else
+              f"   ⚠️ Facebook: não consegui apagar o post antigo ({apagado.status_code}).")
+    if not antigos:
+        print("   ⚠️ Facebook: não achei o post antigo sem arte para apagar.")
+    return True
 
 
 REDES = (
