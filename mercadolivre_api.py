@@ -268,3 +268,67 @@ def consultar(ids) -> dict:
         except (requests.RequestException, ValueError, KeyError):
             continue
     return resultado
+
+
+def _categoria(categoria_id):
+    if not categoria_id:
+        return None
+    try:
+        return (_get(f"/categories/{categoria_id}") or {}).get("name") or None
+    except (requests.RequestException, ValueError):
+        return None
+
+
+def ler_monitorado(identificador, tipo=None, com_categoria=False):
+    """Leitura de um produto do monitor de preços pela API oficial.
+
+    Devolve preço, preço antigo exibido, disponibilidade e dados do produto, ou
+    None quando o produto não existe mais. Erros de rede sobem para quem chamou.
+    """
+    identificador = str(identificador or "").upper()
+    if tipo != "anuncio":
+        try:
+            dados = _get(f"/products/{identificador}")
+        except requests.HTTPError as erro:
+            if getattr(erro.response, "status_code", None) != 404 or tipo == "catalogo":
+                raise
+            dados = None
+        if dados:
+            vencedor = dados.get("buy_box_winner") or {}
+            if not vencedor.get("price"):
+                anuncios = (_get(f"/products/{identificador}/items", {"limit": 5}) or {}).get("results") or []
+                validos = [a for a in anuncios if a.get("price")]
+                vencedor = min(validos, key=lambda a: float(a["price"])) if validos else {}
+            try:
+                imagem = _imagem(dados)
+            except ValueError:
+                imagem = None
+            return {
+                "nome": " ".join(str(dados.get("name") or "").split()) or None,
+                "preco": float(vencedor.get("price") or 0) or None,
+                "preco_antigo": float(vencedor.get("original_price") or 0) or None,
+                "disponivel": bool(vencedor.get("price")),
+                "imagem": imagem,
+                "url": dados.get("permalink") or f"https://www.mercadolivre.com.br/p/{identificador}",
+                "categoria": _categoria(dados.get("category_id")) if com_categoria else None,
+            }
+    try:
+        item = _get(f"/items/{identificador}")
+    except requests.HTTPError as erro:
+        if getattr(erro.response, "status_code", None) == 404:
+            return None
+        raise
+    disponivel = item.get("status") == "active" and int(item.get("available_quantity") or 0) > 0
+    try:
+        imagem = _imagem(item)
+    except ValueError:
+        imagem = None
+    return {
+        "nome": " ".join(str(item.get("title") or "").split()) or None,
+        "preco": float(item.get("price") or 0) or None,
+        "preco_antigo": float(item.get("original_price") or 0) or None,
+        "disponivel": disponivel,
+        "imagem": imagem,
+        "url": item.get("permalink"),
+        "categoria": _categoria(item.get("category_id")) if com_categoria else None,
+    }

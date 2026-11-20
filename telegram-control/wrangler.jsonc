@@ -13,8 +13,18 @@
     "GITHUB_OWNER": "mrson93",
     "GITHUB_REPO": "bot-tl-01",
     "GITHUB_DEFAULT_BRANCH": "main",
-    "USAGE_MONITOR_ENABLED": "true"
+    "USAGE_MONITOR_ENABLED": "true",
+    "MONITOR_ATIVO": "true",
+    "MONITOR_INTERVALO_HORAS": "2",
+    "MONITOR_DIAS_HISTORICO": "90"
   },
+  "d1_databases": [
+    {
+      "binding": "MONITOR_DB",
+      "database_name": "canaltabarato-ofertas",
+      "database_id": "42b47ea8-6839-420e-9036-eb9fd057b0df"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

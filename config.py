@@ -369,6 +369,25 @@ SHORTLINK_API_TOKEN = _get("SHORTLINK_API_TOKEN")
 
 # Vitrine pública opcional. O token é secreto e nunca deve ir para o código.
 SITE_ATIVO = _bool("SITE_ATIVO", False)
+# Monitor de preços com histórico (comandos /add, /lista, /historico no painel).
+# Só posta quando a oferta é de verdade; todos os números são ajustáveis.
+MONITOR_ATIVO = _bool("MONITOR_ATIVO", True)
+MONITOR_QUEDA_MEDIA_PERCENT = max(1.0, _float("MONITOR_QUEDA_MEDIA_PERCENT", 15))
+MONITOR_QUEDA_REPOST_PERCENT = max(0.0, _float("MONITOR_QUEDA_REPOST_PERCENT", 5))
+# No critério "menor preço", exige também estar um pouco abaixo da média, para
+# não postar um produto que nunca muda de preço.
+MONITOR_MIN_ABAIXO_MEDIA_PERCENT = max(0.0, _float("MONITOR_MIN_ABAIXO_MEDIA_PERCENT", 3))
+MONITOR_PICO_PERCENT = max(1.0, _float("MONITOR_PICO_PERCENT", 10))
+MONITOR_DIAS_MINIMOS = max(1, _int("MONITOR_DIAS_MINIMOS", 7))
+MONITOR_DIAS_MEDIA = max(2, _int("MONITOR_DIAS_MEDIA", 30))
+MONITOR_DIAS_MINIMO = max(2, min(120, _int("MONITOR_DIAS_MINIMO", 90)))
+MONITOR_DIAS_PICO = max(1, _int("MONITOR_DIAS_PICO", 15))
+MONITOR_HORAS_REPOST = max(1, _int("MONITOR_HORAS_REPOST", 72))
+MONITOR_LIMITE_DIARIO = max(0, _int("MONITOR_LIMITE_DIARIO", 8))
+MONITOR_SILENCIO_INICIO = max(0, min(23, _int("MONITOR_SILENCIO_INICIO", 23)))
+MONITOR_SILENCIO_FIM = max(0, min(23, _int("MONITOR_SILENCIO_FIM", 7)))
+MONITOR_PAUSA_SEGUNDOS = max(0.0, min(10.0, _float("MONITOR_PAUSA_SEGUNDOS", 0.5)))
+
 SITE_API_URL = _get("SITE_API_URL")
 SITE_API_TOKEN = _get("SITE_API_TOKEN")
 SITE_TRACKING_ID = _get("SITE_TRACKING_ID") or "site"

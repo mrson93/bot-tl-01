@@ -13,6 +13,7 @@ import {
 } from "./settings.js";
 import { checkUsageLimit } from "./usage-monitor.js";
 import { githubFetch } from "./github-retry.js";
+import { handleMonitorCommand, isMonitorCommand, monitorDue } from "./monitor.js";
 
 const MODES = Object.freeze({
   economico: {
@@ -365,6 +366,32 @@ async function dispatchBot(env, fetchImpl) {
     fetchImpl,
   );
   if (!response.ok) throw new Error(`github_dispatch_${response.status}`);
+}
+
+const MONITOR_RUNS = new Set(["monitor_precos", "monitor_teste"]);
+
+async function dispatchMonitor(env, runId, fetchImpl) {
+  if (!MONITOR_RUNS.has(runId)) throw new Error("invalid_monitor_run");
+  const response = await githubRequest(
+    env,
+    "/actions/workflows/bot.yml/dispatches",
+    {
+      method: "POST",
+      body: JSON.stringify({ ref: String(env.GITHUB_DEFAULT_BRANCH || "main"), inputs: { campanha: runId } }),
+    },
+    fetchImpl,
+  );
+  if (!response.ok) throw new Error(`github_dispatch_${response.status}`);
+}
+
+export async function runScheduledMonitor(controller, env, fetchImpl = fetch) {
+  if (!env.MONITOR_DB || env.MONITOR_ATIVO === "false") return false;
+  const now = brasiliaTime(new Date(Number(controller?.scheduledTime || Date.now())));
+  if (!monitorDue(now.hour, now.minute, env.MONITOR_INTERVALO_HORAS)) return false;
+  const variables = await getVariables(env, fetchImpl);
+  if (String(variables.BOT_MODE || "").toLowerCase() === "pausado") return false;
+  await dispatchMonitor(env, "monitor_precos", fetchImpl);
+  return true;
 }
 
 async function dispatchCampaign(env, campaignId, fetchImpl) {
@@ -861,6 +888,14 @@ export function helpActionsText() {
     "⚙️ Configurações (/config): abre os controles operacionais. A mudança é validada, pede confirmação, fica registrada e vale na próxima execução.",
     "🏪 Distribuição (/distribuicao 30 30 25 15): define as metas percentuais de Shopee, Mercado Livre, Amazon e AliExpress; a soma deve ser 100%.",
     "🕘 Histórico (/historico): mostra as alterações recentes feitas por este painel.",
+    "",
+    "📈 Monitor de preços (só posta quando é o menor preço real):",
+    "/add <link>: cadastra um produto da Amazon ou do Mercado Livre.",
+    "/remover <id>: tira o produto do monitor (o histórico fica guardado).",
+    "/lista: produtos monitorados, com o último preço lido.",
+    "/historico <id>: mínimo, máximo e média dos últimos 90 dias.",
+    "/teste_monitor: mostra aqui como um post ficaria, sem postar no canal.",
+    "",
     "⏸ Pausar (/pausar): interrompe somente as rodadas automáticas. Configurações, histórico e relatório continuam disponíveis.",
     "▶️ Retomar (/retomar): reativa no modo Econômico; depois você pode escolher outro ritmo.",
     "↩️ Restaurar padrões: volta as configurações operacionais aos valores seguros, sem apagar credenciais nem trocar o modo.",
@@ -1067,6 +1102,13 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   }
 
   const { name, args } = parseCommand(update.message?.text);
+  if (isMonitorCommand(name, args)) {
+    return handleMonitorCommand({
+      name, rawText: update.message?.text, env, fetchImpl,
+      reply: (text) => sendMessage(env, chatId, text, fetchImpl, null),
+      dispatch: (runId) => dispatchMonitor(env, runId, fetchImpl),
+    });
+  }
   if (["ajuda", "help"].includes(name)) {
     return sendMessage(env, chatId, helpText(), fetchImpl, helpKeyboard());
   }
@@ -1218,6 +1260,10 @@ export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
   await Promise.all([
     runScheduledReport(controller, env, fetchImpl),
     runScheduledAutomation(controller, env, fetchImpl),
+    runScheduledMonitor(controller, env, fetchImpl).catch((error) => {
+      const reason = error instanceof Error ? error.message : "monitor_schedule_error";
+      console.error(JSON.stringify({ event: "monitor_schedule_failed", reason }));
+    }),
   ]);
 }
 

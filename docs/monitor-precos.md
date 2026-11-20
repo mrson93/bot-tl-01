@@ -1,0 +1,110 @@
+# Monitor de preços com histórico
+
+Posta no canal do Telegram só quando a oferta é de verdade: o menor preço real
+do período ou um preço bem abaixo da média, com o link de afiliado.
+
+## Como funciona
+
+| Parte | Onde roda | O que faz |
+|---|---|---|
+| Comandos `/add`, `/remover`, `/lista`, `/historico <id>`, `/teste_monitor` | Worker `telegram-control` (D1 pelo binding `MONITOR_DB`) | Cadastra e consulta os produtos. Só responde ao `TELEGRAM_ADMIN_ID`. |
+| Disparo a cada 2 h | Cron do `bot-tl-01-scheduler`, que chama o `telegram-control` | No minuto 7 das horas pares (horário de Brasília), pede ao GitHub a rodada `monitor_precos`. Não dispara com o bot pausado. |
+| Coleta e posts | `monitor_precos.py` no GitHub Actions | Lê os preços pelas APIs oficiais, grava o histórico pela rota `/api/monitor` do site e posta o que passar na regra. |
+| Tabelas | D1 `canaltabarato-ofertas` | `monitor_produtos`, `monitor_leituras`, `monitor_posts`, `monitor_fila`. |
+
+A coleta fica no Python porque o Mercado Livre troca o refresh token a cada
+renovação. Um segundo cliente renovando o token por conta própria derrubaria o
+outro. As rodadas do monitor usam o mesmo grupo de concorrência do bot, então
+nunca renovam ao mesmo tempo.
+
+### Lojas
+
+- **Mercado Livre:** API oficial com OAuth, a mesma que o bot já usa. Lê o
+  produto de catálogo (`/p/MLB…`) ou o anúncio (`MLB-…`).
+- **Amazon:** Creators API. Hoje ela recusa a conta com `403 AssociateNotEligible`.
+  A Amazon libera o acesso sozinha depois de **10 vendas qualificadas em 30 dias**.
+  O bot testa uma vez por dia e avisa no privado quando liberar. Até lá, os
+  produtos da Amazon ficam cadastrados, mas sem leitura. Não há scraping.
+
+### Regra de "oferta de verdade"
+
+Só posta se **todas** as condições forem verdadeiras:
+
+1. O produto está em estoque.
+2. O produto tem pelo menos 7 dias de histórico. Antes disso, só coleta.
+3. O preço é o menor dos últimos 90 dias (e pelo menos 3% abaixo da média),
+   **ou** está pelo menos 15% abaixo da média dos últimos 30 dias.
+4. **Desconto falso:** os dias dos últimos 15 em que o preço ficou mais de 10%
+   acima da mediana não entram na média. Uma "queda" que é só a volta do pico ao
+   normal não conta como oferta. O "preço antigo" que a loja exibe fica gravado,
+   mas nunca serve de comparação.
+5. O produto não foi postado nas últimas 72 h, a não ser que o preço tenha
+   caído mais 5% desde o último post.
+6. No máximo 8 posts por dia, e nenhum entre 23h e 7h (horário de Brasília).
+   O que for aprovado na madrugada vai para a fila e sai na primeira rodada
+   depois das 7h, se o preço ainda passar na regra.
+
+O histórico usa o menor preço com estoque de cada dia. Se houver menos de 90
+dias de histórico, o post diz "MENOR PREÇO EM N DIAS", com o número real de dias.
+
+## Configuração
+
+Todos os números ficam em variáveis do GitHub (Settings → Secrets and variables
+→ Actions → Variables). Se uma variável ficar vazia, vale o padrão:
+
+| Variável | Padrão | O que controla |
+|---|---|---|
+| `MONITOR_ATIVO` | `true` | Liga ou desliga os posts e a coleta |
+| `MONITOR_QUEDA_MEDIA_PERCENT` | `15` | % abaixo da média para postar |
+| `MONITOR_QUEDA_REPOST_PERCENT` | `5` | Queda extra para repostar antes de 72 h |
+| `MONITOR_MIN_ABAIXO_MEDIA_PERCENT` | `3` | No critério "menor preço", o mínimo abaixo da média |
+| `MONITOR_PICO_PERCENT` | `10` | Quanto acima da mediana conta como pico |
+| `MONITOR_DIAS_MINIMOS` | `7` | Dias de histórico antes de poder postar |
+| `MONITOR_DIAS_MEDIA` | `30` | Janela da média |
+| `MONITOR_DIAS_MINIMO` | `90` | Janela do menor preço (máx. 120) |
+| `MONITOR_DIAS_PICO` | `15` | Janela do desconto falso |
+| `MONITOR_HORAS_REPOST` | `72` | Intervalo mínimo entre posts do mesmo produto |
+| `MONITOR_LIMITE_DIARIO` | `8` | Posts por dia |
+| `MONITOR_SILENCIO_INICIO` / `MONITOR_SILENCIO_FIM` | `23` / `7` | Horas sem post |
+| `MONITOR_PAUSA_SEGUNDOS` | `0.5` | Pausa entre leituras (limite de requisições) |
+
+No Worker (`telegram-control/wrangler.jsonc`, em `vars`):
+`MONITOR_INTERVALO_HORAS` (padrão `2`), `MONITOR_DIAS_HISTORICO` (padrão `90`,
+usado no `/historico`) e `MONITOR_ATIVO` (`false` para de disparar a coleta).
+
+O monitor não usa nenhum segredo novo. Os que ele usa já existem:
+`TELEGRAM_BOT_TOKEN`, `SITE_API_TOKEN`, as credenciais do Mercado Livre e da
+Amazon (GitHub) e os secrets do Wrangler do `telegram-control`.
+
+## Deploy
+
+Rode os comandos na pasta do projeto, nesta ordem.
+
+1. Crie as tabelas no D1:
+
+   ```bash
+   npx wrangler d1 execute canaltabarato-ofertas --remote --file=site/migrations/0022_monitor_precos.sql
+   ```
+
+2. Mande o código para o GitHub. O push publica o site (com a rota
+   `/api/monitor`) e o bot passa a aceitar as rodadas do monitor:
+
+   ```bash
+   git push origin main
+   ```
+
+3. Publique o Worker do painel (comandos e disparo a cada 2 h):
+
+   ```bash
+   cd telegram-control && npx wrangler deploy
+   ```
+
+4. No chat de admin, mande `/teste_monitor`. Em 1 a 2 minutos chega a prévia de
+   um post com histórico falso, sem ir para o canal.
+
+5. Cadastre os produtos com `/add <link>` e confira com `/lista`. O primeiro post
+   de um produto só pode sair depois de 7 dias de coleta.
+
+Para desligar sem apagar nada, defina a variável do GitHub `MONITOR_ATIVO=false`.
+Para parar também o disparo, mude `MONITOR_ATIVO` para `"false"` no
+`wrangler.jsonc` e rode `npx wrangler deploy` de novo.

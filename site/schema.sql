@@ -47,3 +47,41 @@ CREATE INDEX IF NOT EXISTS idx_clicks_offer_time ON clicks(offer_id,clicked_at);
 CREATE INDEX IF NOT EXISTS idx_offers_category_discount ON offers(category,discount DESC);
 CREATE INDEX IF NOT EXISTS idx_offers_category_checked ON offers(category,COALESCE(last_checked_at,published_at) DESC);
 CREATE INDEX IF NOT EXISTS idx_offers_shop_checked ON offers(shop,COALESCE(last_checked_at,published_at) DESC);
+
+-- Monitor de preços (migração 0022).
+CREATE TABLE IF NOT EXISTS monitor_produtos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  loja TEXT NOT NULL CHECK (loja IN ('amazon','mercadolivre')),
+  id_produto TEXT NOT NULL,
+  tipo TEXT,
+  nome TEXT,
+  categoria TEXT,
+  link_afiliado TEXT,
+  imagem TEXT,
+  ativo INTEGER NOT NULL DEFAULT 1,
+  criado_em INTEGER NOT NULL,
+  UNIQUE (loja, id_produto)
+);
+CREATE TABLE IF NOT EXISTS monitor_leituras (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  produto_id INTEGER NOT NULL,
+  preco REAL,
+  preco_antigo REAL,
+  disponivel INTEGER NOT NULL,
+  lido_em INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_monitor_leituras_produto ON monitor_leituras (produto_id, lido_em);
+CREATE TABLE IF NOT EXISTS monitor_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  produto_id INTEGER NOT NULL,
+  preco REAL NOT NULL,
+  motivo TEXT NOT NULL,
+  postado_em INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_monitor_posts_produto ON monitor_posts (produto_id, postado_em);
+CREATE INDEX IF NOT EXISTS idx_monitor_posts_data ON monitor_posts (postado_em);
+CREATE TABLE IF NOT EXISTS monitor_fila (
+  produto_id INTEGER PRIMARY KEY,
+  preco REAL NOT NULL,
+  entrou_em INTEGER NOT NULL
+);

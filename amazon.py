@@ -650,6 +650,39 @@ def consultar_produtos(ids) -> dict:
     }
 
 
+def consultar_monitor(asins) -> dict:
+    """Leituras do monitor de preços pela Creators API, em lotes de 10 ASINs.
+
+    Produto que a API não devolve fica de fora (sem leitura nesta rodada).
+    """
+    asins = [a for a in dict.fromkeys(str(a).upper() for a in asins or [])
+             if re.fullmatch(r"[A-Z0-9]{10}", a)]
+    resultado = {}
+    for inicio in range(0, len(asins), 10):
+        if inicio:
+            time.sleep(1)  # a Creators API limita a 1 pedido por segundo
+        resposta = _chamar("getItems", {
+            "partnerTag": config.AMAZON_ASSOCIATE_TAG,
+            "marketplace": config.AMAZON_MARKETPLACE,
+            "itemIds": asins[inicio:inicio + 10], "itemIdType": "ASIN",
+            "resources": ["itemInfo.title", "images.primary.large",
+                          "offersV2.listings.price", "offersV2.listings.availability"],
+        })
+        for item in _cavar(resposta, "itemsResult", "items", padrao=[]) or []:
+            oferta = _normalizar(item)
+            disponibilidade = str(_cavar(item, "offersV2", "listings", "availability", "type")
+                                  or "").replace("_", "").upper()
+            antigo = _cavar(item, "offersV2", "listings", "price", "savingBasis", "money", "amount")
+            resultado[str(item.get("asin") or "").upper()] = {
+                "nome": oferta["productName"], "preco": oferta["price"] or None,
+                "preco_antigo": float(antigo) if antigo else None,
+                "disponivel": bool(oferta["price"]) and disponibilidade in {"", "INSTOCK", "INSTOCKSCARCE"},
+                "imagem": oferta.get("imageUrl"), "url": oferta.get("productUrl"),
+                "categoria": None,
+            }
+    return resultado
+
+
 def revalidar_oferta(oferta: dict):
     oferta_id = str(oferta.get("oferta_id") or "")
     return consultar_produtos([oferta_id]).get(oferta_id)
