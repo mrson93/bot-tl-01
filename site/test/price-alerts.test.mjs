@@ -118,8 +118,20 @@ test('segue meli.la se identificando, até a página do produto',async()=>{
   assert.match(pedidos[0],/TaBaratoAlertaBot/);
 });
 
-test('link de perfil de afiliado explica o que mandar',async()=>{
-  const fetcher=async()=>new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?matt_word=x&ref=abc'}});
+test('link de perfil de afiliado vira o produto compartilhado',async()=>{
+  const {resolveProductLink}=await import('../functions/_product_link.js');
+  const pagina='<a href="https://www.mercadolivre.com.br/power-bank/p/MLB48692416?pdp_filters=item_id%3AMLB1">x</a><a href="https://www.mercadolivre.com.br/outro/p/MLB999">y</a>';
+  const fetcher=async(url)=>url.startsWith('https://meli.la')
+    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
+    :new Response(pagina,{status:200});
+  assert.deepEqual(await resolveProductLink('https://meli.la/1e8sTgB',fetcher),
+    {loja:'mercadolivre',id_produto:'MLB48692416',tipo:'catalogo'});
+});
+
+test('perfil de afiliado sem produto explica o que mandar',async()=>{
+  const fetcher=async(url)=>url.startsWith('https://meli.la')
+    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?matt_word=x&ref=abc'}})
+    :new Response('<html>sem produto</html>',{status:200});
   const resposta=await handlePriceAlert({DB:fakeDb()},'55','https://meli.la/1e8sTgB',1000,fetcher);
   assert.match(resposta,/perfil de afiliado/);
 });

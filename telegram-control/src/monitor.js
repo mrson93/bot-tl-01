@@ -42,6 +42,22 @@ export function parseProductLink(valor) {
   return null;
 }
 
+// O "compartilhar" do programa de afiliados abre /social/<afiliado> com o
+// produto codificado no ref. A página mostra o produto compartilhado como o
+// primeiro link de produto (o mesmo da prévia og:title que o Telegram exibe).
+// Uma leitura só, para achar o MLB; o preço continua vindo da API oficial.
+async function produtoDoPerfil(url, fetchImpl) {
+  try {
+    const resposta = await fetchImpl(url.toString(), { method: "GET", redirect: "manual", headers: IDENTIFICACAO });
+    if (resposta.status !== 200) return null;
+    const html = (await resposta.text()).slice(0, 2_000_000);
+    const achado = html.match(/https:\/\/www\.mercadolivre\.com\.br\/[^"'\s<>]*?\/p\/(MLB\d+)/i);
+    return achado ? { loja: "mercadolivre", id_produto: achado[1].toUpperCase(), tipo: "catalogo" } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Links curtos (meli.la, amzn.to): segue os redirecionamentos só entre as lojas.
 export async function resolveProductLink(valor, fetchImpl = fetch) {
   let url = lerUrl(valor);
@@ -50,7 +66,9 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
     if (produto) return produto;
     // Link "compartilhar" do programa de afiliados: abre o perfil de afiliado
     // e o produto vai codificado no parâmetro ref, sem o MLB no endereço.
-    if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) return { erro: "perfil_afiliado" };
+    if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) {
+      return (await produtoDoPerfil(url, fetchImpl)) || { erro: "perfil_afiliado" };
+    }
     if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON])) return null;
     let resposta;
     try {
