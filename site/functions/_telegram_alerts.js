@@ -1,5 +1,5 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
+import {MENU,MENU_AJUDA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert} from './_price_alerts.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -42,25 +42,29 @@ export function parseCommand(text='') {
   return {command:match[1].toLowerCase(),argument:match[2].trim()};
 }
 
-const HELP=[
-  '🔔 <b>Alertas do Tá Barato</b>',
+function ajuda(env) {
+  return [
+    '🔔 <b>Alertas de preço do Tá Barato</b>',
+    'Eu acompanho o preço para você e aviso no privado quando baixar de verdade. É grátis.',
+    '',
+    '<b>Como usar, em 3 passos</b>',
+    '1️⃣ Abra o produto no app ou no site do <b>Mercado Livre</b> ou da <b>Shopee</b> e toque em <b>Compartilhar → Copiar link</b>.',
+    '2️⃣ Cole o link aqui. Se quiser, já mande o preço junto: <code>https://… 199,90</code>',
+    '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque. O alerta vale 1 ano (você pode mudar).',
+    '',
+    `Também dá para mandar uma palavra, como <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.`,
+    '',
+    `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa. Guardo só o número do seu chat; /parar apaga tudo.`,
+  ].join('\n');
+}
+
+const NOVO=[
+  '➕ <b>Novo alerta</b>',
   '',
-  'Eu aviso no seu privado quando o preço baixar de verdade.',
+  'Cole aqui o link do produto do <b>Mercado Livre</b> ou da <b>Shopee</b>.',
+  'No app: abra o produto → <b>Compartilhar</b> → <b>Copiar link</b>.',
   '',
-  '<b>Alerta de preço de um produto</b>',
-  '• Cole o link do produto do Mercado Livre ou da Shopee e, se quiser, o preço que você quer pagar:',
-  '<code>https://www.mercadolivre.com.br/... 199,90</code>',
-  '• Sem preço, eu aviso quando for o menor preço do histórico (comparado com o histórico).',
-  '',
-  '<b>Alerta por palavra</b>',
-  '• Envie uma palavra, por exemplo: <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.',
-  '',
-  '• /meusalertas — ver seus alertas',
-  '• /preco 1 599,90 — trocar o valor do alerta nº 1 · /menor 1 — voltar ao menor preço do histórico',
-  '• /remover air fryer ou /remover 2 — apagar um alerta',
-  '• /parar — apagar todos os seus dados',
-  '',
-  `Até ${MAX_KEYWORDS_PER_CHAT} palavras e 5 produtos por pessoa. Guardo só o número do seu chat, nada de nome ou telefone.`,
+  'Se já souber quanto quer pagar, mande junto: <code>https://… 199,90</code>',
 ].join('\n');
 
 export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
@@ -69,25 +73,30 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   if(!message||!chat||chat.type!=='private'||typeof message.text!=='string') return null;
   const chatId=String(chat.id);
   if(!/^\d{1,20}$/.test(chatId)) return null;
-  const escolha=await handlePriceChoice(env,chatId,message.text,now);
+  const texto=message.text.trim();
+  if(texto===MENU_NOVO) return {text:NOVO,markup:MENU};
+  if(texto===MENU_AJUDA) return {text:ajuda(env),markup:MENU};
+  const escolha=await handlePriceChoice(env,chatId,texto,now);
   if(escolha) return escolha;
-  const {command,argument}=parseCommand(message.text);
+  const {command,argument}=texto===MENU_LISTA?{command:'meusalertas',argument:''}:parseCommand(texto);
   if(command==='start'&&argument){
     const produto=await handleStartProduct(env,chatId,argument,now);
     if(produto) return produto;
   }
-  if(command==='start'||command==='ajuda'||command==='help') return HELP;
+  if(command==='start') return [{text:ajuda(env),markup:MENU},{text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
+  if(command==='ajuda'||command==='help') return {text:ajuda(env),markup:MENU};
   if(command==='meusalertas'){
     const result=await env.DB.prepare('SELECT keyword FROM alert_subscriptions WHERE chat_id=? ORDER BY created_at').bind(chatId).all();
     const keywords=(result.results||[]).map(row=>row.keyword);
     const precos=await listPriceAlerts(env,chatId,now);
     if(!keywords.length&&!precos.length){
-      return 'Você ainda não tem alertas. Cole o link de um produto do Mercado Livre ou envie uma palavra, por exemplo: <code>fone bluetooth</code>';
+      return {text:`Você ainda não tem alertas.\n\n${NOVO}`,markup:MENU};
     }
     const partes=[];
     if(precos.length) partes.push(`<b>Produtos</b>\n${formatPriceAlertList(precos)}`);
-    if(keywords.length) partes.push(`<b>Palavras</b>\n${keywords.map(item=>`• ${html(item)}`).join('\n')}`);
-    return `Seus alertas:\n\n${partes.join('\n\n')}`;
+    if(keywords.length) partes.push(`<b>Palavras</b>\n${keywords.map(item=>`• ${html(item)}`).join('\n')}\nPara apagar: /remover air fryer`);
+    return {text:`📋 <b>Seus alertas</b>\n\n${partes.join('\n\n')}${precos.length?'\n\nToque em um produto para ver o histórico e ajustar.':''}`,
+      markup:precos.length?listaComBotoes(precos):MENU};
   }
   if(command==='parar'){
     await env.DB.batch([
@@ -115,7 +124,7 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
     await env.DB.prepare('INSERT OR IGNORE INTO alert_subscriptions(chat_id,keyword,created_at) VALUES(?,?,?)').bind(chatId,keyword,now).run();
     return `✅ Combinado! Aviso quando aparecer oferta de <b>${html(keyword)}</b>.\n/meusalertas para ver todos.`;
   }
-  return HELP;
+  return {text:ajuda(env),markup:MENU};
 }
 
 export async function sendTelegram(env,chatId,text,button,fetcher=fetch,markup=null) {

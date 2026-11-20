@@ -16,19 +16,20 @@ import urllib.request
 
 WEBHOOK_URL = "https://canaltabarato.com.br/api/telegram-alerts"
 
+# Mesmos valores de site/functions/_alert_bot_setup.js (o site também os
+# reaplica sozinho a cada coleta, caso o webhook perca os botões).
 COMANDOS = [
-    {"command": "start", "description": "Como funcionam os alertas"},
-    {"command": "meusalertas", "description": "Ver meus alertas"},
-    {"command": "remover", "description": "Remover um alerta: /remover air fryer"},
-    {"command": "parar", "description": "Apagar todos os meus dados"},
+    {"command": "start", "description": "Como funciona e menu"},
+    {"command": "meusalertas", "description": "Ver e ajustar meus alertas"},
     {"command": "ajuda", "description": "Ajuda"},
+    {"command": "parar", "description": "Apagar todos os meus dados"},
 ]
 DESCRICAO = (
-    "Diga o produto que você procura (ex.: air fryer, fone bluetooth) e eu aviso "
-    "quando aparecer oferta dele no Tá Barato. Até 5 alertas, no máximo 6 avisos "
-    "por dia. /parar apaga seus dados."
+    "Cole o link de um produto do Mercado Livre ou da Shopee e eu aviso no seu privado "
+    "quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher, "
+    "queda de % ou volta ao estoque. Grátis, por até 1 ano. /parar apaga seus dados."
 )
-DESCRICAO_CURTA = "Alertas de ofertas por palavra-chave do Canal Tá Barato."
+DESCRICAO_CURTA = "Alerta de preço grátis: aviso quando o produto que você quer baixar de verdade."
 
 
 def chamar(token, metodo, dados=None):
@@ -71,7 +72,7 @@ def main():
     segredo = secrets.token_urlsafe(32)
     chamar(token, "setWebhook", {
         "url": WEBHOOK_URL, "secret_token": segredo,
-        "allowed_updates": ["message"], "drop_pending_updates": True,
+        "allowed_updates": ["message", "callback_query"], "drop_pending_updates": True,
     })
     print("✅ Comandos, descrição e webhook configurados.\n")
     print("Agora, no Cloudflare: Workers & Pages → canaltabarato → Settings →")

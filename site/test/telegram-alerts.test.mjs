@@ -72,6 +72,8 @@ function database() {
   };
 }
 
+const t=r=>Array.isArray(r)?r.map(t).join('\n'):typeof r==='string'?r:r?.text||'';
+
 function message(text,chatId=123,type='private') {
   return {message:{text,chat:{id:chatId,type}}};
 }
@@ -89,14 +91,14 @@ test('palavras são normalizadas e casam só com palavra inteira',()=>{
 
 test('cria, lista, limita, remove e apaga alertas em conversa privada',async()=>{
   const DB=database(),env={DB};
-  assert.match(await handleUpdate(env,message('/start')),/Alertas do Tá Barato/);
+  assert.match(t(await handleUpdate(env,message('/start'))),/Alertas de preço do Tá Barato/);
   assert.match(await handleUpdate(env,message('Air Fryer')),/air fryer/);
   await handleUpdate(env,message('Air Fryer'));
   assert.equal(DB.subscriptions.length,1);
   for(const item of ['cafeteira','fone bluetooth','tenis corrida','mochila']) await handleUpdate(env,message(item));
   assert.equal(DB.subscriptions.length,MAX_KEYWORDS_PER_CHAT);
   assert.match(await handleUpdate(env,message('notebook')),/já tem 5 alertas/);
-  assert.match(await handleUpdate(env,message('/meusalertas')),/cafeteira/);
+  assert.match(t(await handleUpdate(env,message('/meusalertas'))),/cafeteira/);
   await handleUpdate(env,message('/remover cafeteira'));
   assert.equal(DB.subscriptions.length,MAX_KEYWORDS_PER_CHAT-1);
   DB.deliveries.push({chat_id:'123',offer_id:'x',sent_at:1});
@@ -155,6 +157,7 @@ test('webhook fica fechado sem segredo e exige o cabeçalho do Telegram',async()
   try{
     assert.equal((await webhook({request:request('s'.repeat(32)),env})).status,200);
   }finally{globalThis.fetch=originalFetch;}
-  assert.equal(sent.length,1);
-  assert.match(sent[0].text,/Alertas do Tá Barato/);
+  assert.equal(sent.length,2);
+  assert.match(sent[0].text,/Alertas de preço do Tá Barato/);
+  assert.equal(sent[0].reply_markup.keyboard[0][0].text,'➕ Novo alerta');
 });

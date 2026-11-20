@@ -139,3 +139,25 @@ npx wrangler d1 execute canaltabarato-ofertas --remote --file=/Users/emersonpett
 Depois faça o push (publica o site) e rode `npx wrangler deploy` em
 `telegram-control` (o `/lista` passa a separar os produtos do público, e o
 painel ganha o botão da campanha do bot de alertas).
+
+## Bot de alertas completo (migração 0025)
+
+- **Cartão de cada alerta** com botões: menor preço do histórico, valor
+  desejado, queda de 10/20/30% (a partir do preço de quando ligou), volta ao
+  estoque (só Mercado Livre), prazo (1, 3, 6 ou 12 meses; padrão 1 ano), ver na
+  loja e apagar. Mostra preço atual, menor e maior do histórico e um mini
+  gráfico de 30 dias.
+- **Menu fixo** na conversa: ➕ Novo alerta · 📋 Meus alertas · ❓ Ajuda.
+- **Avisos** com foto, histórico e botões 🛒 Comprar · 🔁 Avisar se cair mais ·
+  ⚙️ Ajustar · ✋ Parar. O aviso de valor pausa o alerta só se ele for o único
+  aviso ligado; o de queda passa a contar do novo preço.
+- **Vencimento**: lembrete 7 dias antes, com botão para renovar por 1 ano.
+- **Histórico de 1 ano**: as leituras com mais de 30 dias viram uma por dia (o
+  menor preço com estoque), uma vez por dia, para o D1 não crescer demais.
+- **Limites** padrão: 10 produtos por pessoa e 1.000 no total
+  (`ALERTA_MAX_PRODUTOS_POR_PESSOA`, `ALERTA_MAX_PRODUTOS_TOTAL`, `ALERTA_DIAS_VALIDADE`).
+- **Botões dentro das mensagens** precisam do webhook com `callback_query`. O
+  site confere isso a cada coleta (`_alert_bot_setup.js`) e corrige sozinho,
+  com o token e o segredo que já tem, junto com o menu de comandos e a descrição.
+- **Admin**: `/estatisticas` no painel mostra pessoas, alertas por tipo e
+  origem, produtos por loja, avisos enviados e os produtos com mais alertas.

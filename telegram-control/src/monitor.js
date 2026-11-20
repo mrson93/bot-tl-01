@@ -112,7 +112,7 @@ function nomeDe(produto) {
   return produto.nome || `${LOJA[produto.loja]} ${produto.id_produto} (nome na próxima leitura)`;
 }
 
-export const MONITOR_COMMANDS = ["add", "remover", "lista", "teste_monitor"];
+export const MONITOR_COMMANDS = ["add", "remover", "lista", "teste_monitor", "estatisticas", "estatísticas", "stats"];
 
 export function isMonitorCommand(name, args) {
   if (MONITOR_COMMANDS.includes(name)) return true;
@@ -129,6 +129,8 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
     await dispatch("monitor_teste");
     return reply("🧪 Teste do monitor solicitado. A prévia chega nesta conversa em 1 a 2 minutos, sem ir para o canal.");
   }
+
+  if (["estatisticas", "estatísticas", "stats"].includes(name)) return reply(await estatisticas(db, agora));
 
   if (name === "add") {
     if (!argumento) return reply("Use: /add <link do produto na Amazon ou no Mercado Livre>");
@@ -232,4 +234,56 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
 export function monitorDue(hour, minute, intervalHours) {
   const intervalo = Math.min(24, Math.max(1, Number.parseInt(intervalHours, 10) || 2));
   return Number(minute) === 7 && Number(hour) % intervalo === 0;
+}
+
+// Painel do admin: quem usa o bot de alertas, quantos produtos e quantos avisos.
+export async function estatisticas(db, agora) {
+  const n = (valor) => Number(valor || 0).toLocaleString("pt-BR");
+  const ativo = "a.ativo=1 AND a.expira_em>?";
+  const alertas = await db.prepare(
+    `SELECT COUNT(DISTINCT a.chat_id) AS pessoas,COUNT(*) AS total,SUM(a.avisar_menor) AS menor,
+       SUM(a.preco_alvo IS NOT NULL) AS valor,SUM(a.queda_percent IS NOT NULL) AS queda,SUM(a.avisar_estoque) AS estoque,
+       SUM(a.origem='canal') AS canal,SUM(a.origem='link') AS link
+     FROM alerta_precos a WHERE ${ativo}`,
+  ).bind(agora).first();
+  const historicoPessoas = await db.prepare("SELECT COUNT(DISTINCT chat_id) AS total FROM alerta_precos").first();
+  const { results: porLoja = [] } = await db.prepare(
+    `SELECT p.loja,SUM(p.ativo=1 AND p.canal=1) AS canal,
+       SUM(EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND ${ativo})) AS publico
+     FROM monitor_produtos p GROUP BY p.loja ORDER BY p.loja`,
+  ).bind(agora).all();
+  const palavras = await db.prepare(
+    "SELECT COUNT(DISTINCT chat_id) AS pessoas,COUNT(*) AS total FROM alert_subscriptions",
+  ).first();
+  const avisos = await db.prepare(
+    `SELECT SUM(enviado_em>=?1) AS dia,SUM(enviado_em>=?2) AS semana,COUNT(*) AS mes
+     FROM alerta_avisos WHERE enviado_em>=?3`,
+  ).bind(agora - 86400, agora - 7 * 86400, agora - 30 * 86400).first();
+  const palavrasAvisos = await db.prepare(
+    "SELECT COUNT(*) AS semana FROM alert_deliveries WHERE sent_at>=?",
+  ).bind(agora - 7 * 86400).first();
+  const { results: top = [] } = await db.prepare(
+    `SELECT p.nome,p.id_produto,COUNT(*) AS total FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+     WHERE ${ativo} GROUP BY a.produto_id ORDER BY total DESC LIMIT 5`,
+  ).bind(agora).all();
+  const linhas = [
+    "📊 Bot de alertas (@TaBaratoAlertaDePrecoBot)",
+    "",
+    `👥 Pessoas com alerta de preço ativo: ${n(alertas?.pessoas)} (já usaram: ${n(historicoPessoas?.total)})`,
+    `🔔 Alertas de preço ativos: ${n(alertas?.total)} · pelo botão do canal: ${n(alertas?.canal)} · por link: ${n(alertas?.link)}`,
+    `   Tipos: menor preço ${n(alertas?.menor)} · valor ${n(alertas?.valor)} · queda % ${n(alertas?.queda)} · estoque ${n(alertas?.estoque)}`,
+    `🔤 Alertas por palavra: ${n(palavras?.total)} de ${n(palavras?.pessoas)} pessoa(s)`,
+    "",
+    "📦 Produtos monitorados:",
+    ...(porLoja.length ? porLoja.map((l) => `   ${LOJA[l.loja] || l.loja}: ${n(l.canal)} do canal (/add) · ${n(l.publico)} do público`) : ["   nenhum"]),
+    "",
+    `📨 Avisos de preço enviados: hoje ${n(avisos?.dia)} · 7 dias ${n(avisos?.semana)} · 30 dias ${n(avisos?.mes)}`,
+    `📨 Avisos por palavra (7 dias): ${n(palavrasAvisos?.semana)}`,
+  ];
+  if (top.length) {
+    linhas.push("", "🏆 Produtos com mais alertas:",
+      ...top.map((p, i) => `   ${i + 1}. ${String(p.nome || p.id_produto).slice(0, 60)} (${n(p.total)})`));
+  }
+  linhas.push("", "Cliques e vendas dos avisos aparecem no relatório diário, no canal \"alerta\".");
+  return linhas.join("\n");
 }

@@ -1,5 +1,26 @@
 import {readJsonLimited} from '../_lib.js';
 import {ensureAlertTables,handleUpdate,sendTelegram} from '../_telegram_alerts.js';
+import {handleCallback,telegram} from '../_price_alerts.js';
+
+// Toque num botão dentro da mensagem: só vale no privado e só para o dono.
+export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
+  const chat=consulta?.message?.chat;
+  const chatId=String(chat?.id||'');
+  if(chat?.type!=='private'||!/^\d{1,20}$/.test(chatId)||String(consulta?.from?.id)!==chatId){
+    return telegram(env,'answerCallbackQuery',{callback_query_id:consulta?.id},fetcher);
+  }
+  const r=await handleCallback(env,chatId,consulta.data,now);
+  await telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:String(r.answer||'').slice(0,190)},fetcher);
+  if(!r.text) return;
+  const markup=r.markup===null?undefined:r.markup;
+  if(r.edit&&consulta.message?.text!==undefined){
+    const status=await telegram(env,'editMessageText',{chat_id:chatId,message_id:consulta.message.message_id,text:r.text,
+      parse_mode:'HTML',disable_web_page_preview:true,...(markup?{reply_markup:markup}:{})},fetcher);
+    if(status>=200&&status<300) return;
+  }
+  await telegram(env,'sendMessage',{chat_id:chatId,text:r.text,parse_mode:'HTML',disable_web_page_preview:true,
+    ...(markup?{reply_markup:markup}:{})},fetcher);
+}
 
 const MAX_UPDATE_BYTES=65_536;
 
@@ -26,12 +47,16 @@ export async function onRequestPost({request,env}) {
   let update;
   try{update=await readJsonLimited(request,MAX_UPDATE_BYTES);}catch{return new Response('Bad request',{status:400});}
   await ensureAlertTables(env);
-  const reply=await handleUpdate(env,update);
-  if(reply){
-    const {text,markup}=typeof reply==='string'?{text:reply,markup:null}:reply;
-    try{await sendTelegram(env,String(update.message.chat.id),text,null,fetch,markup);}
-    catch(error){console.error(JSON.stringify({event:'telegram_alert_reply',result:'failed',reason:String(error?.message||error).slice(0,80)}));}
-  }
+  try{
+    if(update?.callback_query) await responderBotao(env,update.callback_query);
+    else{
+      const reply=await handleUpdate(env,update);
+      for(const item of (Array.isArray(reply)?reply:reply?[reply]:[])){
+        const {text,markup}=typeof item==='string'?{text:item,markup:null}:item;
+        await sendTelegram(env,String(update.message.chat.id),text,null,fetch,markup);
+      }
+    }
+  }catch(error){console.error(JSON.stringify({event:'telegram_alert_reply',result:'failed',reason:String(error?.message||error).slice(0,80)}));}
   // 200 mesmo sem resposta: o Telegram não deve reenviar mensagens ignoradas.
   return new Response('OK',{status:200});
 }

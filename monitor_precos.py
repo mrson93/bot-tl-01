@@ -273,9 +273,9 @@ def _atualizacoes(produtos, leituras):
         for campo in ("nome", "categoria", "imagem"):
             if leitura.get(campo) and leitura[campo] != produto.get(campo):
                 dados[campo] = leitura[campo]
-        if not produto.get("link_afiliado") and produto.get("loja") != "shopee":
+        if not produto.get("link_afiliado"):
             try:
-                link = _link_afiliado(produto, leitura)
+                link = _link_afiliado(produto, leitura, "alerta" if produto.get("loja") == "shopee" else "telegram")
             except Exception:
                 link = None
             if link:
@@ -324,27 +324,43 @@ def _link_rastreado(produto, leitura, canal):
     return seguranca.validar_url_https_publica(link, "Link de afiliado")
 
 
-def decidir_avisos(alertas, leituras, avaliacoes, agora, cfg=config):
+def decidir_avisos(alertas, leituras, avaliacoes, agora, cfg=config, estoque_anterior=None):
     """Quais alertas do bot público disparam agora: [(alerta, motivo)].
 
-    Com preço pedido: avisa quando o preço chega nele (uma vez; o site pausa o
-    alerta). Sem preço: avisa no menor preço real, no máximo a cada
-    MONITOR_HORAS_REPOST, a não ser que caia mais MONITOR_QUEDA_REPOST_PERCENT.
+    Cada alerta pode ter vários avisos ligados; sai no máximo um por rodada,
+    nesta ordem: voltou ao estoque, chegou ao valor, caiu X%, menor preço do
+    histórico (este no máximo a cada MONITOR_HORAS_REPOST, a não ser que caia
+    mais MONITOR_QUEDA_REPOST_PERCENT).
     """
+    estoque_anterior = {int(k): v for k, v in (estoque_anterior or {}).items()}
     disparos = []
     for alerta in alertas or []:
         pid = int(alerta.get("produto_id") or 0)
         leitura = leituras.get(pid)
-        if not leitura or not leitura.get("disponivel") or not leitura.get("preco"):
+        if not leitura:
             continue
-        preco = float(leitura["preco"])
+        preco = float(leitura.get("preco") or 0)
+        disponivel = bool(leitura.get("disponivel")) and preco > 0
+        if (alerta.get("avisar_estoque") and disponivel
+                and estoque_anterior.get(pid) is not None and not estoque_anterior.get(pid)):
+            disparos.append((alerta, "estoque"))
+            continue
+        if not disponivel:
+            continue
         alvo = float(alerta.get("preco_alvo") or 0)
-        if alvo:
-            if preco <= alvo:
-                disparos.append((alerta, "alvo"))
+        if alvo and preco <= alvo:
+            disparos.append((alerta, "alvo"))
             continue
+        queda = float(alerta.get("queda_percent") or 0)
+        base = float(alerta.get("preco_base") or 0)
+        if queda and base and preco <= base * (1 - queda / 100):
+            disparos.append((alerta, "queda"))
+            continue
+        menor = alerta.get("avisar_menor")
+        if menor is None:  # alerta criado antes dos vários tipos de aviso
+            menor = not alvo
         avaliacao = avaliacoes.get(pid) or {}
-        if not avaliacao.get("postar"):
+        if not menor or not avaliacao.get("postar"):
             continue
         ultimo_em = int(alerta.get("ultimo_aviso_em") or 0)
         ultimo_preco = float(alerta.get("ultimo_aviso_preco") or 0)
@@ -356,10 +372,11 @@ def decidir_avisos(alertas, leituras, avaliacoes, agora, cfg=config):
     return disparos
 
 
-def _avisos(produtos, leituras, avaliacoes, alertas, agora):
+def _avisos(produtos, leituras, avaliacoes, alertas, agora, estoque_anterior=None):
     por_id = {p["id"]: p for p in produtos}
     links, avisos = {}, []
-    for alerta, motivo in decidir_avisos(alertas, leituras, avaliacoes, agora):
+    for alerta, motivo in decidir_avisos(alertas, leituras, avaliacoes, agora,
+                                         estoque_anterior=estoque_anterior):
         pid = int(alerta["produto_id"])
         produto, leitura = por_id.get(pid), leituras[pid]
         if not produto:
@@ -437,9 +454,15 @@ def executar(agora=None):
         else:
             print(f"   · #{pid}: {avaliacao['motivo']}.")
 
-    avisos = _avisos(produtos, leituras, sem_repost, dados.get("alertas") or [], agora)
+    avisos = _avisos(produtos, leituras, sem_repost, dados.get("alertas") or [], agora,
+                     dados.get("ultimo_estoque") or {})
+    # Alerta de queda % criado antes da primeira leitura: o preço de agora vira a referência.
+    bases = [{"alerta_id": a["id"], "preco": float(leituras[int(a["produto_id"])]["preco"])}
+             for a in dados.get("alertas") or []
+             if a.get("queda_percent") and not a.get("preco_base")
+             and (leituras.get(int(a["produto_id"])) or {}).get("preco")]
     try:
-        gravar({"avisos": avisos})
+        gravar({"avisos": avisos, "bases": bases})
         if avisos:
             print(f"🔔 Monitor: {len(avisos)} aviso(s) de preço para o bot de alertas.")
     except Exception as erro:

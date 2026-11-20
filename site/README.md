@@ -198,7 +198,7 @@ Ativação:
    curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook" \
      -d url=https://canaltabarato.com.br/api/telegram-alerts \
      -d secret_token=<SEGREDO> \
-     -d 'allowed_updates=["message"]'
+     -d 'allowed_updates=["message","callback_query"]'
    ```
 
 Sem o token e o segredo o endpoint responde 503 e nenhum alerta é enviado.

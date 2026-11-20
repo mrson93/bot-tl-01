@@ -900,6 +900,7 @@ export function helpActionsText() {
     "/lista: produtos monitorados, com o último preço lido.",
     "/historico <id>: mínimo, máximo e média dos últimos 90 dias.",
     "/teste_monitor: mostra aqui como um post ficaria, sem postar no canal.",
+    "/estatisticas: pessoas, produtos e avisos do bot público de alertas.",
     "",
     "⏸ Pausar (/pausar): interrompe somente as rodadas automáticas. Configurações, histórico e relatório continuam disponíveis.",
     "▶️ Retomar (/retomar): reativa no modo Econômico; depois você pode escolher outro ritmo.",

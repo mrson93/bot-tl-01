@@ -175,6 +175,24 @@ class AlertasPublicosTest(unittest.TestCase):
         self.assertEqual(mp.decidir_avisos(novo, self.leitura, {1: {"postar": False}}, AGORA), [])
 
 
+class NovosAvisosTest(unittest.TestCase):
+    def test_estoque_queda_e_ordem(self):
+        leitura = {1: {"preco": 80.0, "disponivel": True}}
+        voltou = [{"id": 1, "produto_id": 1, "avisar_estoque": 1, "preco_alvo": 90}]
+        self.assertEqual(mp.decidir_avisos(voltou, leitura, {}, AGORA, estoque_anterior={"1": 0})[0][1], "estoque")
+        self.assertEqual(mp.decidir_avisos(voltou, leitura, {}, AGORA, estoque_anterior={"1": 1})[0][1], "alvo")
+        queda = [{"id": 2, "produto_id": 1, "queda_percent": 20, "preco_base": 100}]
+        self.assertEqual(mp.decidir_avisos(queda, leitura, {}, AGORA)[0][1], "queda")
+        pouca = [{"id": 2, "produto_id": 1, "queda_percent": 30, "preco_base": 100}]
+        self.assertEqual(mp.decidir_avisos(pouca, leitura, {}, AGORA), [])
+        desligado = [{"id": 3, "produto_id": 1, "avisar_menor": 0}]
+        self.assertEqual(mp.decidir_avisos(desligado, leitura, {1: {"postar": True, "motivo": "menor_preco"}}, AGORA), [])
+
+    def test_sem_estoque_nao_avisa_valor(self):
+        alerta = [{"id": 1, "produto_id": 1, "preco_alvo": 100}]
+        self.assertEqual(mp.decidir_avisos(alerta, {1: {"preco": 80, "disponivel": False}}, {}, AGORA), [])
+
+
 class ProdutoDoPublicoTest(ExecutarTest):
     def test_produto_do_publico_nao_vai_para_o_canal_mas_avisa(self):
         dados = self.dados(alertas=[{"id": 9, "produto_id": 1, "preco_alvo": 85}])

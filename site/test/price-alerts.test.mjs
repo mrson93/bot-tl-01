@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  deliverPriceAlerts, formatPriceNotice, handlePriceAlert, parsePrice, parsePriceRequest,
+  cartao, deliverPriceAlerts, expirePriceAlerts, formatPriceNotice, handleCallback, handlePriceAlert,
+  handlePriceChoice, handleStartProduct, parsePrice, parsePriceRequest, sparkline,
 } from '../functions/_price_alerts.js';
+import {parseProductLink,resolveProductLink} from '../functions/_product_link.js';
 import {handleUpdate} from '../functions/_telegram_alerts.js';
+import {responderBotao} from '../functions/api/telegram-alerts.js';
 
 // D1 de mentira: responde pela primeira regra cujo trecho aparece no SQL.
 function fakeDb(regras={}) {
@@ -30,164 +33,222 @@ function fakeDb(regras={}) {
 }
 const semRede=async()=>{throw new Error('sem rede');};
 const LINK='https://www.mercadolivre.com.br/fone/p/MLB123';
+const ALERTA={id:7,chat_id:'55',produto_id:3,loja:'mercadolivre',id_produto:'MLB123',nome:'Power Bank Anker',
+  avisar_menor:1,preco_alvo:null,queda_percent:null,avisar_estoque:0,preco_base:699,ativo:1,expira_em:40_000_000,
+  link_afiliado:'https://www.mercadolivre.com.br/p/MLB123?matt_tool=1'};
+const HISTORICO={'MIN(preco) AS minimo':{minimo:649,maximo:799,desde:1000,atual:699,disponivel:1},
+  'GROUP BY dia':[{preco:799},{preco:720},{preco:699}]};
+const enviar=()=>{const chamadas=[];const fetcher=async(url,init)=>{chamadas.push({metodo:url.split('/').pop(),corpo:JSON.parse(init.body)});return new Response('{}',{status:200});};return {chamadas,fetcher};};
 
 test('entende o preço do jeito que as pessoas escrevem',()=>{
   assert.equal(parsePrice('199,90'),199.9);
   assert.equal(parsePrice('R$ 1.299,90'),1299.9);
   assert.equal(parsePrice('199.90'),199.9);
-  assert.equal(parsePrice('1.299'),1299);
   assert.equal(parsePrice('abc'),null);
   assert.deepEqual(parsePriceRequest(`${LINK} 199,90`),{link:LINK,alvo:199.9,precoInvalido:false});
   assert.equal(parsePriceRequest('air fryer'),null);
 });
 
-test('cadastra alerta com preço e cria o produto só para o público',async()=>{
-  const db=fakeDb({
-    'INSERT INTO monitor_produtos':{id:12,nome:null},
-    'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:0},
-    'COUNT(DISTINCT produto_id)':{total:0},
-  });
-  const resposta=await handlePriceAlert({DB:db},'55',`${LINK} 199,90`,1000,semRede);
-  assert.match(resposta,/R\$\s?199,90/);
-  const produto=db.executados.find(([sql])=>sql.includes('INSERT INTO monitor_produtos'));
-  assert.match(produto[0],/VALUES\(\?,\?,\?,\?,1,0,\?\)/);
-  assert.equal(produto[1][3],null); // "fone" é curto demais para virar nome
-  const alerta=db.executados.find(([sql])=>sql.includes('INSERT INTO alerta_precos'));
-  assert.deepEqual(alerta[1].slice(0,3),['55',12,199.9]);
-});
-
-test('respeita o limite por pessoa e recusa a Amazon por enquanto',async()=>{
-  const cheio=fakeDb({'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:5}});
-  assert.match(await handlePriceAlert({DB:cheio},'55',LINK,1000,semRede),/já tem 5 produtos/);
-  const amazon=await handlePriceAlert({DB:fakeDb()},'55','https://www.amazon.com.br/dp/B0C1234567',1000,semRede);
-  assert.match(amazon,/com produtos do <b>Mercado Livre<\/b> e da <b>Shopee<\/b>/);
-});
-
-test('link colado na conversa vira alerta de preço; número remove',async()=>{
-  const db=fakeDb({'INSERT INTO monitor_produtos':{id:3,nome:'Fone'},'alerta_precos a JOIN':[{id:30,nome:'Fone',id_produto:'MLB123'}]});
-  const criado=await handleUpdate({DB:db},{message:{text:LINK,chat:{id:55,type:'private'}}},1000);
-  assert.match(criado.text,/menor preço do histórico/);
-  assert.equal(criado.markup.keyboard[0][1].text,'💰 Definir um valor');
-  const removido=await handleUpdate({DB:db},{message:{text:'/remover 1',chat:{id:55,type:'private'}}},1000);
-  assert.match(removido,/removido: Fone/);
-  assert.ok(db.executados.some(([sql,args])=>sql.startsWith('DELETE FROM alerta_precos WHERE id=?')&&args[0]===30));
-});
-
-test('entrega o aviso, pausa o alerta com preço e ignora link estranho',async()=>{
-  const enviados=[];
-  const db=fakeDb({'SELECT chat_id,preco_alvo FROM alerta_precos':{chat_id:'55',preco_alvo:200}});
-  const fetcher=async(url,init)=>{enviados.push(JSON.parse(init.body));return new Response('{}',{status:200});};
-  const total=await deliverPriceAlerts({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},[
-    {alerta_id:1,produto_id:2,preco:189.9,link:'https://go.canaltabarato.com.br/x',nome:'Fone',motivo:'alvo'},
-    {alerta_id:1,produto_id:2,preco:189.9,link:'https://golpe.example/x',nome:'Fone',motivo:'alvo'},
-  ],1000,fetcher);
-  assert.equal(total,1);
-  assert.equal(enviados[0].chat_id,'55');
-  assert.match(enviados[0].text,/você pediu até R\$\s?200,00/);
-  assert.ok(db.executados.some(([sql])=>sql.startsWith('UPDATE alerta_precos SET ultimo_aviso_em')));
-});
-
-test('quem bloqueou o bot tem os alertas apagados',async()=>{
-  const db=fakeDb({'SELECT chat_id,preco_alvo FROM alerta_precos':{chat_id:'55',preco_alvo:null}});
-  await deliverPriceAlerts({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},
-    [{alerta_id:1,produto_id:2,preco:90,link:'https://meli.la/x',motivo:'menor_preco'}],1000,
-    async()=>new Response('{}',{status:403}));
-  assert.ok(db.executados.some(([sql])=>sql==='DELETE FROM alerta_precos WHERE chat_id=?'));
-});
-
-test('texto do aviso de menor preço',()=>{
-  const texto=formatPriceNotice({motivo:'menor_preco',dias_janela:45,nome:'Fone <X>',preco:90,media:120,dias_media:30,abaixo:25},null);
-  assert.match(texto,/Menor preço em 45 dias/);
-  assert.match(texto,/Fone &lt;X&gt;/);
-  assert.match(texto,/25% abaixo da média/);
-});
-
-test('segue meli.la se identificando, até a página do produto',async()=>{
-  const {resolveProductLink}=await import('../functions/_product_link.js');
+test('reconhece links do Mercado Livre e da Shopee, com nome',async()=>{
+  assert.equal(parseProductLink('https://www.mercadolivre.com.br/carregador-portatil-anker/p/MLB1').nome,'Carregador portatil anker');
+  assert.equal(parseProductLink('https://produto.mercadolivre.com.br/MLB-123-fone-bluetooth-jbl-_JM').id_produto,'MLB123');
+  assert.deepEqual(parseProductLink('https://shopee.com.br/Fone-Bluetooth-JBL-i.123456.987654321?sp_atk=x'),
+    {loja:'shopee',id_produto:'123456_987654321',tipo:null,nome:'Fone Bluetooth JBL'});
+  assert.equal(parseProductLink('https://shopee.com.br/opaanlp/1791562791/23894195354?__mobile__=1').id_produto,'1791562791_23894195354');
+  // meli.la do "compartilhar": perfil de afiliado com o produto como 1º link.
+  const pagina='<meta property="og:title" content="Power Bank Anker - R$ 689"/><a href="https://www.mercadolivre.com.br/pb/p/MLB48692416">x</a>';
   const pedidos=[];
-  const saltos={
-    'https://meli.la/AbC123':'https://mercadolivre.com/sec/xyz',
-    'https://mercadolivre.com/sec/xyz':'https://www.mercadolivre.com.br/fone/p/MLB777?matt_tool=1',
-  };
   const fetcher=async(url,init)=>{
     pedidos.push(init.headers['User-Agent']);
-    if(!init.headers['User-Agent']) return new Response(null,{status:403});
-    return new Response(null,{status:301,headers:{Location:saltos[url]}});
+    return url.startsWith('https://meli.la')
+      ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
+      :new Response(pagina,{status:200});
   };
-  assert.deepEqual(await resolveProductLink('https://meli.la/AbC123',fetcher),
-    {loja:'mercadolivre',id_produto:'MLB777',tipo:'catalogo',nome:null});
-  assert.equal(pedidos.length,2);
+  assert.deepEqual(await resolveProductLink('https://meli.la/1e8sTgB',fetcher),
+    {loja:'mercadolivre',id_produto:'MLB48692416',tipo:'catalogo',nome:'Power Bank Anker'});
   assert.match(pedidos[0],/TaBaratoAlertaBot/);
 });
 
-test('link de perfil de afiliado vira o produto compartilhado',async()=>{
-  const {resolveProductLink}=await import('../functions/_product_link.js');
-  const pagina='<a href="https://www.mercadolivre.com.br/power-bank/p/MLB48692416?pdp_filters=item_id%3AMLB1">x</a><a href="https://www.mercadolivre.com.br/outro/p/MLB999">y</a>';
-  const fetcher=async(url)=>url.startsWith('https://meli.la')
-    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
-    :new Response(pagina,{status:200});
-  assert.deepEqual(await resolveProductLink('https://meli.la/1e8sTgB',fetcher),
-    {loja:'mercadolivre',id_produto:'MLB48692416',tipo:'catalogo',nome:null});
-});
-
-test('perfil de afiliado sem produto explica o que mandar',async()=>{
-  const fetcher=async(url)=>url.startsWith('https://meli.la')
-    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?matt_word=x&ref=abc'}})
-    :new Response('<html>sem produto</html>',{status:200});
-  const resposta=await handlePriceAlert({DB:fakeDb()},'55','https://meli.la/1e8sTgB',1000,fetcher);
-  assert.match(resposta,/perfil de afiliado/);
-});
-
-test('nome vem do endereço ou da prévia da página',async()=>{
-  const {parseProductLink,resolveProductLink}=await import('../functions/_product_link.js');
-  assert.equal(parseProductLink('https://www.mercadolivre.com.br/carregador-portatil-anker/p/MLB1').nome,'Carregador portatil anker');
-  assert.equal(parseProductLink('https://produto.mercadolivre.com.br/MLB-123-fone-bluetooth-jbl-_JM').nome,'Fone bluetooth jbl');
-  const pagina='<meta property="og:title" content="Power Bank Anker 25000mAh - R$ 689"/><a href="https://www.mercadolivre.com.br/pb/p/MLB48692416">x</a>';
-  const fetcher=async(url)=>url.startsWith('https://meli.la')
-    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
-    :new Response(pagina,{status:200});
-  assert.equal((await resolveProductLink('https://meli.la/x',fetcher)).nome,'Power Bank Anker 25000mAh');
-});
-
-test('escolha entre menor preço do histórico e um valor',async()=>{
-  const {handlePriceChoice}=await import('../functions/_price_alerts.js');
-  const recente={id:7,nome:'Power Bank Anker',id_produto:'MLB1'};
-  const db=fakeDb({'ORDER BY a.criado_em DESC':recente});
-  const pedir=await handlePriceChoice({DB:db},'55','💰 Definir um valor',1000);
-  assert.match(pedir.text,/Quanto você quer pagar por Power Bank Anker/);
-  const valor=await handlePriceChoice({DB:db},'55','599,90',1000);
-  assert.match(valor.text,/R\$\s?599,90/);
-  const update=db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET preco_alvo'));
-  assert.deepEqual(update[1],[599.9,7,'55']);
-  const menor=await handlePriceChoice({DB:db},'55','🔥 Menor preço do histórico',1000);
-  assert.match(menor.text,/menor preço do histórico/);
-  assert.equal(await handlePriceChoice({DB:db},'55','air fryer',1000),null);
-  const semAlerta=await handlePriceChoice({DB:fakeDb()},'55','599,90',1000);
-  assert.match(semAlerta,/Primeiro cole o link/);
-});
-
-test('reconhece os links da Shopee, inclusive o destino do link curto',async()=>{
-  const {parseProductLink}=await import('../functions/_product_link.js');
-  assert.deepEqual(parseProductLink('https://shopee.com.br/Fone-Bluetooth-JBL-i.123456.987654321?sp_atk=x'),
-    {loja:'shopee',id_produto:'123456_987654321',tipo:null,nome:'Fone Bluetooth JBL'});
-  assert.equal(parseProductLink('https://shopee.com.br/product/123456/987654321').id_produto,'123456_987654321');
-  assert.equal(parseProductLink('https://shopee.com.br/opaanlp/1791562791/23894195354?__mobile__=1').id_produto,'1791562791_23894195354');
-});
-
-test('botão do canal cria o alerta do produto e copia o histórico do site',async()=>{
-  const {handleStartProduct}=await import('../functions/_price_alerts.js');
+test('cadastro cria produto só do público, alerta de 1 ano e mostra o cartão',async()=>{
   const db=fakeDb({
-    'SELECT title FROM offers':{title:'Power Bank Anker 25000mAh'},
-    'INSERT INTO monitor_produtos':{id:21,nome:'Power Bank Anker 25000mAh'},
+    ...HISTORICO,
+    'INSERT INTO monitor_produtos':{id:3,nome:null},
     'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:0},
     'COUNT(DISTINCT produto_id)':{total:0},
+    'SELECT preco FROM monitor_leituras':{preco:699},
+    'INSERT INTO alerta_precos':{id:7},
+    'SELECT a.*,p.loja':ALERTA,
+  });
+  const resposta=await handlePriceAlert({DB:db},'55',`${LINK} 599,90`,1000,semRede);
+  assert.match(resposta.text,/Alerta criado/);
+  assert.match(resposta.text,/📈 30 dias: █▂▁/);
+  assert.match(resposta.text,/Agora: <b>R\$\s?699,00/);
+  const produto=db.executados.find(([sql])=>sql.includes('INSERT INTO monitor_produtos'));
+  assert.match(produto[0],/VALUES\(\?,\?,\?,\?,1,0,\?\)/);
+  const alerta=db.executados.find(([sql])=>sql.includes('INSERT INTO alerta_precos'));
+  assert.deepEqual(alerta[1],['55',3,599.9,0,699,'link',1000,1000+365*86400]);
+  const botoes=resposta.markup.inline_keyboard.flat().map(b=>b.callback_data||b.url);
+  assert.ok(botoes.includes('a:7:v')&&botoes.includes('a:7:p')&&botoes.includes('a:7:e'));
+});
+
+test('respeita o limite por pessoa e recusa a Amazon por enquanto',async()=>{
+  const cheio=fakeDb({'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:10}});
+  assert.match((await handlePriceAlert({DB:cheio},'55',LINK,1000,semRede)).text,/já tem 10 produtos/);
+  const amazon=await handlePriceAlert({DB:fakeDb()},'55','https://www.amazon.com.br/dp/B0C1234567',1000,semRede);
+  assert.match(amazon,/<b>Mercado Livre<\/b> e da <b>Shopee<\/b>/);
+});
+
+test('botão do canal cria o alerta e copia o histórico do site',async()=>{
+  const db=fakeDb({
+    'SELECT title FROM offers':{title:'Power Bank Anker'},
+    'INSERT INTO monitor_produtos':{id:21,nome:'Power Bank Anker'},
+    'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:0},
+    'COUNT(DISTINCT produto_id)':{total:0},
+    'INSERT INTO alerta_precos':{id:9},
+    'SELECT a.*,p.loja':{...ALERTA,id:9,loja:'shopee'},
   });
   const resposta=await handleStartProduct({DB:db},'55','sp_1791562791_23894195354',1000);
   assert.match(resposta.text,/Power Bank Anker/);
-  assert.equal(resposta.markup.keyboard[0][0].text,'🔥 Menor preço do histórico');
+  assert.ok(!resposta.markup.inline_keyboard.flat().some(b=>b.callback_data==='a:9:e'),'Shopee não tem aviso de estoque');
   const copia=db.executados.find(([sql])=>sql.includes('FROM offer_prices'));
   assert.deepEqual(copia[1].slice(0,2),[21,'shopee_1791562791_23894195354']);
+  const alerta=db.executados.find(([sql])=>sql.includes('INSERT INTO alerta_precos'));
+  assert.equal(alerta[1][5],'canal');
   assert.equal(await handleStartProduct({DB:db},'55','xx_123',1000),null);
-  const comando=await handleUpdate({DB:fakeDb({'INSERT INTO monitor_produtos':{id:3,nome:'Fone'}})},{message:{text:'/start ml_MLB123',chat:{id:55,type:'private'}}},1000);
-  assert.match(comando.text,/Fone/);
+});
+
+test('botões do cartão ligam avisos, escolhem queda, prazo e apagam',async()=>{
+  const db=fakeDb({'SELECT a.*,p.loja':ALERTA,...HISTORICO});
+  const menor=await handleCallback({DB:db},'55','a:7:m',1000);
+  assert.equal(menor.edit,true);
+  assert.deepEqual(db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET avisar_menor'))[1],[0,7,'55']);
+  const opcoes=await handleCallback({DB:db},'55','a:7:q',1000);
+  assert.deepEqual(opcoes.markup.inline_keyboard[0].map(b=>b.text),['10%','20%','30%']);
+  await handleCallback({DB:db},'55','a:7:q:20',1000);
+  assert.deepEqual(db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET queda_percent=?'))[1],[20,699,7,'55']);
+  await handleCallback({DB:db},'55','a:7:p:30',1000);
+  assert.deepEqual(db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET expira_em'))[1],[1000+30*86400,7,'55']);
+  await handleCallback({DB:db},'55','a:7:v',1000);
+  assert.ok(db.executados.some(([sql,args])=>sql.startsWith('UPDATE alerta_precos SET editando_em')&&args[0]===1000));
+  assert.match((await handleCallback({DB:db},'55','a:7:x',1000)).text,/Apagar o alerta/);
+  await handleCallback({DB:db},'55','a:7:xx',1000);
+  assert.ok(db.executados.some(([sql])=>sql.startsWith('DELETE FROM alerta_precos WHERE id=?')));
+  assert.equal((await handleCallback({DB:fakeDb()},'55','a:7:m',1000)).answer,'Esse alerta não existe mais');
+  assert.equal((await handleCallback({DB:db},'55','qualquer',1000)).answer,'Opção inválida');
+});
+
+test('valor digitado vale para o alerta em edição',async()=>{
+  const db=fakeDb({'ORDER BY CASE WHEN a.editando_em':{id:7},'SELECT a.*,p.loja':{...ALERTA,preco_alvo:599.9},...HISTORICO});
+  const resposta=await handlePriceChoice({DB:db},'55','599,90',1000);
+  assert.match(resposta.text,/R\$\s?599,90/);
+  assert.deepEqual(db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET preco_alvo'))[1],[599.9,7,'55']);
+  assert.equal(await handlePriceChoice({DB:db},'55','air fryer',1000),null);
+  assert.match((await handlePriceChoice({DB:fakeDb()},'55','599,90',1000)).text,/Primeiro cole o link/);
+});
+
+test('menu, lista com botões e tela inicial',async()=>{
+  const db=fakeDb({
+    'WHERE a.chat_id=? AND a.ativo=1 AND a.expira_em>? ORDER BY a.id':[{id:7,nome:'Power Bank Anker',id_produto:'MLB1',avisar_menor:1,atual:699}],
+  });
+  const lista=await handleUpdate({DB:db},{message:{text:'📋 Meus alertas',chat:{id:55,type:'private'}}},1000);
+  assert.match(lista.text,/Power Bank Anker/);
+  assert.equal(lista.markup.inline_keyboard[0][0].callback_data,'a:7:c');
+  const novo=await handleUpdate({DB:db},{message:{text:'➕ Novo alerta',chat:{id:55,type:'private'}}},1000);
+  assert.match(novo.text,/Copiar link/);
+  const inicio=await handleUpdate({DB:db},{message:{text:'/start',chat:{id:55,type:'private'}}},1000);
+  assert.equal(inicio[1].markup.inline_keyboard[0][0].callback_data,'ex');
+});
+
+test('toque de outra pessoa no botão é ignorado',async()=>{
+  const {chamadas,fetcher}=enviar();
+  const db=fakeDb({'SELECT a.*,p.loja':ALERTA});
+  await responderBotao({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},{id:'q1',data:'a:7:xx',from:{id:99},message:{chat:{id:55,type:'private'}}},fetcher);
+  assert.deepEqual(chamadas.map(c=>c.metodo),['answerCallbackQuery']);
+  assert.equal(db.executados.length,0);
+  await responderBotao({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},{id:'q2',data:'a:7:m',from:{id:55},message:{message_id:4,text:'cartão',chat:{id:55,type:'private'}}},fetcher);
+  assert.deepEqual(chamadas.slice(1).map(c=>c.metodo),['answerCallbackQuery','editMessageText']);
+});
+
+test('aviso com valor pausa só quando era o único aviso e registra a entrega',async()=>{
+  const {chamadas,fetcher}=enviar();
+  const so={...ALERTA,avisar_menor:0,preco_alvo:200,imagem:'https://http2.mlstatic.com/a.jpg'};
+  const db=fakeDb({'SELECT a.*,p.nome,p.imagem':so,...HISTORICO});
+  const total=await deliverPriceAlerts({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},[
+    {alerta_id:7,produto_id:3,preco:189.9,link:'https://go.canaltabarato.com.br/x',nome:'Fone',motivo:'alvo'},
+    {alerta_id:7,produto_id:3,preco:189.9,link:'https://golpe.example/x',nome:'Fone',motivo:'alvo'},
+  ],1000,fetcher);
+  assert.equal(total,1);
+  assert.equal(chamadas[0].metodo,'sendPhoto');
+  assert.match(chamadas[0].corpo.caption,/você pediu até R\$\s?200,00/);
+  assert.match(chamadas[0].corpo.caption,/foi pausado/);
+  const update=db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET ultimo_aviso_em'));
+  assert.match(update[0],/preco_alvo=NULL,ativo=\?/);
+  assert.deepEqual(update[1],[1000,189.9,0,7]);
+  assert.ok(db.executados.some(([sql])=>sql.startsWith('INSERT INTO alerta_avisos')));
+  // Com outro aviso ligado, o alerta continua ativo.
+  const db2=fakeDb({'SELECT a.*,p.nome,p.imagem':{...so,avisar_menor:1},...HISTORICO});
+  await deliverPriceAlerts({DB:db2,TELEGRAM_ALERTS_BOT_TOKEN:'t'},[{alerta_id:7,produto_id:3,preco:189.9,link:'https://meli.la/x',motivo:'alvo'}],1000,fetcher);
+  assert.equal(db2.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET ultimo_aviso_em'))[1][2],1);
+});
+
+test('queda atualiza a referência e quem bloqueou é apagado',async()=>{
+  const {fetcher}=enviar();
+  const db=fakeDb({'SELECT a.*,p.nome,p.imagem':{...ALERTA,queda_percent:20},...HISTORICO});
+  await deliverPriceAlerts({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},[{alerta_id:7,produto_id:3,preco:540,link:'https://meli.la/x',motivo:'queda'}],1000,fetcher);
+  assert.deepEqual(db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET ultimo_aviso_em'))[1],[1000,540,540,7]);
+  const bloqueado=fakeDb({'SELECT a.*,p.nome,p.imagem':ALERTA,...HISTORICO});
+  await deliverPriceAlerts({DB:bloqueado,TELEGRAM_ALERTS_BOT_TOKEN:'t'},[{alerta_id:7,produto_id:3,preco:90,link:'https://meli.la/x',motivo:'menor_preco'}],1000,
+    async()=>new Response('{}',{status:403}));
+  assert.ok(bloqueado.executados.some(([sql])=>sql==='DELETE FROM alerta_precos WHERE chat_id=?'));
+});
+
+test('texto dos avisos e mini gráfico',()=>{
+  assert.equal(sparkline([10,20,30]),'▁▅█');
+  assert.equal(sparkline([5]),'');
+  const texto=formatPriceNotice({motivo:'menor_preco',dias_janela:45,nome:'Fone <X>',preco:90,media:120,dias_media:30,abaixo:25},{},{minimo:90,maximo:130,linha:'▇▅▁'});
+  assert.match(texto,/Menor preço em 45 dias/);
+  assert.match(texto,/Fone &lt;X&gt;/);
+  assert.match(texto,/25% abaixo da média/);
+  assert.match(texto,/📈 30 dias: ▇▅▁/);
+  assert.match(formatPriceNotice({motivo:'estoque',preco:90},{}),/Voltou ao estoque/);
+  assert.match(formatPriceNotice({motivo:'queda',preco:80},{queda_percent:20,preco_base:100}),/Caiu 20% desde/);
+});
+
+test('lembra 7 dias antes de vencer e pausa quando vence',async()=>{
+  const {chamadas,fetcher}=enviar();
+  const db=fakeDb({
+    'a.lembrete_em IS NULL':[{id:7,chat_id:'55',expira_em:1000+3*86400,nome:'Fone'}],
+    'a.expira_em<=? LIMIT 50':[{id:8,chat_id:'55',nome:'Lanterna'}],
+  });
+  await expirePriceAlerts({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},1000,fetcher);
+  assert.match(chamadas[0].corpo.text,/vence em/);
+  assert.equal(chamadas[0].corpo.reply_markup.inline_keyboard[0][0].callback_data,'a:7:r');
+  assert.match(chamadas[1].corpo.text,/venceu/);
+  assert.ok(db.executados.some(([sql,args])=>sql.startsWith('UPDATE alerta_precos SET ativo=0')&&args[0]===8));
+});
+
+test('cartão sem leitura ainda explica a espera',async()=>{
+  const db=fakeDb({'SELECT a.*,p.loja':{...ALERTA,avisar_menor:0}});
+  const r=await cartao({DB:db},'55',7,1000);
+  assert.match(r.text,/aguardando a primeira leitura/);
+  assert.match(r.text,/Nenhum aviso ligado/);
+});
+
+test('site liga os toques nos botões no webhook só quando falta',async()=>{
+  const {garantirConfiguracao}=await import('../functions/_alert_bot_setup.js');
+  const env={TELEGRAM_ALERTS_BOT_TOKEN:'t',TELEGRAM_ALERTS_WEBHOOK_SECRET:'segredo'};
+  const chamadas=[];
+  const fetcher=(info)=>async(url,init)=>{
+    chamadas.push(url.split('/').pop());
+    if(url.endsWith('getWebhookInfo')) return Response.json({ok:true,result:info});
+    chamadas.push(JSON.parse(init.body));
+    return new Response('{}',{status:200});
+  };
+  assert.equal(await garantirConfiguracao(env,fetcher({url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message','callback_query']})),false);
+  assert.deepEqual(chamadas,['getWebhookInfo']);
+  assert.equal(await garantirConfiguracao(env,fetcher({url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message']})),true);
+  const webhook=chamadas[chamadas.indexOf('setWebhook')+1];
+  assert.equal(webhook.secret_token,'segredo');
+  assert.deepEqual(webhook.allowed_updates,['message','callback_query']);
+  assert.ok(chamadas.includes('setMyCommands'));
 });

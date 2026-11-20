@@ -1,5 +1,6 @@
 import {authorized,json,readJsonLimited} from '../_lib.js';
 import {deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
+import {garantirConfiguracao} from '../_alert_bot_setup.js';
 
 // Monitor de preços: o bot (GitHub Actions) lê aqui os produtos ativos e o
 // histórico diário, e grava as leituras, os posts e a fila da madrugada.
@@ -8,7 +9,8 @@ import {deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
 // eles são lidos, mas só os do admin (canal=1) podem ir para o canal.
 const MAX_REQUEST_BYTES=200_000;
 const MAX_LEITURAS=500;
-const RETENCAO_DIAS=120;
+const RETENCAO_DIAS=400;
+const DIAS_DETALHE=30; // depois disso fica só o menor preço de cada dia
 const FUSO_BRASILIA=3*3600;
 const HOSTS_LINK=['mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee','go.canaltabarato.com.br'];
 // Produto lido na coleta: do canal (admin) ou com alerta de preço ativo.
@@ -43,7 +45,7 @@ export async function onRequestGet({request,env}) {
   const agora=Math.floor(Date.now()/1000);
   const inicio=agora-dias*86400;
   const desde=inteiro(params.get('posts_desde'))||(agora-86400);
-  const [produtos,diario,primeira,ultimo,hoje,fila,alertas]=await env.DB.batch([
+  const [produtos,diario,primeira,ultimo,hoje,fila,alertas,estoque]=await env.DB.batch([
     env.DB.prepare(`SELECT p.id,p.loja,p.id_produto,p.tipo,p.nome,p.categoria,p.link_afiliado,p.imagem,
        (p.ativo=1 AND p.canal=1) AS no_canal FROM monitor_produtos p WHERE ${MONITORADO} ORDER BY p.id`).bind(agora),
     env.DB.prepare(
@@ -56,7 +58,12 @@ export async function onRequestGet({request,env}) {
     env.DB.prepare('SELECT COUNT(*) AS total FROM monitor_posts WHERE postado_em>=?').bind(desde),
     env.DB.prepare('SELECT produto_id,preco,entrou_em FROM monitor_fila ORDER BY entrou_em'),
     // Sem o chat: a coleta só precisa saber o preço pedido e o último aviso.
-    env.DB.prepare('SELECT id,produto_id,preco_alvo,ultimo_aviso_em,ultimo_aviso_preco FROM alerta_precos WHERE ativo=1 AND expira_em>? ORDER BY id').bind(agora),
+    env.DB.prepare(`SELECT id,produto_id,preco_alvo,avisar_menor,queda_percent,preco_base,avisar_estoque,ultimo_aviso_em,ultimo_aviso_preco
+       FROM alerta_precos WHERE ativo=1 AND expira_em>? ORDER BY id`).bind(agora),
+    // Estoque da última leitura de cada produto, para o aviso "voltou ao estoque".
+    env.DB.prepare(`SELECT l.produto_id,l.disponivel FROM monitor_leituras l
+       JOIN (SELECT produto_id,MAX(lido_em) AS lido_em FROM monitor_leituras GROUP BY produto_id) u
+         ON u.produto_id=l.produto_id AND u.lido_em=l.lido_em`),
   ]);
   const historico={};
   for(const linha of diario.results||[]) (historico[linha.produto_id]||=[]).push([linha.dia,linha.preco]);
@@ -70,6 +77,7 @@ export async function onRequestGet({request,env}) {
     posts_hoje:Number(hoje.results?.[0]?.total||0),
     fila:fila.results||[],
     alertas:alertas.results||[],
+    ultimo_estoque:porProduto(estoque||{},l=>l.disponivel),
   });
 }
 
@@ -92,7 +100,18 @@ export async function onRequestPost({request,env,waitUntil}) {
       'INSERT INTO monitor_leituras(produto_id,preco,preco_antigo,disponivel,lido_em) VALUES(?,?,?,?,?)'
     ).bind(produto,preco>0?preco:null,antigo>0?antigo:null,leitura.disponivel?1:0,agora));
   }
-  if(leituras.length) comandos.push(env.DB.prepare('DELETE FROM monitor_leituras WHERE lido_em<?').bind(agora-RETENCAO_DIAS*86400));
+  if(leituras.length){
+    comandos.push(env.DB.prepare('DELETE FROM monitor_leituras WHERE lido_em<?').bind(agora-RETENCAO_DIAS*86400));
+    // Uma vez por dia: leituras com mais de 30 dias viram uma por dia (o menor
+    // preço com estoque), para guardar 1 ano sem o banco crescer demais.
+    if(new Date(agora*1000).getUTCHours()===9){
+      comandos.push(env.DB.prepare(
+        `DELETE FROM monitor_leituras WHERE lido_em<?1 AND id NOT IN (
+           SELECT id FROM (SELECT id,ROW_NUMBER() OVER (PARTITION BY produto_id,date(lido_em-${FUSO_BRASILIA},'unixepoch')
+             ORDER BY disponivel DESC,preco ASC,id) AS ordem FROM monitor_leituras WHERE lido_em<?1) WHERE ordem=1)`,
+      ).bind(agora-DIAS_DETALHE*86400));
+    }
+  }
 
   for(const dados of Array.isArray(body?.produtos)?body.produtos.slice(0,200):[]) {
     const id=inteiro(dados?.id);
@@ -121,10 +140,16 @@ export async function onRequestPost({request,env,waitUntil}) {
     if(!produto) return json({error:'invalid_queue'},400);
     comandos.push(env.DB.prepare('DELETE FROM monitor_fila WHERE produto_id=?').bind(produto));
   }
+  for(const base of Array.isArray(body?.bases)?body.bases.slice(0,500):[]){
+    const alerta=inteiro(base?.alerta_id), preco=numero(base?.preco);
+    if(alerta&&preco>0) comandos.push(env.DB.prepare('UPDATE alerta_precos SET preco_base=? WHERE id=? AND preco_base IS NULL').bind(preco,alerta));
+  }
   if(comandos.length) await env.DB.batch(comandos);
   let avisos=0;
   if(Array.isArray(body?.avisos)){
     avisos=await deliverPriceAlerts(env,body.avisos,agora);
+    const configurar=garantirConfiguracao(env).catch(error=>console.error(JSON.stringify({event:'alert_bot_setup',result:'failed',reason:String(error?.message||error).slice(0,80)})));
+    if(typeof waitUntil==='function') waitUntil(configurar); else await configurar;
     const vencer=expirePriceAlerts(env,agora).catch(error=>console.error(JSON.stringify({event:'price_alert_expire',result:'failed',reason:String(error?.message||error).slice(0,80)})));
     if(typeof waitUntil==='function') waitUntil(vencer); else await vencer;
   }

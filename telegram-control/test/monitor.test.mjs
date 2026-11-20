@@ -133,3 +133,23 @@ test("reconhece links da Shopee no /add", () => {
     { loja: "shopee", id_produto: "123_456", tipo: null });
   assert.equal(parseProductLink("https://shopee.com.br/opaanlp/1791562791/23894195354").id_produto, "1791562791_23894195354");
 });
+
+test("/estatisticas resume pessoas, produtos e avisos", async () => {
+  const db = fakeDb({
+    first: (sql) => {
+      if (sql.includes("COUNT(DISTINCT a.chat_id)")) return { pessoas: 3, total: 7, menor: 4, valor: 3, queda: 1, estoque: 1, canal: 2, link: 5 };
+      if (sql.includes("FROM alerta_avisos")) return { dia: 1, semana: 6, mes: 20 };
+      if (sql.includes("FROM alert_subscriptions")) return { pessoas: 2, total: 4 };
+      if (sql.includes("alert_deliveries")) return { semana: 9 };
+      return { total: 5 };
+    },
+    all: (sql) => sql.includes("GROUP BY p.loja")
+      ? [{ loja: "mercadolivre", canal: 1, publico: 4 }, { loja: "shopee", canal: 0, publico: 2 }]
+      : [{ nome: "Power Bank", id_produto: "MLB1", total: 2 }],
+  });
+  const { respostas } = await comando("estatisticas", "/estatisticas", db);
+  assert.match(respostas[0], /Pessoas com alerta de preço ativo: 3 \(já usaram: 5\)/);
+  assert.match(respostas[0], /Shopee: 0 do canal \(\/add\) · 2 do público/);
+  assert.match(respostas[0], /hoje 1 · 7 dias 6 · 30 dias 20/);
+  assert.match(respostas[0], /1\. Power Bank \(2\)/);
+});

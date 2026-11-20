@@ -98,6 +98,25 @@ CREATE TABLE IF NOT EXISTS alerta_precos (
   expira_em INTEGER NOT NULL,
   ultimo_aviso_em INTEGER,
   ultimo_aviso_preco REAL,
+  avisar_menor INTEGER NOT NULL DEFAULT 0,
+  queda_percent REAL,
+  avisar_estoque INTEGER NOT NULL DEFAULT 0,
+  preco_base REAL,
+  origem TEXT,
+  editando_em INTEGER,
+  lembrete_em INTEGER,
   UNIQUE (chat_id, produto_id)
 );
 CREATE INDEX IF NOT EXISTS idx_alerta_precos_produto ON alerta_precos (produto_id, ativo);
+
+-- Avisos de preço entregues (migração 0025).
+CREATE TABLE IF NOT EXISTS alerta_avisos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alerta_id INTEGER NOT NULL,
+  chat_id TEXT NOT NULL,
+  produto_id INTEGER NOT NULL,
+  motivo TEXT NOT NULL,
+  preco REAL NOT NULL,
+  enviado_em INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_alerta_avisos_data ON alerta_avisos (enviado_em);
