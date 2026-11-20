@@ -99,3 +99,21 @@ test('texto do aviso de menor preço',()=>{
   assert.match(texto,/Fone &lt;X&gt;/);
   assert.match(texto,/25% abaixo da média/);
 });
+
+test('segue meli.la se identificando, até a página do produto',async()=>{
+  const {resolveProductLink}=await import('../functions/_product_link.js');
+  const pedidos=[];
+  const saltos={
+    'https://meli.la/AbC123':'https://mercadolivre.com/sec/xyz',
+    'https://mercadolivre.com/sec/xyz':'https://www.mercadolivre.com.br/fone/p/MLB777?matt_tool=1',
+  };
+  const fetcher=async(url,init)=>{
+    pedidos.push(init.headers['User-Agent']);
+    if(!init.headers['User-Agent']) return new Response(null,{status:403});
+    return new Response(null,{status:301,headers:{Location:saltos[url]}});
+  };
+  assert.deepEqual(await resolveProductLink('https://meli.la/AbC123',fetcher),
+    {loja:'mercadolivre',id_produto:'MLB777',tipo:'catalogo'});
+  assert.equal(pedidos.length,2);
+  assert.match(pedidos[0],/TaBaratoAlertaBot/);
+});

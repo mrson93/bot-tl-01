@@ -6,6 +6,7 @@ const HOSTS_ML = ["mercadolivre.com.br", "mercadolivre.com"];
 const HOSTS_AMAZON = ["amazon.com.br"];
 const HOSTS_CURTOS = ["meli.la", "amzn.to", "mercadolivre.com"];
 const LOJA = { mercadolivre: "Mercado Livre", amazon: "Amazon" };
+const IDENTIFICACAO = { "User-Agent": "TaBaratoAlertaBot/1.0 (+https://canaltabarato.com.br)" };
 
 function hostDe(url, hosts) {
   const host = url.hostname.toLowerCase();
@@ -50,7 +51,8 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
     if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON])) return null;
     let resposta;
     try {
-      resposta = await fetchImpl(url.toString(), { method: "GET", redirect: "manual" });
+      // O meli.la recusa (403) pedidos sem User-Agent; o bot se identifica.
+      resposta = await fetchImpl(url.toString(), { method: "GET", redirect: "manual", headers: IDENTIFICACAO });
     } catch {
       return null;
     }
