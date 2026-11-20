@@ -120,8 +120,13 @@ async function historico(env,produtoId,now) {
   return {...(resumo||{}),linha:sparkline(results.map(r=>Number(r.preco)))};
 }
 
+// Sem nome ainda (ex.: link curto da Shopee): o nome chega na primeira leitura.
+function nomeSimples(alerta) {
+  return alerta?.nome||`Produto ${LOJA[alerta?.loja]?`da ${LOJA[alerta.loja]}`:alerta?.id_produto||''} (nome na 1ª leitura)`;
+}
+
 function nomeDe(alerta,limiteTexto=120) {
-  return html(String(alerta?.nome||`Produto ${alerta?.id_produto||''}`).slice(0,limiteTexto));
+  return html(String(nomeSimples(alerta)).slice(0,limiteTexto));
 }
 
 export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000),titulo='') {
@@ -256,7 +261,7 @@ export function formatPriceAlertList(alertas) {
 
 export function listaComBotoes(alertas) {
   return {inline_keyboard:alertas.map((a,i)=>[{
-    text:`${i+1}. ${String(a.nome||a.id_produto).slice(0,40)}`,callback_data:`a:${a.id}:c`,
+    text:`${i+1}. ${String(nomeSimples(a)).slice(0,40)}`,callback_data:`a:${a.id}:c`,
   }])};
 }
 

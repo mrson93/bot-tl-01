@@ -252,3 +252,10 @@ test('site liga os toques nos botões no webhook só quando falta',async()=>{
   assert.deepEqual(webhook.allowed_updates,['message','callback_query']);
   assert.ok(chamadas.includes('setMyCommands'));
 });
+
+test('produto ainda sem nome não mostra código',async()=>{
+  const db=fakeDb({'SELECT a.*,p.loja':{...ALERTA,nome:null,loja:'shopee',id_produto:'1127030290_22597720651'}});
+  const r=await cartao({DB:db},'55',7,1000);
+  assert.match(r.text,/Produto da Shopee \(nome na 1ª leitura\)/);
+  assert.doesNotMatch(r.text,/1127030290/);
+});
