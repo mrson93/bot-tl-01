@@ -1,0 +1,85 @@
+# Plano: bot de alertas no nível dos melhores (14 ideias)
+
+Bot: **@TaBaratoAlertaDePrecoBot**. Comparação feita com Keepa, camelcamelcamel,
+Zoom/Buscapé, Pelando/Promobit e bots de rastreio de preço do Telegram
+(20/11/2026). Uma etapa por vez: plano curto → aprovação → código e testes →
+migração/push/deploy com OK explícito → teste no Telegram.
+
+Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
+
+## Etapas
+
+### Etapa 1 — Cartão que responde "compro agora?" (ideias 1 e 3)
+- [ ] **Gráfico de preço como imagem** (90 dias / 1 ano), com mínimo e máximo
+  marcados, no cartão (botão 📈 Gráfico) e no aviso.
+  - Decisão: gerar o PNG no próprio site (Worker desenha a linha e comprime com
+    `CompressionStream`), sem serviço de terceiros. Alternativa mais rápida:
+    QuickChart.io (envia só datas e preços, nada da pessoa).
+- [ ] **Termômetro**: 🟢 preço baixo · 🟡 na média · 🔴 caro, comparando o preço
+  atual com o histórico (percentil do último ano). No cartão, no aviso e na lista.
+
+### Etapa 2 — Buscar pelo nome (ideia 2)
+- [ ] `🔎 Buscar produto` no menu: a pessoa digita "air fryer mondial", recebe
+  até 5 resultados com foto/preço em botões e cria o alerta com um toque.
+- Shopee: a API de afiliados aceita busca por palavra (`productOfferV2(keyword)`),
+  mas as credenciais da Shopee estão só no GitHub. Precisa cadastrar
+  `SHOPEE_APP_ID` e `SHOPEE_SECRET` também como secrets do site (Cloudflare Pages),
+  pela pessoa dona da conta.
+- Mercado Livre: testar se a busca da API (`/sites/MLB/search`) responde com o
+  acesso atual; se não, a busca fica só na Shopee.
+
+### Etapa 3 — Volta ao bot e ao canal (ideias 4 e 11)
+- [ ] **Resumo semanal opcional** (segunda, 10h): "seus produtos: 2 caíram, 1 subiu,
+  menor preço foi…". Liga/desliga em ⚙️ Preferências; desligado por padrão? decidir.
+- [ ] **Maiores quedas de hoje**: ranking dos produtos monitorados (canal + público)
+  que mais caíram nas últimas 24 h, sem expor quem monitora. Vira post diário no
+  canal (campanha) e página no site (`/quedas-de-hoje`).
+
+### Etapa 4 — AliExpress nos alertas (ideia 5)
+- [ ] Reconhecer links `aliexpress.com/item/<id>.html` e `s.click.aliexpress.com`.
+- [ ] Leitura pela API de afiliados do AliExpress que o bot já usa (`aliexpress.py`).
+- [ ] Migração: `monitor_produtos.loja` aceitar `aliexpress` (recria a tabela, como na 0024).
+
+### Etapa 5 — Aviso mais vantajoso (ideias 7 e 8)
+- [ ] **Cupom no aviso**: se houver cupom válido da loja (o bot já busca cupons da
+  Shopee), ele aparece no aviso e no cartão.
+- [ ] **Variações na Shopee**: guardar `priceMin`/`priceMax`; avisar pela variação
+  mais barata e mostrar "a partir de".
+
+### Etapa 6 — Comparar lojas (ideia 6)
+- [ ] No cartão e no aviso: "na Shopee está R$ X" buscando o mesmo produto pelo
+  nome nas outras lojas. Mostrar como **sugestão** (pode não ser idêntico), com
+  link de afiliado. Depende da busca da etapa 2.
+
+### Etapa 7 — Modo inline (ideia 9)
+- [ ] Em qualquer conversa: `@TaBaratoAlertaDePrecoBot fone` → resultados com
+  histórico e botão "Criar alerta".
+- Precisa ligar o modo inline no @BotFather (`/setinline`) — só a pessoa dona do
+  bot faz — e incluir `inline_query` no webhook (`_alert_bot_setup.js`).
+
+### Etapa 8 — Mini app do Telegram (ideia 10)
+- [ ] Página `/app/alertas` aberta dentro do Telegram (Web App): lista, gráficos e
+  ajustes visuais. Login pelo `initData` do Telegram (assinatura HMAC com o token
+  do bot), sem senha.
+- [ ] Botão de menu do bot apontando para o mini app (`setChatMenuButton`).
+
+### Etapa 9 — Indicação (ideia 12)
+- [ ] Link próprio de cada pessoa (`?start=r_<código>`); quem trouxer amigos
+  ganha mais vagas (ex.: +5 por amigo que criar um alerta, até 30).
+
+### Etapa 10 — Grupos (ideia 14)
+- [ ] Bot em grupos (família/amigos): lista de desejos compartilhada, avisos no
+  grupo, só admins do grupo mudam os alertas.
+
+### Etapa 11 — Premium (ideia 13) — por último
+- [ ] Mais alertas e leitura a cada 30 min. Pagamento por **Telegram Stars**.
+- Só faz sentido com usuários e custo de API reais; decisões de preço e termos
+  são da pessoa dona do canal.
+
+## Regras que valem em todas as etapas
+- Preço só por API oficial (sem scraping); a única leitura de página é a do link
+  "compartilhar" do Mercado Livre para achar o produto.
+- Todo link de produto com o código de afiliado (ML `matt_word=canaltabarato`,
+  `matt_tool=71195511`; Shopee subId `alerta`; Amazon `canaltb-*`).
+- Guardar só o `chat_id`; `/parar` apaga tudo; quem bloqueia o bot é apagado.
+- Migração do D1, push e deploy do Worker só com OK explícito a cada vez.
