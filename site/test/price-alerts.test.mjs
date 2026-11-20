@@ -234,23 +234,43 @@ test('cartão sem leitura ainda explica a espera',async()=>{
   assert.match(r.text,/Nenhum aviso ligado/);
 });
 
-test('site liga os toques nos botões no webhook só quando falta',async()=>{
-  const {garantirConfiguracao}=await import('../functions/_alert_bot_setup.js');
+test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) só quando falta',async()=>{
+  const {garantirConfiguracao,DESCRICAO,FOTO_URL}=await import('../functions/_alert_bot_setup.js');
   const env={TELEGRAM_ALERTS_BOT_TOKEN:'t',TELEGRAM_ALERTS_WEBHOOK_SECRET:'segredo'};
-  const chamadas=[];
-  const fetcher=(info)=>async(url,init)=>{
-    chamadas.push(url.split('/').pop());
-    if(url.endsWith('getWebhookInfo')) return Response.json({ok:true,result:info});
-    chamadas.push(JSON.parse(init.body));
-    return new Response('{}',{status:200});
+  const WEBHOOK={url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message','callback_query']};
+  let chamadas=[];
+  const fetcher=(info,descricao,fotoStatus=200)=>async(url,init)=>{
+    if(url===FOTO_URL) return new Response(new Uint8Array([255,216,255]),{status:200});
+    const metodo=url.split('/').pop();
+    if(metodo==='getWebhookInfo'){chamadas.push(metodo);return Response.json({ok:true,result:info});}
+    if(metodo==='getMyDescription'){chamadas.push(metodo);return Response.json({ok:true,result:{description:descricao}});}
+    chamadas.push(metodo,init.body instanceof FormData?init.body:JSON.parse(init.body));
+    return new Response('{}',{status:metodo==='setMyProfilePhoto'?fotoStatus:200});
   };
-  assert.equal(await garantirConfiguracao(env,fetcher({url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message','callback_query']})),false);
-  assert.deepEqual(chamadas,['getWebhookInfo']);
-  assert.equal(await garantirConfiguracao(env,fetcher({url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message']})),true);
+  // Tudo em dia: só as duas leituras.
+  assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,DESCRICAO)),false);
+  assert.deepEqual(chamadas,['getWebhookInfo','getMyDescription']);
+  // Webhook sem os botões: corrige só o webhook.
+  chamadas=[];
+  assert.equal(await garantirConfiguracao(env,fetcher({...WEBHOOK,allowed_updates:['message']},DESCRICAO)),true);
   const webhook=chamadas[chamadas.indexOf('setWebhook')+1];
   assert.equal(webhook.secret_token,'segredo');
   assert.deepEqual(webhook.allowed_updates,['message','callback_query']);
-  assert.ok(chamadas.includes('setMyCommands'));
+  assert.ok(!chamadas.includes('setMyProfilePhoto'));
+  // Descrição antiga: comandos, foto e, por último, a descrição nova.
+  chamadas=[];
+  assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,'texto antigo')),true);
+  const metodos=chamadas.filter(c=>typeof c==='string');
+  assert.deepEqual(metodos,['getWebhookInfo','getMyDescription','setMyCommands','setMyShortDescription','setMyProfilePhoto','setMyDescription']);
+  assert.ok(chamadas[chamadas.indexOf('setMyCommands')+1].commands.some(c=>c.command==='buscar'));
+  const foto=chamadas[chamadas.indexOf('setMyProfilePhoto')+1];
+  assert.deepEqual(JSON.parse(foto.get('photo')),{type:'static',photo:'attach://foto'});
+  assert.equal(foto.get('foto').type,'image/jpeg');
+  assert.match(chamadas.at(-1).description,/AliExpress/);
+  // Foto recusada: não grava a descrição, para tentar de novo na próxima coleta.
+  chamadas=[];
+  await garantirConfiguracao(env,fetcher(WEBHOOK,'texto antigo',400));
+  assert.ok(!chamadas.includes('setMyDescription'));
 });
 
 test('produto ainda sem nome não mostra código',async()=>{

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640">
+  <defs>
+    <radialGradient id="fundo" cx="35%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#ff7a3d"/><stop offset="1" stop-color="#e8440f"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="640" fill="url(#fundo)"/>
+  <g transform="translate(320 320) scale(0.84) translate(-320 -320)">
+  <!-- sino -->
+  <g transform="translate(300 290)">
+    <path d="M0 -190 a26 26 0 0 1 26 26 v10 c70 16 118 78 118 158 v70 l40 56 c8 12 0 26 -14 26 h-340 c-14 0 -22 -14 -14 -26 l40 -56 v-70 c0 -80 48 -142 118 -158 v-10 a26 26 0 0 1 26 -26 z" fill="#ffffff"/>
+    <path d="M-56 156 h112 a56 56 0 0 1 -112 0 z" fill="#ffffff"/>
+    <!-- etiqueta de preço dentro do sino -->
+    <g transform="translate(0 20) rotate(-18)">
+      <path d="M-62 -40 h84 l44 40 l-44 40 h-84 a14 14 0 0 1 -14 -14 v-52 a14 14 0 0 1 14 -14 z" fill="#ff5a1f"/>
+      <circle cx="40" cy="0" r="10" fill="#ffffff"/>
+      <text x="-22" y="17" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="50" fill="#ffffff" text-anchor="middle">R$</text>
+    </g>
+  </g>
+  <!-- selo: seta para baixo -->
+  <g transform="translate(450 446)">
+    <circle r="92" fill="#171612"/>
+    <circle r="92" fill="none" stroke="#ffffff" stroke-width="12"/>
+    <path d="M-16 -50 h32 v48 h30 l-46 56 l-46 -56 h30 z" fill="#3ddc84"/>
+  </g>
+  </g>
+  <circle cx="320" cy="320" r="318" fill="none" stroke="#000" stroke-opacity="0" />
+</svg>

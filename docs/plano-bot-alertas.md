@@ -64,9 +64,15 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   `preco_max` e o aviso diz "a partir de".
 
 ### Etapa 6 — Comparar lojas (ideia 6)
-- [ ] No cartão e no aviso: "na Shopee está R$ X" buscando o mesmo produto pelo
+- [x] No cartão e no aviso: "na Shopee está R$ X" buscando o mesmo produto pelo
   nome nas outras lojas. Mostrar como **sugestão** (pode não ser idêntico), com
   link de afiliado. Depende da busca da etapa 2.
+- Feito em 20/11/2026 (migração 0029): catálogo do site (todas as lojas, via
+  /go) + Shopee ao vivo; números, códigos de modelo e versões (Ultra, Pro…)
+  têm que bater e 75% das palavras; preço entre 50% e 150%; só aparece se a
+  outra loja estiver 2% mais barata. Guardado 12 h; avisos fazem no máximo 5
+  buscas novas por coleta. Junto: foto nova do bot (setMyProfilePhoto) e
+  descrição atualizada, aplicadas pelo site na coleta seguinte ao deploy.
 
 ### Etapa 7 — Modo inline (ideia 9)
 - [ ] Em qualquer conversa: `@TaBaratoAlertaDePrecoBot fone` → resultados com

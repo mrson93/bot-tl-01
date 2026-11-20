@@ -233,3 +233,24 @@ painel ganha o botão da campanha do bot de alertas).
 - Sem cupom do produto, o aviso mostra o voucher geral válido da loja da tabela
   `coupons` (se houver), com destino só nos domínios da loja.
 
+## Comparar lojas (etapa 6 do plano)
+
+- `site/functions/_compare_stores.js`: procura o produto pelo nome no catálogo
+  do site (outras lojas, link pelo `/go`) e na Shopee ao vivo (`offerLink`).
+  Regra do "parecido": números e códigos de modelo iguais, mesmas versões
+  (Ultra, Pro, Max…), pelo menos 3 palavras e 75% das palavras do nome, preço
+  entre 50% e 150% do atual.
+- Migração 0029: `monitor_produtos.comparacao` (JSON da melhor opção) e
+  `comparado_em`; vale 12 h, inclusive "nada encontrado".
+- Cartão e aviso: "💡 Parecido na Shopee por R$ X (N% menos). Confira se é o
+  mesmo modelo." com botão, só se a outra loja estiver 2% mais barata. A
+  entrega de avisos faz no máximo 5 buscas novas por coleta.
+
+## Perfil do bot
+
+- `_alert_bot_setup.js` compara a descrição publicada com `DESCRICAO`; se for
+  diferente, atualiza comandos, descrição curta, foto (`setMyProfilePhoto`
+  com `public/bot/alerta-icone.jpg`) e, por último, a descrição. Se a foto
+  falhar, tenta de novo na coleta seguinte. Fonte do ícone:
+  `public/bot/alerta-icone.svg`.
+

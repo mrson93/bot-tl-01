@@ -1,6 +1,7 @@
 import {html,money} from './_site.js';
 import {resolveProductLink} from './_product_link.js';
 import {graficoPng} from './_price_chart.js';
+import {VALIDADE_COMPARACAO,comparacao,sugestaoMaisBarata} from './_compare_stores.js';
 
 // Alertas de preço por produto do bot público (@TaBaratoAlertaDePrecoBot).
 // A pessoa cola o link do produto (ou toca em "Avisar quando baixar" num post
@@ -78,7 +79,7 @@ function prazoTexto(dias) {
 export async function telegramArquivo(env,metodo,campos,arquivo,fetcher=fetch) {
   const form=new FormData();
   for(const [chave,valor] of Object.entries(campos)) if(valor!==undefined) form.append(chave,typeof valor==='string'?valor:JSON.stringify(valor));
-  form.append(arquivo.campo,new Blob([arquivo.bytes],{type:'image/png'}),arquivo.nome||'grafico.png');
+  form.append(arquivo.campo,new Blob([arquivo.bytes],{type:arquivo.tipo||'image/png'}),arquivo.nome||'grafico.png');
   const resposta=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/${metodo}`,{method:'POST',body:form});
   return resposta.status;
 }
@@ -107,7 +108,7 @@ export function apagarPessoa(env,chatId) {
 
 async function lerAlerta(env,chatId,alertaId) {
   return env.DB.prepare(
-    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em
+    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em
      FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id WHERE a.id=? AND a.chat_id=?`,
   ).bind(Number(alertaId),String(chatId)).first();
 }
@@ -184,6 +185,8 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   else linhas.push('💰 Agora: aguardando a primeira leitura (até 2 horas)');
   const cupom=linhaCupom(a,now);
   if(cupom) linhas.push(cupom);
+  const outraLoja=h.atual&&h.disponivel!==0&&a.nome?sugestaoMaisBarata(await comparacao(env,a,h.atual,now),h.atual):null;
+  if(outraLoja) linhas.push(outraLoja.linha);
   if(h.minimo){
     const dias=Math.max(1,Math.round((now-h.desde)/86400));
     linhas.push(`📊 Em ${dias} dia(s): menor ${html(money(h.minimo))} · maior ${html(money(h.maximo))}`);
@@ -207,6 +210,7 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   const loja=urlPermitida(a.link_afiliado);
   teclado.push([{text:'📈 Gráfico',callback_data:`a:${id}:g`},{text:'⏳ Prazo',callback_data:`a:${id}:p`}]);
   if(loja) teclado.push([{text:'🛒 Ver na loja',url:loja}]);
+  if(outraLoja) teclado.push([outraLoja.botao]);
   teclado.push([{text:'🗑 Apagar alerta',callback_data:`a:${id}:x`},{text:'📋 Todos',callback_data:'l'}]);
   return {text:linhas.join('\n'),markup:{inline_keyboard:teclado}};
 }
@@ -589,6 +593,7 @@ export function formatPriceNotice(aviso,alerta={},extra={}) {
   const cupom=linhaCupom(alerta,extra.now);
   if(cupom) linhas.push(cupom);
   else if(extra.voucher) linhas.push(`🎟 Voucher da ${html(FONTE_CUPOM[alerta.loja]||'loja')} ativo: <a href="${html(extra.voucher.destino)}">${html(extra.voucher.titulo)}</a>`);
+  if(extra.outraLoja) linhas.push(extra.outraLoja.linha);
   if(alerta.preco_base>preco) linhas.push(`📉 Caiu ${Math.round((1-preco/alerta.preco_base)*100)}% desde ${html(money(alerta.preco_base))}`);
   else if(Number(aviso.abaixo)>=1) linhas.push(`📉 ${Math.round(Number(aviso.abaixo))}% abaixo da média`);
   if(extra.minimo) linhas.push(`📊 Menor já visto: ${html(money(extra.minimo))} · maior: ${html(money(extra.maximo))}`);
@@ -614,22 +619,25 @@ function estadoDepoisDoAviso(motivo,alerta,preco) {
 // existe (a pessoa pode ter apagado entre a leitura e o aviso).
 export async function deliverPriceAlerts(env,avisos,now=Math.floor(Date.now()/1000),fetcher=fetch) {
   if(!env.TELEGRAM_ALERTS_BOT_TOKEN) return 0;
-  let enviados=0;
+  let enviados=0, buscasNovas=0;  // até 5 comparações novas por coleta; o resto usa o que estiver guardado
   for(const aviso of (Array.isArray(avisos)?avisos:[]).slice(0,500)){
     const alertaId=Number(aviso?.alerta_id), preco=Number(aviso?.preco);
     const link=urlPermitida(aviso?.link);
     if(!Number.isInteger(alertaId)||!(preco>0)||!link||!MOTIVOS.has(aviso?.motivo)) continue;
     const alerta=await env.DB.prepare(
-      `SELECT a.*,p.nome,p.imagem,p.loja,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+      `SELECT a.*,p.nome,p.imagem,p.loja,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
        WHERE a.id=? AND a.produto_id=? AND a.ativo=1 AND a.expira_em>?`,
     ).bind(alertaId,Number(aviso.produto_id),now).first();
     if(!alerta) continue;
     if(aviso.motivo==='alvo'&&(!alerta.preco_alvo||preco>alerta.preco_alvo)) continue;
     const estado=estadoDepoisDoAviso(aviso.motivo,alerta,preco);
     const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado,now,
-      voucher:alerta.cupom_codigo?null:await voucherDaLoja(env,alerta.loja,now)};
+      voucher:alerta.cupom_codigo?null:await voucherDaLoja(env,alerta.loja,now),
+      outraLoja:alerta.nome?sugestaoMaisBarata(await comparacao(env,alerta,preco,now,fetch,
+        Number(alerta.comparado_em)>now-VALIDADE_COMPARACAO||buscasNovas++<5),preco):null};
     const teclado={inline_keyboard:[
       [{text:'🛒 Comprar',url:link},{text:'📈 Gráfico',callback_data:`a:${alertaId}:g`}],
+      ...(extra.outraLoja?[[extra.outraLoja.botao]]:[]),
       [{text:'🔁 Avisar se cair mais',callback_data:`a:${alertaId}:f`},{text:'⚙️ Ajustar',callback_data:`a:${alertaId}:c`}],
       [{text:'✋ Parar este alerta',callback_data:`a:${alertaId}:s`}],
     ]};

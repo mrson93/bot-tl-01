@@ -40,17 +40,18 @@ export async function shopeeGraphql(env,query,fetcher=fetch,now=Math.floor(Date.
   return corpo?.data||{};
 }
 
-const CAMPOS='itemId shopId productName priceMin price ratingStar sales imageUrl';
+const CAMPOS='itemId shopId productName priceMin price ratingStar sales imageUrl offerLink';
 
 function itemShopee(node) {
   const shop=String(node?.shopId||''), item=String(node?.itemId||'');
   const preco=Number(node?.priceMin||node?.price);
   if(!/^\d{1,15}$/.test(shop)||!/^\d{1,15}$/.test(item)||!(preco>0)) return null;
   return {loja:'shopee',id_produto:`${shop}_${item}`,nome:String(node.productName||'').slice(0,160),preco,
-    vendas:Number(node.sales)||0,nota:Number(node.ratingStar)||0,imagem:node.imageUrl||null};
+    vendas:Number(node.sales)||0,nota:Number(node.ratingStar)||0,imagem:node.imageUrl||null,
+    link:/^https:\/\/([a-z0-9-]+\.)*shopee\.com\.br\//i.test(String(node.offerLink||''))?String(node.offerLink):null};
 }
 
-async function buscarShopee(env,termo,fetcher) {
+export async function buscarShopee(env,termo,fetcher=fetch) {
   if(!shopeeConfigurada(env)) return [];
   try{
     const data=await shopeeGraphql(env,`{productOfferV2(keyword:${JSON.stringify(termo)},limit:10,page:1){nodes{${CAMPOS}}}}`,fetcher);
