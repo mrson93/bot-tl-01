@@ -48,6 +48,7 @@ import site_publisher
 import observabilidade
 import monitor
 import monitor_precos
+import post_fixado
 import idempotencia
 
 # Lojas de onde vem as ofertas.
@@ -311,6 +312,7 @@ def executar_campanha(nome):
         "cartao_amazon": lambda: publicar_assinatura_se_preciso("cartao_amazon", forcar=True),
         "claude_pro": lambda: publicar_assinatura_se_preciso("claude_pro", forcar=True),
         "alerta_bot": lambda: publicar_assinatura_se_preciso("alerta_bot", forcar=True),
+        "post_fixado_alerta": lambda: post_fixado.executar(),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
         "monitor_precos": lambda: monitor_precos.executar(),
         "monitor_teste": lambda: monitor_precos.executar_teste(),
