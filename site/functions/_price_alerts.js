@@ -107,7 +107,7 @@ export function apagarPessoa(env,chatId) {
 
 async function lerAlerta(env,chatId,alertaId) {
   return env.DB.prepare(
-    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem
+    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em
      FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id WHERE a.id=? AND a.chat_id=?`,
   ).bind(Number(alertaId),String(chatId)).first();
 }
@@ -180,8 +180,10 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   const linhas=[];
   if(titulo) linhas.push(titulo,'');
   linhas.push(`🔔 <b>${nomeDe(a)}</b>`,`🛒 ${LOJA[a.loja]||a.loja}`);
-  if(h.atual) linhas.push(`💰 Agora: <b>${html(money(h.atual))}</b>${h.disponivel===0?' · sem estoque':''}`);
+  if(h.atual) linhas.push(`💰 Agora: ${precoComVariacoes(h.atual,a.preco_max)}${h.disponivel===0?' · sem estoque':''}`);
   else linhas.push('💰 Agora: aguardando a primeira leitura (até 2 horas)');
+  const cupom=linhaCupom(a,now);
+  if(cupom) linhas.push(cupom);
   if(h.minimo){
     const dias=Math.max(1,Math.round((now-h.desde)/86400));
     linhas.push(`📊 Em ${dias} dia(s): menor ${html(money(h.minimo))} · maior ${html(money(h.maximo))}`);
@@ -547,13 +549,46 @@ function tituloAviso(aviso,alerta) {
   }
 }
 
+// Shopee com variações (cor, tamanho): o alerta segue a mais barata.
+export function precoComVariacoes(preco,maximo) {
+  const base=`<b>${html(money(preco))}</b>`;
+  return Number(maximo)>Number(preco)*1.005?`a partir de ${base} (as opções vão até ${html(money(maximo))})`:base;
+}
+
+// Cupom do produto (AliExpress), guardado na última leitura; some quando vence.
+export function linhaCupom(p,now=Math.floor(Date.now()/1000)) {
+  const codigo=String(p?.cupom_codigo||'');
+  if(!/^[A-Za-z0-9_-]{2,40}$/.test(codigo)) return '';
+  const expira=Number(p.cupom_expira_em)||0;
+  if(expira&&expira<=now) return '';
+  const condicao=p.cupom_condicao?`: ${html(String(p.cupom_condicao).slice(0,120))}`:'';
+  return `🎟 Cupom <code>${codigo}</code>${condicao}${expira?` · até ${html(data(expira).slice(0,5))}`:''}`;
+}
+
+// Voucher geral da loja (campanhas oficiais na tabela coupons), se houver um válido.
+const FONTE_CUPOM={shopee:'Shopee',aliexpress:'AliExpress',mercadolivre:'Mercado Livre'};
+export async function voucherDaLoja(env,loja,now) {
+  if(!FONTE_CUPOM[loja]) return null;
+  try{
+    const v=await env.DB.prepare(
+      `SELECT title,code,destination FROM coupons WHERE source=? AND (active_at IS NULL OR active_at<=?)
+       AND (expires_at IS NULL OR expires_at>?) ORDER BY published_at DESC LIMIT 1`,
+    ).bind(FONTE_CUPOM[loja],now,now).first();
+    const destino=urlPermitida(v?.destination,[...HOSTS_LINK,'s.shopee.com.br']);
+    return v&&destino?{titulo:String(v.title||v.code||'Voucher').slice(0,80),destino}:null;
+  }catch{ return null; }
+}
+
 export function formatPriceNotice(aviso,alerta={},extra={}) {
   const preco=Number(aviso.preco);
   const linhas=[tituloAviso(aviso,alerta),'',`<b>${html(String(aviso.nome||alerta.nome||'Produto').slice(0,160))}</b>`];
   let detalhe='';
   if(aviso.motivo==='alvo'&&alerta.preco_alvo) detalhe=` (você pediu até ${html(money(alerta.preco_alvo))})`;
   else if(aviso.media>0) detalhe=` (média ${Number(aviso.dias_media)||30} dias: ${html(money(aviso.media))})`;
-  linhas.push(`💰 <b>${html(money(preco))}</b>${detalhe}`);
+  linhas.push(`💰 ${precoComVariacoes(preco,alerta.preco_max)}${detalhe}`);
+  const cupom=linhaCupom(alerta,extra.now);
+  if(cupom) linhas.push(cupom);
+  else if(extra.voucher) linhas.push(`🎟 Voucher da ${html(FONTE_CUPOM[alerta.loja]||'loja')} ativo: <a href="${html(extra.voucher.destino)}">${html(extra.voucher.titulo)}</a>`);
   if(alerta.preco_base>preco) linhas.push(`📉 Caiu ${Math.round((1-preco/alerta.preco_base)*100)}% desde ${html(money(alerta.preco_base))}`);
   else if(Number(aviso.abaixo)>=1) linhas.push(`📉 ${Math.round(Number(aviso.abaixo))}% abaixo da média`);
   if(extra.minimo) linhas.push(`📊 Menor já visto: ${html(money(extra.minimo))} · maior: ${html(money(extra.maximo))}`);
@@ -585,13 +620,14 @@ export async function deliverPriceAlerts(env,avisos,now=Math.floor(Date.now()/10
     const link=urlPermitida(aviso?.link);
     if(!Number.isInteger(alertaId)||!(preco>0)||!link||!MOTIVOS.has(aviso?.motivo)) continue;
     const alerta=await env.DB.prepare(
-      `SELECT a.*,p.nome,p.imagem FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+      `SELECT a.*,p.nome,p.imagem,p.loja,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
        WHERE a.id=? AND a.produto_id=? AND a.ativo=1 AND a.expira_em>?`,
     ).bind(alertaId,Number(aviso.produto_id),now).first();
     if(!alerta) continue;
     if(aviso.motivo==='alvo'&&(!alerta.preco_alvo||preco>alerta.preco_alvo)) continue;
     const estado=estadoDepoisDoAviso(aviso.motivo,alerta,preco);
-    const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado};
+    const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado,now,
+      voucher:alerta.cupom_codigo?null:await voucherDaLoja(env,alerta.loja,now)};
     const teclado={inline_keyboard:[
       [{text:'🛒 Comprar',url:link},{text:'📈 Gráfico',callback_data:`a:${alertaId}:g`}],
       [{text:'🔁 Avisar se cair mais',callback_data:`a:${alertaId}:f`},{text:'⚙️ Ajustar',callback_data:`a:${alertaId}:c`}],

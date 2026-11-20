@@ -281,6 +281,16 @@ def _link_afiliado(produto, leitura, canal="telegram"):
     return amazon.gerar_link(url, "telegram")
 
 
+def _leitura_para_o_site(pid, leitura):
+    """Leitura enviada ao site; variações e cupom só vão quando a loja informa."""
+    dados = {"produto_id": pid, "preco": leitura.get("preco"), "preco_antigo": leitura.get("preco_antigo"),
+             "disponivel": bool(leitura.get("disponivel"))}
+    for campo in ("preco_max", "cupom"):
+        if campo in leitura:
+            dados[campo] = leitura[campo]
+    return dados
+
+
 def _atualizacoes(produtos, leituras):
     atualizar = []
     for produto in produtos:
@@ -442,8 +452,7 @@ def executar(agora=None):
         return True
     leituras, erros = coletar(produtos)
     gravar({
-        "leituras": [{"produto_id": pid, "preco": l.get("preco"), "preco_antigo": l.get("preco_antigo"),
-                      "disponivel": bool(l.get("disponivel"))} for pid, l in leituras.items()],
+        "leituras": [_leitura_para_o_site(pid, l) for pid, l in leituras.items()],
         "produtos": _atualizacoes(produtos, leituras),
     })
     print(f"📈 Monitor de preços: {len(leituras)} de {len(produtos)} produto(s) lido(s)"

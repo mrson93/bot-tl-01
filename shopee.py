@@ -204,7 +204,13 @@ def consultar_monitor(ids, pausa=0.5) -> dict:
             preco = float(node.get("price") or node.get("priceMin") or 0) or None
         except (TypeError, ValueError):
             preco = None
+        try:
+            maximo = float(node.get("priceMax") or 0) or None
+        except (TypeError, ValueError):
+            maximo = None
         resultado[identificador] = {
+            # Maior preço entre as variações (cor, tamanho); o alerta segue a mais barata.
+            "preco_max": maximo if preco and maximo and maximo > preco else None,
             "nome": " ".join(str(node.get("productName") or "").split()) or None,
             "preco": preco, "preco_antigo": None, "disponivel": bool(preco),
             "imagem": node.get("imageUrl"), "url": node.get("productLink") or node.get("offerLink"),

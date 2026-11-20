@@ -57,3 +57,41 @@ class LeituraAliexpressTest(unittest.TestCase):
             self.assertEqual(telegram_poster.link_alerta({"oferta_id": "aliexpress_1005003214550744"}),
                              "https://t.me/TaBaratoAlertaDePrecoBot?start=ae_1005003214550744")
             self.assertEqual(telegram_poster.link_alerta({"oferta_id": "aliexpress_abc"}), "")
+
+
+class VariacoesECupomTest(unittest.TestCase):
+    def test_cupom_valido_vencido_e_invalido(self):
+        futuro = "2999-12-31T23:59:59+00:00"
+        self.assertEqual(aliexpress.cupom_do_produto({"promo_code_info": {
+            "promo_code": "APP20", "code_value": " R$ 20  off ", "code_availabletime_end": futuro}}),
+            {"codigo": "APP20", "condicao": "R$ 20 off", "expira_em": 32503679999})
+        self.assertIsNone(aliexpress.cupom_do_produto({"promo_code_info": {
+            "promo_code": "VELHO", "code_availabletime_end": "1000"}}))
+        self.assertIsNone(aliexpress.cupom_do_produto({"promo_code_info": [{"promo_code": "<x>"}]}))
+        self.assertIsNone(aliexpress.cupom_do_produto({}))
+
+    def test_leitura_do_aliexpress_leva_o_cupom_e_some_quando_nao_ha(self):
+        com = resposta([{"product_id": 1005000000001, "target_sale_price": "50",
+                         "promo_code_info": {"promo_code": "APP20", "code_value": "R$ 20"}}])
+        with mock.patch.object(aliexpress, "_chamar", return_value=com):
+            lido = aliexpress.consultar_monitor(["1005000000001", "1005000000002"])
+        self.assertEqual(lido["1005000000001"]["cupom"]["codigo"], "APP20")
+        self.assertIsNone(lido["1005000000002"]["cupom"])
+
+    def test_shopee_guarda_o_maior_preco_das_variacoes(self):
+        import shopee
+        respostas = [{"productOfferV2": {"nodes": [{"shopId": 1, "itemId": 2, "price": "89.9",
+                                                    "priceMin": "89.9", "priceMax": "129.9"}]}},
+                     {"productOfferV2": {"nodes": [{"shopId": 3, "itemId": 4, "price": "50",
+                                                    "priceMin": "50", "priceMax": "50"}]}}]
+        with mock.patch.object(shopee, "_executar", side_effect=respostas):
+            lido = shopee.consultar_monitor(["1_2", "3_4"], pausa=0)
+        self.assertEqual((lido["1_2"]["preco"], lido["1_2"]["preco_max"]), (89.9, 129.9))
+        self.assertIsNone(lido["3_4"]["preco_max"])
+
+    def test_site_so_recebe_os_campos_que_a_loja_informa(self):
+        self.assertEqual(mp._leitura_para_o_site(1, {"preco": 10, "disponivel": True}),
+                         {"produto_id": 1, "preco": 10, "preco_antigo": None, "disponivel": True})
+        self.assertEqual(mp._leitura_para_o_site(2, {"preco": 10, "disponivel": 1, "preco_max": None, "cupom": None}),
+                         {"produto_id": 2, "preco": 10, "preco_antigo": None, "disponivel": True,
+                          "preco_max": None, "cupom": None})

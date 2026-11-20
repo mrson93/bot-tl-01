@@ -1,5 +1,5 @@
 import {SITE,footer,head,header,html,money,responseHtml} from './_site.js';
-import {HOSTS_IMAGEM,termometro,urlPermitida} from './_price_alerts.js';
+import {HOSTS_IMAGEM,linhaCupom,termometro,urlPermitida} from './_price_alerts.js';
 
 // "Maiores quedas de hoje": produtos monitorados (canal e público) cujo preço
 // caiu nas últimas 24 h. Nunca mostra quem monitora nem quantas pessoas.
@@ -12,7 +12,7 @@ const PREFIXO={mercadolivre:'ml',shopee:'sp',aliexpress:'ae'};
 // leitura entre 30 h e 20 h atrás (a coleta roda a cada 2 h).
 export async function quedasDeHoje(env,now=Math.floor(Date.now()/1000),limite=10) {
   const {results=[]}=await env.DB.prepare(
-    `SELECT p.id,p.loja,p.id_produto,p.nome,p.imagem,p.link_afiliado,x.agora,x.antes FROM (
+    `SELECT p.id,p.loja,p.id_produto,p.nome,p.imagem,p.link_afiliado,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,x.agora,x.antes FROM (
        SELECT l.produto_id,
          (SELECT preco FROM monitor_leituras WHERE produto_id=l.produto_id ORDER BY lido_em DESC LIMIT 1) AS agora,
          (SELECT disponivel FROM monitor_leituras WHERE produto_id=l.produto_id ORDER BY lido_em DESC LIMIT 1) AS disponivel,
@@ -40,6 +40,8 @@ export async function quedasDeHoje(env,now=Math.floor(Date.now()/1000),limite=10
   return itens.map(i=>({id:i.id,loja:i.loja,id_produto:i.id_produto,nome:String(i.nome).slice(0,160),
     imagem:urlPermitida(i.imagem,HOSTS_IMAGEM),link:i.link,
     agora:i.agora,antes:i.antes,queda:i.queda,
+    preco_max:Number(i.preco_max)>i.agora*1.005?Number(i.preco_max):null,
+    cupom:linhaCupom(i,now)?{codigo:i.cupom_codigo,condicao:i.cupom_condicao||null,expira_em:Number(i.cupom_expira_em)||null}:null,
     alerta:`https://t.me/${BOT_ALERTAS}?start=${PREFIXO[i.loja]}_${i.id_produto}`,
     termometro:termometro(i.agora,porProduto.get(Number(i.id))||[])}));
 }
@@ -49,7 +51,9 @@ function cartao(item) {
   const foto=item.imagem?`<img src="${html(item.imagem)}" alt="${html(item.nome)}" loading="lazy">`:'';
   return `<article class="offer-card"><div class="offer-media"><span class="discount">−${item.queda}%</span>${foto}</div>`
     +`<div class="offer-body"><div class="card-kicker"><span class="source">${html(LOJA[item.loja]||item.loja)}</span><time>últimas 24 h</time></div>`
-    +`${selo}<h3>${html(item.nome)}</h3><div class="card-price"><span class="price">${html(money(item.agora))}</span><span class="was">${html(money(item.antes))}</span></div>`
+    +`${selo}<h3>${html(item.nome)}</h3><div class="card-price"><span class="price">${item.preco_max?'a partir de ':''}${html(money(item.agora))}</span><span class="was">${html(money(item.antes))}</span></div>`
+    +(item.preco_max?`<p class="meta">As opções vão até ${html(money(item.preco_max))}</p>`:'')
+    +(item.cupom?`<div class="offer-flags"><span>Cupom ${html(item.cupom.codigo)}${item.cupom.condicao?` · ${html(item.cupom.condicao)}`:''}</span></div>`:'')
     +`<p class="card-store"><a class="store-link" href="${html(item.alerta)}" rel="nofollow">🔔 Criar alerta de preço</a></p>`
     +`<a class="buy" href="${html(item.link)}" rel="nofollow sponsored">Ver na loja ↗</a></div></article>`;
 }

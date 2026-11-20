@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import re
 import time
+from datetime import datetime
 
 import requests
 
@@ -201,6 +202,38 @@ def consultar_produtos(oferta_ids) -> dict:
     }
 
 
+def _epoch(valor):
+    """Validade do cupom (epoch, ms ou data ISO) em epoch; None se não der."""
+    if valor in (None, ""):
+        return None
+    try:
+        numero = float(valor)
+        return int(numero / 1000 if numero > 10_000_000_000 else numero)
+    except (TypeError, ValueError):
+        pass
+    try:
+        return int(datetime.fromisoformat(str(valor).replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return None
+
+
+def cupom_do_produto(p: dict):
+    """Cupom oficial do item (promo_code_info) ou None."""
+    promocao = p.get("promo_code_info") or {}
+    if isinstance(promocao, list):
+        promocao = promocao[0] if promocao else {}
+    if not isinstance(promocao, dict):
+        return None
+    codigo = str(promocao.get("promo_code") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{2,40}", codigo):
+        return None
+    expira = _epoch(promocao.get("code_availabletime_end"))
+    if expira and expira <= time.time():
+        return None
+    condicao = " ".join(str(promocao.get("code_value") or "").split())[:120] or None
+    return {"codigo": codigo, "condicao": condicao, "expira_em": expira}
+
+
 def consultar_monitor(ids, lote=20) -> dict:
     """Leituras do monitor de preços: {"ITEM": leitura} pela API oficial.
 
@@ -228,7 +261,7 @@ def consultar_monitor(ids, lote=20) -> dict:
             p = por_id.get(item)
             preco = _num((p or {}).get("target_sale_price") or (p or {}).get("sale_price"), None) if p else None
             if not p or not preco:
-                resultado[item] = {"preco": None, "preco_antigo": None, "disponivel": False}
+                resultado[item] = {"preco": None, "preco_antigo": None, "disponivel": False, "cupom": None}
                 continue
             original = _num(p.get("target_original_price"), None)
             resultado[item] = {
@@ -239,6 +272,7 @@ def consultar_monitor(ids, lote=20) -> dict:
                 "imagem": p.get("product_main_image_url"),
                 "url": f"https://pt.aliexpress.com/item/{item}.html",
                 "categoria": p.get("first_level_category_name"),
+                "cupom": cupom_do_produto(p),
             }
     return resultado
 

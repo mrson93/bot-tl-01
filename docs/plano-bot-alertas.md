@@ -54,10 +54,14 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   `ae_` nos posts do canal. O `/add` do painel continua sem AliExpress.
 
 ### Etapa 5 — Aviso mais vantajoso (ideias 7 e 8)
-- [ ] **Cupom no aviso**: se houver cupom válido da loja (o bot já busca cupons da
+- [x] **Cupom no aviso**: se houver cupom válido da loja (o bot já busca cupons da
   Shopee), ele aparece no aviso e no cartão.
-- [ ] **Variações na Shopee**: guardar `priceMin`/`priceMax`; avisar pela variação
+- [x] **Variações na Shopee**: guardar `priceMin`/`priceMax`; avisar pela variação
   mais barata e mostrar "a partir de".
+- Feito em 20/11/2026 (migração 0028): cupom por produto só existe na API do
+  AliExpress (`promo_code_info`); a tabela `coupons` estava vazia, então o
+  voucher geral da loja aparece só quando houver um válido. Shopee guarda
+  `preco_max` e o aviso diz "a partir de".
 
 ### Etapa 6 — Comparar lojas (ideia 6)
 - [ ] No cartão e no aviso: "na Shopee está R$ X" buscando o mesmo produto pelo

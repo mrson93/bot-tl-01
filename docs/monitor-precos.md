@@ -221,3 +221,15 @@ painel ganha o botão da campanha do bot de alertas).
 - Bot: avisos de menor preço, valor e queda %; sem "voltar ao estoque". Busca
   inclui o AliExpress do catálogo; posts do canal ganham `?start=ae_<id>`.
 
+## Variações e cupom (etapa 5 do plano)
+
+- Migração 0028: `monitor_produtos` ganha `preco_max` (maior preço entre as
+  variações da Shopee) e `cupom_codigo`, `cupom_condicao`, `cupom_expira_em`
+  (cupom do item no AliExpress). A coleta manda esses campos na leitura; o
+  site grava a cada leitura e `null` apaga (cupom que sumiu ou venceu).
+- Cartão, aviso e `/quedas-de-hoje`: "a partir de R$ X (as opções vão até
+  R$ Y)" e "🎟 Cupom <code>APP20</code>: condição · até dd/mm". O alerta
+  continua pela variação mais barata.
+- Sem cupom do produto, o aviso mostra o voucher geral válido da loja da tabela
+  `coupons` (se houver), com destino só nos domínios da loja.
+

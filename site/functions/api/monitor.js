@@ -100,6 +100,21 @@ export async function onRequestPost({request,env,waitUntil}) {
     comandos.push(env.DB.prepare(
       'INSERT INTO monitor_leituras(produto_id,preco,preco_antigo,disponivel,lido_em) VALUES(?,?,?,?,?)'
     ).bind(produto,preco>0?preco:null,antigo>0?antigo:null,leitura.disponivel?1:0,agora));
+    // Variações (Shopee) e cupom (AliExpress): só quando a leitura traz o campo;
+    // null apaga (variação única, cupom que sumiu ou venceu).
+    if('preco_max' in (leitura||{})){
+      const maximo=numero(leitura.preco_max);
+      comandos.push(env.DB.prepare('UPDATE monitor_produtos SET preco_max=? WHERE id=?')
+        .bind(maximo>0&&preco>0&&maximo>preco?maximo:null,produto));
+    }
+    if('cupom' in (leitura||{})){
+      const cupom=leitura.cupom&&typeof leitura.cupom==='object'?leitura.cupom:null;
+      const codigo=cupom?texto(cupom.codigo,40):null;
+      const expira=cupom?inteiro(cupom.expira_em):null;
+      const valido=codigo&&/^[A-Za-z0-9_-]{2,40}$/.test(codigo)&&(!expira||expira>agora);
+      comandos.push(env.DB.prepare('UPDATE monitor_produtos SET cupom_codigo=?,cupom_condicao=?,cupom_expira_em=? WHERE id=?')
+        .bind(valido?codigo:null,valido?texto(cupom.condicao,120):null,valido?expira:null,produto));
+    }
   }
   if(leituras.length){
     comandos.push(env.DB.prepare('DELETE FROM monitor_leituras WHERE lido_em<?').bind(agora-RETENCAO_DIAS*86400));
