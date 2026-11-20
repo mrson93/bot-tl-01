@@ -137,6 +137,7 @@ jobs:
       TELEGRAM_TRACKING_ID: "telegram"
       BLUESKY_TRACKING_ID: "bsky"
       AMAZON_ASSOCIATE_TAG: "canaltabarato-20"
+      AMAZON_TAGS_CANAIS: ${{ vars.AMAZON_TAGS_CANAIS }}
       AMAZON_LIST_SOURCE_TAGS: "emersonpettor-20"
       AMAZON_LIST_URL: ${{ vars.AMAZON_LIST_URL }}
       AMAZON_KEYWORD: ${{ vars.AMAZON_KEYWORD }}

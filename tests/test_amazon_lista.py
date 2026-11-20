@@ -310,6 +310,14 @@ class AmazonListaTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             amazon.gerar_link("https://exemplo.com/produto")
 
+    def test_gerar_link_usa_a_tag_do_canal_quando_configurada(self):
+        url = "https://www.amazon.com.br/dp/B0F9Z2DV83?tag=antiga-20"
+        with patch.object(amazon.config, "AMAZON_ASSOCIATE_TAG", "canaltabarato-20"), \
+             patch.object(amazon.config, "AMAZON_TAGS_CANAIS", {"telegram": "canaltb-tg-20"}):
+            self.assertIn("tag=canaltb-tg-20", amazon.gerar_link(url, "telegram"))
+            self.assertIn("tag=canaltabarato-20", amazon.gerar_link(url, "bsky"))
+            self.assertIn("tag=canaltabarato-20", amazon.gerar_link(url))
+
     def test_lista_reutiliza_sessao_e_repete_503_com_espera(self):
         indisponivel = Mock(status_code=503, headers={})
         indisponivel.raise_for_status.side_effect = RuntimeError("503")

@@ -658,9 +658,9 @@ def revalidar_oferta(oferta: dict):
 def gerar_link(url_produto: str, tracking_id: str = None, etiquetas=None) -> str:
     """Garante que o link tem a SUA tag de afiliado.
 
-    Na Amazon o link ja vem com a tag (detailPageURL), entao aqui so
-    conferimos. O tracking_id por canal e ignorado de proposito: as tags da
-    Amazon sao outras, criadas no painel de Associados.
+    Troca a tag pela do canal (AMAZON_TAGS_CANAIS, chave = tracking_id do
+    canal) para o relatório de Associados mostrar de onde veio a venda. Canal
+    sem tag própria usa AMAZON_ASSOCIATE_TAG.
     """
     if not url_produto:
         raise RuntimeError("Amazon nao devolveu link do produto")
@@ -670,6 +670,7 @@ def gerar_link(url_produto: str, tracking_id: str = None, etiquetas=None) -> str
     partes = urlsplit(url)
     parametros = [(chave, valor) for chave, valor in parse_qsl(partes.query)
                   if chave != "tag"]
-    parametros.append(("tag", config.AMAZON_ASSOCIATE_TAG))
+    tag = config.AMAZON_TAGS_CANAIS.get(str(tracking_id or "")) or config.AMAZON_ASSOCIATE_TAG
+    parametros.append(("tag", tag))
     return urlunsplit((partes.scheme, partes.netloc, partes.path,
                        urlencode(parametros), partes.fragment))

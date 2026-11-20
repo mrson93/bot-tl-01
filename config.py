@@ -1,5 +1,6 @@
 """Le as configuracoes do arquivo .env e deixa disponiveis para o resto do bot."""
 import os
+import re
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -208,6 +209,16 @@ AMAZON_ASSOCIATE_TAG = _get("AMAZON_ASSOCIATE_TAG")
 AMAZON_PRIME_TESTE_URL = _get("AMAZON_PRIME_TESTE_URL") or (
     f"https://www.amazon.com.br/amazonprime?tag={AMAZON_ASSOCIATE_TAG}"
     if AMAZON_ASSOCIATE_TAG else "")
+# Tag da Amazon por canal, no formato "telegram=xxx-20,bsky=yyy-20". A chave é
+# o TRACKING_ID do canal; canal sem tag aqui usa AMAZON_ASSOCIATE_TAG. As tags
+# precisam existir no painel de Associados, senão a venda não é paga.
+AMAZON_TAGS_CANAIS = {
+    chave.strip(): valor.strip()
+    for chave, _, valor in (
+        item.partition("=") for item in (_get("AMAZON_TAGS_CANAIS") or "").split(",")
+    )
+    if chave.strip() and re.fullmatch(r"[a-z0-9-]{3,40}-2[01]", valor.strip())
+}
 AMAZON_LIST_URL = _get("AMAZON_LIST_URL")
 AMAZON_LIST_SOURCE_TAGS = tuple(
     tag.strip() for tag in (_get("AMAZON_LIST_SOURCE_TAGS") or "").split(",")
