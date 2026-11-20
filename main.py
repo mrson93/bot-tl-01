@@ -133,6 +133,13 @@ ASSINATURAS = {
         "dias": "CARTAO_AMAZON_DIAS", "horas": "CARTAO_AMAZON_HORAS",
         "postar": "postar_cartao_amazon", "emoji": "💳",
     },
+    # Passe de convidado: poucos usos, só por disparo manual (sem dias/horas).
+    "claude_pro": {
+        "nome": "Claude Pro", "slug": None, "hosts": ("claude.ai",),
+        "url": "CLAUDE_PRO_URL", "ativo": "CLAUDE_PRO_ATIVO",
+        "dias": "CLAUDE_PRO_DIAS", "horas": "CLAUDE_PRO_HORAS",
+        "postar": "postar_claude_pro", "emoji": "🤖",
+    },
     # Sem atalho no site e só no Bluesky: não é assinatura, é o próprio canal.
     "convite_telegram": {
         "nome": "Convite do Telegram", "slug": None, "hosts": ("t.me",),
@@ -294,6 +301,7 @@ def executar_campanha(nome):
         "shopee_vip": lambda: publicar_shopee_vip_se_preciso(forcar=True),
         "amazon_prime": lambda: publicar_assinatura_se_preciso("amazon_prime", forcar=True),
         "cartao_amazon": lambda: publicar_assinatura_se_preciso("cartao_amazon", forcar=True),
+        "claude_pro": lambda: publicar_assinatura_se_preciso("claude_pro", forcar=True),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
     }
     executar = campanhas.get(str(nome or "").strip().lower())

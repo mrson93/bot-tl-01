@@ -512,6 +512,27 @@ class MainTest(unittest.TestCase):
         self.assertIn("análise de crédito", dados["text"])
         self.assertEqual(link, dados["reply_markup"]["inline_keyboard"][0][0]["url"])
 
+    def test_claude_pro_so_sai_por_disparo_manual(self):
+        link = "https://claude.ai/referral/TESTE"
+        with patch.object(main.config, "CLAUDE_PRO_URL", link), \
+             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=False), \
+             patch.object(main.store, "campanha_enviada", return_value=False), \
+             patch.object(main.store, "marcar_campanha_enviada"), \
+             patch.object(main.telegram_poster.requests, "post") as post:
+            post.return_value.json.return_value = {"ok": True}
+            self.assertFalse(main.publicar_assinatura_se_preciso("claude_pro"))
+            self.assertFalse(post.called)
+            self.assertTrue(main.executar_campanha("claude_pro"))
+        dados = post.call_args.kwargs["json"]
+        self.assertEqual(link, dados["reply_markup"]["inline_keyboard"][0][0]["url"])
+        self.assertIn("3 passes", dados["text"])
+        with patch.object(main.bluesky, "_sessao", return_value={"accessJwt": "x", "did": "d"}), \
+             patch.object(main.bluesky.requests, "post") as post:
+            post.return_value.status_code = 200
+            main.bluesky.postar_claude_pro(link)
+        self.assertLessEqual(len(post.call_args.kwargs["json"]["record"]["text"]), 300)
+
     def test_convite_do_telegram_sai_so_no_bluesky_sem_atalho_no_site(self):
         domingo = datetime(2026, 11, 8, 19, 10, tzinfo=main.FUSO_BRASILIA)
         with patch.object(main.telegram_poster, "esta_configurada", return_value=True), \

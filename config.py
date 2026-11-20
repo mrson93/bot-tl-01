@@ -165,6 +165,13 @@ CARTAO_AMAZON_ATIVO = _bool("CARTAO_AMAZON_ATIVO", True)
 CARTAO_AMAZON_DIAS = _dias("CARTAO_AMAZON_DIAS", "3,6")
 CARTAO_AMAZON_HORAS = _horas("CARTAO_AMAZON_HORAS", "12,13,20,21")
 CARTAO_AMAZON_CUPOM = _get("CARTAO_AMAZON_CUPOM") or "AFILIADO35"
+
+# Passe de convidado do Claude Pro (1 semana grátis). Só sai por disparo
+# manual: são poucos passes, então não há dias nem horas automáticos.
+CLAUDE_PRO_URL = _get("CLAUDE_PRO_URL")
+CLAUDE_PRO_ATIVO = _bool("CLAUDE_PRO_ATIVO", True)
+CLAUDE_PRO_DIAS = _dias("CLAUDE_PRO_DIAS", "")
+CLAUDE_PRO_HORAS = _horas("CLAUDE_PRO_HORAS", "")
 # Convite do canal do Telegram, publicado no Bluesky: o Telegram tinha só 82
 # inscritos e o Bluesky é onde está a audiência.
 CONVITE_TELEGRAM_URL = _get("CONVITE_TELEGRAM_URL") or "https://t.me/CanalTaBarato"

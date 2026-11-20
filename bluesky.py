@@ -430,6 +430,16 @@ def postar_cartao_amazon(link_afiliado: str, variante=0) -> None:
         chamada="Veja as regras:")
 
 
+def postar_claude_pro(link: str, variante=0) -> None:
+    del variante
+    postar_assinatura(
+        "🤖 CLAUDE PRO GRÁTIS POR 1 SEMANA\n\n"
+        "Temos 3 passes de convidado do Claude, a IA da Anthropic. "
+        "Quem chegar primeiro leva.\n\n"
+        "Depois o plano é pago, em dólar. Se você assinar, o canal ganha créditos.",
+        link, "Claude Pro", chamada="Pegue o seu:")
+
+
 _CONVITES_TELEGRAM = (
     "📣 Ofertas o dia todo no Telegram\n\n"
     "Shopee, Amazon e Mercado Livre com preço conferido, cupons e Black Friday, "

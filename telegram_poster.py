@@ -502,6 +502,30 @@ def postar_cartao_amazon(link_afiliado: str, variante=0) -> None:
         "💳 Pedir o Cartão Amazon", "Cartão Amazon", variante, aviso=_AVISO_CARTAO)
 
 
+_MENSAGENS_CLAUDE_PRO = (
+    ("🤖 <b>CLAUDE PRO GRÁTIS POR 1 SEMANA</b>\n\n"
+     "Temos poucos passes de convidado do Claude, a IA da Anthropic: cada um "
+     "libera uma semana grátis do plano Pro. Quem chegar primeiro leva."),
+)
+
+_BENEFICIOS_CLAUDE_PRO = (
+    "🎁 <b>No plano Pro:</b>\n"
+    "• Muito mais uso do Claude que no plano grátis\n"
+    "• Acesso aos modelos mais avançados\n"
+    "• Ajuda com textos, estudos, planilhas e programação"
+)
+
+_AVISO_CLAUDE_PRO = ("<i>Só existem 3 passes; se acabarem, o link deixa de valer. "
+                     "Depois da semana grátis o plano é pago, em dólar. Se você "
+                     "assinar, o canal ganha créditos de uso do Claude.</i>")
+
+
+def postar_claude_pro(link: str, variante=0) -> None:
+    postar_assinatura(link, _MENSAGENS_CLAUDE_PRO, _BENEFICIOS_CLAUDE_PRO,
+                      "🤖 Pegar a semana grátis", "Claude Pro", variante,
+                      aviso=_AVISO_CLAUDE_PRO)
+
+
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Alerta enxuto para cupom cuja pagina de resgate veio da API oficial."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")

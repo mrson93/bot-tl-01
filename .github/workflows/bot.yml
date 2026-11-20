@@ -125,6 +125,8 @@ jobs:
       CARTAO_AMAZON_ATIVO: ${{ vars.CARTAO_AMAZON_ATIVO || 'true' }}
       CARTAO_AMAZON_DIAS: ${{ vars.CARTAO_AMAZON_DIAS || '3,6' }}
       CARTAO_AMAZON_HORAS: ${{ vars.CARTAO_AMAZON_HORAS || '12,13,20,21' }}
+      CLAUDE_PRO_URL: ${{ vars.CLAUDE_PRO_URL }}
+      CLAUDE_PRO_ATIVO: ${{ vars.CLAUDE_PRO_ATIVO || 'true' }}
       CONVITE_TELEGRAM_ATIVO: ${{ vars.CONVITE_TELEGRAM_ATIVO || 'true' }}
       CONVITE_TELEGRAM_DIAS: ${{ vars.CONVITE_TELEGRAM_DIAS || '0,3,6' }}
       CONVITE_TELEGRAM_HORAS: ${{ vars.CONVITE_TELEGRAM_HORAS || '18,19' }}
@@ -266,7 +268,7 @@ jobs:
         run: python main.py --teste-facebook-real
 
       - name: Publicar campanha de assinatura (Shopee VIP, Amazon Prime)
-        if: github.ref == 'refs/heads/main' && contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon"]'), inputs.campanha) && inputs.somente_pendentes != true
+        if: github.ref == 'refs/heads/main' && contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon","claude_pro"]'), inputs.campanha) && inputs.somente_pendentes != true
         run: python main.py --campanha "$CAMPANHA"
         env:
           CAMPANHA: ${{ inputs.campanha }}
@@ -276,7 +278,7 @@ jobs:
         run: python main.py --campanha mercadolivre_mais_vendido
 
       - name: Recusar campanha desconhecida
-        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon","mercadolivre_mais_vendido"]'), inputs.campanha)
+        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon","claude_pro","mercadolivre_mais_vendido"]'), inputs.campanha)
         run: exit 1
 
       - name: Enviar somente o relatorio privado
