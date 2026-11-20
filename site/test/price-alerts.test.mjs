@@ -95,7 +95,7 @@ test('respeita o limite por pessoa e recusa a Amazon por enquanto',async()=>{
   const cheio=fakeDb({'COUNT(*) AS total FROM alerta_precos WHERE chat_id':{total:10}});
   assert.match((await handlePriceAlert({DB:cheio},'55',LINK,1000,semRede)).text,/já tem 10 produtos/);
   const amazon=await handlePriceAlert({DB:fakeDb()},'55','https://www.amazon.com.br/dp/B0C1234567',1000,semRede);
-  assert.match(amazon,/<b>Mercado Livre<\/b> e da <b>Shopee<\/b>/);
+  assert.match(amazon,/<b>Mercado Livre<\/b>, da <b>Shopee<\/b> ou do <b>AliExpress<\/b>\. A Amazon/);
 });
 
 test('botão do canal cria o alerta e copia o histórico do site',async()=>{

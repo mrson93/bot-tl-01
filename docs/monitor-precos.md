@@ -206,3 +206,18 @@ painel ganha o botão da campanha do bot de alertas).
   coleta depois de `MONITOR_QUEDAS_HORA` (20h), só com `MONITOR_QUEDAS_MINIMO`
   (3) quedas ou mais; o dia fica marcado em `monitor_quedas_dia` no estado do
   bot. Desliga com `MONITOR_QUEDAS_ATIVO=false`.
+
+## AliExpress (etapa 4 do plano)
+
+- Migração 0027: `monitor_produtos.loja` aceita `aliexpress` (`id_produto` é o
+  número do item).
+- Links: `aliexpress.com/item/<id>.html` ou `/i/<id>.html` (pt., m., www.),
+  `a.aliexpress.com/_…` (compartilhar) e `s.click.aliexpress.com/e/…`
+  (afiliado). O site segue redirecionamentos só dentro do AliExpress e lê o
+  `redirectUrl` da página de compartilhamento.
+- Coleta: `aliexpress.consultar_monitor` (productdetail.get, lotes de 20),
+  preço normal do site (`target_sale_price`), sem estoque: produto que some da
+  resposta conta como indisponível. Link de afiliado por `link.generate`.
+- Bot: avisos de menor preço, valor e queda %; sem "voltar ao estoque". Busca
+  inclui o AliExpress do catálogo; posts do canal ganham `?start=ae_<id>`.
+

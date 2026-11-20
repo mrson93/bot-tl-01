@@ -7,11 +7,12 @@ import {graficoPng} from './_price_chart.js';
 // do canal) e escolhe os avisos num cartão com botões. A coleta do monitor
 // (a cada 2 h, no GitHub) decide quem avisar e o site entrega a mensagem.
 const TELEGRAM_API='https://api.telegram.org';
-const HOSTS_LINK=['go.canaltabarato.com.br','mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee'];
-const HOSTS_IMAGEM=['mlstatic.com','susercontent.com','shopee.com.br','media-amazon.com'];
+const HOSTS_LINK=['go.canaltabarato.com.br','mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee','aliexpress.com'];
+export const HOSTS_IMAGEM=['mlstatic.com','susercontent.com','shopee.com.br','media-amazon.com','alicdn.com','aliexpress-media.com'];
 const MOTIVOS=new Set(['alvo','menor_preco','abaixo_media','queda','estoque']);
-const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee',amazon:'Amazon'};
-const PREFIXO_OFERTA={mercadolivre:'mercadolivre_',shopee:'shopee_',amazon:'amazon_'};
+const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee',amazon:'Amazon',aliexpress:'AliExpress'};
+export const LOJA_DE={mercadolivre:'do Mercado Livre',shopee:'da Shopee',amazon:'da Amazon',aliexpress:'do AliExpress'};
+const PREFIXO_OFERTA={mercadolivre:'mercadolivre_',shopee:'shopee_',amazon:'amazon_',aliexpress:'aliexpress_'};
 export const PRAZOS=[[30,'1 mês'],[90,'3 meses'],[180,'6 meses'],[365,'1 ano']];
 export const QUEDAS=[10,20,30];
 const BLOCOS='▁▂▃▄▅▆▇█';
@@ -165,7 +166,7 @@ async function historico(env,produtoId,now) {
 
 // Sem nome ainda (ex.: link curto da Shopee): o nome chega na primeira leitura.
 function nomeSimples(alerta) {
-  return alerta?.nome||`Produto ${LOJA[alerta?.loja]?`da ${LOJA[alerta.loja]}`:alerta?.id_produto||''} (nome na 1ª leitura)`;
+  return alerta?.nome||`Produto ${LOJA_DE[alerta?.loja]||alerta?.id_produto||''} (nome na 1ª leitura)`;
 }
 
 function nomeDe(alerta,limiteTexto=120) {
@@ -216,21 +217,23 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
   if(pedido.precoInvalido) return 'Não entendi o preço. Mande o link e o valor assim: <code>https://… 199,90</code>';
   const produto=await resolveProductLink(pedido.link,fetcher);
   if(produto?.erro==='perfil_afiliado') return 'Esse link abre a página de perfil de afiliado do Mercado Livre, não a do produto, e nele não dá para saber qual é o produto. Abra o produto e copie o link da barra de endereços (ele tem /p/MLB… ou MLB-…).';
-  if(!produto) return 'Não reconheci esse produto. Mande o link da página do produto no <b>Mercado Livre</b> ou na <b>Shopee</b>.';
+  if(!produto) return 'Não reconheci esse produto. Mande o link da página do produto do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b>.';
   if(produto.loja==='amazon'){
-    return 'Por enquanto os alertas de preço funcionam com produtos do <b>Mercado Livre</b> e da <b>Shopee</b>. A Amazon entra em breve.';
+    return 'Por enquanto os alertas de preço funcionam com produtos do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b>. A Amazon entra em breve.';
   }
   return cadastrarAlerta(env,chatId,produto,pedido.alvo,now,'link');
 }
 
-// Botão "Avisar quando baixar" dos posts do canal: /start ml_MLB123 ou sp_LOJA_ITEM.
+// Botão "Avisar quando baixar" dos posts do canal: /start ml_MLB123, sp_LOJA_ITEM ou ae_ITEM.
 // A busca pelo nome usa o mesmo caminho (origem 'busca'), às vezes já com nome e preço.
 export async function handleStartProduct(env,chatId,payload,now=Math.floor(Date.now()/1000),origem='canal',extra=null) {
-  const achado=String(payload||'').match(/^(ml|sp)_([A-Za-z0-9_]{3,60})$/);
+  const achado=String(payload||'').match(/^(ml|sp|ae)_([A-Za-z0-9_]{3,60})$/);
   if(!achado) return null;
   const produto=achado[1]==='ml'
     ?(/^MLB\d+$/i.test(achado[2])?{loja:'mercadolivre',id_produto:achado[2].toUpperCase(),tipo:null}:null)
-    :(/^\d+_\d+$/.test(achado[2])?{loja:'shopee',id_produto:achado[2],tipo:null}:null);
+    :achado[1]==='ae'
+      ?(/^\d{6,20}$/.test(achado[2])?{loja:'aliexpress',id_produto:achado[2],tipo:null}:null)
+      :(/^\d+_\d+$/.test(achado[2])?{loja:'shopee',id_produto:achado[2],tipo:null}:null);
   if(!produto) return null;
   const dados=extra&&extra.loja===produto.loja&&extra.id_produto===produto.id_produto
     ?{...produto,nome:extra.nome||null,preco:Number(extra.preco)>0?Number(extra.preco):null}:produto;
@@ -396,7 +399,7 @@ export async function handlePriceChoice(env,chatId,texto,now=Math.floor(Date.now
   const alvo=parsePrice(valor);
   if(!alvo) return null;
   const alerta=await alertaEmFoco(env,chatId,now);
-  if(!alerta) return {text:'Primeiro cole o link de um produto do Mercado Livre ou da Shopee. Depois você escolhe o valor.',markup:MENU};
+  if(!alerta) return {text:'Primeiro cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress. Depois você escolhe o valor.',markup:MENU};
   return definirValor(env,chatId,alerta.id,alvo,now);
 }
 
@@ -528,7 +531,7 @@ export function exemploDeAviso() {
     '📉 Caiu 24% desde que você criou o alerta',
     '📈 30 dias: ▇▇▆▆▇▅▅▄▃▂▁',
     '🟢 Preço baixo: mais barato que em 92% dos últimos 120 dias','',
-    'Para criar o seu, cole o link de um produto do Mercado Livre ou da Shopee.',
+    'Para criar o seu, cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress.',
   ].join('\n');
 }
 

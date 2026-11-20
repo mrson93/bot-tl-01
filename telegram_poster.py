@@ -303,10 +303,13 @@ def link_alerta(oferta: dict) -> str:
     oferta_id = str(oferta.get("oferta_id") or "")
     ml = re.fullmatch(r"mercadolivre_(MLB\d+)", oferta_id, re.I)
     sp = re.fullmatch(r"shopee_(\d+)_(\d+)", oferta_id)
+    ae = re.fullmatch(r"aliexpress_(\d{6,20})", oferta_id)
     if ml:
         payload = f"ml_{ml.group(1).upper()}"
     elif sp:
         payload = f"sp_{sp.group(1)}_{sp.group(2)}"
+    elif ae:
+        payload = f"ae_{ae.group(1)}"
     else:
         return ""
     return f"https://t.me/{config.ALERTA_BOT_USUARIO}?start={payload}" if len(payload) <= 64 else ""

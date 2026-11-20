@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+import aliexpress
 import amazon
 import config
 import mercadolivre_api
@@ -29,8 +30,9 @@ import store
 import telegram_poster
 
 FUSO = ZoneInfo("America/Sao_Paulo")
-NOME_LOJA = {"mercadolivre": "Mercado Livre", "amazon": "Amazon", "shopee": "Shopee"}
-PREFIXO_OFERTA = {"mercadolivre": "mercadolivre_", "amazon": "amazon_", "shopee": "shopee_"}
+NOME_LOJA = {"mercadolivre": "Mercado Livre", "amazon": "Amazon", "shopee": "Shopee", "aliexpress": "AliExpress"}
+PREFIXO_OFERTA = {"mercadolivre": "mercadolivre_", "amazon": "amazon_", "shopee": "shopee_",
+                  "aliexpress": "aliexpress_"}
 
 
 # --- Regra de "oferta de verdade" (função pura, sem rede) -------------------
@@ -232,6 +234,20 @@ def coletar(produtos, pausa=None):
     elif sp:
         print("   ⚠️ Monitor: API da Shopee não configurada.")
 
+    ae = [p for p in produtos if p.get("loja") == "aliexpress"]
+    if ae and aliexpress.esta_configurada():
+        try:
+            por_item = aliexpress.consultar_monitor([p["id_produto"] for p in ae])
+        except Exception as erro:
+            erros += len(ae)
+            por_item = {}
+            print(f"   ⚠️ Monitor: API do AliExpress falhou: {seguranca.redigir_segredos(erro)[:160]}")
+        for produto in ae:
+            if str(produto["id_produto"]) in por_item:
+                leituras[produto["id"]] = por_item[str(produto["id_produto"])]
+    elif ae:
+        print("   ⚠️ Monitor: API do AliExpress não configurada.")
+
     az = [p for p in produtos if p.get("loja") == "amazon"]
     if az:
         if store._estado("amazon_api_status") != "liberada" or not amazon.credenciais_api_configuradas():
@@ -256,6 +272,8 @@ def _link_afiliado(produto, leitura, canal="telegram"):
     if produto["loja"] == "shopee":
         # O subId do link curto diz de onde veio a venda (canal ou alerta).
         return shopee.gerar_link(url, canal)
+    if produto["loja"] == "aliexpress":
+        return aliexpress.gerar_link(url)
     if produto["loja"] == "mercadolivre":
         if not mercadolivre_api.parametros_afiliado():
             return None

@@ -1,11 +1,12 @@
 import {SITE,footer,head,header,html,money,responseHtml} from './_site.js';
-import {termometro,urlPermitida} from './_price_alerts.js';
+import {HOSTS_IMAGEM,termometro,urlPermitida} from './_price_alerts.js';
 
 // "Maiores quedas de hoje": produtos monitorados (canal e público) cujo preço
 // caiu nas últimas 24 h. Nunca mostra quem monitora nem quantas pessoas.
 export const QUEDA_MINIMA=0.05;
 const BOT_ALERTAS='TaBaratoAlertaDePrecoBot';
-const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee'};
+const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee',aliexpress:'AliExpress'};
+const PREFIXO={mercadolivre:'ml',shopee:'sp',aliexpress:'ae'};
 
 // Preço de agora (leitura das últimas 6 h, com estoque) contra a última
 // leitura entre 30 h e 20 h atrás (a coleta roda a cada 2 h).
@@ -20,7 +21,7 @@ export async function quedasDeHoje(env,now=Math.floor(Date.now()/1000),limite=10
        FROM monitor_leituras l WHERE l.lido_em>=?1 GROUP BY l.produto_id) x
      JOIN monitor_produtos p ON p.id=x.produto_id
      WHERE x.disponivel=1 AND x.agora>0 AND x.antes>0 AND x.agora<=x.antes*(1-?4)
-       AND p.nome IS NOT NULL AND p.link_afiliado IS NOT NULL AND p.loja IN ('mercadolivre','shopee')
+       AND p.nome IS NOT NULL AND p.link_afiliado IS NOT NULL AND p.loja IN ('mercadolivre','shopee','aliexpress')
      ORDER BY (x.antes-x.agora)/x.antes DESC LIMIT ?5`,
   ).bind(now-6*3600,now-30*3600,now-20*3600,QUEDA_MINIMA,Math.max(1,Math.min(20,limite))).all();
   const itens=results.map(r=>({...r,link:urlPermitida(r.link_afiliado),agora:Number(r.agora),antes:Number(r.antes),
@@ -37,9 +38,9 @@ export async function quedasDeHoje(env,now=Math.floor(Date.now()/1000),limite=10
     porProduto.get(Number(d.produto_id)).push(Number(d.preco));
   }
   return itens.map(i=>({id:i.id,loja:i.loja,id_produto:i.id_produto,nome:String(i.nome).slice(0,160),
-    imagem:urlPermitida(i.imagem,['mlstatic.com','susercontent.com','shopee.com.br']),link:i.link,
+    imagem:urlPermitida(i.imagem,HOSTS_IMAGEM),link:i.link,
     agora:i.agora,antes:i.antes,queda:i.queda,
-    alerta:`https://t.me/${BOT_ALERTAS}?start=${i.loja==='mercadolivre'?'ml':'sp'}_${i.id_produto}`,
+    alerta:`https://t.me/${BOT_ALERTAS}?start=${PREFIXO[i.loja]}_${i.id_produto}`,
     termometro:termometro(i.agora,porProduto.get(Number(i.id))||[])}));
 }
 

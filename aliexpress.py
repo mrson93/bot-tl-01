@@ -10,6 +10,7 @@ primeira chamada real falhar na assinatura, o ajuste e feito so na funcao _assin
 """
 import hashlib
 import hmac
+import re
 import time
 
 import requests
@@ -198,6 +199,48 @@ def consultar_produtos(oferta_ids) -> dict:
         for produto in (_normalizar_produto(item) for item in (lista or []))
         if produto.get("price") and produto.get("imageUrl")
     }
+
+
+def consultar_monitor(ids, lote=20) -> dict:
+    """Leituras do monitor de preços: {"ITEM": leitura} pela API oficial.
+
+    Usa o preço normal (o que aparece no site), não o preço exclusivo do app,
+    para o histórico não oscilar entre os dois. A API não informa estoque:
+    produto que não volta na consulta conta como indisponível naquela leitura.
+    """
+    validos = [str(i) for i in ids or [] if re.fullmatch(r"\d{6,20}", str(i))]
+    resultado = {}
+    for inicio in range(0, len(validos), lote):
+        parte = validos[inicio:inicio + lote]
+        resposta = _chamar("aliexpress.affiliate.productdetail.get", {
+            "product_ids": ",".join(parte),
+            "target_currency": config.ALIEXPRESS_CURRENCY,
+            "target_language": config.ALIEXPRESS_LANGUAGE,
+            "ship_to_country": config.ALIEXPRESS_SHIP_TO,
+            "tracking_id": config.ALIEXPRESS_TRACKING_ID,
+        })
+        produtos = _extrair_resultado(resposta, "products")
+        lista = produtos.get("product") if isinstance(produtos, dict) else produtos
+        if isinstance(lista, dict):
+            lista = [lista]
+        por_id = {str(p.get("product_id")): p for p in lista or [] if isinstance(p, dict)}
+        for item in parte:
+            p = por_id.get(item)
+            preco = _num((p or {}).get("target_sale_price") or (p or {}).get("sale_price"), None) if p else None
+            if not p or not preco:
+                resultado[item] = {"preco": None, "preco_antigo": None, "disponivel": False}
+                continue
+            original = _num(p.get("target_original_price"), None)
+            resultado[item] = {
+                "nome": " ".join(str(p.get("product_title") or "").split())[:300] or None,
+                "preco": preco,
+                "preco_antigo": original if original and original > preco else None,
+                "disponivel": True,
+                "imagem": p.get("product_main_image_url"),
+                "url": f"https://pt.aliexpress.com/item/{item}.html",
+                "categoria": p.get("first_level_category_name"),
+            }
+    return resultado
 
 
 def _pedidos(status, inicio, fim):

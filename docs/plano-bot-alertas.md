@@ -45,9 +45,13 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   post no canal na primeira coleta depois das 20h, só com 3 quedas ou mais.
 
 ### Etapa 4 — AliExpress nos alertas (ideia 5)
-- [ ] Reconhecer links `aliexpress.com/item/<id>.html` e `s.click.aliexpress.com`.
-- [ ] Leitura pela API de afiliados do AliExpress que o bot já usa (`aliexpress.py`).
-- [ ] Migração: `monitor_produtos.loja` aceitar `aliexpress` (recria a tabela, como na 0024).
+- [x] Reconhecer links `aliexpress.com/item/<id>.html` e `s.click.aliexpress.com`.
+- [x] Leitura pela API de afiliados do AliExpress que o bot já usa (`aliexpress.py`).
+- [x] Migração: `monitor_produtos.loja` aceitar `aliexpress` (recria a tabela, como na 0024).
+- Feito em 20/11/2026 (migração 0027): links item/i, pt./m./www., a.aliexpress
+  e s.click (redirecionamento só dentro do AliExpress); preço normal do site
+  (não o exclusivo do app); sem aviso de estoque; busca pelo catálogo; botão
+  `ae_` nos posts do canal. O `/add` do painel continua sem AliExpress.
 
 ### Etapa 5 — Aviso mais vantajoso (ideias 7 e 8)
 - [ ] **Cupom no aviso**: se houver cupom válido da loja (o bot já busca cupons da

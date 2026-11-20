@@ -5,6 +5,10 @@ const HOSTS_ML = ["mercadolivre.com.br", "mercadolivre.com"];
 const HOSTS_AMAZON = ["amazon.com.br"];
 const HOSTS_CURTOS = ["meli.la", "amzn.to", "mercadolivre.com", "s.shopee.com.br", "shope.ee"];
 const HOSTS_SHOPEE = ["shopee.com.br"];
+// pt., m., www., a. (compartilhar) e s.click. (afiliado) são todos subdomínios.
+const HOSTS_ALIEXPRESS = ["aliexpress.com"];
+// Parâmetros onde os redirecionamentos do AliExpress levam o endereço do produto.
+const PARAMS_DESTINO = ["redirectUrl", "dl_target_url", "url", "targetUrl"];
 const IDENTIFICACAO = { "User-Agent": "TaBaratoAlertaBot/1.0 (+https://canaltabarato.com.br)" };
 
 function hostDe(url, hosts) {
@@ -38,9 +42,27 @@ function nomeDaPagina(html) {
     .replace(/\s+-\s+R\$\s*[\d.,]+\s*$/, "").trim().slice(0, 160) || null;
 }
 
+function itemAliexpress(texto) {
+  const achado = String(texto || "").match(/aliexpress\.com\/(?:item|i)\/(\d{6,20})\.html/i)
+    || String(texto || "").match(/[?&]productIds?=(\d{6,20})(?:&|$)/i);
+  return achado ? { loja: "aliexpress", id_produto: achado[1], tipo: null } : null;
+}
+
 export function parseProductLink(valor) {
   const url = lerUrl(valor);
   if (!url) return null;
+  if (hostDe(url, HOSTS_ALIEXPRESS)) {
+    const direto = url.pathname.match(/^\/(?:item|i)\/(\d{6,20})\.html$/i);
+    if (direto) return { loja: "aliexpress", id_produto: direto[1], tipo: null };
+    for (const chave of PARAMS_DESTINO) {
+      const destino = url.searchParams.get(chave);
+      if (destino && lerUrl(destino) && hostDe(lerUrl(destino), HOSTS_ALIEXPRESS)) {
+        const produto = itemAliexpress(destino);
+        if (produto) return produto;
+      }
+    }
+    return null;
+  }
   if (hostDe(url, HOSTS_AMAZON)) {
     const asin = url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|exec\/obidos\/asin)\/([A-Z0-9]{10})(?:[/?]|$)/i);
     return asin ? { loja: "amazon", id_produto: asin[1].toUpperCase(), tipo: null } : null;
@@ -92,7 +114,7 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
     if (hostDe(url, HOSTS_ML) && /^\/social\//i.test(url.pathname)) {
       return (await produtoDoPerfil(url, fetchImpl)) || { erro: "perfil_afiliado" };
     }
-    if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON, ...HOSTS_SHOPEE])) return null;
+    if (!hostDe(url, [...HOSTS_CURTOS, ...HOSTS_ML, ...HOSTS_AMAZON, ...HOSTS_SHOPEE, ...HOSTS_ALIEXPRESS])) return null;
     let resposta;
     try {
       // O meli.la recusa (403) pedidos sem User-Agent; o bot se identifica.
@@ -101,6 +123,11 @@ export async function resolveProductLink(valor, fetchImpl = fetch) {
       return null;
     }
     const destino = resposta.headers.get("Location");
+    // O link curto do AliExpress às vezes responde com uma página que redireciona
+    // por script: o número do item aparece no HTML.
+    if (!destino && resposta.status === 200 && hostDe(url, HOSTS_ALIEXPRESS)) {
+      try { return itemAliexpress((await resposta.text()).slice(0, 500_000)); } catch { return null; }
+    }
     if (!destino) return null;
     url = lerUrl(new URL(destino, url).toString());
   }

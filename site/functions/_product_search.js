@@ -2,13 +2,13 @@ import {html,money} from './_site.js';
 import {termometro} from './_price_alerts.js';
 
 // Busca pelo nome no bot público de alertas: catálogo do site (ofertas que o
-// canal já postou, Mercado Livre e Shopee) + Shopee ao vivo pela API de
+// canal já postou: Mercado Livre, Shopee e AliExpress) + Shopee ao vivo pela API de
 // afiliados, quando SHOPEE_APP_ID e SHOPEE_SECRET estão nos secrets do site.
 // A busca do Mercado Livre exige o token que só a coleta (Python) guarda.
 const SHOPEE_API='https://open-api.affiliate.shopee.com.br/graphql';
 export const MAX_RESULTADOS=5;
-const PREFIXO={mercadolivre:'ml',shopee:'sp'};
-const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee'};
+const PREFIXO={mercadolivre:'ml',shopee:'sp',aliexpress:'ae'};
+const LOJA={mercadolivre:'Mercado Livre',shopee:'Shopee',aliexpress:'AliExpress'};
 export const PERGUNTA_BUSCA='🔎 Qual produto você procura?';
 
 export function termoBusca(valor='') {
@@ -80,13 +80,13 @@ async function buscarCatalogo(env,termo) {
   if(!termos.length) return [];
   const {results=[]}=await env.DB.prepare(
     `SELECT id,title,price,rating,sales,image_url FROM offers
-     WHERE availability!='unavailable' AND price>0 AND (id LIKE 'mercadolivre\\_%' ESCAPE '\\' OR id LIKE 'shopee\\_%' ESCAPE '\\')
+     WHERE availability!='unavailable' AND price>0 AND (id LIKE 'mercadolivre\\_%' ESCAPE '\\' OR id LIKE 'shopee\\_%' ESCAPE '\\' OR id LIKE 'aliexpress\\_%' ESCAPE '\\')
        AND ${termos.map(()=>"title LIKE ? ESCAPE '\\' COLLATE NOCASE").join(' AND ')}
      ORDER BY COALESCE(sales,0) DESC,COALESCE(cataloged_at,published_at) DESC LIMIT 10`,
   ).bind(...termos).all();
   return results.map(r=>{
-    const [,loja,id]=String(r.id).match(/^(mercadolivre|shopee)_(.+)$/)||[];
-    const valido=loja==='mercadolivre'?/^MLB\d+$/i.test(id):/^\d+_\d+$/.test(id||'');
+    const [,loja,id]=String(r.id).match(/^(mercadolivre|shopee|aliexpress)_(.+)$/)||[];
+    const valido=loja==='mercadolivre'?/^MLB\d+$/i.test(id):loja==='aliexpress'?/^\d{6,20}$/.test(id):/^\d+_\d+$/.test(id||'');
     return valido?{loja,id_produto:loja==='mercadolivre'?id.toUpperCase():id,nome:String(r.title||'').slice(0,160),
       preco:Number(r.price),vendas:Number(r.sales)||0,nota:Number(r.rating)||0,imagem:r.image_url||null}:null;
   }).filter(Boolean);
@@ -135,7 +135,7 @@ export function formatarResultados(termo,itens,palavra='') {
   const botaoPalavra=palavra?[[{text:`🔔 Avisar quando o canal postar "${palavra}"`.slice(0,64),callback_data:`k:${palavra}`}]]:[];
   if(!itens.length){
     return {text:[`🔎 Não achei produtos para <b>${html(termo)}</b>.`,'',
-      'Tente com menos palavras (ex.: <code>air fryer</code>) ou cole o link do produto do Mercado Livre ou da Shopee.'].join('\n'),
+      'Tente com menos palavras (ex.: <code>air fryer</code>) ou cole o link do produto do Mercado Livre, da Shopee ou do AliExpress.'].join('\n'),
     markup:{inline_keyboard:[...botaoPalavra,[{text:'🔎 Nova busca',callback_data:'bn'}]]}};
   }
   const linhas=[`🔎 <b>Resultados para "${html(termo)}"</b>`,''];

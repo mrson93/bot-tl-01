@@ -1,5 +1,5 @@
 import {html,money} from './_site.js';
-import {apagarPessoa,listPriceAlerts,telegram} from './_price_alerts.js';
+import {LOJA_DE,apagarPessoa,listPriceAlerts,telegram} from './_price_alerts.js';
 
 // Resumo semanal do bot de alertas: toda segunda, na primeira coleta depois
 // das 10h (o site não tem relógio próprio; a coleta chega a cada 2 h). Vai em
@@ -17,7 +17,7 @@ export function janelaDoResumo(now) {
 }
 
 function nomeCurto(a) {
-  return html(String(a.nome||`Produto ${a.loja==='shopee'?'da Shopee':'do Mercado Livre'}`).slice(0,70));
+  return html(String(a.nome||`Produto ${LOJA_DE[a.loja]||''}`.trim()).slice(0,70));
 }
 
 // Uma linha por produto com leitura na semana; null se não houver o que contar.

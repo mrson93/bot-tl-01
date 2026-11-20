@@ -49,7 +49,7 @@ function ajuda(env) {
     'Eu acompanho o preço para você e aviso no privado quando baixar de verdade. É grátis.',
     '',
     '<b>Como usar, em 3 passos</b>',
-    '1️⃣ Abra o produto no app ou no site do <b>Mercado Livre</b> ou da <b>Shopee</b> e toque em <b>Compartilhar → Copiar link</b>.',
+    '1️⃣ Abra o produto no app ou no site do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b> e toque em <b>Compartilhar → Copiar link</b>.',
     '2️⃣ Cole o link aqui. Se quiser, já mande o preço junto: <code>https://… 199,90</code>',
     '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque. O alerta vale 1 ano (você pode mudar).',
     '',
@@ -62,7 +62,7 @@ function ajuda(env) {
 const NOVO=[
   '➕ <b>Novo alerta</b>',
   '',
-  'Cole aqui o link do produto do <b>Mercado Livre</b> ou da <b>Shopee</b>.',
+  'Cole aqui o link do produto do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b>.',
   'No app: abra o produto → <b>Compartilhar</b> → <b>Copiar link</b>.',
   '',
   'Se já souber quanto quer pagar, mande junto: <code>https://… 199,90</code>',
@@ -96,7 +96,7 @@ export async function handleAlertCallback(env,chatId,dados,now=Math.floor(Date.n
     if(!keyword) return {answer:'Palavra inválida'};
     return {answer:'Alerta de palavra',text:await criarPalavra(env,chatId,keyword,now),markup:null};
   }
-  const escolha=texto.match(/^b:(ml|sp):([A-Za-z0-9_]{3,60})$/);
+  const escolha=texto.match(/^b:(ml|sp|ae):([A-Za-z0-9_]{3,60})$/);
   if(escolha){
     const extra=escolha[1]==='sp'?await lerShopee(env,escolha[2],fetcher):null;
     const r=await handleStartProduct(env,chatId,`${escolha[1]}_${escolha[2]}`,now,'busca',extra);
