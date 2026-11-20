@@ -290,18 +290,82 @@ def _enviar(chat_id, legenda, imagem, link):
         raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou o post: {corpo}"))
 
 
-def _publicar(produto, leitura, avaliacao):
+def _link_rastreado(produto, leitura, canal):
+    """Link de afiliado passando pelo go. (conta os cliques por canal)."""
     link = produto.get("link_afiliado") or _link_afiliado(produto, leitura)
     if not link:
         raise RuntimeError("sem link de afiliado confirmado")
     oferta_id = PREFIXO_OFERTA[produto["loja"]] + str(produto["id_produto"]).upper()
     if shortlinks.esta_configurado():
         try:
-            link = shortlinks.criar(link, oferta_id, "telegram", NOME_LOJA[produto["loja"]])
+            link = shortlinks.criar(link, oferta_id, canal, NOME_LOJA[produto["loja"]])
         except Exception as erro:
             print(f"   ⚠️ Monitor: link curto indisponível, usando o link direto "
                   f"({seguranca.redigir_segredos(erro)[:80]}).")
-    link = seguranca.validar_url_https_publica(link, "Link de afiliado")
+    return seguranca.validar_url_https_publica(link, "Link de afiliado")
+
+
+def decidir_avisos(alertas, leituras, avaliacoes, agora, cfg=config):
+    """Quais alertas do bot público disparam agora: [(alerta, motivo)].
+
+    Com preço pedido: avisa quando o preço chega nele (uma vez; o site pausa o
+    alerta). Sem preço: avisa no menor preço real, no máximo a cada
+    MONITOR_HORAS_REPOST, a não ser que caia mais MONITOR_QUEDA_REPOST_PERCENT.
+    """
+    disparos = []
+    for alerta in alertas or []:
+        pid = int(alerta.get("produto_id") or 0)
+        leitura = leituras.get(pid)
+        if not leitura or not leitura.get("disponivel") or not leitura.get("preco"):
+            continue
+        preco = float(leitura["preco"])
+        alvo = float(alerta.get("preco_alvo") or 0)
+        if alvo:
+            if preco <= alvo:
+                disparos.append((alerta, "alvo"))
+            continue
+        avaliacao = avaliacoes.get(pid) or {}
+        if not avaliacao.get("postar"):
+            continue
+        ultimo_em = int(alerta.get("ultimo_aviso_em") or 0)
+        ultimo_preco = float(alerta.get("ultimo_aviso_preco") or 0)
+        recente = ultimo_em and agora - ultimo_em < cfg.MONITOR_HORAS_REPOST * 3600
+        caiu_mais = ultimo_preco > 0 and preco <= ultimo_preco * (1 - cfg.MONITOR_QUEDA_REPOST_PERCENT / 100)
+        if recente and not caiu_mais:
+            continue
+        disparos.append((alerta, avaliacao["motivo"]))
+    return disparos
+
+
+def _avisos(produtos, leituras, avaliacoes, alertas, agora):
+    por_id = {p["id"]: p for p in produtos}
+    links, avisos = {}, []
+    for alerta, motivo in decidir_avisos(alertas, leituras, avaliacoes, agora):
+        pid = int(alerta["produto_id"])
+        produto, leitura = por_id.get(pid), leituras[pid]
+        if not produto:
+            continue
+        if pid not in links:
+            try:
+                links[pid] = _link_rastreado(produto, leitura, "alerta")
+            except Exception as erro:
+                links[pid] = None
+                print(f"   ⚠️ Monitor: sem link para o alerta de #{pid}: "
+                      f"{seguranca.redigir_segredos(erro)[:80]}.")
+        if not links[pid]:
+            continue
+        avaliacao = avaliacoes.get(pid) or {}
+        avisos.append({
+            "alerta_id": alerta["id"], "produto_id": pid, "preco": float(leitura["preco"]),
+            "link": links[pid], "nome": leitura.get("nome") or produto.get("nome"), "motivo": motivo,
+            "media": avaliacao.get("media"), "abaixo": avaliacao.get("abaixo"),
+            "dias_janela": avaliacao.get("dias_janela"), "dias_media": avaliacao.get("dias_media"),
+        })
+    return avisos
+
+
+def _publicar(produto, leitura, avaliacao):
+    link = _link_rastreado(produto, leitura, "telegram")
     nome = leitura.get("nome") or produto.get("nome")
     legenda = montar_legenda(nome, produto["loja"], avaliacao, link)
     _enviar(config.TELEGRAM_CHANNEL, legenda, leitura.get("imagem") or produto.get("imagem"), link)
@@ -319,6 +383,7 @@ def executar(agora=None):
     dados = carregar(agora)
     produtos = dados.get("produtos") or []
     if not produtos:
+        gravar({"avisos": []})  # deixa o site vencer os alertas antigos
         print("📭 Monitor de preços: nenhum produto ativo. Use /add <link> no painel.")
         return True
     leituras, erros = coletar(produtos)
@@ -334,20 +399,32 @@ def executar(agora=None):
     primeira = dados.get("primeira_leitura") or {}
     ultimo = dados.get("ultimo_post") or {}
     na_fila = {int(f["produto_id"]): f for f in dados.get("fila") or []}
-    aprovados = []
+    aprovados, sem_repost = [], {}
     for produto in produtos:
         pid = produto["id"]
         leitura = leituras.get(pid)
         if not leitura:
             continue
         chave = str(pid)
-        avaliacao = avaliar(historico.get(chave) or historico.get(pid), leitura.get("preco"),
-                            leitura.get("disponivel"), primeira.get(chave) or primeira.get(pid) or agora,
-                            ultimo.get(chave) or ultimo.get(pid), agora)
+        argumentos = (historico.get(chave) or historico.get(pid), leitura.get("preco"),
+                      leitura.get("disponivel"), primeira.get(chave) or primeira.get(pid) or agora)
+        # Para os alertas individuais vale a regra sem o controle de repost do canal.
+        sem_repost[pid] = avaliar(*argumentos, None, agora)
+        if not produto.get("no_canal", 1):
+            continue
+        avaliacao = avaliar(*argumentos, ultimo.get(chave) or ultimo.get(pid), agora)
         if avaliacao["postar"]:
             aprovados.append((produto, leitura, avaliacao))
         else:
             print(f"   · #{pid}: {avaliacao['motivo']}.")
+
+    avisos = _avisos(produtos, leituras, sem_repost, dados.get("alertas") or [], agora)
+    try:
+        gravar({"avisos": avisos})
+        if avisos:
+            print(f"🔔 Monitor: {len(avisos)} aviso(s) de preço para o bot de alertas.")
+    except Exception as erro:
+        print(f"   ⚠️ Monitor: avisos do bot de alertas falharam: {seguranca.redigir_segredos(erro)[:120]}")
 
     aprovados_ids = {p["id"] for p, _, _ in aprovados}
     sairam_da_fila = [pid for pid in na_fila if pid not in aprovados_ids and pid in leituras]

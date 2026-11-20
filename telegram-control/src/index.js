@@ -56,6 +56,11 @@ const CAMPAIGNS = Object.freeze({
     emoji: "💳",
     activeSetting: "CARTAO_AMAZON_ATIVO",
   },
+  alerta_bot: {
+    label: "Bot de alertas",
+    emoji: "🔔",
+    activeSetting: "ALERTA_BOT_ATIVO",
+  },
 });
 
 function textResponse(text, status = 200) {

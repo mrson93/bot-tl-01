@@ -7,7 +7,7 @@ test('página de serviços lista os recursos reais com links próprios',async()=
   const response=onRequestGet({env:{TELEGRAM_ALERTS_BOT_USERNAME:'OutroBot123'}});
   assert.equal(response.status,200);
   const page=await response.text();
-  for(const text of ['Canal no Telegram','Alertas por palavra-chave','Histórico de preços','Cupons ativos','Guias e comparativos','Stories no Instagram']){
+  for(const text of ['Canal no Telegram','Alerta de preço no Telegram','Histórico de preços','Cupons ativos','Guias e comparativos','Stories no Instagram']){
     assert.ok(page.includes(text),text);
   }
   assert.ok(page.includes('https://t.me/OutroBot123?start=site'));

@@ -520,6 +520,34 @@ _AVISO_CLAUDE_PRO = ("<i>Só existem 3 passes; se acabarem, o link deixa de vale
                      "assinar, o canal ganha créditos de uso do Claude.</i>")
 
 
+_MENSAGENS_ALERTA_BOT = (
+    ("🔔 <b>AVISE-ME QUANDO BAIXAR</b>\n\n"
+     "Está de olho em um produto mas o preço ainda não convenceu? Mande o link "
+     "para o nosso bot e diga quanto quer pagar: ele acompanha o preço e te "
+     "chama no privado quando chegar lá."),
+    ("🔔 <b>PARE DE CONFERIR O PREÇO TODO DIA</b>\n\n"
+     "Nosso bot de alertas faz isso por você. Cole o link do produto do "
+     "Mercado Livre e, se quiser, o preço que você quer pagar. Quando baixar de "
+     "verdade, você recebe a mensagem."),
+)
+
+_BENEFICIOS_ALERTA_BOT = (
+    "✅ <b>Como funciona:</b>\n"
+    "• Cole o link do produto e o preço desejado, ex.: <code>199,90</code>\n"
+    "• Sem preço, ele avisa quando for o menor preço real do histórico\n"
+    "• Também aceita palavras, como <i>air fryer</i> ou <i>fone bluetooth</i>"
+)
+
+_AVISO_ALERTA_BOT = ("<i>Grátis. Guardamos só o número do seu chat, e o /parar apaga "
+                     "tudo. Por enquanto os alertas de preço são do Mercado Livre.</i>")
+
+
+def postar_alerta_bot(link: str, variante=0) -> None:
+    postar_assinatura(link, _MENSAGENS_ALERTA_BOT, _BENEFICIOS_ALERTA_BOT,
+                      "🔔 Criar meu alerta", "Bot de alertas", variante,
+                      aviso=_AVISO_ALERTA_BOT)
+
+
 def postar_claude_pro(link: str, variante=0) -> None:
     postar_assinatura(link, _MENSAGENS_CLAUDE_PRO, _BENEFICIOS_CLAUDE_PRO,
                       "🤖 Pegar a semana grátis", "Claude Pro", variante,

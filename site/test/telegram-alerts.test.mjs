@@ -24,6 +24,7 @@ function database() {
         if(sql.startsWith('SELECT chat_id,keyword FROM alert_subscriptions')){
           return {results:[...subscriptions]};
         }
+        if(sql.includes('FROM alerta_precos a JOIN monitor_produtos')) return {results:[]};
         throw new Error(`all inesperado: ${sql}`);
       },
       async first(){
@@ -55,6 +56,7 @@ function database() {
         if(sql==='DELETE FROM alert_deliveries WHERE chat_id=?'){
           remove(deliveries,row=>row.chat_id===a);return {meta:{}};
         }
+        if(sql==='DELETE FROM alerta_precos WHERE chat_id=?') return {meta:{}};
         if(sql==='DELETE FROM alert_deliveries WHERE sent_at<?'){
           remove(deliveries,row=>row.sent_at<a);return {meta:{}};
         }

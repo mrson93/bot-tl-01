@@ -1,13 +1,18 @@
 import {authorized,json,readJsonLimited} from '../_lib.js';
+import {deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
 
 // Monitor de preços: o bot (GitHub Actions) lê aqui os produtos ativos e o
 // histórico diário, e grava as leituras, os posts e a fila da madrugada.
 // Os comandos /add, /remover, /lista e /historico usam o mesmo D1 pelo painel.
+// Também entram os produtos dos alertas de preço do bot público (canal=0):
+// eles são lidos, mas só os do admin (canal=1) podem ir para o canal.
 const MAX_REQUEST_BYTES=200_000;
 const MAX_LEITURAS=500;
 const RETENCAO_DIAS=120;
 const FUSO_BRASILIA=3*3600;
 const HOSTS_LINK=['mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','go.canaltabarato.com.br'];
+// Produto lido na coleta: do canal (admin) ou com alerta de preço ativo.
+const MONITORADO='((p.ativo=1 AND p.canal=1) OR EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND a.ativo=1 AND a.expira_em>?1))';
 const HOSTS_IMAGEM=['mlstatic.com','media-amazon.com','ssl-images-amazon.com'];
 
 function numero(valor) {
@@ -38,17 +43,20 @@ export async function onRequestGet({request,env}) {
   const agora=Math.floor(Date.now()/1000);
   const inicio=agora-dias*86400;
   const desde=inteiro(params.get('posts_desde'))||(agora-86400);
-  const [produtos,diario,primeira,ultimo,hoje,fila]=await env.DB.batch([
-    env.DB.prepare('SELECT id,loja,id_produto,tipo,nome,categoria,link_afiliado,imagem FROM monitor_produtos WHERE ativo=1 ORDER BY id'),
+  const [produtos,diario,primeira,ultimo,hoje,fila,alertas]=await env.DB.batch([
+    env.DB.prepare(`SELECT p.id,p.loja,p.id_produto,p.tipo,p.nome,p.categoria,p.link_afiliado,p.imagem,
+       (p.ativo=1 AND p.canal=1) AS no_canal FROM monitor_produtos p WHERE ${MONITORADO} ORDER BY p.id`).bind(agora),
     env.DB.prepare(
       `SELECT l.produto_id,date(l.lido_em-${FUSO_BRASILIA},'unixepoch') AS dia,MIN(l.preco) AS preco
-       FROM monitor_leituras l JOIN monitor_produtos p ON p.id=l.produto_id AND p.ativo=1
-       WHERE l.lido_em>=? AND l.disponivel=1 AND l.preco>0
-       GROUP BY l.produto_id,dia ORDER BY l.produto_id,dia`).bind(inicio),
+       FROM monitor_leituras l JOIN monitor_produtos p ON p.id=l.produto_id
+       WHERE ${MONITORADO} AND l.lido_em>=?2 AND l.disponivel=1 AND l.preco>0
+       GROUP BY l.produto_id,dia ORDER BY l.produto_id,dia`).bind(agora,inicio),
     env.DB.prepare('SELECT produto_id,MIN(lido_em) AS lido_em FROM monitor_leituras GROUP BY produto_id'),
     env.DB.prepare('SELECT produto_id,preco,MAX(postado_em) AS postado_em FROM monitor_posts GROUP BY produto_id'),
     env.DB.prepare('SELECT COUNT(*) AS total FROM monitor_posts WHERE postado_em>=?').bind(desde),
     env.DB.prepare('SELECT produto_id,preco,entrou_em FROM monitor_fila ORDER BY entrou_em'),
+    // Sem o chat: a coleta só precisa saber o preço pedido e o último aviso.
+    env.DB.prepare('SELECT id,produto_id,preco_alvo,ultimo_aviso_em,ultimo_aviso_preco FROM alerta_precos WHERE ativo=1 AND expira_em>? ORDER BY id').bind(agora),
   ]);
   const historico={};
   for(const linha of diario.results||[]) (historico[linha.produto_id]||=[]).push([linha.dia,linha.preco]);
@@ -61,10 +69,11 @@ export async function onRequestGet({request,env}) {
     ultimo_post:porProduto(ultimo,l=>({preco:l.preco,postado_em:l.postado_em})),
     posts_hoje:Number(hoje.results?.[0]?.total||0),
     fila:fila.results||[],
+    alertas:alertas.results||[],
   });
 }
 
-export async function onRequestPost({request,env}) {
+export async function onRequestPost({request,env,waitUntil}) {
   if(!await authorized(request,env.PUBLISH_TOKEN)) return json({error:'unauthorized'},401);
   if(Number(request.headers.get('Content-Length')||0)>MAX_REQUEST_BYTES) return json({error:'too_large'},413);
   let body;
@@ -112,7 +121,13 @@ export async function onRequestPost({request,env}) {
     if(!produto) return json({error:'invalid_queue'},400);
     comandos.push(env.DB.prepare('DELETE FROM monitor_fila WHERE produto_id=?').bind(produto));
   }
-  if(!comandos.length) return json({ok:true,gravados:0});
-  await env.DB.batch(comandos);
-  return json({ok:true,gravados:comandos.length},201);
+  if(comandos.length) await env.DB.batch(comandos);
+  let avisos=0;
+  if(Array.isArray(body?.avisos)){
+    avisos=await deliverPriceAlerts(env,body.avisos,agora);
+    const vencer=expirePriceAlerts(env,agora).catch(error=>console.error(JSON.stringify({event:'price_alert_expire',result:'failed',reason:String(error?.message||error).slice(0,80)})));
+    if(typeof waitUntil==='function') waitUntil(vencer); else await vencer;
+  }
+  if(!comandos.length&&!Array.isArray(body?.avisos)) return json({ok:true,gravados:0});
+  return json({ok:true,gravados:comandos.length,avisos},201);
 }

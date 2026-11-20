@@ -141,6 +141,13 @@ ASSINATURAS = {
         "dias": "CLAUDE_PRO_DIAS", "horas": "CLAUDE_PRO_HORAS",
         "postar": "postar_claude_pro", "emoji": "🤖",
     },
+    # Bot público de alertas de preço: não é assinatura, é um serviço do canal.
+    "alerta_bot": {
+        "nome": "Bot de alertas", "slug": None, "hosts": ("t.me",),
+        "url": "ALERTA_BOT_URL", "ativo": "ALERTA_BOT_ATIVO",
+        "dias": "ALERTA_BOT_DIAS", "horas": "ALERTA_BOT_HORAS",
+        "postar": "postar_alerta_bot", "emoji": "🔔",
+    },
     # Sem atalho no site e só no Bluesky: não é assinatura, é o próprio canal.
     "convite_telegram": {
         "nome": "Convite do Telegram", "slug": None, "hosts": ("t.me",),
@@ -303,6 +310,7 @@ def executar_campanha(nome):
         "amazon_prime": lambda: publicar_assinatura_se_preciso("amazon_prime", forcar=True),
         "cartao_amazon": lambda: publicar_assinatura_se_preciso("cartao_amazon", forcar=True),
         "claude_pro": lambda: publicar_assinatura_se_preciso("claude_pro", forcar=True),
+        "alerta_bot": lambda: publicar_assinatura_se_preciso("alerta_bot", forcar=True),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
         "monitor_precos": lambda: monitor_precos.executar(),
         "monitor_teste": lambda: monitor_precos.executar_teste(),

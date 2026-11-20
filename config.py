@@ -175,6 +175,11 @@ CLAUDE_PRO_DIAS = _dias("CLAUDE_PRO_DIAS", "")
 CLAUDE_PRO_HORAS = _horas("CLAUDE_PRO_HORAS", "")
 # Convite do canal do Telegram, publicado no Bluesky: o Telegram tinha só 82
 # inscritos e o Bluesky é onde está a audiência.
+# Divulgação do bot público de alertas de preço (@TaBaratoAlertaDePrecoBot).
+ALERTA_BOT_URL = _get("ALERTA_BOT_URL") or "https://t.me/TaBaratoAlertaDePrecoBot?start=canal"
+ALERTA_BOT_ATIVO = _bool("ALERTA_BOT_ATIVO", True)
+ALERTA_BOT_DIAS = _dias("ALERTA_BOT_DIAS", "1,4")
+ALERTA_BOT_HORAS = _horas("ALERTA_BOT_HORAS", "15,16")
 CONVITE_TELEGRAM_URL = _get("CONVITE_TELEGRAM_URL") or "https://t.me/CanalTaBarato"
 CONVITE_TELEGRAM_ATIVO = _bool("CONVITE_TELEGRAM_ATIVO", True)
 CONVITE_TELEGRAM_DIAS = _dias("CONVITE_TELEGRAM_DIAS", "0,3,6")

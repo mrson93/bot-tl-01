@@ -118,8 +118,12 @@ test("/remover desativa e tira da fila", async () => {
 });
 
 test("/lista mostra o último preço", async () => {
-  const db = fakeDb({ all: () => [{ id: 1, loja: "mercadolivre", id_produto: "MLB1", nome: "Fone", ultimo: 79.9, disponivel: 1, na_fila: 1 }] });
+  const db = fakeDb({
+    all: () => [{ id: 1, loja: "mercadolivre", id_produto: "MLB1", nome: "Fone", ultimo: 79.9, disponivel: 1, na_fila: 1 }],
+    first: () => ({ pessoas: 2, produtos: 3, alertas: 4 }),
+  });
   const { respostas } = await comando("lista", "/lista", db);
+  assert.match(respostas[0], /4 alerta\(s\) de 2 pessoa\(s\), em 3 produto\(s\)/);
   assert.match(respostas[0], /#1 Mercado Livre: Fone/);
   assert.match(respostas[0], /R\$ 79,90 · 🌙 na fila/);
 });

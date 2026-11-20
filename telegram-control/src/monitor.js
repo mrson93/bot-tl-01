@@ -105,8 +105,8 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
       return reply("❌ Não reconheci o produto. Mande o link da página do produto na Amazon (com /dp/ASIN) ou no Mercado Livre (com MLB).");
     }
     const linha = await db.prepare(
-      `INSERT INTO monitor_produtos(loja,id_produto,tipo,ativo,criado_em) VALUES(?,?,?,1,?)
-       ON CONFLICT(loja,id_produto) DO UPDATE SET ativo=1,tipo=COALESCE(excluded.tipo,monitor_produtos.tipo)
+      `INSERT INTO monitor_produtos(loja,id_produto,tipo,ativo,canal,criado_em) VALUES(?,?,?,1,1,?)
+       ON CONFLICT(loja,id_produto) DO UPDATE SET ativo=1,canal=1,tipo=COALESCE(excluded.tipo,monitor_produtos.tipo)
        RETURNING id,nome`,
     ).bind(produto.loja, produto.id_produto, produto.tipo, agora).first();
     const avisoAmazon = produto.loja === "amazon"
@@ -137,9 +137,16 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
          (SELECT preco FROM monitor_leituras l WHERE l.produto_id=p.id AND l.preco>0 ORDER BY l.lido_em DESC LIMIT 1) AS ultimo,
          (SELECT disponivel FROM monitor_leituras l WHERE l.produto_id=p.id ORDER BY l.lido_em DESC LIMIT 1) AS disponivel,
          EXISTS(SELECT 1 FROM monitor_fila f WHERE f.produto_id=p.id) AS na_fila
-       FROM monitor_produtos p WHERE p.ativo=1 ORDER BY p.id LIMIT 60`,
+       FROM monitor_produtos p WHERE p.ativo=1 AND p.canal=1 ORDER BY p.id LIMIT 60`,
     ).all();
-    if (!results.length) return reply("📭 Nenhum produto no monitor. Use /add <link>.");
+    const publico = await db.prepare(
+      `SELECT COUNT(DISTINCT chat_id) AS pessoas,COUNT(DISTINCT produto_id) AS produtos,COUNT(*) AS alertas
+       FROM alerta_precos WHERE ativo=1 AND expira_em>?`,
+    ).bind(agora).first();
+    const rodape = publico?.alertas
+      ? `\n🔔 Bot de alertas: ${publico.alertas} alerta(s) de ${publico.pessoas} pessoa(s), em ${publico.produtos} produto(s). Eles só geram avisos no privado, não vão para o canal.`
+      : "";
+    if (!results.length) return reply(`📭 Nenhum produto seu no monitor. Use /add <link>.${rodape}`);
     const linhas = results.map((p) => {
       const preco = p.ultimo ? `R$ ${reais(p.ultimo)}` : "sem leitura";
       const estoque = p.disponivel === 0 ? " · sem estoque" : "";
@@ -151,7 +158,7 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
       if (texto.length + linha.length > 3800) { texto += "\n…"; break; }
       texto += `${linha}\n`;
     }
-    return reply(`${texto}\nDetalhes: /historico <id>`);
+    return reply(`${texto}\nDetalhes: /historico <id>${rodape}`);
   }
 
   // /historico <id>

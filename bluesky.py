@@ -430,6 +430,21 @@ def postar_cartao_amazon(link_afiliado: str, variante=0) -> None:
         chamada="Veja as regras:")
 
 
+_TEXTOS_ALERTA_BOT = (
+    "🔔 AVISE-ME QUANDO BAIXAR\n\n"
+    "Mande o link de um produto do Mercado Livre para o nosso bot no Telegram e "
+    "diga quanto quer pagar. Ele acompanha o preço e te avisa quando chegar lá. Grátis.",
+    "🔔 Cansou de conferir o preço todo dia?\n\n"
+    "Nosso bot no Telegram faz isso: cole o link do produto e ele avisa quando "
+    "for o menor preço real, sem desconto falso. Grátis.",
+)
+
+
+def postar_alerta_bot(link: str, variante=0) -> None:
+    postar_assinatura(_TEXTOS_ALERTA_BOT[int(variante) % len(_TEXTOS_ALERTA_BOT)],
+                      link, "Bot de alertas", chamada="Crie o seu:")
+
+
 def postar_claude_pro(link: str, variante=0) -> None:
     del variante
     postar_assinatura(

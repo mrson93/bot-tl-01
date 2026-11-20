@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS monitor_produtos (
   link_afiliado TEXT,
   imagem TEXT,
   ativo INTEGER NOT NULL DEFAULT 1,
+  canal INTEGER NOT NULL DEFAULT 1,
   criado_em INTEGER NOT NULL,
   UNIQUE (loja, id_produto)
 );
@@ -85,3 +86,18 @@ CREATE TABLE IF NOT EXISTS monitor_fila (
   preco REAL NOT NULL,
   entrou_em INTEGER NOT NULL
 );
+
+-- Alertas de preço do bot público (migração 0023).
+CREATE TABLE IF NOT EXISTS alerta_precos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id TEXT NOT NULL,
+  produto_id INTEGER NOT NULL,
+  preco_alvo REAL,
+  ativo INTEGER NOT NULL DEFAULT 1,
+  criado_em INTEGER NOT NULL,
+  expira_em INTEGER NOT NULL,
+  ultimo_aviso_em INTEGER,
+  ultimo_aviso_preco REAL,
+  UNIQUE (chat_id, produto_id)
+);
+CREATE INDEX IF NOT EXISTS idx_alerta_precos_produto ON alerta_precos (produto_id, ativo);

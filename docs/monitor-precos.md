@@ -108,3 +108,34 @@ Rode os comandos na pasta do projeto, nesta ordem.
 Para desligar sem apagar nada, defina a variável do GitHub `MONITOR_ATIVO=false`.
 Para parar também o disparo, mude `MONITOR_ATIVO` para `"false"` no
 `wrangler.jsonc` e rode `npx wrangler deploy` de novo.
+
+## Alertas de preço do bot público (@TaBaratoAlertaDePrecoBot)
+
+O bot público de alertas (código em `site/functions/_telegram_alerts.js` e
+`site/functions/_price_alerts.js`) usa a mesma coleta:
+
+- A pessoa cola o link de um produto do Mercado Livre, com ou sem preço
+  (`https://… 199,90`). Com preço, recebe um aviso quando o preço chegar nele e
+  o alerta pausa. Sem preço, recebe quando for o menor preço real, pela mesma
+  regra do canal, no máximo a cada 72 h (ou se cair mais 5%).
+- Os produtos do público ficam em `monitor_produtos` com `canal=0`: são lidos a
+  cada 2 h, mas **nunca** vão para o canal. Só os do `/add` (`canal=1`) vão.
+- A coleta decide quem avisar e manda a lista para `/api/monitor`. O site
+  entrega a mensagem com o token do bot (`TELEGRAM_ALERTS_BOT_TOKEN`, que fica
+  só no site). Entre 23h e 7h o aviso chega sem som.
+- Limites (variáveis do site no Cloudflare Pages): `ALERTA_MAX_PRODUTOS_POR_PESSOA`
+  (5), `ALERTA_MAX_PRODUTOS_TOTAL` (300) e `ALERTA_DIAS_VALIDADE` (90). O
+  alerta vencido é pausado e a pessoa recebe um aviso.
+- `/parar` apaga tudo da pessoa, e quem bloqueia o bot é apagado sozinho.
+- Os cliques dos avisos passam pelo `go.` com o canal `alerta`.
+
+Para ativar, aplique a migração `site/migrations/0023_alertas_preco.sql` no D1
+**antes** do push, porque a rota `/api/monitor` passa a consultar `alerta_precos`:
+
+```bash
+npx wrangler d1 execute canaltabarato-ofertas --remote --file=/Users/emersonpettorini/Documents/IA/bot-envio-ofertas-automaticamente/site/migrations/0023_alertas_preco.sql
+```
+
+Depois faça o push (publica o site) e rode `npx wrangler deploy` em
+`telegram-control` (o `/lista` passa a separar os produtos do público, e o
+painel ganha o botão da campanha do bot de alertas).

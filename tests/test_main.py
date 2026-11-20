@@ -533,6 +533,23 @@ class MainTest(unittest.TestCase):
             main.bluesky.postar_claude_pro(link)
         self.assertLessEqual(len(post.call_args.kwargs["json"]["record"]["text"]), 300)
 
+    def test_bot_de_alertas_sai_terca_e_sexta_a_tarde_no_telegram_e_bluesky(self):
+        terca = datetime(2026, 11, 24, 15, 5, tzinfo=main.FUSO_BRASILIA)
+        with patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.bluesky, "esta_configurada", return_value=True), \
+             patch.object(main.store, "campanha_enviada", return_value=False), \
+             patch.object(main.store, "marcar_campanha_enviada"), \
+             patch.object(main.telegram_poster, "postar_alerta_bot") as telegram, \
+             patch.object(main.bluesky, "postar_alerta_bot") as bsky:
+            self.assertFalse(main.publicar_assinatura_se_preciso("alerta_bot", terca.replace(hour=10)))
+            self.assertTrue(main.publicar_assinatura_se_preciso("alerta_bot", terca))
+        self.assertEqual(telegram.call_args.args[0], "https://t.me/TaBaratoAlertaDePrecoBot?start=canal")
+        bsky.assert_called_once()
+        with patch.object(main.telegram_poster.requests, "post") as post:
+            post.return_value.json.return_value = {"ok": True}
+            main.telegram_poster.postar_alerta_bot("https://t.me/TaBaratoAlertaDePrecoBot?start=canal", 1)
+        self.assertIn("Mercado Livre", post.call_args.kwargs["json"]["text"])
+
     def test_convite_do_telegram_sai_so_no_bluesky_sem_atalho_no_site(self):
         domingo = datetime(2026, 11, 8, 19, 10, tzinfo=main.FUSO_BRASILIA)
         with patch.object(main.telegram_poster, "esta_configurada", return_value=True), \

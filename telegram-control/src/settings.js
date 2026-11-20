@@ -245,6 +245,18 @@ export const SETTINGS = Object.freeze({
     category: "campanhas", label: "Horas do Cartão Amazon", type: "hours", default: "12,13,20,21",
     hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
   },
+  ALERTA_BOT_ATIVO: {
+    category: "campanhas", label: "Divulgação do bot de alertas", type: "boolean", default: "true",
+    hint: "Posts recorrentes do bot de alertas de preço (@TaBaratoAlertaDePrecoBot) no Telegram e no Bluesky.",
+  },
+  ALERTA_BOT_DIAS: {
+    category: "campanhas", label: "Dias do bot de alertas", type: "weekdays", default: "1,4",
+    hint: "Use números de 0 a 6: 0 segunda, 1 terça, 2 quarta, 3 quinta, 4 sexta, 5 sábado e 6 domingo.",
+  },
+  ALERTA_BOT_HORAS: {
+    category: "campanhas", label: "Horas do bot de alertas", type: "hours", default: "15,16",
+    hint: "Divulga no máximo uma vez na janela da manhã e uma na janela da noite.",
+  },
 
   PESO_COMISSAO: {
     category: "selecao", label: "Peso da comissão", type: "float", default: "1", min: 0, max: 3,

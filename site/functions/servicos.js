@@ -7,7 +7,7 @@ export function services(alertBot=DEFAULT_ALERT_BOT) {
   return [
     {group:'Receba as ofertas',items:[
       {icon:'✈️',title:'Canal no Telegram',text:'Ofertas selecionadas assim que aparecem, com preço, avaliação e link oficial. Grátis e sem cadastro.',href:'https://t.me/CanalTaBarato',cta:'Entrar no canal',external:true},
-      {icon:'🔔',title:'Alertas por palavra-chave',text:'Diga ao nosso bot o que você procura, como “air fryer” ou “fone bluetooth”, e receba no privado quando aparecer oferta disso. Até 5 alertas.',href:`https://t.me/${alertBot}?start=site`,cta:'Criar um alerta',external:true},
+      {icon:'🔔',title:'Alerta de preço no Telegram',text:'Mande ao nosso bot o link de um produto do Mercado Livre e o preço que você quer pagar: ele acompanha o preço a cada 2 horas e te avisa no privado quando chegar lá. Também dá para criar alertas por palavra, como “air fryer”.',href:`https://t.me/${alertBot}?start=site`,cta:'Criar um alerta',external:true},
       {icon:'📸',title:'Stories no Instagram',text:'Ofertas do dia nos Stories. Responda QUERO no Direct e receba o link na conversa.',href:'https://www.instagram.com/ofertascanaltabarato/',cta:'Seguir no Instagram',external:true},
       {icon:'📣',title:'Facebook, X e Bluesky',text:'As mesmas ofertas na rede que você já usa.',href:'/#social-title',cta:'Escolher a rede'},
     ]},
@@ -37,7 +37,7 @@ export function servicesSection(alertBot=DEFAULT_ALERT_BOT) {
 export function onRequestGet({env}) {
   const alertBot=/^[A-Za-z0-9_]{5,32}$/.test(String(env?.TELEGRAM_ALERTS_BOT_USERNAME||''))?env.TELEGRAM_ALERTS_BOT_USERNAME:DEFAULT_ALERT_BOT;
   const title='Serviços do Tá Barato: alertas, histórico de preços, cupons e guias';
-  const description='Conheça tudo o que o Tá Barato oferece de graça: canal de ofertas, alertas por palavra-chave, histórico de preços, cupons, guias de compra e muito mais.';
+  const description='Conheça tudo o que o Tá Barato oferece de graça: canal de ofertas, alertas de preço e por palavra-chave, histórico de preços, cupons, guias de compra e muito mais.';
   const canonical=`${SITE}/servicos`;
   const structured=JSON.stringify({'@context':'https://schema.org','@type':'ItemList',name:'Serviços do Tá Barato',
     itemListElement:services(alertBot).flatMap(group=>group.items).map((item,index)=>({'@type':'ListItem',position:index+1,name:item.title,description:item.text}))}).replace(/</g,'\\u003c');

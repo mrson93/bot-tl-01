@@ -1,4 +1,5 @@
 import {SITE,html,money,offerPath} from './_site.js';
+import {deleteStatements,formatPriceAlertList,handlePriceAlert,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -35,7 +36,7 @@ export function titleMatches(title,keyword) {
 }
 
 export function parseCommand(text='') {
-  const value=String(text).trim().slice(0,200);
+  const value=String(text).trim().slice(0,1000);
   const match=value.match(/^\/([a-z_]+)(?:@\w+)?\s*(.*)$/i);
   if(!match) return value?{command:'alerta',argument:value}:{command:'',argument:''};
   return {command:match[1].toLowerCase(),argument:match[2].trim()};
@@ -44,14 +45,21 @@ export function parseCommand(text='') {
 const HELP=[
   '🔔 <b>Alertas do Tá Barato</b>',
   '',
-  'Me diga o que você procura e eu aviso quando aparecer oferta disso.',
+  'Eu aviso no seu privado quando o preço baixar de verdade.',
   '',
-  '• Envie uma palavra, por exemplo: <code>air fryer</code>',
+  '<b>Alerta de preço de um produto</b>',
+  '• Cole o link do produto do Mercado Livre e, se quiser, o preço que você quer pagar:',
+  '<code>https://www.mercadolivre.com.br/... 199,90</code>',
+  '• Sem preço, eu aviso quando for o menor preço real (comparado com o histórico).',
+  '',
+  '<b>Alerta por palavra</b>',
+  '• Envie uma palavra, por exemplo: <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.',
+  '',
   '• /meusalertas — ver seus alertas',
-  '• /remover air fryer — apagar um alerta',
+  '• /remover air fryer ou /remover 2 — apagar um alerta',
   '• /parar — apagar todos os seus dados',
   '',
-  `Até ${MAX_KEYWORDS_PER_CHAT} alertas por pessoa e no máximo ${MAX_ALERTS_PER_DAY} avisos por dia.`,
+  `Até ${MAX_KEYWORDS_PER_CHAT} palavras e 5 produtos por pessoa. Guardo só o número do seu chat, nada de nome ou telefone.`,
 ].join('\n');
 
 export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
@@ -65,22 +73,31 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   if(command==='meusalertas'){
     const result=await env.DB.prepare('SELECT keyword FROM alert_subscriptions WHERE chat_id=? ORDER BY created_at').bind(chatId).all();
     const keywords=(result.results||[]).map(row=>row.keyword);
-    return keywords.length?`Seus alertas:\n${keywords.map(item=>`• ${html(item)}`).join('\n')}`
-      :'Você ainda não tem alertas. Envie uma palavra, por exemplo: <code>fone bluetooth</code>';
+    const precos=await listPriceAlerts(env,chatId,now);
+    if(!keywords.length&&!precos.length){
+      return 'Você ainda não tem alertas. Cole o link de um produto do Mercado Livre ou envie uma palavra, por exemplo: <code>fone bluetooth</code>';
+    }
+    const partes=[];
+    if(precos.length) partes.push(`<b>Produtos</b>\n${formatPriceAlertList(precos)}`);
+    if(keywords.length) partes.push(`<b>Palavras</b>\n${keywords.map(item=>`• ${html(item)}`).join('\n')}`);
+    return `Seus alertas:\n\n${partes.join('\n\n')}`;
   }
   if(command==='parar'){
     await env.DB.batch([
       env.DB.prepare('DELETE FROM alert_subscriptions WHERE chat_id=?').bind(chatId),
       env.DB.prepare('DELETE FROM alert_deliveries WHERE chat_id=?').bind(chatId),
+      ...deleteStatements(env,chatId),
     ]);
     return 'Pronto: seus alertas e o histórico de avisos foram apagados. Envie /start se quiser voltar.';
   }
   if(command==='remover'){
+    if(/^\d{1,2}$/.test(argument)) return removePriceAlert(env,chatId,argument,now);
     const keyword=validKeyword(argument);
     if(!keyword) return 'Diga qual alerta remover, por exemplo: /remover air fryer';
     await env.DB.prepare('DELETE FROM alert_subscriptions WHERE chat_id=? AND keyword=?').bind(chatId,keyword).run();
     return `Alerta removido: ${html(keyword)}`;
   }
+  if(command==='alerta'&&/https?:\/\//i.test(argument)) return handlePriceAlert(env,chatId,argument,now);
   if(command==='alerta'){
     const keyword=validKeyword(argument);
     if(!keyword) return 'Use de 3 a 40 letras, com até 4 palavras. Exemplo: <code>air fryer</code>';
@@ -138,6 +155,7 @@ export async function notifyOfferAlerts(env,offer,now=Math.floor(Date.now()/1000
         await env.DB.batch([
           env.DB.prepare('DELETE FROM alert_subscriptions WHERE chat_id=?').bind(chatId),
           env.DB.prepare('DELETE FROM alert_deliveries WHERE chat_id=?').bind(chatId),
+          ...deleteStatements(env,chatId),
         ]);
       }else if(status>=200&&status<300) sent++;
     }catch(error){

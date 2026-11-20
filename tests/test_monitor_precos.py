@@ -152,6 +152,40 @@ class ExecutarTest(unittest.TestCase):
         self.assertEqual(self.gravados[-1], {"fila_remover": [1]})
 
 
+class AlertasPublicosTest(unittest.TestCase):
+    leitura = {1: {"preco": 90.0, "disponivel": True}}
+
+    def test_preco_pedido_dispara_quando_chega(self):
+        alertas = [{"id": 7, "produto_id": 1, "preco_alvo": 95}, {"id": 8, "produto_id": 1, "preco_alvo": 80}]
+        disparos = mp.decidir_avisos(alertas, self.leitura, {}, AGORA)
+        self.assertEqual([(a["id"], m) for a, m in disparos], [(7, "alvo")])
+
+    def test_sem_estoque_nao_avisa(self):
+        alertas = [{"id": 7, "produto_id": 1, "preco_alvo": 95}]
+        self.assertEqual(mp.decidir_avisos(alertas, {1: {"preco": 90, "disponivel": False}}, {}, AGORA), [])
+
+    def test_sem_preco_segue_a_regra_e_o_intervalo(self):
+        avaliacoes = {1: {"postar": True, "motivo": "menor_preco"}}
+        novo = [{"id": 1, "produto_id": 1, "preco_alvo": None}]
+        self.assertEqual(len(mp.decidir_avisos(novo, self.leitura, avaliacoes, AGORA)), 1)
+        recente = [{"id": 1, "produto_id": 1, "ultimo_aviso_em": AGORA - 3600, "ultimo_aviso_preco": 92}]
+        self.assertEqual(mp.decidir_avisos(recente, self.leitura, avaliacoes, AGORA), [])
+        caiu = [{"id": 1, "produto_id": 1, "ultimo_aviso_em": AGORA - 3600, "ultimo_aviso_preco": 100}]
+        self.assertEqual(len(mp.decidir_avisos(caiu, self.leitura, avaliacoes, AGORA)), 1)
+        self.assertEqual(mp.decidir_avisos(novo, self.leitura, {1: {"postar": False}}, AGORA), [])
+
+
+class ProdutoDoPublicoTest(ExecutarTest):
+    def test_produto_do_publico_nao_vai_para_o_canal_mas_avisa(self):
+        dados = self.dados(alertas=[{"id": 9, "produto_id": 1, "preco_alvo": 85}])
+        dados["produtos"][0]["no_canal"] = 0
+        with mock.patch.object(mp, "_link_rastreado", return_value="https://go.canaltabarato.com.br/a"):
+            self.rodar(dados, 80)
+        self.enviar.assert_not_called()
+        aviso = next(g for g in self.gravados if "avisos" in g)["avisos"][0]
+        self.assertEqual((aviso["alerta_id"], aviso["motivo"], aviso["preco"]), (9, "alvo", 80.0))
+
+
 class TesteNoChatTest(unittest.TestCase):
     def test_previa_vai_so_para_o_admin(self):
         with mock.patch.object(config, "TELEGRAM_ADMIN_ID", "123"), \
