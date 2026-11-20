@@ -56,7 +56,7 @@ function database() {
         if(sql==='DELETE FROM alert_deliveries WHERE chat_id=?'){
           remove(deliveries,row=>row.chat_id===a);return {meta:{}};
         }
-        if(sql==='DELETE FROM alerta_precos WHERE chat_id=?') return {meta:{}};
+        if(sql==='DELETE FROM alerta_precos WHERE chat_id=?'||sql==='DELETE FROM alerta_pessoas WHERE chat_id=?') return {meta:{}};
         if(sql==='DELETE FROM alert_deliveries WHERE sent_at<?'){
           remove(deliveries,row=>row.sent_at<a);return {meta:{}};
         }

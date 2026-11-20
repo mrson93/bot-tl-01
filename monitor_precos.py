@@ -499,6 +499,65 @@ def executar(agora=None):
                          "motivo": avaliacao["motivo"]}})
         print(f"   ✅ Monitor postou #{produto['id']} ({avaliacao['motivo']}, "
               f"{avaliacao['abaixo']:.0f}% abaixo da média).")
+    try:
+        postar_quedas_do_dia(agora)
+    except Exception as erro:
+        print(f"   ⚠️ Monitor: post das quedas de hoje falhou: {seguranca.redigir_segredos(erro)[:120]}")
+    return True
+
+
+# --- Maiores quedas de hoje (post diário no canal) -------------------------------
+
+CHAVE_QUEDAS = "monitor_quedas_dia"
+
+
+def montar_quedas(quedas, cfg=config):
+    """Texto do post diário: os 5 que mais caíram nas últimas 24 h."""
+    linhas = ["📉 <b>Maiores quedas de hoje</b>",
+              "Os produtos que mais baixaram de preço nas últimas 24 horas:", ""]
+    for i, item in enumerate(quedas[:5], 1):
+        nome = html.escape(telegram_poster.limpar_titulo(item.get("nome") or "Produto", 90))
+        link = html.escape(seguranca.validar_url_https_publica(item["link"], "Link de afiliado"), quote=True)
+        selo = (item.get("termometro") or {}).get("emoji") if (item.get("termometro") or {}).get("nivel") != "aprendendo" else ""
+        linhas.append(f'{i}. <a href="{link}">{nome}</a>')
+        linhas.append(f"    💰 <b>R$ {telegram_poster._preco(item['agora'])}</b> "
+                      f"<s>R$ {telegram_poster._preco(item['antes'])}</s> · −{int(item['queda'])}%"
+                      f"{f' · {selo}' if selo else ''} · {NOME_LOJA.get(item.get('loja'), '')}")
+    linhas += ["", "🟢 preço baixo · 🟡 na média · 🔴 alto, comparando com o último ano.",
+               "<i>Preços podem mudar a qualquer momento. Links de afiliado.</i>"]
+    return "\n".join(linhas)
+
+
+def postar_quedas_do_dia(agora, cfg=config):
+    """Uma vez por dia, na primeira coleta depois de MONITOR_QUEDAS_HORA."""
+    if not cfg.MONITOR_QUEDAS_ATIVO:
+        return False
+    momento = datetime.fromtimestamp(agora, FUSO)
+    hoje = momento.date().isoformat()
+    if momento.hour < cfg.MONITOR_QUEDAS_HORA or em_silencio(momento.hour, cfg):
+        return False
+    if store._estado(CHAVE_QUEDAS) == hoje:
+        return False
+    resposta = requests.get(site_publisher._api_path("/api/quedas-de-hoje"), params={"limite": 5},
+                            timeout=30, allow_redirects=False)
+    if resposta.status_code != 200:
+        raise RuntimeError(f"Site recusou as quedas de hoje ({resposta.status_code})")
+    quedas = [q for q in (resposta.json() or {}).get("quedas") or [] if q.get("link")]
+    # Marca o dia mesmo sem post: só uma tentativa por dia, sem insistir até meia-noite.
+    store._definir_estado(CHAVE_QUEDAS, hoje)
+    if len(quedas) < cfg.MONITOR_QUEDAS_MINIMO:
+        print(f"   · Quedas de hoje: só {len(quedas)} produto(s) caíram 5% ou mais; sem post.")
+        return False
+    pagina = f"{cfg.SITE_PUBLICO_URL.rstrip('/')}/quedas-de-hoje"
+    botoes = {"inline_keyboard": [[{"text": "📉 Ver todas as quedas", "url": pagina}],
+                                  [{"text": "🔔 Criar alerta de preço", "url": cfg.ALERTA_BOT_URL}]]}
+    corpo = requests.post(telegram_poster.API.format(token=cfg.TELEGRAM_BOT_TOKEN, metodo="sendMessage"), json={
+        "chat_id": cfg.TELEGRAM_CHANNEL, "text": montar_quedas(quedas, cfg), "parse_mode": "HTML",
+        "reply_markup": botoes, "disable_web_page_preview": True,
+    }, timeout=30).json()
+    if not corpo.get("ok"):
+        raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou o post das quedas: {corpo}"))
+    print(f"📉 Monitor: post das maiores quedas de hoje ({len(quedas)} produto(s)).")
     return True
 
 

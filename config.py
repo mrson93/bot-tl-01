@@ -395,6 +395,10 @@ MONITOR_LIMITE_DIARIO = max(0, _int("MONITOR_LIMITE_DIARIO", 8))
 MONITOR_SILENCIO_INICIO = max(0, min(23, _int("MONITOR_SILENCIO_INICIO", 23)))
 MONITOR_SILENCIO_FIM = max(0, min(23, _int("MONITOR_SILENCIO_FIM", 7)))
 MONITOR_PAUSA_SEGUNDOS = max(0.0, min(10.0, _float("MONITOR_PAUSA_SEGUNDOS", 0.5)))
+# Post diário "Maiores quedas de hoje" no canal (primeira coleta depois da hora).
+MONITOR_QUEDAS_ATIVO = _bool("MONITOR_QUEDAS_ATIVO", True)
+MONITOR_QUEDAS_HORA = max(0, min(22, _int("MONITOR_QUEDAS_HORA", 20)))
+MONITOR_QUEDAS_MINIMO = max(1, min(10, _int("MONITOR_QUEDAS_MINIMO", 3)))
 
 SITE_API_URL = _get("SITE_API_URL")
 SITE_API_TOKEN = _get("SITE_API_TOKEN")

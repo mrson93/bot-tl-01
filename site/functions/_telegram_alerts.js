@@ -1,5 +1,5 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert} from './_price_alerts.js';
+import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert,resumoLigado} from './_price_alerts.js';
 import {PERGUNTA_BUSCA,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
@@ -139,7 +139,7 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
     if(precos.length) partes.push(`<b>Produtos</b>\n${formatPriceAlertList(precos)}`);
     if(keywords.length) partes.push(`<b>Palavras</b>\n${keywords.map(item=>`• ${html(item)}`).join('\n')}\nPara apagar: /remover air fryer`);
     return {text:`📋 <b>Seus alertas</b>\n\n${partes.join('\n\n')}${precos.length?'\n\nToque em um produto para ver o histórico e ajustar.':''}`,
-      markup:precos.length?listaComBotoes(precos):MENU};
+      markup:precos.length?listaComBotoes(precos,await resumoLigado(env,chatId)):MENU};
   }
   if(command==='parar'){
     await env.DB.batch([

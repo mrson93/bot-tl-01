@@ -51,7 +51,7 @@ export function parsePriceRequest(texto='') {
   return {link:link[0],alvo:resto?parsePrice(resto):null,precoInvalido:Boolean(resto)&&parsePrice(resto)===null};
 }
 
-function urlPermitida(valor,hosts=HOSTS_LINK) {
+export function urlPermitida(valor,hosts=HOSTS_LINK) {
   try {
     const url=new URL(String(valor||''));
     const host=url.hostname.toLowerCase();
@@ -90,10 +90,11 @@ export async function telegram(env,metodo,corpo,fetcher=fetch) {
 }
 
 export function deleteStatements(env,chatId) {
-  return [env.DB.prepare('DELETE FROM alerta_precos WHERE chat_id=?').bind(chatId)];
+  return [env.DB.prepare('DELETE FROM alerta_precos WHERE chat_id=?').bind(chatId),
+    env.DB.prepare('DELETE FROM alerta_pessoas WHERE chat_id=?').bind(chatId)];
 }
 
-function apagarPessoa(env,chatId) {
+export function apagarPessoa(env,chatId) {
   return env.DB.batch([
     ...deleteStatements(env,chatId),
     env.DB.prepare('DELETE FROM alert_subscriptions WHERE chat_id=?').bind(chatId),
@@ -326,10 +327,18 @@ export function formatPriceAlertList(alertas) {
   }).join('\n');
 }
 
-export function listaComBotoes(alertas) {
-  return {inline_keyboard:alertas.map((a,i)=>[{
+export function listaComBotoes(alertas,resumo=null) {
+  const linhas=alertas.map((a,i)=>[{
     text:`${i+1}. ${String(nomeSimples(a)).slice(0,40)}`,callback_data:`a:${a.id}:c`,
-  }])};
+  }]);
+  if(resumo!==null) linhas.push([{text:`⚙️ Resumo semanal: ${resumo?'ligado':'desligado'}`,callback_data:`rs:${resumo?0:1}`}]);
+  return {inline_keyboard:linhas};
+}
+
+// Resumo semanal: ligado por padrão (sem linha = ligado).
+export async function resumoLigado(env,chatId) {
+  const linha=await env.DB.prepare('SELECT resumo_semanal FROM alerta_pessoas WHERE chat_id=?').bind(String(chatId)).first();
+  return linha?Number(linha.resumo_semanal)===1:true;
 }
 
 export async function removePriceAlert(env,chatId,numero,now=Math.floor(Date.now()/1000)) {
@@ -427,7 +436,18 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
   if(texto==='l'){
     const alertas=await listPriceAlerts(env,chatId,now);
     if(!alertas.length) return {answer:'Nenhum alerta',text:'Você não tem alertas de produto. Toque em ➕ Novo alerta.'};
-    return {answer:'Seus alertas',text:`<b>Seus alertas de produto</b>\n\n${formatPriceAlertList(alertas)}\n\nToque em um para ver e ajustar.`,markup:listaComBotoes(alertas)};
+    return {answer:'Seus alertas',text:`<b>Seus alertas de produto</b>\n\n${formatPriceAlertList(alertas)}\n\nToque em um para ver e ajustar.`,
+      markup:listaComBotoes(alertas,await resumoLigado(env,chatId))};
+  }
+  const resumo=texto.match(/^rs:([01])$/);
+  if(resumo){
+    const ligar=Number(resumo[1]);
+    await env.DB.prepare(`INSERT INTO alerta_pessoas(chat_id,resumo_semanal) VALUES(?,?)
+      ON CONFLICT(chat_id) DO UPDATE SET resumo_semanal=excluded.resumo_semanal`).bind(chatId,ligar).run();
+    return {answer:ligar?'Resumo semanal ligado':'Resumo semanal desligado',
+      text:ligar?'🔔 Resumo semanal ligado: toda segunda, por volta das 10h, mando como estão os seus produtos.'
+        :'🔕 Resumo semanal desligado. Os avisos de preço continuam normalmente.',
+      markup:{inline_keyboard:[[{text:ligar?'🔕 Desligar resumo':'🔔 Ligar resumo',callback_data:`rs:${ligar?0:1}`},{text:'📋 Meus alertas',callback_data:'l'}]]}};
   }
   if(texto==='ex') return {answer:'Exemplo',text:exemploDeAviso(),markup:null};
   if(texto==='-') return {answer:'Este período já está aberto'};

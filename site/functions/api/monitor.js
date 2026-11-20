@@ -1,6 +1,7 @@
 import {authorized,json,readJsonLimited} from '../_lib.js';
 import {deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
 import {garantirConfiguracao} from '../_alert_bot_setup.js';
+import {enviarResumos} from '../_weekly_summary.js';
 
 // Monitor de preços: o bot (GitHub Actions) lê aqui os produtos ativos e o
 // histórico diário, e grava as leituras, os posts e a fila da madrugada.
@@ -152,6 +153,8 @@ export async function onRequestPost({request,env,waitUntil}) {
     if(typeof waitUntil==='function') waitUntil(configurar); else await configurar;
     const vencer=expirePriceAlerts(env,agora).catch(error=>console.error(JSON.stringify({event:'price_alert_expire',result:'failed',reason:String(error?.message||error).slice(0,80)})));
     if(typeof waitUntil==='function') waitUntil(vencer); else await vencer;
+    const resumo=enviarResumos(env,agora).catch(error=>console.error(JSON.stringify({event:'resumo_semanal',result:'failed',reason:String(error?.message||error).slice(0,80)})));
+    if(typeof waitUntil==='function') waitUntil(resumo); else await resumo;
   }
   if(!comandos.length&&!Array.isArray(body?.avisos)) return json({ok:true,gravados:0});
   return json({ok:true,gravados:comandos.length,avisos},201);

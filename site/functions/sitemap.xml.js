@@ -16,7 +16,7 @@ export async function onRequestGet({env}) {
   ]);
   let posts=[];try{const result=await env.DB.prepare("SELECT slug,updated_at FROM blog_posts WHERE status='published' AND published_at<=? ORDER BY published_at DESC LIMIT 1000").bind(Math.floor(Date.now()/1000)).all();posts=result.results||[];}catch{}
   const urls=[entry('/','','hourly','1.0'),entry('/stories','','hourly','0.8'),entry('/cupons','','hourly','0.9'),entry('/blog','','daily','0.8'),
-    entry('/quedas-de-preco','','hourly','0.9'),entry('/menores-precos','','daily','0.9'),
+    entry('/quedas-de-hoje','','hourly','0.9'),entry('/quedas-de-preco','','hourly','0.9'),entry('/menores-precos','','daily','0.9'),
     entry('/mais-acessadas','','daily','0.8'),entry('/mais-vendidos','','daily','0.8'),
     entry('/faixas-de-preco/ate-50','','daily','0.7'),entry('/faixas-de-preco/de-50-a-100','','daily','0.7'),
     entry('/faixas-de-preco/de-100-a-200','','daily','0.7'),entry('/faixas-de-preco/acima-de-200','','daily','0.7'),

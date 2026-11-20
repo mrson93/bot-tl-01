@@ -189,3 +189,20 @@ painel ganha o botão da campanha do bot de alertas).
   preço na hora e grava como primeira leitura.
 - Botão "🔔 Avisar quando o canal postar …" cria o alerta por palavra antigo.
 
+## Resumo semanal e maiores quedas (etapa 3 do plano)
+
+- **Resumo semanal** (`site/functions/_weekly_summary.js`): sai com a coleta,
+  segunda a partir das 10h (atrasados até terça), em lotes de 50 por coleta.
+  Por produto: preço de agora, comparação com 7 dias atrás, menor da semana e
+  termômetro. Só vai para quem tem produto com leitura na semana. Ligado por
+  padrão; tabela `alerta_pessoas` (migração 0026) guarda `resumo_semanal` e
+  `resumo_enviado_em`. `/parar` e bloqueio apagam a linha.
+- **Maiores quedas de hoje** (`site/functions/_price_drops.js`): leitura das
+  últimas 6 h com estoque contra a última leitura entre 30 h e 20 h atrás,
+  queda de 5% ou mais, só produtos com nome e link de afiliado. Página
+  `/quedas-de-hoje` (aba "Hoje"), JSON público em `/api/quedas-de-hoje`.
+  Não mostra quem monitora nem quantas pessoas.
+- **Post diário no canal** (`monitor_precos.postar_quedas_do_dia`): primeira
+  coleta depois de `MONITOR_QUEDAS_HORA` (20h), só com `MONITOR_QUEDAS_MINIMO`
+  (3) quedas ou mais; o dia fica marcado em `monitor_quedas_dia` no estado do
+  bot. Desliga com `MONITOR_QUEDAS_ATIVO=false`.

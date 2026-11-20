@@ -35,11 +35,14 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   palavra continua no botão dos resultados e em `/alerta palavra`.
 
 ### Etapa 3 — Volta ao bot e ao canal (ideias 4 e 11)
-- [ ] **Resumo semanal opcional** (segunda, 10h): "seus produtos: 2 caíram, 1 subiu,
+- [x] **Resumo semanal opcional** (segunda, 10h): "seus produtos: 2 caíram, 1 subiu,
   menor preço foi…". Liga/desliga em ⚙️ Preferências; desligado por padrão? decidir.
-- [ ] **Maiores quedas de hoje**: ranking dos produtos monitorados (canal + público)
+- [x] **Maiores quedas de hoje**: ranking dos produtos monitorados (canal + público)
   que mais caíram nas últimas 24 h, sem expor quem monitora. Vira post diário no
   canal (campanha) e página no site (`/quedas-de-hoje`).
+- Feito em 20/11/2026: resumo ligado por padrão (botão 🔕 em todo resumo e
+  ⚙️ em Meus alertas); quedas = preço de agora contra 24 h atrás, mínimo 5%;
+  post no canal na primeira coleta depois das 20h, só com 3 quedas ou mais.
 
 ### Etapa 4 — AliExpress nos alertas (ideia 5)
 - [ ] Reconhecer links `aliexpress.com/item/<id>.html` e `s.click.aliexpress.com`.

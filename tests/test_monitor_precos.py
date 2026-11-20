@@ -219,3 +219,63 @@ class TesteNoChatTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QuedasDoDiaTest(unittest.TestCase):
+    NOITE = int(datetime(2026, 11, 20, 20, 7, tzinfo=mp.FUSO).timestamp())
+    QUEDAS = [{"nome": f"Produto <{i}>", "loja": "shopee", "link": f"https://s.shopee.com.br/x{i}",
+               "agora": 80 - i, "antes": 100, "queda": 20 + i,
+               "termometro": {"nivel": "baixo", "emoji": "🟢"}} for i in range(4)]
+
+    def setUp(self):
+        self.estado = {}
+        self.posts = []
+        resposta = mock.Mock(status_code=200)
+        resposta.json.return_value = {"quedas": self.QUEDAS}
+        patches = [
+            mock.patch.object(config, "MONITOR_QUEDAS_ATIVO", True),
+            mock.patch.object(config, "MONITOR_QUEDAS_HORA", 20),
+            mock.patch.object(config, "MONITOR_QUEDAS_MINIMO", 3),
+            mock.patch.object(mp.store, "_estado", side_effect=self.estado.get),
+            mock.patch.object(mp.store, "_definir_estado", side_effect=self.estado.__setitem__),
+            mock.patch.object(mp.site_publisher, "_api_path", side_effect=lambda c: f"https://site{c}"),
+            mock.patch.object(mp.requests, "get", return_value=resposta),
+            mock.patch.object(mp.requests, "post", side_effect=self._post),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        self.resposta = resposta
+
+    def _post(self, url, json=None, timeout=None):
+        self.posts.append(json)
+        ok = mock.Mock()
+        ok.json.return_value = {"ok": True}
+        return ok
+
+    def test_posta_uma_vez_por_dia_depois_das_20h(self):
+        self.assertFalse(mp.postar_quedas_do_dia(AGORA))  # meio-dia: ainda não
+        self.assertTrue(mp.postar_quedas_do_dia(self.NOITE))
+        self.assertFalse(mp.postar_quedas_do_dia(self.NOITE + 7200))  # mesma noite
+        self.assertEqual(len(self.posts), 1)
+        texto = self.posts[0]["text"]
+        self.assertIn("Maiores quedas de hoje", texto)
+        self.assertIn('<a href="https://s.shopee.com.br/x0">Produto &lt;0&gt;</a>', texto)
+        self.assertIn("−20% · 🟢 · Shopee", texto)
+        self.assertEqual(self.posts[0]["reply_markup"]["inline_keyboard"][0][0]["url"],
+                         f"{config.SITE_PUBLICO_URL.rstrip('/')}/quedas-de-hoje")
+        self.assertEqual(mp.requests.get.call_args.kwargs["params"], {"limite": 5})
+
+    def test_poucas_quedas_nao_posta_e_nao_insiste(self):
+        self.resposta.json.return_value = {"quedas": self.QUEDAS[:2]}
+        self.assertFalse(mp.postar_quedas_do_dia(self.NOITE))
+        self.assertFalse(mp.postar_quedas_do_dia(self.NOITE + 7200))
+        self.assertEqual(self.posts, [])
+        self.assertEqual(mp.requests.get.call_count, 1)
+
+    def test_madrugada_e_desligado_nao_postam(self):
+        tarde_da_noite = int(datetime(2026, 11, 20, 23, 7, tzinfo=mp.FUSO).timestamp())
+        self.assertFalse(mp.postar_quedas_do_dia(tarde_da_noite))
+        with mock.patch.object(config, "MONITOR_QUEDAS_ATIVO", False):
+            self.assertFalse(mp.postar_quedas_do_dia(self.NOITE))
+        self.assertEqual(self.posts, [])
