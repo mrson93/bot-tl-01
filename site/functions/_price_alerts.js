@@ -1,5 +1,6 @@
 import {html,money} from './_site.js';
 import {resolveProductLink} from './_product_link.js';
+import {graficoPng} from './_price_chart.js';
 
 // Alertas de preço por produto do bot público (@TaBaratoAlertaDePrecoBot).
 // A pessoa cola o link do produto (ou toca em "Avisar quando baixar" num post
@@ -71,6 +72,15 @@ function prazoTexto(dias) {
   return achado?achado[1]:`${dias} dias`;
 }
 
+// Envia um arquivo (multipart): o gráfico vai direto, sem link público.
+export async function telegramArquivo(env,metodo,campos,arquivo,fetcher=fetch) {
+  const form=new FormData();
+  for(const [chave,valor] of Object.entries(campos)) if(valor!==undefined) form.append(chave,typeof valor==='string'?valor:JSON.stringify(valor));
+  form.append(arquivo.campo,new Blob([arquivo.bytes],{type:'image/png'}),arquivo.nome||'grafico.png');
+  const resposta=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/${metodo}`,{method:'POST',body:form});
+  return resposta.status;
+}
+
 export async function telegram(env,metodo,corpo,fetcher=fetch) {
   const resposta=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/${metodo}`,{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corpo),
@@ -106,6 +116,36 @@ export function sparkline(valores) {
   return numeros.map(v=>BLOCOS[max===min?3:Math.round((v-min)/(max-min)*(BLOCOS.length-1))]).join('');
 }
 
+// Termômetro: compara o preço com o menor preço de cada dia do último ano.
+// Abaixo de 14 dias de histórico não dá selo (seria enganoso).
+export const DIAS_TERMOMETRO=14;
+export function termometro(atual,valores=[]) {
+  const dias=valores.map(Number).filter(v=>v>0);
+  const preco=Number(atual);
+  if(!(preco>0)) return null;
+  if(dias.length<DIAS_TERMOMETRO) return {nivel:'aprendendo',dias:dias.length,emoji:'⏳',
+    texto:`Termômetro: juntando histórico (${dias.length} de ${DIAS_TERMOMETRO} dias)`};
+  const maisCaros=dias.filter(v=>v>preco).length, iguais=dias.filter(v=>v===preco).length;
+  const posicao=(dias.length-maisCaros-iguais/2)/dias.length; // 0 = o mais barato, 1 = o mais caro
+  const periodo=`dos últimos ${dias.length} dias`;
+  if(posicao<=0.25) return {nivel:'baixo',dias:dias.length,emoji:'🟢',
+    texto:`Preço baixo: mais barato que em ${Math.round(maisCaros/dias.length*100)}% ${periodo}`};
+  if(posicao>=0.75) return {nivel:'caro',dias:dias.length,emoji:'🔴',
+    texto:`Preço alto: esteve mais barato em ${Math.round(dias.filter(v=>v<preco).length/dias.length*100)}% ${periodo}`};
+  return {nivel:'medio',dias:dias.length,emoji:'🟡',texto:`Preço na média ${periodo}`};
+}
+
+const DIA_SQL="date(lido_em-10800,'unixepoch')";
+const diaDe=epoch=>new Date((epoch-10800)*1000).toISOString().slice(0,10);
+
+async function diarios(env,produtoId,desde) {
+  const {results=[]}=await env.DB.prepare(
+    `SELECT ${DIA_SQL} AS dia,MIN(preco) AS preco FROM monitor_leituras
+     WHERE produto_id=? AND disponivel=1 AND preco>0 AND lido_em>=? GROUP BY dia ORDER BY dia`,
+  ).bind(produtoId,desde).all();
+  return results;
+}
+
 async function historico(env,produtoId,now) {
   const resumo=await env.DB.prepare(
     `SELECT MIN(preco) AS minimo,MAX(preco) AS maximo,MIN(lido_em) AS desde,
@@ -113,11 +153,12 @@ async function historico(env,produtoId,now) {
        (SELECT disponivel FROM monitor_leituras WHERE produto_id=?1 ORDER BY lido_em DESC LIMIT 1) AS disponivel
      FROM monitor_leituras WHERE produto_id=?1 AND disponivel=1 AND preco>0 AND lido_em>=?2`,
   ).bind(produtoId,now-365*86400).first();
-  const {results=[]}=await env.DB.prepare(
-    `SELECT date(lido_em-10800,'unixepoch') AS dia,MIN(preco) AS preco FROM monitor_leituras
-     WHERE produto_id=? AND disponivel=1 AND preco>0 AND lido_em>=? GROUP BY dia ORDER BY dia`,
-  ).bind(produtoId,now-30*86400).all();
-  return {...(resumo||{}),linha:sparkline(results.map(r=>Number(r.preco)))};
+  const ano=await diarios(env,produtoId,now-365*86400);
+  const corte=diaDe(now-30*86400);
+  const valores=ano.map(r=>Number(r.preco));
+  return {...(resumo||{}),valores,
+    linha:sparkline(ano.filter(r=>!r.dia||r.dia>=corte).map(r=>Number(r.preco))),
+    termometro:termometro(resumo?.atual,valores)};
 }
 
 // Sem nome ainda (ex.: link curto da Shopee): o nome chega na primeira leitura.
@@ -143,6 +184,7 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
     linhas.push(`📊 Em ${dias} dia(s): menor ${html(money(h.minimo))} · maior ${html(money(h.maximo))}`);
   }
   if(h.linha) linhas.push(`📈 30 dias: ${h.linha}`);
+  if(h.atual&&h.disponivel!==0&&h.termometro) linhas.push(`${h.termometro.emoji} ${h.termometro.texto}`);
   const avisos=[];
   if(a.avisar_menor) avisos.push('✅ Menor preço do histórico');
   if(a.preco_alvo) avisos.push(`✅ Chegar a ${html(money(a.preco_alvo))} ou menos`);
@@ -158,7 +200,8 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   ];
   if(a.loja==='mercadolivre') teclado[1].push({text:`${a.avisar_estoque?'✅':'⬜'} Voltar ao estoque`,callback_data:`a:${id}:e`});
   const loja=urlPermitida(a.link_afiliado);
-  teclado.push([{text:'⏳ Prazo',callback_data:`a:${id}:p`},...(loja?[{text:'🛒 Ver na loja',url:loja}]:[])]);
+  teclado.push([{text:'📈 Gráfico',callback_data:`a:${id}:g`},{text:'⏳ Prazo',callback_data:`a:${id}:p`}]);
+  if(loja) teclado.push([{text:'🛒 Ver na loja',url:loja}]);
   teclado.push([{text:'🗑 Apagar alerta',callback_data:`a:${id}:x`},{text:'📋 Todos',callback_data:'l'}]);
   return {text:linhas.join('\n'),markup:{inline_keyboard:teclado}};
 }
@@ -235,12 +278,24 @@ async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
 
 export async function listPriceAlerts(env,chatId,now=Math.floor(Date.now()/1000)) {
   const {results=[]}=await env.DB.prepare(
-    `SELECT a.id,a.preco_alvo,a.avisar_menor,a.queda_percent,a.avisar_estoque,p.nome,p.id_produto,p.loja,
+    `SELECT a.id,a.produto_id,a.preco_alvo,a.avisar_menor,a.queda_percent,a.avisar_estoque,p.nome,p.id_produto,p.loja,
        (SELECT preco FROM monitor_leituras l WHERE l.produto_id=p.id AND l.disponivel=1 AND l.preco>0 ORDER BY l.lido_em DESC LIMIT 1) AS atual
      FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
      WHERE a.chat_id=? AND a.ativo=1 AND a.expira_em>? ORDER BY a.id`,
   ).bind(chatId,now).all();
-  return results;
+  if(!results.length) return results;
+  // Um só pedido para o termômetro de todos os produtos da lista.
+  const {results:dias=[]}=await env.DB.prepare(
+    `SELECT l.produto_id,${DIA_SQL.replace('lido_em','l.lido_em')} AS dia,MIN(l.preco) AS preco FROM monitor_leituras l
+     WHERE l.produto_id IN (SELECT produto_id FROM alerta_precos WHERE chat_id=? AND ativo=1 AND expira_em>?)
+       AND l.disponivel=1 AND l.preco>0 AND l.lido_em>=? GROUP BY l.produto_id,dia`,
+  ).bind(chatId,now,now-365*86400).all();
+  const porProduto=new Map();
+  for(const d of dias){
+    if(!porProduto.has(d.produto_id)) porProduto.set(d.produto_id,[]);
+    porProduto.get(d.produto_id).push(Number(d.preco));
+  }
+  return results.map(a=>({...a,termometro:a.atual?termometro(a.atual,porProduto.get(a.produto_id)||[]):null}));
 }
 
 function resumoAvisos(a) {
@@ -254,7 +309,8 @@ function resumoAvisos(a) {
 
 export function formatPriceAlertList(alertas) {
   return alertas.map((a,i)=>{
-    const atual=a.atual?`agora ${html(money(a.atual))}`:'aguardando a primeira leitura';
+    const selo=a.termometro&&a.termometro.nivel!=='aprendendo'?` ${a.termometro.emoji}`:'';
+    const atual=a.atual?`agora ${html(money(a.atual))}${selo}`:'aguardando a primeira leitura';
     return `${i+1}. ${nomeDe(a,90)}\n   ${atual} · ${html(resumoAvisos(a))}`;
   }).join('\n');
 }
@@ -324,6 +380,33 @@ export async function handlePriceChoice(env,chatId,texto,now=Math.floor(Date.now
   return definirValor(env,chatId,alerta.id,alvo,now);
 }
 
+// --- Gráfico -------------------------------------------------------------------------
+
+export const PERIODOS_GRAFICO=[[30,'30 dias'],[90,'90 dias'],[365,'1 ano']];
+
+// Devolve {answer, photo:{png,caption}, markup, edit}; edit troca a foto do
+// próprio gráfico (botões de período) em vez de mandar outra.
+async function grafico(env,a,dias,now,edit) {
+  const pontos=await diarios(env,a.produto_id,now-dias*86400);
+  const desenho=await graficoPng(pontos,{alvo:a.preco_alvo});
+  if(!desenho) return {answer:'Pouco histórico ainda',
+    text:`📈 Ainda não tenho histórico suficiente de <b>${nomeDe(a,90)}</b>. O gráfico aparece a partir do 2º dia de acompanhamento.`,
+    markup:{inline_keyboard:[[{text:'⚙️ Ajustar alerta',callback_data:`a:${a.id}:c`}]]}};
+  const dia=n=>data(n*86400+43200);
+  const ano=dias>=365?pontos:await diarios(env,a.produto_id,now-365*86400);
+  const selo=termometro(desenho.atual,ano.map(p=>Number(p.preco)));
+  const periodo=PERIODOS_GRAFICO.find(([d])=>d===dias)[1];
+  const desde=desenho.inicio*86400>now-(dias-2)*86400?` (acompanhado desde ${dia(desenho.inicio)})`:'';
+  const legenda=[`📈 <b>${nomeDe(a,120)}</b>`,`Últimos ${periodo}${desde}`,'',
+    `💰 Último preço: <b>${html(money(desenho.atual))}</b>`,
+    `🟢 Menor: ${html(money(desenho.minimo))} em ${dia(desenho.diaMenor)}`,
+    ...(desenho.diaMaior!==null?[`🔴 Maior: ${html(money(desenho.maximo))} em ${dia(desenho.diaMaior)}`]:[]),
+    ...(selo?['',`${selo.emoji} ${selo.texto}`]:[])];
+  const botoes=PERIODOS_GRAFICO.map(([d,t])=>d===dias?{text:`• ${t} •`,callback_data:'-'}:{text:t,callback_data:`a:${a.id}:gt:${d}`});
+  return {answer:`Gráfico de ${periodo}`,edit,photo:{png:desenho.png,caption:legenda.join('\n')},
+    markup:{inline_keyboard:[botoes,[{text:'⚙️ Ajustar alerta',callback_data:`a:${a.id}:c`}]]}};
+}
+
 // --- Botões dentro das mensagens (callback_query) -----------------------------------
 
 // Devolve {answer, text?, markup?, edit?}: answer é o aviso rápido do toque;
@@ -336,6 +419,7 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
     return {answer:'Seus alertas',text:`<b>Seus alertas de produto</b>\n\n${formatPriceAlertList(alertas)}\n\nToque em um para ver e ajustar.`,markup:listaComBotoes(alertas)};
   }
   if(texto==='ex') return {answer:'Exemplo',text:exemploDeAviso(),markup:null};
+  if(texto==='-') return {answer:'Este período já está aberto'};
   const achado=texto.match(/^a:(\d{1,12}):([a-z]{1,2})(?::(\d{1,4}))?$/);
   if(!achado) return {answer:'Opção inválida'};
   const [,id,acao,arg]=achado;
@@ -345,6 +429,8 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
   const editar=async(answer,titulo='')=>({answer,edit:true,...await cartao(env,chatId,a.id,now,titulo)});
   switch(acao){
     case 'c': return {answer:'Alerta',...await cartao(env,chatId,a.id,now)};
+    case 'g': return grafico(env,a,90,now,false);
+    case 'gt': return grafico(env,a,PERIODOS_GRAFICO.some(([d])=>d===Number(arg))?Number(arg):90,now,true);
     case 'm':
       await atualizar('avisar_menor=?,ativo=1',a.avisar_menor?0:1);
       return editar(a.avisar_menor?'Menor preço desligado':'Menor preço ligado');
@@ -409,7 +495,8 @@ export function exemploDeAviso() {
     '<b>Fone de Ouvido Bluetooth</b>',
     '💰 <b>R$ 189,90</b> (você pediu até R$ 199,90)',
     '📉 Caiu 24% desde que você criou o alerta',
-    '📈 30 dias: ▇▇▆▆▇▅▅▄▃▂▁','',
+    '📈 30 dias: ▇▇▆▆▇▅▅▄▃▂▁',
+    '🟢 Preço baixo: mais barato que em 92% dos últimos 120 dias','',
     'Para criar o seu, cole o link de um produto do Mercado Livre ou da Shopee.',
   ].join('\n');
 }
@@ -437,6 +524,8 @@ export function formatPriceNotice(aviso,alerta={},extra={}) {
   else if(Number(aviso.abaixo)>=1) linhas.push(`📉 ${Math.round(Number(aviso.abaixo))}% abaixo da média`);
   if(extra.minimo) linhas.push(`📊 Menor já visto: ${html(money(extra.minimo))} · maior: ${html(money(extra.maximo))}`);
   if(extra.linha) linhas.push(`📈 30 dias: ${extra.linha}`);
+  const selo=extra.valores?termometro(preco,extra.valores):null;
+  if(selo) linhas.push(`${selo.emoji} ${selo.texto}`);
   linhas.push('');
   if(extra.pausado) linhas.push('Este alerta foi pausado. Toque em 🔁 se quiser outro aviso.');
   linhas.push('<i>Preço pode mudar a qualquer momento. Link de afiliado.</i>');
@@ -470,7 +559,7 @@ export async function deliverPriceAlerts(env,avisos,now=Math.floor(Date.now()/10
     const estado=estadoDepoisDoAviso(aviso.motivo,alerta,preco);
     const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado};
     const teclado={inline_keyboard:[
-      [{text:'🛒 Comprar',url:link}],
+      [{text:'🛒 Comprar',url:link},{text:'📈 Gráfico',callback_data:`a:${alertaId}:g`}],
       [{text:'🔁 Avisar se cair mais',callback_data:`a:${alertaId}:f`},{text:'⚙️ Ajustar',callback_data:`a:${alertaId}:c`}],
       [{text:'✋ Parar este alerta',callback_data:`a:${alertaId}:s`}],
     ]};

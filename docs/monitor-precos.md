@@ -156,6 +156,19 @@ painel ganha o botão da campanha do bot de alertas).
   menor preço com estoque), uma vez por dia, para o D1 não crescer demais.
 - **Limites** padrão: 10 produtos por pessoa e 1.000 no total
   (`ALERTA_MAX_PRODUTOS_POR_PESSOA`, `ALERTA_MAX_PRODUTOS_TOTAL`, `ALERTA_DIAS_VALIDADE`).
+
+## Gráfico e termômetro (etapa 1 do plano)
+
+- **📈 Gráfico** no cartão e no aviso: PNG desenhado no próprio site
+  (`site/functions/_price_chart.js`, paleta de 9 cores, `CompressionStream`),
+  com o menor preço de cada dia, menor (verde), maior (vermelho), último preço
+  e o valor pedido tracejado. Vai por upload (multipart), sem link público.
+  Botões 30 dias · 90 dias · 1 ano trocam a mesma foto (`editMessageMedia`).
+  Precisa de pelo menos 2 dias com leitura.
+- **Termômetro** no cartão, no aviso, na lista e na legenda do gráfico: compara
+  o preço com o menor preço de cada dia do último ano. Entre os 25% mais
+  baratos 🟢 preço baixo; entre os 25% mais caros 🔴 preço alto; no meio 🟡 na
+  média. Com menos de 14 dias mostra "juntando histórico" (na lista, nada).
 - **Botões dentro das mensagens** precisam do webhook com `callback_query`. O
   site confere isso a cada coleta (`_alert_bot_setup.js`) e corrige sozinho,
   com o token e o segredo que já tem, junto com o menu de comandos e a descrição.

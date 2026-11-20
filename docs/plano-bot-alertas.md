@@ -10,12 +10,13 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
 ## Etapas
 
 ### Etapa 1 — Cartão que responde "compro agora?" (ideias 1 e 3)
-- [ ] **Gráfico de preço como imagem** (90 dias / 1 ano), com mínimo e máximo
+- [x] **Gráfico de preço como imagem** (90 dias / 1 ano), com mínimo e máximo
   marcados, no cartão (botão 📈 Gráfico) e no aviso.
   - Decisão: gerar o PNG no próprio site (Worker desenha a linha e comprime com
     `CompressionStream`), sem serviço de terceiros. Alternativa mais rápida:
     QuickChart.io (envia só datas e preços, nada da pessoa).
-- [ ] **Termômetro**: 🟢 preço baixo · 🟡 na média · 🔴 caro, comparando o preço
+  - Feito em 20/11/2026: gerado no site, com períodos 30 dias, 90 dias e 1 ano.
+- [x] **Termômetro**: 🟢 preço baixo · 🟡 na média · 🔴 caro, comparando o preço
   atual com o histórico (percentil do último ano). No cartão, no aviso e na lista.
 
 ### Etapa 2 — Buscar pelo nome (ideia 2)

@@ -1,6 +1,6 @@
 import {readJsonLimited} from '../_lib.js';
 import {ensureAlertTables,handleUpdate,sendTelegram} from '../_telegram_alerts.js';
-import {handleCallback,telegram} from '../_price_alerts.js';
+import {handleCallback,telegram,telegramArquivo} from '../_price_alerts.js';
 
 // Toque num botão dentro da mensagem: só vale no privado e só para o dono.
 export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
@@ -11,8 +11,9 @@ export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(D
   }
   const r=await handleCallback(env,chatId,consulta.data,now);
   await telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:String(r.answer||'').slice(0,190)},fetcher);
-  if(!r.text) return;
   const markup=r.markup===null?undefined:r.markup;
+  if(r.photo) return enviarGrafico(env,chatId,consulta,r,markup,fetcher);
+  if(!r.text) return;
   if(r.edit&&consulta.message?.text!==undefined){
     const status=await telegram(env,'editMessageText',{chat_id:chatId,message_id:consulta.message.message_id,text:r.text,
       parse_mode:'HTML',disable_web_page_preview:true,...(markup?{reply_markup:markup}:{})},fetcher);
@@ -20,6 +21,19 @@ export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(D
   }
   await telegram(env,'sendMessage',{chat_id:chatId,text:r.text,parse_mode:'HTML',disable_web_page_preview:true,
     ...(markup?{reply_markup:markup}:{})},fetcher);
+}
+
+// Gráfico: os botões de período trocam a própria foto; os outros mandam uma nova.
+async function enviarGrafico(env,chatId,consulta,r,markup,fetcher) {
+  const {png,caption}=r.photo;
+  if(r.edit&&consulta.message?.photo){
+    const status=await telegramArquivo(env,'editMessageMedia',{chat_id:chatId,message_id:String(consulta.message.message_id),
+      media:{type:'photo',media:'attach://grafico',caption,parse_mode:'HTML'},reply_markup:markup},
+    {campo:'grafico',bytes:png},fetcher);
+    if(status>=200&&status<300) return;
+  }
+  await telegramArquivo(env,'sendPhoto',{chat_id:chatId,caption,parse_mode:'HTML',reply_markup:markup},
+    {campo:'photo',bytes:png},fetcher);
 }
 
 const MAX_UPDATE_BYTES=65_536;
