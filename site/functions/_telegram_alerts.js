@@ -1,5 +1,5 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {deleteStatements,formatPriceAlertList,handlePriceAlert,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
+import {deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,listPriceAlerts,removePriceAlert} from './_price_alerts.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -56,6 +56,7 @@ const HELP=[
   '• Envie uma palavra, por exemplo: <code>air fryer</code>, e eu aviso quando o canal postar oferta disso.',
   '',
   '• /meusalertas — ver seus alertas',
+  '• /preco 1 599,90 — trocar o valor do alerta nº 1 · /menor 1 — voltar ao menor preço real',
   '• /remover air fryer ou /remover 2 — apagar um alerta',
   '• /parar — apagar todos os seus dados',
   '',
@@ -68,6 +69,8 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   if(!message||!chat||chat.type!=='private'||typeof message.text!=='string') return null;
   const chatId=String(chat.id);
   if(!/^\d{1,20}$/.test(chatId)) return null;
+  const escolha=await handlePriceChoice(env,chatId,message.text,now);
+  if(escolha) return escolha;
   const {command,argument}=parseCommand(message.text);
   if(command==='start'||command==='ajuda'||command==='help') return HELP;
   if(command==='meusalertas'){
@@ -111,9 +114,10 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   return HELP;
 }
 
-export async function sendTelegram(env,chatId,text,button,fetcher=fetch) {
+export async function sendTelegram(env,chatId,text,button,fetcher=fetch,markup=null) {
   const body={chat_id:chatId,text,parse_mode:'HTML',disable_web_page_preview:false};
   if(button) body.reply_markup={inline_keyboard:[[button]]};
+  if(markup) body.reply_markup=markup;
   const response=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/sendMessage`,{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
   });

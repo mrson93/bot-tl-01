@@ -56,6 +56,58 @@ async function enviar(env,chatId,texto,botao,now,fetcher) {
   return resposta.status;
 }
 
+export const BOTAO_MENOR='🔥 Menor preço real';
+export const BOTAO_VALOR='💰 Definir um valor';
+const TECLADO={keyboard:[[{text:BOTAO_MENOR},{text:BOTAO_VALOR}]],resize_keyboard:true,one_time_keyboard:true};
+const SEM_TECLADO={remove_keyboard:true};
+
+// Alerta mais recente da pessoa: é nele que a escolha pelos botões vale.
+async function alertaRecente(env,chatId,now) {
+  return env.DB.prepare(
+    `SELECT a.id,p.nome,p.id_produto FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+     WHERE a.chat_id=? AND a.ativo=1 AND a.expira_em>? ORDER BY a.criado_em DESC,a.id DESC LIMIT 1`,
+  ).bind(chatId,now).first();
+}
+
+function nomeCurto(alerta) {
+  return html(String(alerta?.nome||`o produto ${alerta?.id_produto||''}`).slice(0,90));
+}
+
+// Mensagens que não são link nem palavra: botões do teclado, valor solto e /preco.
+export async function handlePriceChoice(env,chatId,texto,now=Math.floor(Date.now()/1000)) {
+  const valor=String(texto||'').trim();
+  const comando=valor.match(/^\/(preco|menor)(?:@\w+)?\s*(\d{1,2})?\s*(.*)$/i);
+  let alerta=null, alvo;
+  if(comando){
+    const lista=comando[2]?await listPriceAlerts(env,chatId,now):null;
+    alerta=lista?lista[Number(comando[2])-1]:await alertaRecente(env,chatId,now);
+    if(!alerta) return 'Não achei esse alerta. Veja os números em /meusalertas.';
+    if(comando[1].toLowerCase()==='menor') alvo=null;
+    else{
+      alvo=parsePrice(comando[3]);
+      if(!alvo) return 'Use assim: <code>/preco 1 599,90</code> (o número vem de /meusalertas).';
+    }
+  }else if(valor===BOTAO_MENOR){
+    alvo=null;
+  }else if(valor===BOTAO_VALOR){
+    alerta=await alertaRecente(env,chatId,now);
+    if(!alerta) return null;
+    return {text:`Quanto você quer pagar por ${nomeCurto(alerta)}? Mande só o valor, por exemplo: <code>599,90</code>`,markup:SEM_TECLADO};
+  }else{
+    alvo=parsePrice(valor);
+    if(!alvo) return null;
+  }
+  alerta=alerta||await alertaRecente(env,chatId,now);
+  if(!alerta) return 'Primeiro cole o link de um produto do Mercado Livre. Depois você escolhe o valor.';
+  await env.DB.prepare('UPDATE alerta_precos SET preco_alvo=?,ultimo_aviso_em=NULL,ultimo_aviso_preco=NULL WHERE id=? AND chat_id=?')
+    .bind(alvo,alerta.id,chatId).run();
+  return {
+    text:alvo?`✅ Combinado! Aviso quando ${nomeCurto(alerta)} ficar em <b>${html(money(alvo))}</b> ou menos.`
+      :`✅ Combinado! Aviso quando ${nomeCurto(alerta)} chegar ao <b>menor preço real</b> do histórico.`,
+    markup:SEM_TECLADO,
+  };
+}
+
 export function deleteStatements(env,chatId) {
   return [env.DB.prepare('DELETE FROM alerta_precos WHERE chat_id=?').bind(chatId)];
 }
@@ -82,9 +134,13 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
     if(Number(total?.total||0)>=maxTotal(env)) return 'Os alertas de preço estão lotados no momento. Tente de novo em alguns dias.';
   }
   const linha=existente||await env.DB.prepare(
-    `INSERT INTO monitor_produtos(loja,id_produto,tipo,ativo,canal,criado_em) VALUES(?,?,?,1,0,?)
+    `INSERT INTO monitor_produtos(loja,id_produto,tipo,nome,ativo,canal,criado_em) VALUES(?,?,?,?,1,0,?)
      ON CONFLICT(loja,id_produto) DO UPDATE SET tipo=COALESCE(monitor_produtos.tipo,excluded.tipo) RETURNING id,nome`,
-  ).bind(produto.loja,produto.id_produto,produto.tipo,now).first();
+  ).bind(produto.loja,produto.id_produto,produto.tipo,produto.nome||null,now).first();
+  if(existente&&!existente.nome&&produto.nome){
+    await env.DB.prepare('UPDATE monitor_produtos SET nome=? WHERE id=? AND nome IS NULL').bind(produto.nome,existente.id).run();
+    linha.nome=produto.nome;
+  }
   await env.DB.prepare(
     `INSERT INTO alerta_precos(chat_id,produto_id,preco_alvo,ativo,criado_em,expira_em) VALUES(?,?,?,1,?,?)
      ON CONFLICT(chat_id,produto_id) DO UPDATE SET preco_alvo=excluded.preco_alvo,ativo=1,criado_em=excluded.criado_em,
@@ -95,12 +151,15 @@ export async function handlePriceAlert(env,chatId,texto,now=Math.floor(Date.now(
   const nome=linha.nome?`<b>${html(String(linha.nome).slice(0,120))}</b>`:'esse produto';
   const quando=pedido.alvo?`quando chegar a <b>${html(money(pedido.alvo))}</b> ou menos`
     :'quando for o <b>menor preço real</b> (comparado com o histórico, sem desconto falso)';
-  return [
+  const mensagem=[
     `✅ Combinado! Vou acompanhar ${nome} e aviso ${quando}.`,
     ultima?.preco?`Preço agora: ${html(money(ultima.preco))}.`:'A primeira leitura do preço sai em até 2 horas.',
     '',
+    pedido.alvo?'Para trocar o valor, mande outro, por exemplo: <code>549,90</code>.'
+      :`Prefere um valor? Toque em <b>${BOTAO_VALOR}</b> ou mande o preço, por exemplo: <code>599,90</code>.`,
     `O alerta vale por ${diasValidade(env)} dias. /meusalertas para ver todos.`,
   ].join('\n');
+  return pedido.alvo?mensagem:{text:mensagem,markup:TECLADO};
 }
 
 export async function listPriceAlerts(env,chatId,now=Math.floor(Date.now()/1000)) {
@@ -115,7 +174,7 @@ export async function listPriceAlerts(env,chatId,now=Math.floor(Date.now()/1000)
 
 export function formatPriceAlertList(alertas) {
   return alertas.map((a,i)=>{
-    const nome=html(String(a.nome||`Produto ${a.id_produto}`).slice(0,70));
+    const nome=html(String(a.nome||`Produto ${a.id_produto}`).slice(0,90));
     const atual=a.atual?`agora ${html(money(a.atual))}`:'aguardando a primeira leitura';
     const alvo=a.preco_alvo?`quero até ${html(money(a.preco_alvo))}`:'menor preço real';
     return `${i+1}. ${nome}\n   ${atual} · ${alvo}`;

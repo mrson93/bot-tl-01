@@ -50,7 +50,8 @@ test('cadastra alerta com preço e cria o produto só para o público',async()=>
   const resposta=await handlePriceAlert({DB:db},'55',`${LINK} 199,90`,1000,semRede);
   assert.match(resposta,/R\$\s?199,90/);
   const produto=db.executados.find(([sql])=>sql.includes('INSERT INTO monitor_produtos'));
-  assert.match(produto[0],/VALUES\(\?,\?,\?,1,0,\?\)/);
+  assert.match(produto[0],/VALUES\(\?,\?,\?,\?,1,0,\?\)/);
+  assert.equal(produto[1][3],null); // "fone" é curto demais para virar nome
   const alerta=db.executados.find(([sql])=>sql.includes('INSERT INTO alerta_precos'));
   assert.deepEqual(alerta[1].slice(0,3),['55',12,199.9]);
 });
@@ -65,7 +66,8 @@ test('respeita o limite por pessoa e recusa a Amazon por enquanto',async()=>{
 test('link colado na conversa vira alerta de preço; número remove',async()=>{
   const db=fakeDb({'INSERT INTO monitor_produtos':{id:3,nome:'Fone'},'alerta_precos a JOIN':[{id:30,nome:'Fone',id_produto:'MLB123'}]});
   const criado=await handleUpdate({DB:db},{message:{text:LINK,chat:{id:55,type:'private'}}},1000);
-  assert.match(criado,/menor preço real/);
+  assert.match(criado.text,/menor preço real/);
+  assert.equal(criado.markup.keyboard[0][1].text,'💰 Definir um valor');
   const removido=await handleUpdate({DB:db},{message:{text:'/remover 1',chat:{id:55,type:'private'}}},1000);
   assert.match(removido,/removido: Fone/);
   assert.ok(db.executados.some(([sql,args])=>sql.startsWith('DELETE FROM alerta_precos WHERE id=?')&&args[0]===30));
@@ -113,7 +115,7 @@ test('segue meli.la se identificando, até a página do produto',async()=>{
     return new Response(null,{status:301,headers:{Location:saltos[url]}});
   };
   assert.deepEqual(await resolveProductLink('https://meli.la/AbC123',fetcher),
-    {loja:'mercadolivre',id_produto:'MLB777',tipo:'catalogo'});
+    {loja:'mercadolivre',id_produto:'MLB777',tipo:'catalogo',nome:null});
   assert.equal(pedidos.length,2);
   assert.match(pedidos[0],/TaBaratoAlertaBot/);
 });
@@ -125,7 +127,7 @@ test('link de perfil de afiliado vira o produto compartilhado',async()=>{
     ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
     :new Response(pagina,{status:200});
   assert.deepEqual(await resolveProductLink('https://meli.la/1e8sTgB',fetcher),
-    {loja:'mercadolivre',id_produto:'MLB48692416',tipo:'catalogo'});
+    {loja:'mercadolivre',id_produto:'MLB48692416',tipo:'catalogo',nome:null});
 });
 
 test('perfil de afiliado sem produto explica o que mandar',async()=>{
@@ -134,4 +136,32 @@ test('perfil de afiliado sem produto explica o que mandar',async()=>{
     :new Response('<html>sem produto</html>',{status:200});
   const resposta=await handlePriceAlert({DB:fakeDb()},'55','https://meli.la/1e8sTgB',1000,fetcher);
   assert.match(resposta,/perfil de afiliado/);
+});
+
+test('nome vem do endereço ou da prévia da página',async()=>{
+  const {parseProductLink,resolveProductLink}=await import('../functions/_product_link.js');
+  assert.equal(parseProductLink('https://www.mercadolivre.com.br/carregador-portatil-anker/p/MLB1').nome,'Carregador portatil anker');
+  assert.equal(parseProductLink('https://produto.mercadolivre.com.br/MLB-123-fone-bluetooth-jbl-_JM').nome,'Fone bluetooth jbl');
+  const pagina='<meta property="og:title" content="Power Bank Anker 25000mAh - R$ 689"/><a href="https://www.mercadolivre.com.br/pb/p/MLB48692416">x</a>';
+  const fetcher=async(url)=>url.startsWith('https://meli.la')
+    ?new Response(null,{status:301,headers:{Location:'https://www.mercadolivre.com.br/social/fulano?ref=abc'}})
+    :new Response(pagina,{status:200});
+  assert.equal((await resolveProductLink('https://meli.la/x',fetcher)).nome,'Power Bank Anker 25000mAh');
+});
+
+test('escolha entre menor preço real e um valor',async()=>{
+  const {handlePriceChoice}=await import('../functions/_price_alerts.js');
+  const recente={id:7,nome:'Power Bank Anker',id_produto:'MLB1'};
+  const db=fakeDb({'ORDER BY a.criado_em DESC':recente});
+  const pedir=await handlePriceChoice({DB:db},'55','💰 Definir um valor',1000);
+  assert.match(pedir.text,/Quanto você quer pagar por Power Bank Anker/);
+  const valor=await handlePriceChoice({DB:db},'55','599,90',1000);
+  assert.match(valor.text,/R\$\s?599,90/);
+  const update=db.executados.find(([sql])=>sql.startsWith('UPDATE alerta_precos SET preco_alvo'));
+  assert.deepEqual(update[1],[599.9,7,'55']);
+  const menor=await handlePriceChoice({DB:db},'55','🔥 Menor preço real',1000);
+  assert.match(menor.text,/menor preço real/);
+  assert.equal(await handlePriceChoice({DB:db},'55','air fryer',1000),null);
+  const semAlerta=await handlePriceChoice({DB:fakeDb()},'55','599,90',1000);
+  assert.match(semAlerta,/Primeiro cole o link/);
 });

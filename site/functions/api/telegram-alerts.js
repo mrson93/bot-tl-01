@@ -28,7 +28,8 @@ export async function onRequestPost({request,env}) {
   await ensureAlertTables(env);
   const reply=await handleUpdate(env,update);
   if(reply){
-    try{await sendTelegram(env,String(update.message.chat.id),reply);}
+    const {text,markup}=typeof reply==='string'?{text:reply,markup:null}:reply;
+    try{await sendTelegram(env,String(update.message.chat.id),text,null,fetch,markup);}
     catch(error){console.error(JSON.stringify({event:'telegram_alert_reply',result:'failed',reason:String(error?.message||error).slice(0,80)}));}
   }
   // 200 mesmo sem resposta: o Telegram não deve reenviar mensagens ignoradas.

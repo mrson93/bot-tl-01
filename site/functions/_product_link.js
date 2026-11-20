@@ -20,6 +20,21 @@ function lerUrl(valor) {
   }
 }
 
+// "carregador-portatil-power-bank" -> "Carregador portatil power bank" (provisório:
+// a primeira leitura da API troca pelo título oficial).
+function nomeDoEndereco(trecho) {
+  const texto = decodeURIComponent(String(trecho || "").split("/").filter(Boolean).pop() || "")
+    .replace(/_JM$/i, "").replace(/[-_]+/g, " ").trim();
+  return texto.length >= 6 ? (texto[0].toUpperCase() + texto.slice(1)).slice(0, 160) : null;
+}
+
+function nomeDaPagina(html) {
+  const titulo = html.match(/<meta property="og:title" content="([^"]{3,400})"/i);
+  if (!titulo) return null;
+  return titulo[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\s+-\s+R\$\s*[\d.,]+\s*$/, "").trim().slice(0, 160) || null;
+}
+
 export function parseProductLink(valor) {
   const url = lerUrl(valor);
   if (!url) return null;
@@ -32,9 +47,9 @@ export function parseProductLink(valor) {
     const wid = params.get("wid") || "";
     if (/^MLB\d+$/i.test(wid)) return { loja: "mercadolivre", id_produto: wid.toUpperCase(), tipo: "anuncio" };
     const catalogo = url.pathname.match(/\/p\/(MLB\d+)/i);
-    if (catalogo) return { loja: "mercadolivre", id_produto: catalogo[1].toUpperCase(), tipo: "catalogo" };
-    const anuncio = url.pathname.match(/\/MLB-?(\d+)/i);
-    if (anuncio) return { loja: "mercadolivre", id_produto: `MLB${anuncio[1]}`, tipo: "anuncio" };
+    if (catalogo) return { loja: "mercadolivre", id_produto: catalogo[1].toUpperCase(), tipo: "catalogo", nome: nomeDoEndereco(url.pathname.split(/\/p\//i)[0]) };
+    const anuncio = url.pathname.match(/\/MLB-?(\d+)(?:-([^/]+))?/i);
+    if (anuncio) return { loja: "mercadolivre", id_produto: `MLB${anuncio[1]}`, tipo: "anuncio", nome: nomeDoEndereco(anuncio[2] || "") };
   }
   return null;
 }
@@ -49,7 +64,7 @@ async function produtoDoPerfil(url, fetchImpl) {
     if (resposta.status !== 200) return null;
     const html = (await resposta.text()).slice(0, 2_000_000);
     const achado = html.match(/https:\/\/www\.mercadolivre\.com\.br\/[^"'\s<>]*?\/p\/(MLB\d+)/i);
-    return achado ? { loja: "mercadolivre", id_produto: achado[1].toUpperCase(), tipo: "catalogo" } : null;
+    return achado ? { loja: "mercadolivre", id_produto: achado[1].toUpperCase(), tipo: "catalogo", nome: nomeDaPagina(html) } : null;
   } catch {
     return null;
   }
