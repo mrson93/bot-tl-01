@@ -2,6 +2,7 @@ import {html,money} from './_site.js';
 import {resolveProductLink} from './_product_link.js';
 import {graficoPng} from './_price_chart.js';
 import {VALIDADE_COMPARACAO,comparacao,sugestaoMaisBarata} from './_compare_stores.js';
+import {contarIndicacao,limitePessoa,maxComBonus,mensagemConvite} from './_referral.js';
 
 // Alertas de preço por produto do bot público (@TaBaratoAlertaDePrecoBot).
 // A pessoa cola o link do produto (ou toca em "Avisar quando baixar" num post
@@ -256,8 +257,12 @@ async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
     .bind(produto.loja,produto.id_produto).first();
   const meus=await env.DB.prepare('SELECT COUNT(*) AS total FROM alerta_precos WHERE chat_id=? AND ativo=1 AND expira_em>? AND produto_id<>?')
     .bind(chatId,now,existente?.id||0).first();
-  if(Number(meus?.total||0)>=maxPorPessoa(env)){
-    return {text:`Você já tem ${maxPorPessoa(env)} produtos com alerta. Abra 📋 Meus alertas e apague um para criar outro.`,markup:MENU};
+  const limiteDaPessoa=await limitePessoa(env,chatId);
+  if(Number(meus?.total||0)>=limiteDaPessoa){
+    const podeGanhar=limiteDaPessoa<maxComBonus(env);
+    return {text:`Você já tem ${limiteDaPessoa} produtos com alerta. Abra 📋 Meus alertas e apague um para criar outro`
+      +(podeGanhar?', ou convide amigos para ganhar mais vagas.':'.'),
+      markup:podeGanhar?{inline_keyboard:[[{text:'🎁 Convidar amigos',callback_data:'cv'}],[{text:'📋 Meus alertas',callback_data:'l'}]]}:MENU};
   }
   if(!existente){
     const total=await env.DB.prepare('SELECT COUNT(DISTINCT produto_id) AS total FROM alerta_precos WHERE ativo=1 AND expira_em>?').bind(now).first();
@@ -292,6 +297,8 @@ async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
        preco_base=excluded.preco_base,ativo=1,criado_em=excluded.criado_em,expira_em=excluded.expira_em,
        ultimo_aviso_em=NULL,ultimo_aviso_preco=NULL,lembrete_em=NULL,editando_em=NULL RETURNING id`,
   ).bind(chatId,linha.id,alvo,alvo?0:1,ultima?.preco||null,origem,now,now+diasValidade(env)*86400).first();
+  try{ await contarIndicacao(env,chatId,now); }
+  catch(error){ console.error(JSON.stringify({event:'indicacao',result:'failed',reason:String(error?.message||error).slice(0,60)})); }
   return cartao(env,chatId,alerta.id,now,'✅ <b>Alerta criado!</b> Toque nos botões para escolher os avisos.');
 }
 
@@ -342,6 +349,7 @@ export function listaComBotoes(alertas,resumo=null) {
   }]);
   if(resumo!==null){
     linhas.unshift([{text:'📱 Abrir painel (gráficos e ajustes)',web_app:{url:'https://canaltabarato.com.br/app/alertas'}}]);
+    linhas.push([{text:'🎁 Convidar amigos (mais vagas)',callback_data:'cv'}]);
     linhas.push([{text:`⚙️ Resumo semanal: ${resumo?'ligado':'desligado'}`,callback_data:`rs:${resumo?0:1}`}]);
   }
   return {inline_keyboard:linhas};
@@ -462,6 +470,7 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
       markup:{inline_keyboard:[[{text:ligar?'🔕 Desligar resumo':'🔔 Ligar resumo',callback_data:`rs:${ligar?0:1}`},{text:'📋 Meus alertas',callback_data:'l'}]]}};
   }
   if(texto==='ex') return {answer:'Exemplo',text:exemploDeAviso(),markup:null};
+  if(texto==='cv') return {answer:'Seu convite',...await mensagemConvite(env,chatId)};
   if(texto==='-') return {answer:'Este período já está aberto'};
   const achado=texto.match(/^a:(\d{1,12}):([a-z]{1,2})(?::(\d{1,4}))?$/);
   if(!achado) return {answer:'Opção inválida'};

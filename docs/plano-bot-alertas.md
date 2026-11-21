@@ -94,8 +94,12 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   alertas. Só /app/ aceita ser aberta pelo Telegram Web (frame-ancestors).
 
 ### Etapa 9 — Indicação (ideia 12)
-- [ ] Link próprio de cada pessoa (`?start=r_<código>`); quem trouxer amigos
+- [x] Link próprio de cada pessoa (`?start=r_<código>`); quem trouxer amigos
   ganha mais vagas (ex.: +5 por amigo que criar um alerta, até 30).
+- Feito em 20/11/2026 (migração 0030): código aleatório de 8 letras; só gente
+  nova (sem alerta) entra por indicação; conta no 1º alerta, uma vez; aviso a
+  quem indicou sem dizer quem foi; `ALERTA_BONUS_POR_AMIGO` (5) e
+  `ALERTA_MAX_COM_BONUS` (30); /convidar e botão em Meus alertas.
 
 ### Etapa 10 — Grupos (ideia 14)
 - [ ] Bot em grupos (família/amigos): lista de desejos compartilhada, avisos no

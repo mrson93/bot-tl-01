@@ -11,6 +11,7 @@ export const COMANDOS=[
   {command:'start',description:'Como funciona e menu'},
   {command:'buscar',description:'Buscar um produto pelo nome'},
   {command:'meusalertas',description:'Ver e ajustar meus alertas'},
+  {command:'convidar',description:'Convidar amigos e ganhar vagas'},
   {command:'ajuda',description:'Ajuda'},
   {command:'parar',description:'Apagar todos os meus dados'},
 ];
@@ -52,6 +53,13 @@ export async function garantirConfiguracao(env,fetcher=fetch) {
   if(info.url!==WEBHOOK_URL||!ATUALIZACOES.every(t=>atuais.includes(t))){
     await telegram(env,'setWebhook',{url:WEBHOOK_URL,secret_token:env.TELEGRAM_ALERTS_WEBHOOK_SECRET,
       allowed_updates:ATUALIZACOES,drop_pending_updates:false},fetcher);
+    mudou=true;
+  }
+  // Comandos: confere a lista publicada (muda sem precisar trocar a descrição).
+  const comandos=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/getMyCommands`);
+  const publicados=((await comandos.json())?.result||[]).map(c=>c.command).join(',');
+  if(publicados!==COMANDOS.map(c=>c.command).join(',')){
+    await telegram(env,'setMyCommands',{commands:COMANDOS},fetcher);
     mudou=true;
   }
   const menu=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/getChatMenuButton`);

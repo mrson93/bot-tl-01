@@ -1,5 +1,6 @@
 import {SITE,html,money,offerPath} from './_site.js';
 import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert,resumoLigado} from './_price_alerts.js';
+import {mensagemConvite,registrarIndicacao} from './_referral.js';
 import {PERGUNTA_BUSCA,amazonNoCatalogo,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
@@ -57,7 +58,7 @@ function ajuda(env) {
     '',
     '💬 Em qualquer conversa, digite <code>@TaBaratoAlertaDePrecoBot fone</code> para mandar um produto com preço e histórico para alguém.',
     '',
-    `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa. Guardo só o número do seu chat; /parar apaga tudo.`,
+    `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa (convide amigos com /convidar para ganhar mais vagas). Guardo só o número do seu chat; /parar apaga tudo.`,
   ].join('\n');
 }
 
@@ -127,6 +128,12 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
     const produto=await handleStartProduct(env,chatId,argument,now);
     if(produto) return produto;
   }
+  if(command==='start'&&/^r_[a-z0-9]{8}$/.test(argument)){
+    const veio=await registrarIndicacao(env,chatId,argument.slice(2));
+    return [{text:`${veio?'👋 Que bom que você veio pelo convite de um amigo!\n\n':''}${ajuda(env)}`,markup:MENU},
+      {text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
+  }
+  if(command==='convidar'||command==='indicar') return mensagemConvite(env,chatId);
   if(command==='start') return [{text:ajuda(env),markup:MENU},{text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
   if(command==='ajuda'||command==='help') return {text:ajuda(env),markup:MENU};
   if(command==='buscar') return argument?buscar(env,argument,now):perguntaBusca();

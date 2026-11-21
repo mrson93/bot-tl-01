@@ -278,3 +278,18 @@ painel ganha o botão da campanha do bot de alertas).
 - Botão de menu do bot (`setChatMenuButton`, conferido junto com o perfil) e
   "📱 Abrir painel" no topo de Meus alertas.
 
+## Indicação (etapa 9 do plano)
+
+- `site/functions/_referral.js`. Migração 0030: `alerta_pessoas` ganha `codigo`
+  (aleatório, índice único), `indicado_por` e `indicacao_contada_em`.
+- Link `t.me/TaBaratoAlertaDePrecoBot?start=r_<código>`. Só marca quem nunca
+  teve alerta de produto e não é a própria pessoa; o primeiro convite vale.
+- Conta quando o amigo cria o 1º alerta (`contarIndicacao` em
+  `cadastrarAlerta`), uma vez; quem indicou recebe aviso sem saber quem foi.
+- Limite por pessoa = base (`ALERTA_MAX_PRODUTOS_POR_PESSOA`, 10) + amigos ×
+  `ALERTA_BONUS_POR_AMIGO` (5), até `ALERTA_MAX_COM_BONUS` (30). `/parar`
+  apaga a linha do amigo e ele deixa de contar.
+- `/convidar`, botão "🎁 Convidar amigos" em Meus alertas e no aviso de limite
+  cheio, com botão de compartilhar (`t.me/share/url`). Comandos do bot são
+  conferidos na primeira mensagem de cada instância (`getMyCommands`).
+
