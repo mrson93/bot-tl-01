@@ -235,9 +235,9 @@ test('cartão sem leitura ainda explica a espera',async()=>{
 });
 
 test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) só quando falta',async()=>{
-  const {garantirConfiguracao,DESCRICAO,FOTO_URL}=await import('../functions/_alert_bot_setup.js');
+  const {garantirConfiguracao,DESCRICAO,FOTO_URL,ATUALIZACOES}=await import('../functions/_alert_bot_setup.js');
   const env={TELEGRAM_ALERTS_BOT_TOKEN:'t',TELEGRAM_ALERTS_WEBHOOK_SECRET:'segredo'};
-  const WEBHOOK={url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:['message','callback_query']};
+  const WEBHOOK={url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:ATUALIZACOES};
   let chamadas=[];
   const fetcher=(info,descricao,fotoStatus=200)=>async(url,init)=>{
     if(url===FOTO_URL) return new Response(new Uint8Array([255,216,255]),{status:200});
@@ -255,7 +255,7 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
   assert.equal(await garantirConfiguracao(env,fetcher({...WEBHOOK,allowed_updates:['message']},DESCRICAO)),true);
   const webhook=chamadas[chamadas.indexOf('setWebhook')+1];
   assert.equal(webhook.secret_token,'segredo');
-  assert.deepEqual(webhook.allowed_updates,['message','callback_query']);
+  assert.deepEqual(webhook.allowed_updates,['message','callback_query','inline_query']);
   assert.ok(!chamadas.includes('setMyProfilePhoto'));
   // Descrição antiga: comandos, foto e, por último, a descrição nova.
   chamadas=[];

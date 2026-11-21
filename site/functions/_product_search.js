@@ -89,7 +89,8 @@ async function buscarCatalogo(env,termo) {
     const [,loja,id]=String(r.id).match(/^(mercadolivre|shopee|aliexpress)_(.+)$/)||[];
     const valido=loja==='mercadolivre'?/^MLB\d+$/i.test(id):loja==='aliexpress'?/^\d{6,20}$/.test(id):/^\d+_\d+$/.test(id||'');
     return valido?{loja,id_produto:loja==='mercadolivre'?id.toUpperCase():id,nome:String(r.title||'').slice(0,160),
-      preco:Number(r.price),vendas:Number(r.sales)||0,nota:Number(r.rating)||0,imagem:r.image_url||null}:null;
+      preco:Number(r.price),vendas:Number(r.sales)||0,nota:Number(r.rating)||0,imagem:r.image_url||null,
+      link:`https://canaltabarato.com.br/go/${encodeURIComponent(r.id)}`}:null;
   }).filter(Boolean);
 }
 

@@ -254,3 +254,14 @@ painel ganha o botão da campanha do bot de alertas).
   falhar, tenta de novo na coleta seguinte. Fonte do ícone:
   `public/bot/alerta-icone.svg`.
 
+## Modo inline (etapa 7 do plano)
+
+- `@TaBaratoAlertaDePrecoBot fone` em qualquer conversa (modo inline ligado no
+  @BotFather com `/setinline`). `site/functions/_inline.js` usa a busca da
+  etapa 2 e devolve artigos com foto, preço, loja, histórico e termômetro;
+  botões "🛒 Ver na loja" e "🔔 Criar alerta de preço" (`?start=ml_|sp_|ae_`).
+  Consulta com menos de 3 letras não busca; `cache_time` 300 s; nada é gravado.
+- O webhook recebe `inline_query` (`ATUALIZACOES`). Na primeira mensagem de
+  cada instância do site, `garantirConfiguracao` confere webhook, descrição e
+  foto (antes só rodava na coleta).
+

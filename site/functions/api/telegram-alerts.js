@@ -1,6 +1,8 @@
 import {readJsonLimited} from '../_lib.js';
 import {ensureAlertTables,handleAlertCallback,handleUpdate,sendTelegram} from '../_telegram_alerts.js';
 import {telegram,telegramArquivo} from '../_price_alerts.js';
+import {respostaInline} from '../_inline.js';
+import {garantirConfiguracao} from '../_alert_bot_setup.js';
 
 // Toque num botão dentro da mensagem: só vale no privado e só para o dono.
 export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
@@ -51,7 +53,20 @@ async function secureEqual(left,right) {
 
 // Webhook do bot público de alertas. O Telegram envia o segredo definido em
 // setWebhook no cabeçalho abaixo; sem ele configurado, o endpoint fica fechado.
-export async function onRequestPost({request,env}) {
+// Consulta inline (@bot fone em qualquer conversa): responde direto, sem guardar nada.
+export async function responderInline(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
+  if(!consulta?.id) return;
+  let corpo;
+  try{ corpo=await respostaInline(env,consulta.query,now,fetcher); }
+  catch{ corpo={results:[],cache_time:30}; }
+  await telegram(env,'answerInlineQuery',{inline_query_id:String(consulta.id),...corpo},fetcher);
+}
+
+// Uma vez por instância do site: confere webhook, descrição e foto do bot.
+// Assim a mudança vale na primeira mensagem depois do deploy, sem esperar a coleta.
+let perfilConferido=false;
+
+export async function onRequestPost({request,env,waitUntil}) {
   const expected=String(env.TELEGRAM_ALERTS_WEBHOOK_SECRET||'');
   if(!expected||!env.TELEGRAM_ALERTS_BOT_TOKEN) return new Response('Unavailable',{status:503});
   if(!await secureEqual(request.headers.get('X-Telegram-Bot-Api-Secret-Token'),expected)){
@@ -60,6 +75,15 @@ export async function onRequestPost({request,env}) {
   if(Number(request.headers.get('Content-Length')||0)>MAX_UPDATE_BYTES) return new Response('Too large',{status:413});
   let update;
   try{update=await readJsonLimited(request,MAX_UPDATE_BYTES);}catch{return new Response('Bad request',{status:400});}
+  if(!perfilConferido){
+    perfilConferido=true;
+    const conferir=garantirConfiguracao(env).catch(error=>console.error(JSON.stringify({event:'bot_setup',result:'failed',reason:String(error?.message||error).slice(0,80)})));
+    if(typeof waitUntil==='function') waitUntil(conferir); else await conferir;
+  }
+  if(update?.inline_query){
+    await responderInline(env,update.inline_query).catch(()=>{});
+    return new Response('OK',{status:200});
+  }
   await ensureAlertTables(env);
   try{
     if(update?.callback_query) await responderBotao(env,update.callback_query);

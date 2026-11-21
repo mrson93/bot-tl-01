@@ -6,7 +6,7 @@ import {telegram,telegramArquivo} from './_price_alerts.js';
 
 const TELEGRAM_API='https://api.telegram.org';
 export const WEBHOOK_URL='https://canaltabarato.com.br/api/telegram-alerts';
-export const ATUALIZACOES=['message','callback_query'];
+export const ATUALIZACOES=['message','callback_query','inline_query'];
 export const COMANDOS=[
   {command:'start',description:'Como funciona e menu'},
   {command:'buscar',description:'Buscar um produto pelo nome'},
@@ -14,7 +14,7 @@ export const COMANDOS=[
   {command:'ajuda',description:'Ajuda'},
   {command:'parar',description:'Apagar todos os meus dados'},
 ];
-export const DESCRICAO='Cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress (ou busque pelo nome) e eu aviso no seu privado quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher ou queda de %. Gráfico de preço e termômetro de compra. Grátis, por até 1 ano. /parar apaga seus dados.';
+export const DESCRICAO='Cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress (ou busque pelo nome) e eu aviso no seu privado quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher ou queda de %. Gráfico de preço e termômetro de compra. Em qualquer conversa, digite @TaBaratoAlertaDePrecoBot e o nome do produto. Grátis, por até 1 ano. /parar apaga seus dados.';
 // Foto do bot (sino com etiqueta de preço e seta para baixo); fonte em public/bot/alerta-icone.svg.
 export const FOTO_URL='https://canaltabarato.com.br/bot/alerta-icone.jpg';
 export const DESCRICAO_CURTA='Alerta de preço grátis: aviso quando o produto que você quer baixar de verdade.';

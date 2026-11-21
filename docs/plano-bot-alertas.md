@@ -75,10 +75,14 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   descrição atualizada, aplicadas pelo site na coleta seguinte ao deploy.
 
 ### Etapa 7 — Modo inline (ideia 9)
-- [ ] Em qualquer conversa: `@TaBaratoAlertaDePrecoBot fone` → resultados com
+- [x] Em qualquer conversa: `@TaBaratoAlertaDePrecoBot fone` → resultados com
   histórico e botão "Criar alerta".
 - Precisa ligar o modo inline no @BotFather (`/setinline`) — só a pessoa dona do
   bot faz — e incluir `inline_query` no webhook (`_alert_bot_setup.js`).
+- Feito em 20/11/2026: `/setinline` feito pelo dono; resultados da mesma busca
+  da etapa 2 (até 5), com "Ver na loja" e "Criar alerta"; nada é gravado.
+  O site confere webhook, descrição e foto na primeira mensagem de cada
+  instância (não espera mais a coleta).
 
 ### Etapa 8 — Mini app do Telegram (ideia 10)
 - [ ] Página `/app/alertas` aberta dentro do Telegram (Web App): lista, gráficos e

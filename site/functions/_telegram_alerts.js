@@ -55,6 +55,8 @@ function ajuda(env) {
     '',
     '🔎 Não tem o link? Toque em <b>Buscar produto</b> ou mande só o nome, como <code>air fryer</code>, e escolha nos resultados. Ali também dá para pedir aviso quando o canal postar oferta disso.',
     '',
+    '💬 Em qualquer conversa, digite <code>@TaBaratoAlertaDePrecoBot fone</code> para mandar um produto com preço e histórico para alguém.',
+    '',
     `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa. Guardo só o número do seu chat; /parar apaga tudo.`,
   ].join('\n');
 }
