@@ -110,7 +110,7 @@ export function apagarPessoa(env,chatId) {
 
 export async function lerAlerta(env,chatId,alertaId) {
   return env.DB.prepare(
-    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em
+    `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.link_cartao,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em
      FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id WHERE a.id=? AND a.chat_id=?`,
   ).bind(Number(alertaId),String(chatId)).first();
 }
@@ -141,6 +141,30 @@ export function termometro(atual,valores=[]) {
   return {nivel:'medio',dias:dias.length,emoji:'🟡',texto:`Preço na média ${periodo}`};
 }
 
+// Desconto maquiado (o golpe da Black Friday): o preço sobe nas semanas antes
+// e "cai" de volta para perto do que já era. Compara o pico das últimas 3
+// semanas com o preço típico (mediana) de 3 semanas a 3 meses atrás.
+export function promocaoMaquiada(atual,dias=[],now=Math.floor(Date.now()/1000)) {
+  const preco=Number(atual);
+  if(!(preco>0)) return null;
+  const hoje=diaDe(now), corte=diaDe(now-21*86400), inicio=diaDe(now-90*86400);
+  const recentes=[], antes=[];
+  for(const d of dias){
+    const v=Number(d?.preco);
+    if(!(v>0)||!d.dia||d.dia>=hoje||d.dia<inicio) continue;
+    (d.dia>=corte?recentes:antes).push(v);
+  }
+  if(recentes.length<5||antes.length<10) return null;
+  antes.sort((a,b)=>a-b);
+  const meio=antes.length>>1;
+  const tipico=antes.length%2?antes[meio]:(antes[meio-1]+antes[meio])/2;
+  const pico=Math.max(...recentes);
+  return pico>=tipico*1.15&&preco>=tipico*0.97?{antes:tipico,pico}:null;
+}
+export function linhaMaquiada(m) {
+  return m?`⚠️ <b>Desconto maquiado?</b> Subiu para ${html(money(m.pico))} nas últimas semanas e agora voltou perto do preço de antes (${html(money(m.antes))}).`:'';
+}
+
 const DIA_SQL="date(lido_em-10800,'unixepoch')";
 const diaDe=epoch=>new Date((epoch-10800)*1000).toISOString().slice(0,10);
 
@@ -163,6 +187,7 @@ export async function historico(env,produtoId,now) {
   const corte=diaDe(now-30*86400);
   const valores=ano.map(r=>Number(r.preco));
   return {...(resumo||{}),valores,
+    maquiada:promocaoMaquiada(resumo?.atual,ano,now),
     linha:sparkline(ano.filter(r=>!r.dia||r.dia>=corte).map(r=>Number(r.preco))),
     termometro:termometro(resumo?.atual,valores)};
 }
@@ -179,6 +204,10 @@ function nomeDe(alerta,limiteTexto=120) {
 export const HORAS_SEM_LEITURA=6;
 
 // Shopee sem link de afiliado (a coleta não conseguiu gerar): o site gera e guarda.
+// Botão "Ver na loja" do cartão e do mini app: o link rastreado (conta o clique
+// no canal alerta_cartao) quando a coleta já criou; se não, o de afiliado.
+export const linkDaLoja=a=>urlPermitida(a?.link_cartao,['go.canaltabarato.com.br'])||urlPermitida(a?.link_afiliado);
+
 async function linkQueFalta(env,a) {
   if(a.loja!=='shopee'||a.link_afiliado) return null;
   const link=urlPermitida(await gerarLinkShopee(env,a.id_produto));
@@ -202,6 +231,7 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   if(h.atual){
     linhas.push(`💰 Agora: ${precoComVariacoes(h.atual,a.preco_max)}${h.disponivel===0?' · sem estoque':''}`);
     if(comEstoque&&h.termometro) linhas.push(`${h.termometro.emoji} ${h.termometro.texto}`);
+    if(comEstoque&&h.maquiada) linhas.push(linhaMaquiada(h.maquiada));
   }else if(Number(a.criado_em)&&now-Number(a.criado_em)>HORAS_SEM_LEITURA*3600){
     linhas.push('⚠️ Ainda não consegui ler o preço deste produto na loja.',
       a.loja==='mercadolivre'
@@ -226,7 +256,7 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   linhas.push('','<b>Vou te avisar quando:</b>',...(avisos.length?avisos:['⚠️ Nenhum aviso ligado. Escolha um abaixo.']));
   linhas.push('',a.ativo?`⏳ Alerta vale até ${data(a.expira_em)}.`:'⏸ Alerta pausado. Toque em ⏳ Prazo para reativar.');
   const id=a.id;
-  const loja=urlPermitida(a.link_afiliado)||await linkQueFalta(env,a);
+  const loja=linkDaLoja(a)||await linkQueFalta(env,a);
   const grafico={text:'📈 Gráfico',callback_data:`a:${id}:g`}, prazo={text:'⏳ Prazo',callback_data:`a:${id}:p`};
   const teclado=[
     loja?[{text:'🛒 Ver na loja',url:loja},grafico]:[grafico,prazo],
@@ -646,6 +676,7 @@ export function formatPriceNotice(aviso,alerta={},extra={}) {
   if(extra.linha) linhas.push(`📈 30 dias: ${extra.linha}`);
   const selo=extra.valores?termometro(preco,extra.valores):null;
   if(selo) linhas.push(`${selo.emoji} ${selo.texto}`);
+  if(extra.maquiada) linhas.push(linhaMaquiada(extra.maquiada));
   linhas.push('');
   if(extra.pausado) linhas.push('Este alerta foi pausado. Toque em 🔁 se quiser outro aviso.');
   linhas.push('<i>Preço pode mudar a qualquer momento. Link de afiliado.</i>');
@@ -661,56 +692,114 @@ function estadoDepoisDoAviso(motivo,alerta,preco) {
   return {sql:'ativo=1',valores:[],pausado:false};
 }
 
+// Botão "📤 Mandar para alguém": abre a tela de encaminhar do Telegram com a
+// oferta e o mesmo link de afiliado do aviso.
+export function botaoEncaminhar(env,nome,preco,link) {
+  const bot=/^[A-Za-z0-9_]{5,32}$/.test(String(env?.TELEGRAM_ALERTS_BOT_USERNAME||''))?env.TELEGRAM_ALERTS_BOT_USERNAME:'TaBaratoAlertaDePrecoBot';
+  const texto=`${String(nome||'Olha essa oferta').slice(0,70)} por ${money(preco)} (achei pelo @${bot})`;
+  return {text:'📤 Mandar para alguém',url:`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(texto)}`};
+}
+
+// Vários avisos para a mesma pessoa na mesma coleta viram uma mensagem só.
+export const JUNTAR_A_PARTIR=3;
+const POR_MENSAGEM=8;
+const MOTIVO_CURTO={alvo:'🔔 Bateu o seu valor',queda:'📉 Caiu o que você pediu',estoque:'📦 Voltou ao estoque',
+  menor_preco:'🔥 Menor preço',abaixo_media:'🔥 Bem abaixo da média'};
+
+export function formatarJuntos(prontos) {
+  const linhas=[`🔔 <b>${prontos.length} produtos da sua lista mudaram de preço</b>`,''];
+  prontos.forEach((p,i)=>{
+    linhas.push(`${i+1}. <b>${html(String(p.alerta.nome||p.aviso.nome||'Produto').slice(0,90))}</b>`,
+      `   ${MOTIVO_CURTO[p.aviso.motivo]||'🔥 Baixou'} · ${precoComVariacoes(p.preco,p.alerta.preco_max)}${p.estado.pausado?' · alerta pausado':''}`);
+    if(p.extra.maquiada) linhas.push('   ⚠️ Cuidado: subiu antes de cair (desconto maquiado?)');
+  });
+  linhas.push('','<i>Preço pode mudar a qualquer momento. Link de afiliado.</i>');
+  const teclado=prontos.map((p,i)=>[{text:`🛒 ${i+1}. Comprar`,url:p.link},{text:`⚙️ ${i+1}. Ajustar`,callback_data:`a:${p.alertaId}:c`}]);
+  return {texto:linhas.join('\n'),teclado:{inline_keyboard:teclado}};
+}
+
+async function prepararAviso(env,aviso,now,cota) {
+  const alertaId=Number(aviso?.alerta_id), preco=Number(aviso?.preco);
+  const link=urlPermitida(aviso?.link);
+  if(!Number.isInteger(alertaId)||!(preco>0)||!link||!MOTIVOS.has(aviso?.motivo)) return null;
+  const alerta=await env.DB.prepare(
+    `SELECT a.*,p.nome,p.imagem,p.loja,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+     WHERE a.id=? AND a.produto_id=? AND a.ativo=1 AND a.expira_em>?`,
+  ).bind(alertaId,Number(aviso.produto_id),now).first();
+  if(!alerta) return null;
+  if(aviso.motivo==='alvo'&&(!alerta.preco_alvo||preco>alerta.preco_alvo)) return null;
+  const estado=estadoDepoisDoAviso(aviso.motivo,alerta,preco);
+  const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado,now,
+    voucher:alerta.cupom_codigo?null:await voucherDaLoja(env,alerta.loja,now),
+    outraLoja:alerta.nome?sugestaoMaisBarata(await comparacao(env,alerta,preco,now,fetch,
+      Number(alerta.comparado_em)>now-VALIDADE_COMPARACAO||cota.buscas++<5),preco):null};
+  return {aviso,alertaId,preco,link,alerta,estado,extra};
+}
+
+async function registrarAviso(env,p,now) {
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE alerta_precos SET ultimo_aviso_em=?,ultimo_aviso_preco=?${p.estado.sql?`,${p.estado.sql}`:''} WHERE id=?`)
+      .bind(now,p.preco,...p.estado.valores,p.alertaId),
+    env.DB.prepare('INSERT INTO alerta_avisos(alerta_id,chat_id,produto_id,motivo,preco,enviado_em) VALUES(?,?,?,?,?,?)')
+      .bind(p.alertaId,p.alerta.chat_id,p.alerta.produto_id,p.aviso.motivo,p.preco,now),
+  ]);
+}
+
+async function enviarUm(env,p,now,fetcher) {
+  const {alertaId,alerta,extra}=p;
+  const teclado={inline_keyboard:[
+    [{text:'🛒 Comprar',url:p.link},{text:'📈 Gráfico',callback_data:`a:${alertaId}:g`}],
+    ...(extra.outraLoja?[[extra.outraLoja.botao]]:[]),
+    [{text:'🔁 Avisar se cair mais',callback_data:`a:${alertaId}:f`},{text:'⚙️ Ajustar',callback_data:`a:${alertaId}:c`}],
+    [botaoEncaminhar(env,alerta.nome||p.aviso.nome,p.preco,p.link)],
+    [{text:'✋ Parar este alerta',callback_data:`a:${alertaId}:s`}],
+  ]};
+  const texto=formatPriceNotice({...p.aviso,preco:p.preco},alerta,extra);
+  const imagem=urlPermitida(alerta.imagem,HOSTS_IMAGEM);
+  let status=imagem&&texto.length<=1000
+    ?await telegram(env,'sendPhoto',{chat_id:alerta.chat_id,photo:imagem,caption:texto,parse_mode:'HTML',
+      reply_markup:teclado,disable_notification:silencioso(now)},fetcher)
+    :0;
+  if(status!==403&&!(status>=200&&status<300)){
+    status=await telegram(env,'sendMessage',{chat_id:alerta.chat_id,text:texto,parse_mode:'HTML',reply_markup:teclado,
+      disable_web_page_preview:true,disable_notification:silencioso(now)},fetcher);
+  }
+  return status;
+}
+
 // Entrega os avisos decididos pela coleta. Confere de novo se o alerta ainda
 // existe (a pessoa pode ter apagado entre a leitura e o aviso).
 export async function deliverPriceAlerts(env,avisos,now=Math.floor(Date.now()/1000),fetcher=fetch) {
   if(!env.TELEGRAM_ALERTS_BOT_TOKEN) return 0;
-  let enviados=0, buscasNovas=0;  // até 5 comparações novas por coleta; o resto usa o que estiver guardado
+  const cota={buscas:0};  // até 5 comparações novas por coleta; o resto usa o que estiver guardado
+  const porChat=new Map();
   for(const aviso of (Array.isArray(avisos)?avisos:[]).slice(0,500)){
-    const alertaId=Number(aviso?.alerta_id), preco=Number(aviso?.preco);
-    const link=urlPermitida(aviso?.link);
-    if(!Number.isInteger(alertaId)||!(preco>0)||!link||!MOTIVOS.has(aviso?.motivo)) continue;
-    const alerta=await env.DB.prepare(
-      `SELECT a.*,p.nome,p.imagem,p.loja,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
-       WHERE a.id=? AND a.produto_id=? AND a.ativo=1 AND a.expira_em>?`,
-    ).bind(alertaId,Number(aviso.produto_id),now).first();
-    if(!alerta) continue;
-    if(aviso.motivo==='alvo'&&(!alerta.preco_alvo||preco>alerta.preco_alvo)) continue;
-    const estado=estadoDepoisDoAviso(aviso.motivo,alerta,preco);
-    const extra={...await historico(env,alerta.produto_id,now),pausado:estado.pausado,now,
-      voucher:alerta.cupom_codigo?null:await voucherDaLoja(env,alerta.loja,now),
-      outraLoja:alerta.nome?sugestaoMaisBarata(await comparacao(env,alerta,preco,now,fetch,
-        Number(alerta.comparado_em)>now-VALIDADE_COMPARACAO||buscasNovas++<5),preco):null};
-    const teclado={inline_keyboard:[
-      [{text:'🛒 Comprar',url:link},{text:'📈 Gráfico',callback_data:`a:${alertaId}:g`}],
-      ...(extra.outraLoja?[[extra.outraLoja.botao]]:[]),
-      [{text:'🔁 Avisar se cair mais',callback_data:`a:${alertaId}:f`},{text:'⚙️ Ajustar',callback_data:`a:${alertaId}:c`}],
-      [{text:'✋ Parar este alerta',callback_data:`a:${alertaId}:s`}],
-    ]};
-    const texto=formatPriceNotice({...aviso,preco},alerta,extra);
-    const imagem=urlPermitida(alerta.imagem,HOSTS_IMAGEM);
-    try{
-      let status=imagem&&texto.length<=1000
-        ?await telegram(env,'sendPhoto',{chat_id:alerta.chat_id,photo:imagem,caption:texto,parse_mode:'HTML',
-          reply_markup:teclado,disable_notification:silencioso(now)},fetcher)
-        :0;
-      if(status!==403&&!(status>=200&&status<300)){
-        status=await telegram(env,'sendMessage',{chat_id:alerta.chat_id,text:texto,parse_mode:'HTML',reply_markup:teclado,
-          disable_web_page_preview:true,disable_notification:silencioso(now)},fetcher);
+    const p=await prepararAviso(env,aviso,now,cota);
+    if(!p) continue;
+    const chat=String(p.alerta.chat_id);
+    if(!porChat.has(chat)) porChat.set(chat,[]);
+    porChat.get(chat).push(p);
+  }
+  let enviados=0;
+  for(const [chat,lista] of porChat){
+    const pacotes=lista.length<JUNTAR_A_PARTIR?lista.map(p=>[p]):
+      Array.from({length:Math.ceil(lista.length/POR_MENSAGEM)},(_,i)=>lista.slice(i*POR_MENSAGEM,(i+1)*POR_MENSAGEM));
+    for(const pacote of pacotes){
+      try{
+        let status;
+        if(pacote.length===1&&lista.length<JUNTAR_A_PARTIR) status=await enviarUm(env,pacote[0],now,fetcher);
+        else{
+          const {texto,teclado}=formatarJuntos(pacote);
+          status=await telegram(env,'sendMessage',{chat_id:chat,text:texto,parse_mode:'HTML',reply_markup:teclado,
+            disable_web_page_preview:true,disable_notification:silencioso(now)},fetcher);
+        }
+        if(status===403){ await apagarPessoa(env,chat); break; }  // a pessoa bloqueou o bot
+        if(status>=200&&status<300){
+          for(const p of pacote){ await registrarAviso(env,p,now); enviados++; }
+        }
+      }catch(error){
+        console.error(JSON.stringify({event:'price_alert',result:'failed',reason:String(error?.message||error).slice(0,80)}));
       }
-      if(status===403){
-        await apagarPessoa(env,alerta.chat_id);  // a pessoa bloqueou o bot
-      }else if(status>=200&&status<300){
-        await env.DB.batch([
-          env.DB.prepare(`UPDATE alerta_precos SET ultimo_aviso_em=?,ultimo_aviso_preco=?${estado.sql?`,${estado.sql}`:''} WHERE id=?`)
-            .bind(now,preco,...estado.valores,alertaId),
-          env.DB.prepare('INSERT INTO alerta_avisos(alerta_id,chat_id,produto_id,motivo,preco,enviado_em) VALUES(?,?,?,?,?,?)')
-            .bind(alertaId,alerta.chat_id,alerta.produto_id,aviso.motivo,preco,now),
-        ]);
-        enviados++;
-      }
-    }catch(error){
-      console.error(JSON.stringify({event:'price_alert',result:'failed',reason:String(error?.message||error).slice(0,80)}));
     }
   }
   return enviados;

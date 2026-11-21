@@ -13,7 +13,7 @@ import {
 } from "./settings.js";
 import { checkUsageLimit } from "./usage-monitor.js";
 import { githubFetch } from "./github-retry.js";
-import { handleMonitorCommand, isMonitorCommand, monitorDue } from "./monitor.js";
+import { MINUTO_SAUDE, coletaAtrasada, handleMonitorCommand, intervaloDoMonitor, isMonitorCommand, monitorDue, textoColetaAtrasada } from "./monitor.js";
 
 const MODES = Object.freeze({
   economico: {
@@ -391,11 +391,29 @@ async function dispatchMonitor(env, runId, fetchImpl) {
 
 export async function runScheduledMonitor(controller, env, fetchImpl = fetch) {
   if (!env.MONITOR_DB || env.MONITOR_ATIVO === "false") return false;
-  const now = brasiliaTime(new Date(Number(controller?.scheduledTime || Date.now())));
-  if (!monitorDue(now.hour, now.minute, env.MONITOR_INTERVALO_HORAS)) return false;
+  const quando = new Date(Number(controller?.scheduledTime || Date.now()));
+  const now = brasiliaTime(quando);
+  const intervalo = intervaloDoMonitor(env, quando);
+  if (Number(now.minute) === MINUTO_SAUDE) {
+    await checkMonitorHealth(env, quando, intervalo, fetchImpl);
+    return false;
+  }
+  if (!monitorDue(now.hour, now.minute, intervalo)) return false;
   const variables = await getVariables(env, fetchImpl);
   if (String(variables.BOT_MODE || "").toLowerCase() === "pausado") return false;
   await dispatchMonitor(env, "monitor_precos", fetchImpl);
+  return true;
+}
+
+// Coleta parada (job do GitHub falhando, site recusando): avisa o admin.
+export async function checkMonitorHealth(env, quando, intervalo, fetchImpl = fetch) {
+  const chatId = adminId(env);
+  if (!chatId) return false;
+  const atraso = await coletaAtrasada(env.MONITOR_DB, Math.floor(quando.getTime() / 1000), intervalo);
+  if (!atraso) return false;
+  const variables = await getVariables(env, fetchImpl);
+  if (String(variables.BOT_MODE || "").toLowerCase() === "pausado") return false;
+  await sendMessage(env, chatId, textoColetaAtrasada(atraso), fetchImpl, null);
   return true;
 }
 

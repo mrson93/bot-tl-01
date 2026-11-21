@@ -310,9 +310,47 @@ def _atualizacoes(produtos, leituras):
                       f"{seguranca.redigir_segredos(erro)[:120]}")
             if link:
                 dados["link_afiliado"] = link
+        if produto.get("com_alerta") and not produto.get("link_cartao"):
+            cartao = _link_do_cartao(produto, leitura)
+            if cartao:
+                dados["link_cartao"] = cartao
         if len(dados) > 1:
             atualizar.append(dados)
     return atualizar
+
+
+def _link_do_cartao(produto, leitura):
+    """Link curto do botão "Ver na loja" do bot (canal alerta_cartao).
+
+    Só serve se passar pelo redirecionador: sem ele o cartão continua com o
+    link de afiliado normal, que já está guardado.
+    """
+    if not shortlinks.esta_configurado():
+        return None
+    try:
+        link = _link_rastreado(produto, leitura, "alerta_cartao")
+    except Exception as erro:
+        print(f"   ⚠️ Monitor: link do cartão de #{produto['id']} falhou: {seguranca.redigir_segredos(erro)[:120]}")
+        return None
+    base = (config.SHORTLINK_BASE_URL or "").rstrip("/")
+    return link if base and link.startswith(base + "/") else None
+
+
+CANAIS_CLIQUE = ("alerta", "alerta_cartao")
+
+
+def _cliques_de_hoje(agora):
+    """Cliques de hoje (Brasília) nos links do bot de alertas, para o painel."""
+    if not shortlinks.esta_configurado():
+        return None
+    fim = datetime.fromtimestamp(agora, FUSO)
+    inicio = fim.replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        por_canal = shortlinks.resumo_cliques(inicio, fim).get("por_canal") or {}
+    except Exception as erro:
+        print(f"   ⚠️ Monitor: cliques do redirecionador indisponíveis: {seguranca.redigir_segredos(erro)[:120]}")
+        return None
+    return {"dia": inicio.strftime("%Y-%m-%d"), **{c: int(por_canal.get(c) or 0) for c in CANAIS_CLIQUE}}
 
 
 # --- Publicação ---------------------------------------------------------------
@@ -490,8 +528,12 @@ def executar(agora=None):
              for a in dados.get("alertas") or []
              if a.get("queda_percent") and not a.get("preco_base")
              and (leituras.get(int(a["produto_id"])) or {}).get("preco")]
+    corpo = {"avisos": avisos, "bases": bases}
+    cliques = _cliques_de_hoje(agora)
+    if cliques:
+        corpo["cliques"] = cliques
     try:
-        gravar({"avisos": avisos, "bases": bases})
+        gravar(corpo)
         if avisos:
             print(f"🔔 Monitor: {len(avisos)} aviso(s) de preço para o bot de alertas.")
     except Exception as erro:

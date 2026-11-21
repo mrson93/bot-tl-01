@@ -16,6 +16,7 @@
     "USAGE_MONITOR_ENABLED": "true",
     "MONITOR_ATIVO": "true",
     "MONITOR_INTERVALO_HORAS": "2",
+    "MONITOR_HORA_EM_HORA": "2026-11-24/2026-12-01",
     "MONITOR_DIAS_HISTORICO": "90"
   },
   "d1_databases": [

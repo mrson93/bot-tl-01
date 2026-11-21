@@ -44,21 +44,55 @@
     return el('div',{class:'chips'},(lista.length?lista:['Nenhum aviso ligado']).map(t=>el('span',{class:'chip',texto:t})));
   }
 
+  // Quanto falta para o valor pedido (ou se já chegou).
+  function falta(a){
+    if(!a.avisos.valor||!a.atual) return null;
+    const d=a.atual-a.avisos.valor;
+    return d<=0?el('div',{class:'selo ok',texto:'✅ Já está no valor que você pediu'})
+      :el('div',{class:'selo',texto:`🎯 Faltam ${moeda(d)} para ${moeda(a.avisos.valor)}`});
+  }
+  // Mais perto do valor pedido primeiro; quem não tem valor vem depois, na ordem de sempre.
+  const proximidade=a=>a.avisos.valor&&a.atual?a.atual/a.avisos.valor:Infinity;
+
+  function formNovo(){
+    const campo=el('input',{class:'link',type:'url',inputmode:'url',placeholder:'Cole o link do produto',autocomplete:'off'});
+    const botao=el('button',{class:'botao',type:'button',texto:'Criar alerta'});
+    botao.addEventListener('click',async()=>{
+      const link=campo.value.trim();
+      if(!/^https?:\/\//i.test(link)){tg&&tg.showAlert('Cole o link do produto do Mercado Livre, da Shopee ou do AliExpress.');return;}
+      botao.disabled=true;botao.textContent='Criando…';
+      try{
+        const r=await api('/api/app/alertas',{method:'POST',body:JSON.stringify({acao:'adicionar',link})});
+        const corpo=await r.json();
+        tg?tg.showAlert(corpo.mensagem||(r.ok?'Alerta criado!':'Não deu certo. Tente de novo.')):null;
+        if(r.ok) return mostrarLista();
+      }catch(e){tg&&tg.showAlert('Não deu certo. Tente de novo.');}
+      botao.disabled=false;botao.textContent='Criar alerta';
+    });
+    return el('div',{class:'cartao'},el('h2',{texto:'➕ Novo alerta'}),
+      el('small',{class:'loja',texto:'Mercado Livre, Shopee ou AliExpress'}),
+      el('div',{class:'botoes'},campo),el('div',{class:'botoes'},botao));
+  }
+
   async function mostrarLista(){
     if(tg){tg.BackButton.hide();}
+    aviso('Carregando…','carregando');
     let dados;
     try{ dados=await (await api('/api/app/alertas')).json(); }
     catch(e){ return aviso(e.message==='login'?'Abra este painel pelo bot @TaBaratoAlertaDePrecoBot.':'Não consegui carregar agora. Tente de novo.','erro'); }
-    const cartoes=(dados.alertas||[]).map(a=>el('button',{class:'cartao',type:'button',onclick:()=>mostrarAlerta(a.id)},
+    const ordenados=(dados.alertas||[]).map((a,i)=>[a,i]).sort(([a,i],[b,j])=>proximidade(a)-proximidade(b)||i-j).map(([a])=>a);
+    const cartoes=ordenados.map(a=>el('button',{class:'cartao',type:'button',onclick:()=>mostrarAlerta(a.id)},
       el('div',{class:'linha'},el('h2',{texto:nome(a)})),
       el('div',{class:'linha'},el('span',{class:'preco',texto:a.atual?moeda(a.atual):'Aguardando leitura'}),el('span',{class:'loja',texto:a.lojaNome})),
+      falta(a),
       a.termometro&&a.termometro.nivel!=='aprendendo'?el('div',{class:'selo',texto:`${a.termometro.emoji} ${a.termometro.texto}`}):null,
       chips(a.avisos)));
     const resumo=el('div',{class:'cartao'},el('div',{class:'opcao'},
       el('div',{},'Resumo semanal',el('small',{texto:'Segunda, por volta das 10h'})),
       chave(Boolean(dados.resumo),async ligado=>{await api('/api/app/alertas',{method:'POST',body:JSON.stringify({acao:'resumo',ligado})});})));
     tela(el('h1',{texto:'Meus alertas'}),
-      cartoes.length?cartoes:el('p',{class:'vazio',texto:'Você ainda não tem alertas. Volte ao chat e cole o link de um produto ou toque em 🔎 Buscar produto.'}),
+      formNovo(),
+      cartoes.length?cartoes:el('p',{class:'vazio',texto:'Você ainda não tem alertas. Cole acima o link de um produto ou, no chat, toque em 🔎 Buscar produto.'}),
       resumo);
   }
 
@@ -89,15 +123,16 @@
     return corpo;
   }
 
-  async function mostrarAlerta(id,dias=90){
+  async function mostrarAlerta(id,dias=90,recarregando=false){
     if(tg){tg.BackButton.show();}
+    if(!recarregando) aviso('Carregando…','carregando');
     let a;
     try{ a=(await (await api(`/api/app/alertas?id=${id}`)).json()).alerta; }catch(e){ a=null; }
     if(!a) return mostrarLista();
     const img=el('img',{class:'grafico',alt:'Gráfico do preço'});
     const abas=el('div',{class:'abas'},PERIODOS.map(([d,t])=>el('button',{type:'button','aria-pressed':String(d===dias),texto:t,
       onclick:ev=>{for(const b of abas.children) b.setAttribute('aria-pressed',String(b===ev.currentTarget));carregarGrafico(img,id,d);}})));
-    const recarregar=()=>mostrarAlerta(id,dias);
+    const recarregar=()=>mostrarAlerta(id,dias,true);
     const selecao=(opcoes,atual,aoMudar)=>{
       const s=el('select',{},opcoes.map(([v,t])=>el('option',{value:String(v),selected:Number(atual)===v||(!atual&&v===0),texto:t})));
       s.addEventListener('change',async()=>{vibrar();try{await aoMudar(Number(s.value));}catch(e){tg&&tg.showAlert('Não deu certo. Tente de novo.');recarregar();}});
@@ -121,7 +156,9 @@
     const infos=[
       a.minimo?el('div',{class:'loja',texto:`Menor ${moeda(a.minimo)} · maior ${moeda(a.maximo)}${a.desde?` desde ${data(a.desde)}`:''}`}):null,
       a.precoMax?el('div',{class:'loja',texto:`As opções vão até ${moeda(a.precoMax)}`}):null,
+      falta(a),
       a.termometro&&a.termometro.nivel!=='aprendendo'?el('div',{class:'selo',texto:`${a.termometro.emoji} ${a.termometro.texto}`}):null,
+      a.maquiada?el('div',{class:'selo alerta',texto:`⚠️ Desconto maquiado? Subiu para ${moeda(a.maquiada.pico)} nas últimas semanas e agora voltou perto do preço de antes (${moeda(a.maquiada.antes)}).`}):null,
       a.cupom?el('div',{class:'selo'},'🎟 Cupom ',el('span',{class:'cupom',texto:a.cupom.codigo}),a.cupom.condicao?`: ${a.cupom.condicao}`:''):null,
     ];
     const acoes=el('div',{class:'botoes'},

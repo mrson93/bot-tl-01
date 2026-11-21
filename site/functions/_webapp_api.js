@@ -1,6 +1,6 @@
 import {json,readJsonLimited} from './_lib.js';
 import {validarInitData} from './_webapp_auth.js';
-import {PRAZOS,QUEDAS,definirValor,handleCallback,historico,lerAlerta,listPriceAlerts,parsePrice,resumoLigado,urlPermitida} from './_price_alerts.js';
+import {PRAZOS,QUEDAS,definirValor,handleCallback,handlePriceAlert,historico,lerAlerta,linkDaLoja,listPriceAlerts,parsePrice,resumoLigado} from './_price_alerts.js';
 
 // API do mini app (/app/alertas). Toda chamada leva o initData no cabeçalho
 // X-Telegram-Init-Data; os ajustes reaproveitam os mesmos caminhos dos botões
@@ -23,7 +23,8 @@ export async function detalhe(env,chatId,id,now) {
     cupom:cupomValido?{codigo:a.cupom_codigo,condicao:a.cupom_condicao||null,expiraEm:Number(a.cupom_expira_em)||null}:null,
     avisos:{menor:Boolean(a.avisar_menor),valor:Number(a.preco_alvo)||null,queda:Number(a.queda_percent)||null,estoque:Boolean(a.avisar_estoque)},
     podeEstoque:a.loja==='mercadolivre',ativo:Boolean(a.ativo),expiraEm:Number(a.expira_em)||null,
-    link:urlPermitida(a.link_afiliado),
+    maquiada:h.disponivel!==0?h.maquiada||null:null,
+    link:linkDaLoja(a),
   };
 }
 
@@ -38,7 +39,21 @@ export async function lista(env,chatId,now) {
 
 // Ação pedida -> mesmo caminho do botão. "ligado" diz o estado desejado (toque
 // duplo não inverte de novo).
-export async function ajustar(env,chatId,pedido,now) {
+// Texto do bot (HTML simples) -> texto puro para o alerta do mini app.
+export const semHtml=t=>String(t||'').replace(/<[^>]*>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
+
+// Novo alerta colado no mini app: mesmo caminho de quem cola o link no chat.
+export async function adicionar(env,chatId,link,now,fetcher=fetch) {
+  const texto=String(link||'').trim().slice(0,1000);
+  if(!/^https?:\/\/\S+/i.test(texto)) return {erro:'link_invalido'};
+  const r=await handlePriceAlert(env,chatId,texto,now,fetcher);
+  if(!r) return {erro:'link_invalido'};
+  if(typeof r!=='string'&&/Alerta criado!/.test(r.text||'')) return {ok:true,mensagem:'Alerta criado! Toque no produto para escolher os avisos.'};
+  return {erro:'nao_criado',mensagem:semHtml(typeof r==='string'?r:r.text).split('\n')[0].slice(0,300)};
+}
+
+export async function ajustar(env,chatId,pedido,now,fetcher=fetch) {
+  if(pedido?.acao==='adicionar') return adicionar(env,chatId,pedido.link,now,fetcher);
   const id=Number(pedido?.id);
   if(pedido?.acao==='resumo') return handleCallback(env,chatId,`rs:${pedido.ligado?1:0}`,now).then(()=>({ok:true}));
   if(!Number.isInteger(id)||id<=0) return {erro:'alerta_invalido'};

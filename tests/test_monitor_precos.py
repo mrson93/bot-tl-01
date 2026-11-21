@@ -279,3 +279,38 @@ class QuedasDoDiaTest(unittest.TestCase):
         with mock.patch.object(config, "MONITOR_QUEDAS_ATIVO", False):
             self.assertFalse(mp.postar_quedas_do_dia(self.NOITE))
         self.assertEqual(self.posts, [])
+
+
+class LinkDoCartaoECliquesTest(unittest.TestCase):
+    PRODUTO = {"id": 9, "loja": "mercadolivre", "id_produto": "MLB9", "nome": "X",
+               "link_afiliado": "https://meli.la/abc", "com_alerta": 1}
+
+    def setUp(self):
+        for p in (mock.patch.object(config, "SHORTLINK_BASE_URL", "https://go.canaltabarato.com.br"),
+                  mock.patch.object(mp.shortlinks, "esta_configurado", return_value=True)):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_cria_link_rastreado_do_cartao_para_produto_com_alerta(self):
+        with mock.patch.object(mp.shortlinks, "criar", return_value="https://go.canaltabarato.com.br/abcd1234") as criar:
+            dados = mp._atualizacoes([self.PRODUTO], {9: {"nome": "X"}})
+        self.assertEqual(dados, [{"id": 9, "link_cartao": "https://go.canaltabarato.com.br/abcd1234"}])
+        self.assertEqual(criar.call_args.args[2], "alerta_cartao")
+
+    def test_nao_recria_nem_usa_link_direto(self):
+        with mock.patch.object(mp.shortlinks, "criar") as criar:
+            self.assertEqual(mp._atualizacoes([{**self.PRODUTO, "link_cartao": "https://go.canaltabarato.com.br/x"}], {9: {"nome": "X"}}), [])
+            self.assertEqual(mp._atualizacoes([{**self.PRODUTO, "com_alerta": 0}], {9: {"nome": "X"}}), [])
+        criar.assert_not_called()
+        # Redirecionador fora do ar: _link_rastreado cai no link direto, que não serve para o cartão.
+        with mock.patch.object(mp.shortlinks, "criar", side_effect=RuntimeError("fora")):
+            self.assertEqual(mp._atualizacoes([self.PRODUTO], {9: {"nome": "X"}}), [])
+
+    def test_cliques_de_hoje_por_canal_do_bot(self):
+        with mock.patch.object(mp.shortlinks, "resumo_cliques",
+                               return_value={"por_canal": {"alerta": 7, "telegram": 50}}) as resumo:
+            self.assertEqual(mp._cliques_de_hoje(AGORA), {"dia": "2026-11-20", "alerta": 7, "alerta_cartao": 0})
+        inicio, fim = resumo.call_args.args
+        self.assertEqual((inicio.hour, inicio.minute), (0, 0))
+        with mock.patch.object(mp.shortlinks, "resumo_cliques", side_effect=RuntimeError("fora")):
+            self.assertIsNone(mp._cliques_de_hoje(AGORA))

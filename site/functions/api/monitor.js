@@ -16,6 +16,7 @@ const FUSO_BRASILIA=3*3600;
 const HOSTS_LINK=['mercadolivre.com.br','mercadolivre.com','meli.la','amazon.com.br','amzn.to','shopee.com.br','shope.ee','go.canaltabarato.com.br','aliexpress.com'];
 // Produto lido na coleta: do canal (admin) ou com alerta de preço ativo.
 const MONITORADO='((p.ativo=1 AND p.canal=1) OR EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND a.ativo=1 AND a.expira_em>?1))';
+export const CANAIS_CLIQUE=['alerta','alerta_cartao'];
 const HOSTS_IMAGEM=['mlstatic.com','media-amazon.com','ssl-images-amazon.com','susercontent.com','shopee.com.br','alicdn.com','aliexpress-media.com'];
 
 function numero(valor) {
@@ -47,8 +48,9 @@ export async function onRequestGet({request,env}) {
   const inicio=agora-dias*86400;
   const desde=inteiro(params.get('posts_desde'))||(agora-86400);
   const [produtos,diario,primeira,ultimo,hoje,fila,alertas,estoque]=await env.DB.batch([
-    env.DB.prepare(`SELECT p.id,p.loja,p.id_produto,p.tipo,p.nome,p.categoria,p.link_afiliado,p.imagem,
-       (p.ativo=1 AND p.canal=1) AS no_canal FROM monitor_produtos p WHERE ${MONITORADO} ORDER BY p.id`).bind(agora),
+    env.DB.prepare(`SELECT p.id,p.loja,p.id_produto,p.tipo,p.nome,p.categoria,p.link_afiliado,p.link_cartao,p.imagem,
+       (p.ativo=1 AND p.canal=1) AS no_canal,
+       EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND a.ativo=1 AND a.expira_em>?1) AS com_alerta FROM monitor_produtos p WHERE ${MONITORADO} ORDER BY p.id`).bind(agora),
     env.DB.prepare(
       `SELECT l.produto_id,date(l.lido_em-${FUSO_BRASILIA},'unixepoch') AS dia,MIN(l.preco) AS preco
        FROM monitor_leituras l JOIN monitor_produtos p ON p.id=l.produto_id
@@ -135,6 +137,19 @@ export async function onRequestPost({request,env,waitUntil}) {
     comandos.push(env.DB.prepare(
       'UPDATE monitor_produtos SET nome=COALESCE(?,nome),categoria=COALESCE(?,categoria),link_afiliado=COALESCE(?,link_afiliado),imagem=COALESCE(?,imagem) WHERE id=?'
     ).bind(texto(dados.nome,300),texto(dados.categoria,120),urlPermitida(dados.link_afiliado,HOSTS_LINK),urlPermitida(dados.imagem,HOSTS_IMAGEM),id));
+    const cartao=urlPermitida(dados.link_cartao,['go.canaltabarato.com.br']);
+    if(cartao) comandos.push(env.DB.prepare('UPDATE monitor_produtos SET link_cartao=? WHERE id=?').bind(cartao,id));
+  }
+
+  // Cliques do dia no redirecionador (canais do bot de alertas), para o painel.
+  const cliques=body?.cliques;
+  if(cliques&&typeof cliques==='object'&&/^\d{4}-\d{2}-\d{2}$/.test(String(cliques.dia||''))){
+    for(const canal of CANAIS_CLIQUE){
+      const total=numero(cliques[canal]);
+      if(total!==null&&total>=0&&Number.isInteger(total)) comandos.push(env.DB.prepare(
+        'INSERT INTO alerta_cliques_diarios(dia,canal,total) VALUES(?,?,?) ON CONFLICT(dia,canal) DO UPDATE SET total=excluded.total',
+      ).bind(cliques.dia,canal,Math.min(total,1_000_000)));
+    }
   }
 
   if(body?.post) {

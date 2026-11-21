@@ -236,6 +236,46 @@ export function monitorDue(hour, minute, intervalHours) {
   return Number(minute) === 7 && Number(hour) % intervalo === 0;
 }
 
+// Dia de Brasília (AAAA-MM-DD) de um instante.
+export function diaBrasilia(date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
+}
+
+// Intervalo da coleta: de hora em hora dentro da janela MONITOR_HORA_EM_HORA
+// ("2026-11-24/2026-12-01", dias de Brasília, inclusive), senão o normal.
+export function intervaloDoMonitor(env, date) {
+  const normal = Math.min(24, Math.max(1, Number.parseInt(env?.MONITOR_INTERVALO_HORAS, 10) || 2));
+  const janela = String(env?.MONITOR_HORA_EM_HORA || "").match(/^(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})$/);
+  if (!janela) return normal;
+  const dia = diaBrasilia(date);
+  return dia >= janela[1] && dia <= janela[2] ? 1 : normal;
+}
+
+// Coleta parada? Olha a última leitura gravada. Avisa uma vez quando passa do
+// limite (duas coletas perdidas + 1 h) e depois a cada 12 h, sem guardar estado:
+// a checagem roda no minuto 37 de cada hora.
+export const MINUTO_SAUDE = 37;
+export async function coletaAtrasada(db, agoraSeg, intervaloHoras) {
+  const linha = await db.prepare(
+    `SELECT MAX(lido_em) AS ultima,
+       (SELECT COUNT(*) FROM monitor_produtos p WHERE (p.ativo=1 AND p.canal=1)
+          OR EXISTS(SELECT 1 FROM alerta_precos a WHERE a.produto_id=p.id AND a.ativo=1 AND a.expira_em>?1)) AS produtos
+     FROM monitor_leituras`,
+  ).bind(agoraSeg).first();
+  if (!Number(linha?.produtos) || !Number(linha?.ultima)) return null;
+  const limite = (2 * intervaloHoras + 1) * 3600;
+  const atraso = agoraSeg - Number(linha.ultima);
+  if (atraso < limite) return null;
+  const horasAlem = Math.floor((atraso - limite) / 3600);
+  if (horasAlem % 12 !== 0) return null;
+  return { horas: Math.floor(atraso / 3600), ultima: Number(linha.ultima) };
+}
+
+export function textoColetaAtrasada(atraso) {
+  return `⚠️ A coleta de preços está parada há ${atraso.horas} h (última leitura: ${dataCurta(atraso.ultima)}).\n\n`
+    + "Os alertas de preço não avisam ninguém enquanto isso. Confira a aba Actions do GitHub (rodada \"monitor_precos\") e use /teste_monitor para testar.";
+}
+
 // Painel do admin: quem usa o bot de alertas, quantos produtos e quantos avisos.
 export async function estatisticas(db, agora) {
   const n = (valor) => Number(valor || 0).toLocaleString("pt-BR");
@@ -284,6 +324,20 @@ export async function estatisticas(db, agora) {
     linhas.push("", "🏆 Produtos com mais alertas:",
       ...top.map((p, i) => `   ${i + 1}. ${String(p.nome || p.id_produto).slice(0, 60)} (${n(p.total)})`));
   }
-  linhas.push("", "Cliques e vendas dos avisos aparecem no relatório diário, no canal \"alerta\".");
+  const cliques = await db.prepare(
+    `SELECT SUM(CASE WHEN canal='alerta' AND dia>=?1 THEN total ELSE 0 END) AS avisos7,
+       SUM(CASE WHEN canal='alerta_cartao' AND dia>=?1 THEN total ELSE 0 END) AS cartao7,
+       SUM(CASE WHEN canal='alerta' THEN total ELSE 0 END) AS avisos30,
+       SUM(CASE WHEN canal='alerta_cartao' THEN total ELSE 0 END) AS cartao30
+     FROM alerta_cliques_diarios WHERE dia>=?2`,
+  ).bind(diaBrasilia(new Date((agora - 6 * 86400) * 1000)), diaBrasilia(new Date((agora - 29 * 86400) * 1000))).first()
+    .catch(() => null);
+  if (cliques) {
+    const taxa = (c, a) => (Number(a) ? ` (${Math.round(Number(c || 0) / Number(a) * 100)}% dos avisos)` : "");
+    linhas.push("", "👆 Cliques para a loja:",
+      `   Nos avisos: 7 dias ${n(cliques.avisos7)}${taxa(cliques.avisos7, avisos?.semana)} · 30 dias ${n(cliques.avisos30)}${taxa(cliques.avisos30, avisos?.mes)}`,
+      `   No cartão e no mini app: 7 dias ${n(cliques.cartao7)} · 30 dias ${n(cliques.cartao30)}`);
+  }
+  linhas.push("", "Vendas dos avisos aparecem no relatório diário, no canal \"alerta\".");
   return linhas.join("\n");
 }

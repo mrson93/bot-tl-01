@@ -324,3 +324,34 @@ painel ganha o botão da campanha do bot de alertas).
   passo a passo completo fica no ❓ Ajuda. Lista com o essencial nos botões
   (termômetro, nome, preço) e "N de M produtos" no texto.
 
+
+## Melhorias de 21/11/2026 (Black Friday, cliques, saúde da coleta)
+
+- **Desconto maquiado** (`promocaoMaquiada` em `_price_alerts.js`): se o pico
+  das últimas 3 semanas ficou 15% ou mais acima do preço típico (mediana) de
+  3 semanas a 3 meses atrás, e o preço de agora está a 3% ou menos desse
+  preço típico, o aviso, o cartão e o mini app mostram "⚠️ Desconto
+  maquiado?". Precisa de pelo menos 5 dias recentes e 10 antigos.
+- **Coleta de hora em hora** entre os dias de Brasília de
+  `MONITOR_HORA_EM_HORA` (`2026-11-24/2026-12-01` no `wrangler.jsonc` do
+  `telegram-control`); fora disso, `MONITOR_INTERVALO_HORAS`. Depois da
+  Black Friday, a variável pode ficar como está (a janela já passou).
+- **Cliques do bot**: os avisos já usavam o link rastreado (canal `alerta`).
+  O botão 🛒 do cartão e do mini app passa a usar `monitor_produtos.link_cartao`
+  (canal `alerta_cartao`), criado pela coleta só quando o redirecionador
+  responde. A cada coleta, os cliques do dia desses dois canais vão para
+  `alerta_cliques_diarios`, e o `/estatisticas` mostra 7 e 30 dias com a
+  porcentagem sobre os avisos enviados.
+- **Coleta parada**: no minuto 37 de cada hora o Worker olha a última leitura.
+  Passou de duas coletas mais 1 h (5 h normalmente; 3 h na janela de hora em
+  hora), manda uma mensagem ao admin e repete a cada 12 h. Não avisa com o
+  bot pausado.
+- **Avisos juntos**: 3 ou mais avisos para a mesma pessoa na mesma coleta
+  viram uma mensagem numerada (até 8 por mensagem) com 🛒 e ⚙️ de cada produto.
+- **📤 Mandar para alguém** no aviso individual: abre o compartilhar do
+  Telegram com a oferta e o mesmo link de afiliado.
+- **Mini app**: "Carregando…", criar alerta colando o link (mesmo caminho do
+  chat, com os mesmos limites), "🎯 Faltam R$ X" para o valor pedido e lista
+  ordenada por quem está mais perto do valor.
+- Migração `0031_cliques_alerta.sql` precisa rodar **antes** do push do site
+  (o site passa a ler `link_cartao`).
