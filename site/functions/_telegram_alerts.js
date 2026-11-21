@@ -1,5 +1,6 @@
 import {SITE,html,money,offerPath} from './_site.js';
-import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert,resumoLigado} from './_price_alerts.js';
+import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert,resumoLigado,textoDaLista} from './_price_alerts.js';
+import {limitePessoa} from './_referral.js';
 import {mensagemConvite,registrarIndicacao} from './_referral.js';
 import {PERGUNTA_BUSCA,amazonNoCatalogo,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
 
@@ -52,7 +53,7 @@ function ajuda(env) {
     '<b>Como usar, em 3 passos</b>',
     '1️⃣ Abra o produto no app ou no site do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b> e toque em <b>Compartilhar → Copiar link</b>.',
     '2️⃣ Cole o link aqui. Se quiser, já mande o preço junto: <code>https://… 199,90</code>',
-    '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque. O alerta vale 1 ano (você pode mudar).',
+    '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque (Mercado Livre). O alerta vale 1 ano (você pode mudar).',
     '',
     '🔎 Não tem o link? Toque em <b>Buscar produto</b> ou mande só o nome, como <code>air fryer</code>, e escolha nos resultados. Ali também dá para pedir aviso quando o canal postar oferta disso.',
     '',
@@ -60,6 +61,15 @@ function ajuda(env) {
     '',
     `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa (convide amigos com /convidar para ganhar mais vagas). Guardo só o número do seu chat; /parar apaga tudo.`,
   ].join('\n');
+}
+
+// /start curto: o essencial e três atalhos; o passo a passo fica no ❓ Ajuda.
+// Duas mensagens porque o menu fixo (teclado) e os botões não cabem na mesma.
+function boasVindas(antes='') {
+  return [{text:`${antes}🔔 <b>Alertas de preço do Tá Barato</b>\nEu aviso no seu privado quando o preço baixar de verdade. É grátis.\n\n👉 <b>Cole aqui o link</b> de um produto do Mercado Livre, da Shopee ou do AliExpress, ou busque pelo nome.`,markup:MENU},
+    {text:'Por onde começar?',markup:{inline_keyboard:[
+      [{text:'📲 Ver um exemplo de aviso',callback_data:'ex'}],
+      [{text:'🔎 Buscar pelo nome',callback_data:'bn'},{text:'❓ Como funciona',callback_data:'aj'}]]}}];
 }
 
 const NOVO=[
@@ -93,6 +103,7 @@ async function criarPalavra(env,chatId,keyword,now) {
 export async function handleAlertCallback(env,chatId,dados,now=Math.floor(Date.now()/1000),fetcher=fetch) {
   const texto=String(dados||'');
   if(texto==='bn') return {answer:'Buscar',...perguntaBusca()};
+  if(texto==='aj') return {answer:'Como funciona',text:ajuda(env),markup:null};
   const palavra=texto.match(/^k:(.{3,40})$/);
   if(palavra){
     const keyword=validKeyword(palavra[1]);
@@ -130,11 +141,10 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
   }
   if(command==='start'&&/^r_[a-z0-9]{8}$/.test(argument)){
     const veio=await registrarIndicacao(env,chatId,argument.slice(2));
-    return [{text:`${veio?'👋 Que bom que você veio pelo convite de um amigo!\n\n':''}${ajuda(env)}`,markup:MENU},
-      {text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
+    return boasVindas(veio?'👋 Que bom que você veio pelo convite de um amigo!\n\n':'');
   }
   if(command==='convidar'||command==='indicar') return mensagemConvite(env,chatId);
-  if(command==='start') return [{text:ajuda(env),markup:MENU},{text:'Quer ver como chega um aviso?',markup:{inline_keyboard:[[{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
+  if(command==='start') return boasVindas();
   if(command==='ajuda'||command==='help') return {text:ajuda(env),markup:MENU};
   if(command==='buscar') return argument?buscar(env,argument,now):perguntaBusca();
   if(command==='meusalertas'){
@@ -145,9 +155,10 @@ export async function handleUpdate(env,update,now=Math.floor(Date.now()/1000)) {
       return {text:`Você ainda não tem alertas.\n\n${NOVO}`,markup:MENU};
     }
     const partes=[];
-    if(precos.length) partes.push(`<b>Produtos</b>\n${formatPriceAlertList(precos)}`);
-    if(keywords.length) partes.push(`<b>Palavras</b>\n${keywords.map(item=>`• ${html(item)}`).join('\n')}\nPara apagar: /remover air fryer`);
-    return {text:`📋 <b>Seus alertas</b>\n\n${partes.join('\n\n')}${precos.length?'\n\nToque em um produto para ver o histórico e ajustar.':''}`,
+    if(precos.length) partes.push(textoDaLista(precos,await limitePessoa(env,chatId)));
+    else partes.push('📋 <b>Seus alertas</b>');
+    if(keywords.length) partes.push(`<b>Palavras</b> (aviso quando o canal postar)\n${keywords.map(item=>`• ${html(item)}`).join('\n')}\nPara apagar: /remover air fryer`);
+    return {text:partes.join('\n\n'),
       markup:precos.length?listaComBotoes(precos,await resumoLigado(env,chatId)):MENU};
   }
   if(command==='parar'){

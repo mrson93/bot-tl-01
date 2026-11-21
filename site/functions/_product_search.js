@@ -73,6 +73,19 @@ export async function buscarShopee(env,termo,fetcher=fetch,filtrar=true) {
   }
 }
 
+// Link de afiliado da Shopee (subId "alerta") gerado pelo site, para quando a
+// coleta não conseguiu gerar. Devolve o link curto ou null.
+export async function gerarLinkShopee(env,idProduto,fetcher=fetch) {
+  const achado=String(idProduto||'').match(/^(\d{1,15})_(\d{1,15})$/);
+  if(!achado||!shopeeConfigurada(env)) return null;
+  try{
+    const origem=JSON.stringify(`https://shopee.com.br/product/${achado[1]}/${achado[2]}`);
+    const data=await shopeeGraphql(env,`mutation{generateShortLink(input:{originUrl:${origem},subIds:["alerta"]}){shortLink}}`,fetcher);
+    const link=String(data?.generateShortLink?.shortLink||'');
+    return /^https:\/\/([a-z0-9-]+\.)*(shopee\.com\.br|shope\.ee)\//i.test(link)?link:null;
+  }catch{ return null; }
+}
+
 // Um produto da Shopee pelo id, para o alerta já nascer com nome e preço.
 export async function lerShopee(env,idProduto,fetcher=fetch) {
   const achado=String(idProduto||'').match(/^(\d{1,15})_(\d{1,15})$/);

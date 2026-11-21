@@ -309,3 +309,18 @@ painel ganha o botão da campanha do bot de alertas).
 - Menu de comandos próprio nos grupos (`setMyCommands` com escopo
   `all_group_chats`), conferido junto com o perfil.
 
+## Revisão de 20/11/2026 (problemas e experiência)
+
+- Mercado Livre: anúncio que responde 403 em `/items/<id>` é lido pela leitura
+  em lote (`/items?ids=`). Se nem assim, o cartão explica depois de 6 h sem
+  leitura e sugere o link com `/p/MLB…`.
+- Shopee sem link de afiliado: o site gera (`generateShortLink`, subId
+  `alerta`) ao abrir o cartão e guarda; a coleta passa a registrar o motivo
+  quando não consegue gerar.
+- Cartão em ordem de decisão (preço → termômetro → histórico → outra loja),
+  🛒 Ver na loja e 📈 Gráfico na primeira linha; mini gráfico de texto só
+  quando o preço mudou.
+- `/start` curto (3 linhas + atalhos Ver exemplo, Buscar, Como funciona); o
+  passo a passo completo fica no ❓ Ajuda. Lista com o essencial nos botões
+  (termômetro, nome, preço) e "N de M produtos" no texto.
+

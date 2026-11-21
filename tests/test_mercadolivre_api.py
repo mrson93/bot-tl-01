@@ -201,3 +201,41 @@ class MercadoLivreApiTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AnuncioProibidoTest(unittest.TestCase):
+    def _http(self, status):
+        import mercadolivre_api as api
+        from unittest.mock import Mock
+        return api.requests.HTTPError(response=Mock(status_code=status))
+
+    def test_403_no_item_tenta_a_leitura_em_lote(self):
+        import mercadolivre_api as api
+        from unittest.mock import patch
+        item = {"id": "MLB4079863189", "title": " Lanterna  Tática ", "price": 89.9, "status": "active",
+                "available_quantity": 3, "permalink": "https://produto.mercadolivre.com.br/MLB-4079863189",
+                "pictures": [{"secure_url": "https://http2.mlstatic.com/a.jpg"}]}
+        respostas = {"/items/MLB4079863189": self._http(403), "/items": [{"code": 200, "body": item}]}
+
+        def falso(caminho, params=None):
+            r = respostas[caminho]
+            if isinstance(r, Exception):
+                raise r
+            return r
+        with patch.object(api, "_get", side_effect=falso):
+            lido = api.ler_monitorado("MLB4079863189", "anuncio")
+        self.assertEqual((lido["preco"], lido["nome"], lido["disponivel"]), (89.9, "Lanterna Tática", True))
+
+    def test_403_nos_dois_caminhos_continua_erro(self):
+        import mercadolivre_api as api
+        from unittest.mock import patch
+        respostas = {"/items/MLB1": self._http(403), "/items": [{"code": 403, "body": {"message": "forbidden"}}]}
+
+        def falso(caminho, params=None):
+            r = respostas[caminho]
+            if isinstance(r, Exception):
+                raise r
+            return r
+        with patch.object(api, "_get", side_effect=falso):
+            with self.assertRaises(api.requests.HTTPError):
+                api.ler_monitorado("MLB1", "anuncio")

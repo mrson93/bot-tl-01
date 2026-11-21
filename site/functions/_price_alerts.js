@@ -3,6 +3,7 @@ import {resolveProductLink} from './_product_link.js';
 import {graficoPng} from './_price_chart.js';
 import {VALIDADE_COMPARACAO,comparacao,sugestaoMaisBarata} from './_compare_stores.js';
 import {contarIndicacao,limitePessoa,maxComBonus,mensagemConvite} from './_referral.js';
+import {gerarLinkShopee} from './_product_search.js';
 
 // Alertas de preço por produto do bot público (@TaBaratoAlertaDePrecoBot).
 // A pessoa cola o link do produto (ou toca em "Avisar quando baixar" num post
@@ -175,6 +176,21 @@ function nomeDe(alerta,limiteTexto=120) {
   return html(String(nomeSimples(alerta)).slice(0,limiteTexto));
 }
 
+export const HORAS_SEM_LEITURA=6;
+
+// Shopee sem link de afiliado (a coleta não conseguiu gerar): o site gera e guarda.
+async function linkQueFalta(env,a) {
+  if(a.loja!=='shopee'||a.link_afiliado) return null;
+  const link=urlPermitida(await gerarLinkShopee(env,a.id_produto));
+  if(link){
+    try{ await env.DB.prepare('UPDATE monitor_produtos SET link_afiliado=? WHERE id=? AND link_afiliado IS NULL').bind(link,a.produto_id).run(); }
+    catch{ /* o botão vale do mesmo jeito */ }
+  }
+  return link;
+}
+
+// Cartão em ordem de decisão: preço → termômetro ("compro agora?") → histórico
+// → outra loja → avisos. Botões principais (loja e gráfico) primeiro.
 export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000),titulo='') {
   const a=await lerAlerta(env,chatId,alertaId);
   if(!a) return {text:'Esse alerta não existe mais. Veja os seus em 📋 Meus alertas.'};
@@ -182,18 +198,26 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   const linhas=[];
   if(titulo) linhas.push(titulo,'');
   linhas.push(`🔔 <b>${nomeDe(a)}</b>`,`🛒 ${LOJA[a.loja]||a.loja}`);
-  if(h.atual) linhas.push(`💰 Agora: ${precoComVariacoes(h.atual,a.preco_max)}${h.disponivel===0?' · sem estoque':''}`);
-  else linhas.push('💰 Agora: aguardando a primeira leitura (até 2 horas)');
+  const comEstoque=h.atual&&h.disponivel!==0;
+  if(h.atual){
+    linhas.push(`💰 Agora: ${precoComVariacoes(h.atual,a.preco_max)}${h.disponivel===0?' · sem estoque':''}`);
+    if(comEstoque&&h.termometro) linhas.push(`${h.termometro.emoji} ${h.termometro.texto}`);
+  }else if(Number(a.criado_em)&&now-Number(a.criado_em)>HORAS_SEM_LEITURA*3600){
+    linhas.push('⚠️ Ainda não consegui ler o preço deste produto na loja.',
+      a.loja==='mercadolivre'
+        ?'Apague este alerta e mande o link da página do produto (o que tem <b>/p/MLB…</b> no endereço).'
+        :'Apague este alerta e tente de novo com o link da página do produto.');
+  }else linhas.push('💰 Agora: aguardando a primeira leitura (até 2 horas)');
   const cupom=linhaCupom(a,now);
   if(cupom) linhas.push(cupom);
-  const outraLoja=h.atual&&h.disponivel!==0&&a.nome?sugestaoMaisBarata(await comparacao(env,a,h.atual,now),h.atual):null;
-  if(outraLoja) linhas.push(outraLoja.linha);
   if(h.minimo){
     const dias=Math.max(1,Math.round((now-h.desde)/86400));
     linhas.push(`📊 Em ${dias} dia(s): menor ${html(money(h.minimo))} · maior ${html(money(h.maximo))}`);
   }
-  if(h.linha) linhas.push(`📈 30 dias: ${h.linha}`);
-  if(h.atual&&h.disponivel!==0&&h.termometro) linhas.push(`${h.termometro.emoji} ${h.termometro.texto}`);
+  // Mini gráfico só quando o preço mudou (linha reta não diz nada).
+  if(h.linha&&new Set(h.linha).size>1) linhas.push(`📈 30 dias: ${h.linha}`);
+  const outraLoja=comEstoque&&a.nome?sugestaoMaisBarata(await comparacao(env,a,h.atual,now),h.atual):null;
+  if(outraLoja) linhas.push(outraLoja.linha);
   const avisos=[];
   if(a.avisar_menor) avisos.push('✅ Menor preço do histórico');
   if(a.preco_alvo) avisos.push(`✅ Chegar a ${html(money(a.preco_alvo))} ou menos`);
@@ -202,15 +226,16 @@ export async function cartao(env,chatId,alertaId,now=Math.floor(Date.now()/1000)
   linhas.push('','<b>Vou te avisar quando:</b>',...(avisos.length?avisos:['⚠️ Nenhum aviso ligado. Escolha um abaixo.']));
   linhas.push('',a.ativo?`⏳ Alerta vale até ${data(a.expira_em)}.`:'⏸ Alerta pausado. Toque em ⏳ Prazo para reativar.');
   const id=a.id;
+  const loja=urlPermitida(a.link_afiliado)||await linkQueFalta(env,a);
+  const grafico={text:'📈 Gráfico',callback_data:`a:${id}:g`}, prazo={text:'⏳ Prazo',callback_data:`a:${id}:p`};
   const teclado=[
+    loja?[{text:'🛒 Ver na loja',url:loja},grafico]:[grafico,prazo],
     [{text:`${a.avisar_menor?'✅':'⬜'} Menor preço`,callback_data:`a:${id}:m`},
      {text:a.preco_alvo?`💰 Até ${money(a.preco_alvo)}`:'💰 Definir valor',callback_data:`a:${id}:v`}],
-    [{text:a.queda_percent?`📉 Queda ${Math.round(a.queda_percent)}%`:'📉 Avisar queda %',callback_data:`a:${id}:q`}],
+    [{text:a.queda_percent?`📉 Queda ${Math.round(a.queda_percent)}%`:'📉 Avisar queda %',callback_data:`a:${id}:q`},
+     ...(a.loja==='mercadolivre'?[{text:`${a.avisar_estoque?'✅':'⬜'} Voltar ao estoque`,callback_data:`a:${id}:e`}]:loja?[prazo]:[])],
   ];
-  if(a.loja==='mercadolivre') teclado[1].push({text:`${a.avisar_estoque?'✅':'⬜'} Voltar ao estoque`,callback_data:`a:${id}:e`});
-  const loja=urlPermitida(a.link_afiliado);
-  teclado.push([{text:'📈 Gráfico',callback_data:`a:${id}:g`},{text:'⏳ Prazo',callback_data:`a:${id}:p`}]);
-  if(loja) teclado.push([{text:'🛒 Ver na loja',url:loja}]);
+  if(a.loja==='mercadolivre'&&loja) teclado.push([prazo]);
   if(outraLoja) teclado.push([outraLoja.botao]);
   teclado.push([{text:'🗑 Apagar alerta',callback_data:`a:${id}:x`},{text:'📋 Todos',callback_data:'l'}]);
   return {text:linhas.join('\n'),markup:{inline_keyboard:teclado}};
@@ -343,10 +368,19 @@ export function formatPriceAlertList(alertas) {
   }).join('\n');
 }
 
+// Cada botão já mostra o essencial: termômetro, nome e preço (sem repetir em texto).
+export function rotuloDaLista(a) {
+  const emoji=a.termometro&&a.termometro.nivel!=='aprendendo'?a.termometro.emoji:a.atual?'🔔':'⏳';
+  return `${emoji} ${String(nomeSimples(a)).slice(0,34)}${a.atual?` · ${money(a.atual)}`:''}`;
+}
+
+export function textoDaLista(alertas,limite,titulo='📋 <b>Seus alertas</b>') {
+  const legenda=alertas.some(a=>a.termometro&&a.termometro.nivel!=='aprendendo')?'\n🟢 preço baixo · 🟡 na média · 🔴 alto':'';
+  return `${titulo} · ${alertas.length} de ${limite} produtos${legenda}\nToque num produto para ver o histórico e ajustar.`;
+}
+
 export function listaComBotoes(alertas,resumo=null) {
-  const linhas=alertas.map((a,i)=>[{
-    text:`${i+1}. ${String(nomeSimples(a)).slice(0,40)}`,callback_data:`a:${a.id}:c`,
-  }]);
+  const linhas=alertas.map(a=>[{text:rotuloDaLista(a),callback_data:`a:${a.id}:c`}]);
   if(resumo!==null){
     linhas.unshift([{text:'📱 Abrir painel (gráficos e ajustes)',web_app:{url:'https://canaltabarato.com.br/app/alertas'}}]);
     linhas.push([{text:'🎁 Convidar amigos (mais vagas)',callback_data:'cv'}]);
@@ -456,7 +490,7 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
   if(texto==='l'){
     const alertas=await listPriceAlerts(env,chatId,now);
     if(!alertas.length) return {answer:'Nenhum alerta',text:'Você não tem alertas de produto. Toque em ➕ Novo alerta.'};
-    return {answer:'Seus alertas',text:`<b>Seus alertas de produto</b>\n\n${formatPriceAlertList(alertas)}\n\nToque em um para ver e ajustar.`,
+    return {answer:'Seus alertas',text:textoDaLista(alertas,await limitePessoa(env,chatId),String(chatId).startsWith('-')?'📋 <b>Lista do grupo</b>':undefined),
       markup:String(chatId).startsWith('-')?listaComBotoes(alertas):listaComBotoes(alertas,await resumoLigado(env,chatId))};
   }
   const resumo=texto.match(/^rs:([01])$/);

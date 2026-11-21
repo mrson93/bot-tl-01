@@ -279,6 +279,19 @@ def _categoria(categoria_id):
         return None
 
 
+def _item_em_lote(identificador):
+    """Anúncio pela leitura em lote (/items?ids=); None se também não vier."""
+    for bloco in _get("/items", {"ids": identificador}) or []:
+        if not isinstance(bloco, dict):
+            continue
+        if "body" in bloco and int(bloco.get("code") or 200) != 200:
+            continue
+        item = bloco.get("body") if "body" in bloco else bloco
+        if isinstance(item, dict) and str(item.get("id") or "").upper() == identificador:
+            return item
+    return None
+
+
 def ler_monitorado(identificador, tipo=None, com_categoria=False):
     """Leitura de um produto do monitor de preços pela API oficial.
 
@@ -315,9 +328,16 @@ def ler_monitorado(identificador, tipo=None, com_categoria=False):
     try:
         item = _get(f"/items/{identificador}")
     except requests.HTTPError as erro:
-        if getattr(erro.response, "status_code", None) == 404:
+        status = getattr(erro.response, "status_code", None)
+        if status == 404:
             return None
-        raise
+        if status != 403:
+            raise
+        # Alguns anúncios respondem 403 no /items/<id>, mas saem na leitura em
+        # lote (a mesma que a busca de ofertas usa).
+        item = _item_em_lote(identificador)
+        if item is None:
+            raise
     disponivel = item.get("status") == "active" and int(item.get("available_quantity") or 0) > 0
     try:
         imagem = _imagem(item)

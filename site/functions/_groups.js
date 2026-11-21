@@ -1,5 +1,6 @@
 import {html} from './_site.js';
-import {deleteStatements,formatPriceAlertList,handlePriceAlert,handlePriceChoice,listPriceAlerts,listaComBotoes} from './_price_alerts.js';
+import {deleteStatements,handlePriceAlert,handlePriceChoice,listPriceAlerts,listaComBotoes,textoDaLista} from './_price_alerts.js';
+import {limiteGrupo} from './_referral.js';
 import {PERGUNTA_BUSCA,buscarProdutos,formatarResultados,perguntaBusca,termoBusca} from './_product_search.js';
 
 // Bot em grupos (família, amigos): lista de desejos do grupo. Qualquer membro
@@ -61,7 +62,7 @@ export function paraGrupo(resposta) {
 async function listaDoGrupo(env,chatId,now) {
   const alertas=await listPriceAlerts(env,chatId,now);
   if(!alertas.length) return {text:`A lista do grupo está vazia. Mandem <code>/alerta@${usuarioDoBot(env)} link</code> para pôr um produto.`};
-  return {text:`📋 <b>Lista do grupo</b>\n\n${formatPriceAlertList(alertas)}\n\nToquem em um produto para ver o histórico.`,markup:listaComBotoes(alertas)};
+  return {text:textoDaLista(alertas,limiteGrupo(env),'📋 <b>Lista do grupo</b>'),markup:listaComBotoes(alertas)};
 }
 
 // Mensagem num grupo -> resposta (ou null). fetcher só para a checagem de admin.
@@ -123,7 +124,7 @@ export async function handleMembership(env,evento) {
 
 // Botões no grupo: ver é livre; adicionar (b:) é de qualquer membro; o resto
 // muda a lista e é só de admin. Convite e resumo semanal não existem em grupo.
-const SO_VER=/^(l|ex|-|bn|a:\d{1,12}:(c|g|gt(:\d{1,4})?))$/;
+const SO_VER=/^(l|ex|aj|-|bn|a:\d{1,12}:(c|g|gt(:\d{1,4})?))$/;
 export function precisaDeAdmin(dados) {
   const texto=String(dados||'');
   if(SO_VER.test(texto)||/^b:(ml|sp|ae):/.test(texto)) return false;

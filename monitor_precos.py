@@ -304,8 +304,10 @@ def _atualizacoes(produtos, leituras):
         if not produto.get("link_afiliado"):
             try:
                 link = _link_afiliado(produto, leitura, "alerta" if produto.get("loja") == "shopee" else "telegram")
-            except Exception:
+            except Exception as erro:
                 link = None
+                print(f"   ⚠️ Monitor: link de afiliado de #{produto['id']} ({produto.get('loja')}) falhou: "
+                      f"{seguranca.redigir_segredos(erro)[:120]}")
             if link:
                 dados["link_afiliado"] = link
         if len(dados) > 1:

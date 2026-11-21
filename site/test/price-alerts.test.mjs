@@ -151,7 +151,8 @@ test('menu, lista com botões e tela inicial',async()=>{
     'WHERE a.chat_id=? AND a.ativo=1 AND a.expira_em>? ORDER BY a.id':[{id:7,nome:'Power Bank Anker',id_produto:'MLB1',avisar_menor:1,atual:699}],
   });
   const lista=await handleUpdate({DB:db},{message:{text:'📋 Meus alertas',chat:{id:55,type:'private'}}},1000);
-  assert.match(lista.text,/Power Bank Anker/);
+  assert.match(lista.text,/Seus alertas<\/b> · 1 de 10 produtos/);
+  assert.match(lista.markup.inline_keyboard[1][0].text,/^🔔 Power Bank Anker · R\$\s?699,00$/);
   assert.equal(lista.markup.inline_keyboard[0][0].web_app.url,'https://canaltabarato.com.br/app/alertas');
   assert.equal(lista.markup.inline_keyboard[1][0].callback_data,'a:7:c');
   const novo=await handleUpdate({DB:db},{message:{text:'➕ Novo alerta',chat:{id:55,type:'private'}}},1000);
