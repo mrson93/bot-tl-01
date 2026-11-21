@@ -85,10 +85,13 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   instância (não espera mais a coleta).
 
 ### Etapa 8 — Mini app do Telegram (ideia 10)
-- [ ] Página `/app/alertas` aberta dentro do Telegram (Web App): lista, gráficos e
+- [x] Página `/app/alertas` aberta dentro do Telegram (Web App): lista, gráficos e
   ajustes visuais. Login pelo `initData` do Telegram (assinatura HMAC com o token
   do bot), sem senha.
-- [ ] Botão de menu do bot apontando para o mini app (`setChatMenuButton`).
+- [x] Botão de menu do bot apontando para o mini app (`setChatMenuButton`).
+- Feito em 20/11/2026: lista, gráfico 30/90/365, ajustes (menor, valor,
+  queda, estoque, prazo, apagar) e resumo semanal; "📱 Abrir painel" em Meus
+  alertas. Só /app/ aceita ser aberta pelo Telegram Web (frame-ancestors).
 
 ### Etapa 9 — Indicação (ideia 12)
 - [ ] Link próprio de cada pessoa (`?start=r_<código>`); quem trouxer amigos

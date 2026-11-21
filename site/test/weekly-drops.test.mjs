@@ -88,7 +88,7 @@ test('liga e desliga o resumo pelo botão e mostra em Meus alertas',async()=>{
   assert.equal(desligar.answer,'Resumo semanal desligado');
   assert.deepEqual(db.executados.at(-1)[1],['55',0]);
   assert.equal(desligar.markup.inline_keyboard[0][0].callback_data,'rs:1');
-  assert.deepEqual(listaComBotoes([{id:7,nome:'X'}],true).inline_keyboard[1][0],{text:'⚙️ Resumo semanal: ligado',callback_data:'rs:0'});
+  assert.deepEqual(listaComBotoes([{id:7,nome:'X'}],true).inline_keyboard[2][0],{text:'⚙️ Resumo semanal: ligado',callback_data:'rs:0'});
   assert.equal(listaComBotoes([{id:7,nome:'X'}]).inline_keyboard.length,1);
   const lista=await handleCallback({DB:db},'55','l');
   assert.equal(lista.markup.inline_keyboard.at(-1)[0].text,'⚙️ Resumo semanal: desligado');

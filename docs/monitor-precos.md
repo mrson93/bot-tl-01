@@ -265,3 +265,16 @@ painel ganha o botão da campanha do bot de alertas).
   cada instância do site, `garantirConfiguracao` confere webhook, descrição e
   foto (antes só rodava na coleta).
 
+## Mini app (etapa 8 do plano)
+
+- Página `/app/alertas` (`site/functions/app/alertas.js`, com
+  `public/miniapp/alertas.js` e `.css`), cores do tema do Telegram.
+- Login: o `initData` vai no cabeçalho `X-Telegram-Init-Data`;
+  `_webapp_auth.js` confere o HMAC (chave = HMAC_SHA256("WebAppData", token))
+  e aceita até 24 h. Nada novo é guardado.
+- API `_webapp_api.js`: `GET/POST /api/app/alertas` (lista, detalhe, ajustes)
+  e `GET /api/app/grafico?id=&dias=` (PNG). Os ajustes passam pelos mesmos
+  caminhos dos botões do cartão (`handleCallback`, `definirValor`).
+- Botão de menu do bot (`setChatMenuButton`, conferido junto com o perfil) e
+  "📱 Abrir painel" no topo de Meus alertas.
+

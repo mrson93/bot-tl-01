@@ -17,6 +17,9 @@ export const COMANDOS=[
 export const DESCRICAO='Cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress (ou busque pelo nome) e eu aviso no seu privado quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher ou queda de %. Gráfico de preço e termômetro de compra. Em qualquer conversa, digite @TaBaratoAlertaDePrecoBot e o nome do produto. Grátis, por até 1 ano. /parar apaga seus dados.';
 // Foto do bot (sino com etiqueta de preço e seta para baixo); fonte em public/bot/alerta-icone.svg.
 export const FOTO_URL='https://canaltabarato.com.br/bot/alerta-icone.jpg';
+// Botão de menu (ao lado do campo de texto) abre o mini app.
+export const MINIAPP_URL='https://canaltabarato.com.br/app/alertas';
+export const BOTAO_MENU={type:'web_app',text:'📱 Meus alertas',web_app:{url:MINIAPP_URL}};
 export const DESCRICAO_CURTA='Alerta de preço grátis: aviso quando o produto que você quer baixar de verdade.';
 
 // Perfil (comandos, descrições e foto): atualiza só quando a descrição publicada
@@ -49,6 +52,12 @@ export async function garantirConfiguracao(env,fetcher=fetch) {
   if(info.url!==WEBHOOK_URL||!ATUALIZACOES.every(t=>atuais.includes(t))){
     await telegram(env,'setWebhook',{url:WEBHOOK_URL,secret_token:env.TELEGRAM_ALERTS_WEBHOOK_SECRET,
       allowed_updates:ATUALIZACOES,drop_pending_updates:false},fetcher);
+    mudou=true;
+  }
+  const menu=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/getChatMenuButton`);
+  const atual=(await menu.json())?.result||{};
+  if(atual.type!=='web_app'||atual.web_app?.url!==MINIAPP_URL||atual.text!==BOTAO_MENU.text){
+    await telegram(env,'setChatMenuButton',{menu_button:BOTAO_MENU},fetcher);
     mudou=true;
   }
   return (await garantirPerfil(env,fetcher))||mudou;

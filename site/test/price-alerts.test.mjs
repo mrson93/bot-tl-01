@@ -152,7 +152,8 @@ test('menu, lista com botões e tela inicial',async()=>{
   });
   const lista=await handleUpdate({DB:db},{message:{text:'📋 Meus alertas',chat:{id:55,type:'private'}}},1000);
   assert.match(lista.text,/Power Bank Anker/);
-  assert.equal(lista.markup.inline_keyboard[0][0].callback_data,'a:7:c');
+  assert.equal(lista.markup.inline_keyboard[0][0].web_app.url,'https://canaltabarato.com.br/app/alertas');
+  assert.equal(lista.markup.inline_keyboard[1][0].callback_data,'a:7:c');
   const novo=await handleUpdate({DB:db},{message:{text:'➕ Novo alerta',chat:{id:55,type:'private'}}},1000);
   assert.match(novo.text,/Copiar link/);
   const inicio=await handleUpdate({DB:db},{message:{text:'/start',chat:{id:55,type:'private'}}},1000);
@@ -238,18 +239,26 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
   const {garantirConfiguracao,DESCRICAO,FOTO_URL,ATUALIZACOES}=await import('../functions/_alert_bot_setup.js');
   const env={TELEGRAM_ALERTS_BOT_TOKEN:'t',TELEGRAM_ALERTS_WEBHOOK_SECRET:'segredo'};
   const WEBHOOK={url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:ATUALIZACOES};
+  const {BOTAO_MENU}=await import('../functions/_alert_bot_setup.js');
   let chamadas=[];
+  let menu=BOTAO_MENU;
   const fetcher=(info,descricao,fotoStatus=200)=>async(url,init)=>{
     if(url===FOTO_URL) return new Response(new Uint8Array([255,216,255]),{status:200});
     const metodo=url.split('/').pop();
     if(metodo==='getWebhookInfo'){chamadas.push(metodo);return Response.json({ok:true,result:info});}
     if(metodo==='getMyDescription'){chamadas.push(metodo);return Response.json({ok:true,result:{description:descricao}});}
+    if(metodo==='getChatMenuButton'){chamadas.push(metodo);return Response.json({ok:true,result:menu});}
     chamadas.push(metodo,init.body instanceof FormData?init.body:JSON.parse(init.body));
     return new Response('{}',{status:metodo==='setMyProfilePhoto'?fotoStatus:200});
   };
   // Tudo em dia: só as duas leituras.
   assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,DESCRICAO)),false);
-  assert.deepEqual(chamadas,['getWebhookInfo','getMyDescription']);
+  assert.deepEqual(chamadas,['getWebhookInfo','getChatMenuButton','getMyDescription']);
+  // Botão de menu ainda padrão: vira o mini app.
+  chamadas=[];menu={type:'commands'};
+  assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,DESCRICAO)),true);
+  assert.deepEqual(chamadas[chamadas.indexOf('setChatMenuButton')+1],{menu_button:BOTAO_MENU});
+  menu=BOTAO_MENU;
   // Webhook sem os botões: corrige só o webhook.
   chamadas=[];
   assert.equal(await garantirConfiguracao(env,fetcher({...WEBHOOK,allowed_updates:['message']},DESCRICAO)),true);
@@ -261,7 +270,7 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
   chamadas=[];
   assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,'texto antigo')),true);
   const metodos=chamadas.filter(c=>typeof c==='string');
-  assert.deepEqual(metodos,['getWebhookInfo','getMyDescription','setMyCommands','setMyShortDescription','setMyProfilePhoto','setMyDescription']);
+  assert.deepEqual(metodos,['getWebhookInfo','getChatMenuButton','getMyDescription','setMyCommands','setMyShortDescription','setMyProfilePhoto','setMyDescription']);
   assert.ok(chamadas[chamadas.indexOf('setMyCommands')+1].commands.some(c=>c.command==='buscar'));
   const foto=chamadas[chamadas.indexOf('setMyProfilePhoto')+1];
   assert.deepEqual(JSON.parse(foto.get('photo')),{type:'static',photo:'attach://foto'});

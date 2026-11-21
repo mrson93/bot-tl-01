@@ -106,7 +106,7 @@ export function apagarPessoa(env,chatId) {
 
 // --- Cartão do alerta (o "painel" de cada produto) ----------------------------
 
-async function lerAlerta(env,chatId,alertaId) {
+export async function lerAlerta(env,chatId,alertaId) {
   return env.DB.prepare(
     `SELECT a.*,p.loja,p.id_produto,p.nome,p.link_afiliado,p.imagem,p.preco_max,p.cupom_codigo,p.cupom_condicao,p.cupom_expira_em,p.comparacao,p.comparado_em
      FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id WHERE a.id=? AND a.chat_id=?`,
@@ -150,7 +150,7 @@ async function diarios(env,produtoId,desde) {
   return results;
 }
 
-async function historico(env,produtoId,now) {
+export async function historico(env,produtoId,now) {
   const resumo=await env.DB.prepare(
     `SELECT MIN(preco) AS minimo,MAX(preco) AS maximo,MIN(lido_em) AS desde,
        (SELECT preco FROM monitor_leituras WHERE produto_id=?1 ORDER BY lido_em DESC LIMIT 1) AS atual,
@@ -340,7 +340,10 @@ export function listaComBotoes(alertas,resumo=null) {
   const linhas=alertas.map((a,i)=>[{
     text:`${i+1}. ${String(nomeSimples(a)).slice(0,40)}`,callback_data:`a:${a.id}:c`,
   }]);
-  if(resumo!==null) linhas.push([{text:`⚙️ Resumo semanal: ${resumo?'ligado':'desligado'}`,callback_data:`rs:${resumo?0:1}`}]);
+  if(resumo!==null){
+    linhas.unshift([{text:'📱 Abrir painel (gráficos e ajustes)',web_app:{url:'https://canaltabarato.com.br/app/alertas'}}]);
+    linhas.push([{text:`⚙️ Resumo semanal: ${resumo?'ligado':'desligado'}`,callback_data:`rs:${resumo?0:1}`}]);
+  }
   return {inline_keyboard:linhas};
 }
 
@@ -366,7 +369,7 @@ async function alertaEmFoco(env,chatId,now) {
   ).bind(chatId,now,now-15*60).first();
 }
 
-async function definirValor(env,chatId,alertaId,alvo,now) {
+export async function definirValor(env,chatId,alertaId,alvo,now) {
   await env.DB.prepare(
     'UPDATE alerta_precos SET preco_alvo=?,ativo=1,editando_em=NULL,ultimo_aviso_em=NULL,ultimo_aviso_preco=NULL WHERE id=? AND chat_id=?',
   ).bind(alvo,alertaId,chatId).run();
