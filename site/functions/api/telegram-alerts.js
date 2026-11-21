@@ -3,15 +3,30 @@ import {ensureAlertTables,handleAlertCallback,handleUpdate,sendTelegram} from '.
 import {telegram,telegramArquivo} from '../_price_alerts.js';
 import {respostaInline} from '../_inline.js';
 import {garantirConfiguracao} from '../_alert_bot_setup.js';
+import {TIPOS_GRUPO,ehAdmin,ehGrupo,handleGroupMessage,handleMembership,paraGrupo,precisaDeAdmin,proibidoNoGrupo} from '../_groups.js';
 
-// Toque num botão dentro da mensagem: só vale no privado e só para o dono.
+// Toque num botão dentro da mensagem. No privado, só o dono; no grupo, ver e
+// adicionar é de todos e mudar a lista é só de admin.
 export async function responderBotao(env,consulta,fetcher=fetch,now=Math.floor(Date.now()/1000)) {
   const chat=consulta?.message?.chat;
   const chatId=String(chat?.id||'');
-  if(chat?.type!=='private'||!/^\d{1,20}$/.test(chatId)||String(consulta?.from?.id)!==chatId){
-    return telegram(env,'answerCallbackQuery',{callback_query_id:consulta?.id},fetcher);
+  const grupo=TIPOS_GRUPO.has(chat?.type)&&ehGrupo(chatId);
+  const privado=chat?.type==='private'&&/^\d{1,20}$/.test(chatId)&&String(consulta?.from?.id)===chatId;
+  if(!grupo&&!privado) return telegram(env,'answerCallbackQuery',{callback_query_id:consulta?.id},fetcher);
+  if(grupo&&proibidoNoGrupo(consulta.data)){
+    return telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:'Isso só existe no privado do bot.'},fetcher);
   }
-  const r=await handleAlertCallback(env,chatId,consulta.data,now,fetcher);
+  if(grupo&&precisaDeAdmin(consulta.data)&&!await ehAdmin(env,chatId,consulta.from?.id,fetcher)){
+    return telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:'Só admins do grupo podem mudar isso.',show_alert:true},fetcher);
+  }
+  let r=await handleAlertCallback(env,chatId,consulta.data,now,fetcher);
+  if(grupo){
+    r=paraGrupo(r)||{};
+    // Valor no grupo: o bot só lê respostas às mensagens dele.
+    if(/^a:\d{1,12}:v$/.test(String(consulta.data))&&r.text){
+      r={...r,text:`${r.text}\n\n<i>Responda a esta mensagem com o valor.</i>`,markup:{force_reply:true,selective:false}};
+    }
+  }
   await telegram(env,'answerCallbackQuery',{callback_query_id:consulta.id,text:String(r.answer||'').slice(0,190)},fetcher);
   const markup=r.markup===null?undefined:r.markup;
   if(r.photo) return enviarGrafico(env,chatId,consulta,r,markup,fetcher);
@@ -80,6 +95,13 @@ export async function onRequestPost({request,env,waitUntil}) {
     const conferir=garantirConfiguracao(env).catch(error=>console.error(JSON.stringify({event:'bot_setup',result:'failed',reason:String(error?.message||error).slice(0,80)})));
     if(typeof waitUntil==='function') waitUntil(conferir); else await conferir;
   }
+  if(update?.my_chat_member){
+    try{
+      const boasVindas=await handleMembership(env,update.my_chat_member);
+      if(boasVindas) await sendTelegram(env,String(update.my_chat_member.chat.id),boasVindas.text,null,fetch,null);
+    }catch(error){console.error(JSON.stringify({event:'grupo_membro',result:'failed',reason:String(error?.message||error).slice(0,80)}));}
+    return new Response('OK',{status:200});
+  }
   if(update?.inline_query){
     await responderInline(env,update.inline_query).catch(()=>{});
     return new Response('OK',{status:200});
@@ -87,6 +109,13 @@ export async function onRequestPost({request,env,waitUntil}) {
   await ensureAlertTables(env);
   try{
     if(update?.callback_query) await responderBotao(env,update.callback_query);
+    else if(TIPOS_GRUPO.has(update?.message?.chat?.type)){
+      const r=await handleGroupMessage(env,update.message);
+      for(const item of (Array.isArray(r)?r:r?[r]:[])){
+        const {text,markup}=typeof item==='string'?{text:item,markup:null}:item;
+        if(text) await sendTelegram(env,String(update.message.chat.id),text,null,fetch,markup||null);
+      }
+    }
     else{
       const reply=await handleUpdate(env,update);
       for(const item of (Array.isArray(reply)?reply:reply?[reply]:[])){

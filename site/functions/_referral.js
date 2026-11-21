@@ -26,7 +26,10 @@ export async function amigosQueContam(env,chatId) {
   return Number(r?.total||0);
 }
 
+export const limiteGrupo=env=>numero(env,'ALERTA_MAX_PRODUTOS_POR_GRUPO',20);
+
 export async function limitePessoa(env,chatId) {
+  if(/^-\d+$/.test(String(chatId))) return limiteGrupo(env);  // grupo: limite próprio, sem indicação
   const amigos=await amigosQueContam(env,chatId);
   return Math.min(maxComBonus(env),base(env)+amigos*bonusPorAmigo(env));
 }

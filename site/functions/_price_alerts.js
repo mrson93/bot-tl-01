@@ -259,7 +259,7 @@ async function cadastrarAlerta(env,chatId,produto,alvo,now,origem) {
     .bind(chatId,now,existente?.id||0).first();
   const limiteDaPessoa=await limitePessoa(env,chatId);
   if(Number(meus?.total||0)>=limiteDaPessoa){
-    const podeGanhar=limiteDaPessoa<maxComBonus(env);
+    const podeGanhar=limiteDaPessoa<maxComBonus(env)&&!String(chatId).startsWith('-');
     return {text:`Você já tem ${limiteDaPessoa} produtos com alerta. Abra 📋 Meus alertas e apague um para criar outro`
       +(podeGanhar?', ou convide amigos para ganhar mais vagas.':'.'),
       markup:podeGanhar?{inline_keyboard:[[{text:'🎁 Convidar amigos',callback_data:'cv'}],[{text:'📋 Meus alertas',callback_data:'l'}]]}:MENU};
@@ -457,7 +457,7 @@ export async function handleCallback(env,chatId,dados,now=Math.floor(Date.now()/
     const alertas=await listPriceAlerts(env,chatId,now);
     if(!alertas.length) return {answer:'Nenhum alerta',text:'Você não tem alertas de produto. Toque em ➕ Novo alerta.'};
     return {answer:'Seus alertas',text:`<b>Seus alertas de produto</b>\n\n${formatPriceAlertList(alertas)}\n\nToque em um para ver e ajustar.`,
-      markup:listaComBotoes(alertas,await resumoLigado(env,chatId))};
+      markup:String(chatId).startsWith('-')?listaComBotoes(alertas):listaComBotoes(alertas,await resumoLigado(env,chatId))};
   }
   const resumo=texto.match(/^rs:([01])$/);
   if(resumo){

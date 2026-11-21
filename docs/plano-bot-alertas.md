@@ -102,8 +102,12 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   `ALERTA_MAX_COM_BONUS` (30); /convidar e botão em Meus alertas.
 
 ### Etapa 10 — Grupos (ideia 14)
-- [ ] Bot em grupos (família/amigos): lista de desejos compartilhada, avisos no
+- [x] Bot em grupos (família/amigos): lista de desejos compartilhada, avisos no
   grupo, só admins do grupo mudam os alertas.
+- Feito em 20/11/2026: qualquer membro adiciona (/alerta link, /buscar); só
+  admins apagam, ajustam e usam /parar (getChatMember a cada mudança); limite
+  de 20 por grupo; sem resumo, convite nem mini app; sair do grupo apaga a
+  lista; supergrupo leva a lista junto.
 
 ### Etapa 11 — Premium (ideia 13) — por último
 - [ ] Mais alertas e leitura a cada 30 min. Pagamento por **Telegram Stars**.

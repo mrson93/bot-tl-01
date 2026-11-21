@@ -239,7 +239,7 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
   const {garantirConfiguracao,DESCRICAO,FOTO_URL,ATUALIZACOES}=await import('../functions/_alert_bot_setup.js');
   const env={TELEGRAM_ALERTS_BOT_TOKEN:'t',TELEGRAM_ALERTS_WEBHOOK_SECRET:'segredo'};
   const WEBHOOK={url:'https://canaltabarato.com.br/api/telegram-alerts',allowed_updates:ATUALIZACOES};
-  const {BOTAO_MENU,COMANDOS}=await import('../functions/_alert_bot_setup.js');
+  const {BOTAO_MENU,COMANDOS,COMANDOS_GRUPO}=await import('../functions/_alert_bot_setup.js');
   let chamadas=[];
   let menu=BOTAO_MENU, comandos=COMANDOS;
   const fetcher=(info,descricao,fotoStatus=200)=>async(url,init)=>{
@@ -248,13 +248,13 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
     if(metodo==='getWebhookInfo'){chamadas.push(metodo);return Response.json({ok:true,result:info});}
     if(metodo==='getMyDescription'){chamadas.push(metodo);return Response.json({ok:true,result:{description:descricao}});}
     if(metodo==='getChatMenuButton'){chamadas.push(metodo);return Response.json({ok:true,result:menu});}
-    if(metodo==='getMyCommands'){chamadas.push(metodo);return Response.json({ok:true,result:comandos});}
+    if(metodo==='getMyCommands'){chamadas.push(metodo);return Response.json({ok:true,result:init?.body?COMANDOS_GRUPO:comandos});}
     chamadas.push(metodo,init.body instanceof FormData?init.body:JSON.parse(init.body));
     return new Response('{}',{status:metodo==='setMyProfilePhoto'?fotoStatus:200});
   };
   // Tudo em dia: só as duas leituras.
   assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,DESCRICAO)),false);
-  assert.deepEqual(chamadas,['getWebhookInfo','getMyCommands','getChatMenuButton','getMyDescription']);
+  assert.deepEqual(chamadas,['getWebhookInfo','getMyCommands','getMyCommands','getChatMenuButton','getMyDescription']);
   // Comandos desatualizados (sem /convidar): só os comandos mudam.
   chamadas=[];comandos=COMANDOS.filter(c=>c.command!=='convidar');
   assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,DESCRICAO)),true);
@@ -271,13 +271,13 @@ test('site liga os toques nos botões no webhook e atualiza o perfil (com foto) 
   assert.equal(await garantirConfiguracao(env,fetcher({...WEBHOOK,allowed_updates:['message']},DESCRICAO)),true);
   const webhook=chamadas[chamadas.indexOf('setWebhook')+1];
   assert.equal(webhook.secret_token,'segredo');
-  assert.deepEqual(webhook.allowed_updates,['message','callback_query','inline_query']);
+  assert.deepEqual(webhook.allowed_updates,['message','callback_query','inline_query','my_chat_member']);
   assert.ok(!chamadas.includes('setMyProfilePhoto'));
   // Descrição antiga: comandos, foto e, por último, a descrição nova.
   chamadas=[];
   assert.equal(await garantirConfiguracao(env,fetcher(WEBHOOK,'texto antigo')),true);
   const metodos=chamadas.filter(c=>typeof c==='string');
-  assert.deepEqual(metodos,['getWebhookInfo','getMyCommands','getChatMenuButton','getMyDescription','setMyCommands','setMyShortDescription','setMyProfilePhoto','setMyDescription']);
+  assert.deepEqual(metodos,['getWebhookInfo','getMyCommands','getMyCommands','getChatMenuButton','getMyDescription','setMyCommands','setMyShortDescription','setMyProfilePhoto','setMyDescription']);
   assert.ok(chamadas[chamadas.indexOf('setMyCommands')+1].commands.some(c=>c.command==='buscar'));
   const foto=chamadas[chamadas.indexOf('setMyProfilePhoto')+1];
   assert.deepEqual(JSON.parse(foto.get('photo')),{type:'static',photo:'attach://foto'});

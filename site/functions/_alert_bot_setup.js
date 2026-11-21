@@ -6,7 +6,7 @@ import {telegram,telegramArquivo} from './_price_alerts.js';
 
 const TELEGRAM_API='https://api.telegram.org';
 export const WEBHOOK_URL='https://canaltabarato.com.br/api/telegram-alerts';
-export const ATUALIZACOES=['message','callback_query','inline_query'];
+export const ATUALIZACOES=['message','callback_query','inline_query','my_chat_member'];
 export const COMANDOS=[
   {command:'start',description:'Como funciona e menu'},
   {command:'buscar',description:'Buscar um produto pelo nome'},
@@ -14,6 +14,14 @@ export const COMANDOS=[
   {command:'convidar',description:'Convidar amigos e ganhar vagas'},
   {command:'ajuda',description:'Ajuda'},
   {command:'parar',description:'Apagar todos os meus dados'},
+];
+// Menu de comandos dentro dos grupos (lista de desejos do grupo).
+export const COMANDOS_GRUPO=[
+  {command:'alerta',description:'Pôr um produto na lista: /alerta link'},
+  {command:'lista',description:'Ver a lista do grupo'},
+  {command:'buscar',description:'Buscar um produto pelo nome'},
+  {command:'ajuda',description:'Como funciona no grupo'},
+  {command:'parar',description:'Apagar a lista do grupo (admins)'},
 ];
 export const DESCRICAO='Cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress (ou busque pelo nome) e eu aviso no seu privado quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher ou queda de %. Gráfico de preço e termômetro de compra. Em qualquer conversa, digite @TaBaratoAlertaDePrecoBot e o nome do produto. Grátis, por até 1 ano. /parar apaga seus dados.';
 // Foto do bot (sino com etiqueta de preço e seta para baixo); fonte em public/bot/alerta-icone.svg.
@@ -60,6 +68,14 @@ export async function garantirConfiguracao(env,fetcher=fetch) {
   const publicados=((await comandos.json())?.result||[]).map(c=>c.command).join(',');
   if(publicados!==COMANDOS.map(c=>c.command).join(',')){
     await telegram(env,'setMyCommands',{commands:COMANDOS},fetcher);
+    mudou=true;
+  }
+  const ESCOPO_GRUPOS={type:'all_group_chats'};
+  const doGrupo=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/getMyCommands`,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:ESCOPO_GRUPOS})});
+  const publicadosGrupo=((await doGrupo.json())?.result||[]).map(c=>c.command).join(',');
+  if(publicadosGrupo!==COMANDOS_GRUPO.map(c=>c.command).join(',')){
+    await telegram(env,'setMyCommands',{commands:COMANDOS_GRUPO,scope:ESCOPO_GRUPOS},fetcher);
     mudou=true;
   }
   const menu=await fetcher(`${TELEGRAM_API}/bot${env.TELEGRAM_ALERTS_BOT_TOKEN}/getChatMenuButton`);

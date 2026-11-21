@@ -64,7 +64,7 @@ export async function enviarResumos(env,now=Math.floor(Date.now()/1000),fetcher=
   if(inicio===null||!env.TELEGRAM_ALERTS_BOT_TOKEN) return 0;
   const {results:pessoas=[]}=await env.DB.prepare(
     `SELECT DISTINCT a.chat_id FROM alerta_precos a LEFT JOIN alerta_pessoas p ON p.chat_id=a.chat_id
-     WHERE a.ativo=1 AND a.expira_em>? AND COALESCE(p.resumo_semanal,1)=1 AND COALESCE(p.resumo_enviado_em,0)<? LIMIT ?`,
+     WHERE a.ativo=1 AND a.expira_em>? AND a.chat_id NOT LIKE '-%' AND COALESCE(p.resumo_semanal,1)=1 AND COALESCE(p.resumo_enviado_em,0)<? LIMIT ?`,
   ).bind(now,inicio,LOTE_RESUMO).all();
   let enviados=0;
   for(const {chat_id:chatId} of pessoas){

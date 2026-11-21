@@ -293,3 +293,19 @@ painel ganha o botão da campanha do bot de alertas).
   cheio, com botão de compartilhar (`t.me/share/url`). Comandos do bot são
   conferidos na primeira mensagem de cada instância (`getMyCommands`).
 
+## Grupos (etapa 10 do plano)
+
+- `site/functions/_groups.js`. O alerta do grupo usa o número do grupo
+  (negativo) como `chat_id`; os avisos chegam no grupo.
+- Comandos no grupo: `/alerta link`, `/lista`, `/buscar termo`, `/ajuda`,
+  `/parar` (admins). Comando para outro bot (`/x@OutroBot`) é ignorado; com o
+  modo de privacidade, o bot só lê comandos e respostas às mensagens dele.
+- Botões: ver (cartão, gráfico, lista) e adicionar pelos resultados são de
+  todos; mudar avisos, valor, prazo e apagar exigem admin (`getChatMember`).
+  Valor no grupo: resposta à mensagem do bot, só de admin.
+- Limite `ALERTA_MAX_PRODUTOS_POR_GRUPO` (20); sem resumo semanal, convite,
+  alerta por palavra nem mini app. `my_chat_member`: entrada dá boas-vindas,
+  saída apaga a lista; `migrate_to_chat_id` muda o número da lista.
+- Menu de comandos próprio nos grupos (`setMyCommands` com escopo
+  `all_group_chats`), conferido junto com o perfil.
+
