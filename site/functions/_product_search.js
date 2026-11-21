@@ -17,6 +17,16 @@ export function termoBusca(valor='') {
   return termo;
 }
 
+// A busca da Shopee é "solta" (devolve qualquer coisa parecida): só fica o
+// produto cujo nome tem todas as palavras buscadas (plural simples vale).
+const normal=t=>` ${String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()} `;
+const CURTAS=new Set(['de','da','do','das','dos','e','com','para','pra','o','a']);
+export function temTodasAsPalavras(nome,termo) {
+  const texto=normal(nome);
+  return normal(termo).trim().split(' ').filter(p=>p&&!CURTAS.has(p))
+    .every(p=>texto.includes(` ${p} `)||texto.includes(` ${p}s `)||(p.endsWith('s')&&texto.includes(` ${p.slice(0,-1)} `)));
+}
+
 export function shopeeConfigurada(env) {
   return Boolean(env?.SHOPEE_APP_ID&&env?.SHOPEE_SECRET);
 }
@@ -51,11 +61,12 @@ function itemShopee(node) {
     link:/^https:\/\/([a-z0-9-]+\.)*shopee\.com\.br\//i.test(String(node.offerLink||''))?String(node.offerLink):null};
 }
 
-export async function buscarShopee(env,termo,fetcher=fetch) {
+// filtrar=false: a comparação de lojas tem a própria regra de semelhança.
+export async function buscarShopee(env,termo,fetcher=fetch,filtrar=true) {
   if(!shopeeConfigurada(env)) return [];
   try{
-    const data=await shopeeGraphql(env,`{productOfferV2(keyword:${JSON.stringify(termo)},limit:10,page:1){nodes{${CAMPOS}}}}`,fetcher);
-    return (data?.productOfferV2?.nodes||[]).map(itemShopee).filter(Boolean);
+    const data=await shopeeGraphql(env,`{productOfferV2(keyword:${JSON.stringify(termo)},limit:20,page:1){nodes{${CAMPOS}}}}`,fetcher);
+    return (data?.productOfferV2?.nodes||[]).map(itemShopee).filter(i=>i&&(!filtrar||temTodasAsPalavras(i.nome,termo)));
   }catch(error){
     console.error(JSON.stringify({event:'busca_shopee',result:'failed',reason:String(error?.message||error).slice(0,60)}));
     return [];
@@ -133,12 +144,26 @@ export async function buscarProdutos(env,termo,fetcher=fetch,now=Math.floor(Date
 
 const milhar=n=>n>=1000?`${(n/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} mil`:String(n);
 
-export function formatarResultados(termo,itens,palavra='') {
+// Quando nada aparece nas lojas aceitas, mas o canal já postou na Amazon.
+export async function amazonNoCatalogo(env,termo) {
+  const termos=termosLike(termo);
+  if(!termos.length) return null;
+  try{
+    const r=await env.DB.prepare(
+      `SELECT id,title,price FROM offers WHERE availability!='unavailable' AND price>0 AND id LIKE 'amazon\\_%' ESCAPE '\\'
+         AND ${termos.map(()=>"title LIKE ? ESCAPE '\\' COLLATE NOCASE").join(' AND ')} ORDER BY price ASC LIMIT 1`,
+    ).bind(...termos).first();
+    return r?{nome:String(r.title||'').slice(0,90),preco:Number(r.price),link:`https://canaltabarato.com.br/go/${encodeURIComponent(r.id)}`}:null;
+  }catch{ return null; }
+}
+
+export function formatarResultados(termo,itens,palavra='',amazon=null) {
   const botaoPalavra=palavra?[[{text:`🔔 Avisar quando o canal postar "${palavra}"`.slice(0,64),callback_data:`k:${palavra}`}]]:[];
   if(!itens.length){
-    return {text:[`🔎 Não achei produtos para <b>${html(termo)}</b>.`,'',
-      'Tente com menos palavras (ex.: <code>air fryer</code>) ou cole o link do produto do Mercado Livre, da Shopee ou do AliExpress.'].join('\n'),
-    markup:{inline_keyboard:[...botaoPalavra,[{text:'🔎 Nova busca',callback_data:'bn'}]]}};
+    const naAmazon=amazon?['',`O canal já postou na <b>Amazon</b>: ${html(amazon.nome)} por ${html(money(amazon.preco))}. A Amazon ainda não entra nos alertas de preço, mas dá para ver a oferta abaixo.`]:[];
+    return {text:[`🔎 Não achei <b>${html(termo)}</b> no Mercado Livre, na Shopee nem no AliExpress.`,...naAmazon,'',
+      'Tente com outras palavras (ex.: <code>air fryer</code>) ou cole o link do produto.'].join('\n'),
+    markup:{inline_keyboard:[...(amazon?[[{text:'🛒 Ver na Amazon ↗',url:amazon.link}]]:[]),...botaoPalavra,[{text:'🔎 Nova busca',callback_data:'bn'}]]}};
   }
   const linhas=[`🔎 <b>Resultados para "${html(termo)}"</b>`,''];
   itens.forEach((item,i)=>{

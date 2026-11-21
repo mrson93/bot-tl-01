@@ -60,7 +60,7 @@ export async function procurarEmOutrasLojas(env,produto,precoAtual,fetcher=fetch
   if(palavras.length<2||!(precoAtual>0)) return null;
   const [catalogo,shopee]=await Promise.all([
     candidatosDoCatalogo(env,produto,palavras).catch(()=>[]),
-    produto.loja==='shopee'?[]:buscarShopee(env,palavras.slice(0,5).join(' '),fetcher)
+    produto.loja==='shopee'?[]:buscarShopee(env,palavras.slice(0,5).join(' '),fetcher,false)
       .then(itens=>itens.filter(i=>i.link).map(i=>({loja:'shopee',nome:i.nome,preco:i.preco,link:i.link}))),
   ]);
   const validos=[...catalogo,...shopee].filter(c=>c.preco>=precoAtual*0.5&&c.preco<=precoAtual*1.5

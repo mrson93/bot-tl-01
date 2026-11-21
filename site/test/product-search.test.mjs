@@ -63,11 +63,11 @@ test('junta catálogo e Shopee ao vivo, sem repetir, com histórico de quem já 
   const db=fakeDb({'FROM offers':CATALOGO,'FROM monitor_produtos p JOIN monitor_leituras':historicoMonitor});
   const {pedidos,fetcher}=shopee();
   const itens=await buscarProdutos({DB:db,...ENV_SHOPEE},'air fryer',fetcher,AGORA);
-  assert.deepEqual(itens.map(i=>`${i.loja}:${i.id_produto}`),['mercadolivre:MLB111','shopee:10_20','shopee:1_2','shopee:1_3']);
+  // "Fritadeira sem óleo" não tem as palavras "air fryer": a busca solta da Shopee não passa.
+  assert.deepEqual(itens.map(i=>`${i.loja}:${i.id_produto}`),['mercadolivre:MLB111','shopee:10_20','shopee:1_2']);
   assert.equal(itens[0].dias,50);
   assert.equal(itens[0].termometro.nivel,'baixo');
   assert.equal(itens[2].preco,219.9);
-  assert.equal(itens[3].preco,99.9);
   // Busca no catálogo: um LIKE por palavra, só ML e Shopee.
   const sql=db.executados.find(([s])=>s.includes('FROM offers'));
   assert.deepEqual(sql[1],['%air%','%fryer%']);
@@ -156,4 +156,20 @@ test('botão da palavra cria o alerta por palavra e o de nova busca pergunta de 
   await responderBotao({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},{id:'q',data:'bn',from:{id:55},message:{message_id:3,text:'x',chat:{id:55,type:'private'}}},fetcher,AGORA);
   assert.deepEqual(chamadas.map(c=>c.metodo),['answerCallbackQuery','sendMessage']);
   assert.equal(chamadas[1].corpo.reply_markup.force_reply,true);
+});
+
+test('busca da Shopee só fica com quem tem todas as palavras; só Amazon vira aviso com link',async()=>{
+  const {temTodasAsPalavras,formatarResultados,amazonNoCatalogo}=await import('../functions/_product_search.js');
+  assert.ok(temTodasAsPalavras('Amazon Echo Spot com Alexa','echo spot'));
+  assert.ok(temTodasAsPalavras('Fones de Ouvido Bluetooth','fone de ouvido'));
+  assert.ok(!temTodasAsPalavras('Caixa de Som Bluetooth Spot Light','echo spot'));
+  assert.ok(!temTodasAsPalavras('Echo Dot 5ª geração','echo spot'));
+  const db=fakeDb({"id LIKE 'amazon":{id:'amazon_B0C2RS4ZG6',title:'Echo Spot com Alexa',price:439}});
+  const amazon=await amazonNoCatalogo({DB:db},'echo spot');
+  assert.deepEqual(amazon,{nome:'Echo Spot com Alexa',preco:439,link:'https://canaltabarato.com.br/go/amazon_B0C2RS4ZG6'});
+  const r=formatarResultados('echo spot',[],'echo spot',amazon);
+  assert.match(r.text,/Não achei <b>echo spot<\/b> no Mercado Livre, na Shopee nem no AliExpress/);
+  assert.match(r.text,/O canal já postou na <b>Amazon<\/b>: Echo Spot com Alexa por R\$\s?439,00/);
+  assert.equal(r.markup.inline_keyboard[0][0].url,'https://canaltabarato.com.br/go/amazon_B0C2RS4ZG6');
+  assert.equal(r.markup.inline_keyboard[1][0].callback_data,'k:echo spot');
 });

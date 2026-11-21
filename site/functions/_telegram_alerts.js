@@ -1,6 +1,6 @@
 import {SITE,html,money,offerPath} from './_site.js';
 import {MENU,MENU_AJUDA,MENU_BUSCA,MENU_LISTA,MENU_NOVO,deleteStatements,formatPriceAlertList,handleCallback,handlePriceAlert,handlePriceChoice,handleStartProduct,listPriceAlerts,listaComBotoes,maxPorPessoa,removePriceAlert,resumoLigado} from './_price_alerts.js';
-import {PERGUNTA_BUSCA,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
+import {PERGUNTA_BUSCA,amazonNoCatalogo,buscarProdutos,formatarResultados,lerShopee,perguntaBusca,termoBusca} from './_product_search.js';
 
 // Bot público e separado do painel administrativo: guarda apenas o chat_id
 // numérico do Telegram e as palavras escolhidas, nada de nome ou telefone.
@@ -76,7 +76,7 @@ async function buscar(env,termoDigitado,now,fetcher=fetch) {
   const termo=termoBusca(termoDigitado);
   if(!termo) return {text:'Mande de 2 a 60 letras, por exemplo: <code>air fryer mondial</code>',markup:MENU};
   const itens=await buscarProdutos(env,termo,fetcher,now);
-  return formatarResultados(termo,itens,validKeyword(termo));
+  return formatarResultados(termo,itens,validKeyword(termo),itens.length?null:await amazonNoCatalogo(env,termo));
 }
 
 async function criarPalavra(env,chatId,keyword,now) {
