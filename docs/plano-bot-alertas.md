@@ -109,7 +109,8 @@ Como o sistema funciona hoje: [monitor-precos.md](monitor-precos.md).
   de 20 por grupo; sem resumo, convite nem mini app; sair do grupo apaga a
   lista; supergrupo leva a lista junto.
 
-### Etapa 11 — Premium (ideia 13) — por último
+### Etapa 11 — Premium (ideia 13) — FORA DO PLANO
+- Deixada de fora por decisão do dono do bot em 20/11/2026. Retomar só se ele pedir.
 - [ ] Mais alertas e leitura a cada 30 min. Pagamento por **Telegram Stars**.
 - Só faz sentido com usuários e custo de API reais; decisões de preço e termos
   são da pessoa dona do canal.
