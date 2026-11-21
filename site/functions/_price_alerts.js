@@ -717,6 +717,36 @@ export async function deliverPriceAlerts(env,avisos,now=Math.floor(Date.now()/10
 }
 
 // Lembra 7 dias antes de vencer e, ao vencer, pausa o alerta (liberando a vaga).
+// Alerta que nunca teve leitura 6 h depois de criado (a loja recusa o produto):
+// avisa a pessoa uma vez, com o caminho para resolver. Fica registrado em
+// alerta_avisos com motivo 'sem_leitura' (preço 0) para não repetir.
+export async function avisarSemLeitura(env,now=Math.floor(Date.now()/1000),fetcher=fetch) {
+  if(!env.TELEGRAM_ALERTS_BOT_TOKEN) return 0;
+  const {results=[]}=await env.DB.prepare(
+    `SELECT a.id,a.chat_id,a.produto_id,p.loja,p.id_produto,p.nome FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id
+     WHERE a.ativo=1 AND a.expira_em>?1 AND a.criado_em<?2
+       AND NOT EXISTS(SELECT 1 FROM monitor_leituras l WHERE l.produto_id=a.produto_id)
+       AND NOT EXISTS(SELECT 1 FROM alerta_avisos v WHERE v.alerta_id=a.id AND v.motivo='sem_leitura') LIMIT 20`,
+  ).bind(now,now-HORAS_SEM_LEITURA*3600).all();
+  let enviados=0;
+  for(const a of results){
+    await env.DB.prepare("INSERT INTO alerta_avisos(alerta_id,chat_id,produto_id,motivo,preco,enviado_em) VALUES(?,?,?,'sem_leitura',0,?)")
+      .bind(a.id,a.chat_id,a.produto_id,now).run();
+    const qual=a.nome?`de <b>${html(String(a.nome).slice(0,90))}</b>`:`do produto <code>${html(a.id_produto)}</code> ${LOJA_DE[a.loja]||''}`.trim();
+    const dica=a.loja==='mercadolivre'
+      ?'A loja não libera a leitura deste anúncio. Abra o produto no app, toque em <b>Compartilhar → Copiar link</b> e mande de novo aqui — de preferência a página do produto (o link com <b>/p/MLB…</b>).'
+      :'A loja não está devolvendo o preço dele. Abra o produto no app, toque em <b>Compartilhar → Copiar link</b> e mande de novo aqui.';
+    try{
+      const status=await telegram(env,'sendMessage',{chat_id:a.chat_id,parse_mode:'HTML',
+        text:`⚠️ Não consegui ler o preço ${qual}.\n\n${dica}\n\nEnquanto isso, este alerta não vai avisar nada.`,
+        reply_markup:{inline_keyboard:[[{text:'🗑 Apagar este alerta',callback_data:`a:${a.id}:x`},{text:'⚙️ Ver o alerta',callback_data:`a:${a.id}:c`}]]}},fetcher);
+      if(status===403) await apagarPessoa(env,a.chat_id);
+      else if(status>=200&&status<300) enviados++;
+    }catch{ /* registrado: não insiste */ }
+  }
+  return enviados;
+}
+
 export async function expirePriceAlerts(env,now=Math.floor(Date.now()/1000),fetcher=fetch) {
   const {results:vencendo=[]}=await env.DB.prepare(
     `SELECT a.id,a.chat_id,a.expira_em,p.nome,p.id_produto FROM alerta_precos a JOIN monitor_produtos p ON p.id=a.produto_id

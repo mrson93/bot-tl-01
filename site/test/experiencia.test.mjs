@@ -86,3 +86,20 @@ test('botão da lista traz termômetro, nome e preço',()=>{
   assert.match(rotuloDaLista({nome:'Fone',atual:99,termometro:{nivel:'aprendendo',emoji:'⏳'}}),/^🔔 Fone · R\$/);
   assert.match(rotuloDaLista({nome:null,loja:'shopee',atual:null}),/^⏳ Produto da Shopee/);
 });
+
+test('alerta sem leitura há 6 h avisa a pessoa uma vez, com o caminho para resolver',async()=>{
+  const {avisarSemLeitura}=await import('../functions/_price_alerts.js');
+  const db=fakeDb({"motivo='sem_leitura') LIMIT 20":[{id:4,chat_id:'1243',produto_id:4,loja:'mercadolivre',id_produto:'MLB4079863189',nome:null}]});
+  const enviados=[];
+  const fetcher=async(url,init)=>{enviados.push(JSON.parse(init.body));return new Response('{}');};
+  assert.equal(await avisarSemLeitura({DB:db,TELEGRAM_ALERTS_BOT_TOKEN:'t'},AGORA,fetcher),1);
+  const consulta=db.executados[0];
+  assert.deepEqual(consulta[1],[AGORA,AGORA-6*3600]);
+  assert.match(consulta[0],/NOT EXISTS\(SELECT 1 FROM monitor_leituras/);
+  assert.deepEqual(db.executados[1][1],[4,'1243',4,AGORA]);   // registra antes de enviar
+  assert.equal(enviados[0].chat_id,'1243');
+  assert.match(enviados[0].text,/Não consegui ler o preço do produto <code>MLB4079863189<\/code> do Mercado Livre\./);
+  assert.match(enviados[0].text,/\/p\/MLB…/);
+  assert.deepEqual(enviados[0].reply_markup.inline_keyboard[0].map(b=>b.callback_data),['a:4:x','a:4:c']);
+  assert.equal(await avisarSemLeitura({DB:db},AGORA,fetcher),0);  // sem token, nada
+});

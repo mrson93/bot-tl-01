@@ -1,5 +1,5 @@
 import {authorized,json,readJsonLimited} from '../_lib.js';
-import {deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
+import {avisarSemLeitura,deliverPriceAlerts,expirePriceAlerts} from '../_price_alerts.js';
 import {garantirConfiguracao} from '../_alert_bot_setup.js';
 import {enviarResumos} from '../_weekly_summary.js';
 
@@ -166,6 +166,8 @@ export async function onRequestPost({request,env,waitUntil}) {
     avisos=await deliverPriceAlerts(env,body.avisos,agora);
     const configurar=garantirConfiguracao(env).catch(error=>console.error(JSON.stringify({event:'alert_bot_setup',result:'failed',reason:String(error?.message||error).slice(0,80)})));
     if(typeof waitUntil==='function') waitUntil(configurar); else await configurar;
+    const semLeitura=avisarSemLeitura(env,agora).catch(error=>console.error(JSON.stringify({event:'sem_leitura',result:'failed',reason:String(error?.message||error).slice(0,80)})));
+    if(typeof waitUntil==='function') waitUntil(semLeitura); else await semLeitura;
     const vencer=expirePriceAlerts(env,agora).catch(error=>console.error(JSON.stringify({event:'price_alert_expire',result:'failed',reason:String(error?.message||error).slice(0,80)})));
     if(typeof waitUntil==='function') waitUntil(vencer); else await vencer;
     const resumo=enviarResumos(env,agora).catch(error=>console.error(JSON.stringify({event:'resumo_semanal',result:'failed',reason:String(error?.message||error).slice(0,80)})));
