@@ -347,6 +347,21 @@ def atualizar_catalogo_site(lojas):
         return 0
 
 
+def atualizar_historico_diario(lojas):
+    """Um preço por dia para Mercado Livre e AliExpress, sem travar a rodada."""
+    if not site_publisher.esta_configurado():
+        return 0
+    try:
+        resultado = site_publisher.atualizar_catalogo_diario(lojas)
+        if resultado["consultados"]:
+            print(f"📅 Histórico diário: {resultado['encontrados']} de {resultado['consultados']} "
+                  "oferta(s) com o preço de hoje.")
+        return resultado["consultados"]
+    except Exception as erro:
+        print(f"⚠️ Histórico diário adiado: {seguranca.redigir_segredos(erro)}")
+        return 0
+
+
 def gerar_rascunho_blog_seguro():
     """Gera no máximo um rascunho diário, sem afetar a rodada de ofertas."""
     if not config.BLOG_RASCUNHO_AUTOMATICO or not site_publisher.esta_configurado():
@@ -1571,6 +1586,7 @@ def rodar_uma_vez() -> int:
     lojas = fontes_ativas()
     sincronizar_links_lojas_site(lojas)
     atualizar_catalogo_site(lojas)
+    atualizar_historico_diario(lojas)
     candidatos = []
     if lojas:
         with ThreadPoolExecutor(max_workers=len(lojas)) as executor:

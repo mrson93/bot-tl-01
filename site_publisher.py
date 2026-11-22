@@ -369,6 +369,61 @@ def atualizar_catalogo(fontes, limite=None):
     }
 
 
+LOJAS_DIARIAS = ("Mercado Livre", "AliExpress")
+
+
+def atualizar_catalogo_diario(fontes, lojas=LOJAS_DIARIAS, lotes=None):
+    """Histórico diário: um preço por dia para cada oferta ativa destas lojas.
+
+    O site devolve quem ainda não foi conferido hoje (Brasília), 20 por vez; a
+    cada rodada do bot vão alguns lotes, até a fila do dia acabar. A Shopee é
+    lida pelo próprio site (painel na Cloudflare), sem gastar minutos aqui.
+    """
+    lotes = config.SITE_DIARIO_LOTES_POR_RODADA if lotes is None else lotes
+    if not esta_configurado() or int(lotes or 0) <= 0:
+        return {"consultados": 0, "encontrados": 0}
+    headers = {"Authorization": f"Bearer {config.SITE_API_TOKEN}"}
+    fontes_por_nome = {fonte.NOME: fonte for fonte in fontes}
+    total = {"consultados": 0, "encontrados": 0}
+    for nome in lojas:
+        consultar = getattr(fontes_por_nome.get(nome), "consultar_produtos", None)
+        if not callable(consultar):
+            continue
+        for _ in range(int(lotes)):
+            resposta = requests.get(
+                _api_path("/api/refresh-candidates"), headers=headers,
+                params={"daily": "1", "source": nome, "limit": 20},
+                timeout=15, allow_redirects=False,
+            )
+            if not 200 <= resposta.status_code < 300:
+                raise RuntimeError(f"Site recusou a fila diária ({resposta.status_code})")
+            ids = [str(c.get("id")) for c in (resposta.json() or {}).get("candidates") or [] if c.get("id")]
+            if not ids:
+                break
+            try:
+                encontrados = consultar(ids)
+            except Exception as erro:
+                print(f"   ⚠️  Histórico diário de {nome} adiado: {seguranca.redigir_segredos(erro)}")
+                break
+            if not encontrados:
+                # Lote inteiro sem nada: é a API da loja que falhou, não 20 produtos
+                # que sumiram juntos. Não marca ninguém como indisponível.
+                print(f"   ⚠️  Histórico diário de {nome}: a loja não devolveu nenhum produto; tento na próxima rodada.")
+                break
+            atualizacoes = [_payload_atualizacao(oferta_id, encontrados.get(oferta_id)) for oferta_id in ids]
+            enviada = requests.post(
+                _api_path("/api/refresh"), headers=headers,
+                json={"updates": atualizacoes}, timeout=20, allow_redirects=False,
+            )
+            if not 200 <= enviada.status_code < 300:
+                raise RuntimeError(f"Site recusou o histórico diário ({enviada.status_code})")
+            total["consultados"] += len(atualizacoes)
+            total["encontrados"] += sum(1 for item in atualizacoes if item["found"])
+            if len(ids) < 20:
+                break
+    return total
+
+
 def resumo_cliques(inicio, fim):
     """Lê somente contagens agregadas, sem dados dos visitantes."""
     api = _api_path("/api/stats")

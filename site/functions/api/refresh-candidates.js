@@ -1,7 +1,11 @@
 import {authorized,json} from '../_lib.js';
+import {candidatosDoDia} from '../_daily_prices.js';
 
 export async function onRequestGet({request,env}) {
   if(!await authorized(request,env.PUBLISH_TOKEN)) return json({error:'unauthorized'},401);
+  const params=new URL(request.url).searchParams;
+  // ?daily=1&source=Mercado Livre: fila do histórico diário (quem não foi conferido hoje).
+  if(params.get('daily')==='1') return json({candidates:await candidatosDoDia(env,String(params.get('source')||''),params.get('limit'),Math.floor(Date.now()/1000))});
   const requested=Number(new URL(request.url).searchParams.get('limit'))||6;
   const limit=Math.max(1,Math.min(20,Math.floor(requested)));
   const now=Math.floor(Date.now()/1000),day=86400;

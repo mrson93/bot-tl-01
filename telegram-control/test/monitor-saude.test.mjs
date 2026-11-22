@@ -121,3 +121,17 @@ test("/cupom grava no banco; /cupons lista; /cupom_apagar tira", async () => {
   assert.deepEqual(consultas.at(-1)[1], ["abc123", "painel_abc123"]);
   assert.match(respostas[3], /tirado do site/);
 });
+
+import { SITE_PRECOS_URL, runDailyPrices } from "../src/index.js";
+
+test("histórico diário: chama o site a cada 15 min com o segredo, e nada sem segredo", async () => {
+  const chamadas = [];
+  const fetchImpl = async (url, init) => { chamadas.push([url, init]); return new Response("{}", { status: 200 }); };
+  const em = (min) => ({ scheduledTime: Date.UTC(2026, 10, 22, 14, min) });
+  assert.equal(await runDailyPrices(em(3), { PRECOS_DIARIOS_TOKEN: "x" }, fetchImpl), true);
+  assert.equal(await runDailyPrices(em(4), { PRECOS_DIARIOS_TOKEN: "x" }, fetchImpl), false);
+  assert.equal(await runDailyPrices(em(48), {}, fetchImpl), false);
+  assert.equal(chamadas.length, 1);
+  assert.equal(chamadas[0][0], SITE_PRECOS_URL);
+  assert.equal(chamadas[0][1].headers.Authorization, "Bearer x");
+});

@@ -297,3 +297,47 @@ class SitePublisherTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HistoricoDiarioTest(unittest.TestCase):
+    def _fontes(self, consultar):
+        fonte = type("F", (), {"NOME": "Mercado Livre", "consultar_produtos": staticmethod(consultar)})
+        return [fonte]
+
+    def test_le_os_lotes_do_dia_e_envia_ao_site(self):
+        from unittest import mock
+        import site_publisher
+        filas = [[{"id": f"mercadolivre_MLB{i}"} for i in range(20)], [{"id": "mercadolivre_MLB99"}]]
+        gets, posts = [], []
+
+        def get(url, headers=None, params=None, timeout=None, allow_redirects=None):
+            gets.append(params)
+            return mock.Mock(status_code=200, json=lambda: {"candidates": filas.pop(0) if filas else []})
+
+        def post(url, headers=None, json=None, timeout=None, allow_redirects=None):
+            posts.append(json)
+            return mock.Mock(status_code=200)
+
+        produto = {"price": 10, "imageUrl": "https://http2.mlstatic.com/x.jpg", "productName": "X"}
+        consultar = lambda ids: {i: produto for i in ids if i != "mercadolivre_MLB0"}
+        with mock.patch.object(site_publisher, "esta_configurado", return_value=True), \
+             mock.patch.object(site_publisher, "_api_path", side_effect=lambda c: "https://x" + c), \
+             mock.patch.object(site_publisher.requests, "get", side_effect=get), \
+             mock.patch.object(site_publisher.requests, "post", side_effect=post):
+            r = site_publisher.atualizar_catalogo_diario(self._fontes(consultar), lojas=("Mercado Livre",), lotes=3)
+        self.assertEqual(r, {"consultados": 21, "encontrados": 20})
+        self.assertEqual(gets[0], {"daily": "1", "source": "Mercado Livre", "limit": 20})
+        self.assertEqual(len(posts), 2)
+        self.assertFalse(posts[0]["updates"][0]["found"])   # MLB0 sumiu de verdade
+
+    def test_lote_vazio_e_falha_da_loja_e_nao_marca_ninguem(self):
+        from unittest import mock
+        import site_publisher
+        get = mock.Mock(return_value=mock.Mock(status_code=200, json=lambda: {"candidates": [{"id": "mercadolivre_MLB1"}]}))
+        with mock.patch.object(site_publisher, "esta_configurado", return_value=True), \
+             mock.patch.object(site_publisher, "_api_path", side_effect=lambda c: "https://x" + c), \
+             mock.patch.object(site_publisher.requests, "get", get), \
+             mock.patch.object(site_publisher.requests, "post") as post:
+            r = site_publisher.atualizar_catalogo_diario(self._fontes(lambda ids: {}), lojas=("Mercado Livre",), lotes=3)
+        post.assert_not_called()
+        self.assertEqual(r["consultados"], 0)

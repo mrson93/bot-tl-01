@@ -1282,6 +1282,20 @@ export async function runScheduledUsageMonitor(controller, env, fetchImpl = fetc
   }
 }
 
+// Histórico diário do catálogo: a cada 15 min (minuto 3, 18, 33, 48) pede ao
+// site para ler um lote de ofertas da Shopee ainda não conferidas hoje.
+export const SITE_PRECOS_URL = "https://canaltabarato.com.br/api/precos-diarios";
+export async function runDailyPrices(controller, env, fetchImpl = fetch) {
+  if (!env.PRECOS_DIARIOS_TOKEN) return false;
+  const minuto = new Date(Number(controller?.scheduledTime || Date.now())).getUTCMinutes();
+  if (minuto % 15 !== 3) return false;
+  const response = await fetchImpl(SITE_PRECOS_URL, {
+    method: "POST", headers: { Authorization: `Bearer ${env.PRECOS_DIARIOS_TOKEN}` },
+  });
+  console.log(JSON.stringify({ event: "daily_prices", status: response.status }));
+  return response.ok;
+}
+
 export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
   await Promise.all([
     runScheduledReport(controller, env, fetchImpl),
@@ -1289,6 +1303,9 @@ export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
     runScheduledMonitor(controller, env, fetchImpl).catch((error) => {
       const reason = error instanceof Error ? error.message : "monitor_schedule_error";
       console.error(JSON.stringify({ event: "monitor_schedule_failed", reason }));
+    }),
+    runDailyPrices(controller, env, fetchImpl).catch(() => {
+      console.error(JSON.stringify({ event: "daily_prices_failed" }));
     }),
   ]);
 }

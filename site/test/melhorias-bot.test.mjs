@@ -196,3 +196,42 @@ test('menu marca o atalho de Cupons para esconder quando não houver cupom',asyn
   assert.match(header('offers'),/href="\/cupons" data-coupons>Cupons/);
   assert.match(head({title:'x',description:'y',canonical:'https://x'}),/\/nav\.js/);
 });
+
+test('histórico diário da Shopee: lê o lote do dia, grava o preço e marca quem sumiu',async()=>{
+  const {atualizarShopeeDoDia,inicioDoDia}=await import('../functions/_daily_prices.js');
+  const agora=Math.floor(Date.UTC(2026,10,22,15)/1000);
+  assert.equal(inicioDoDia(agora),Math.floor(Date.UTC(2026,10,22,3)/1000));   // meia-noite de Brasília
+  const executados=[];
+  const DB={prepare(sql){return {sql,bind(...a){this.args=a;return this;},
+    async all(){executados.push([sql,this.args]);return {results:[{id:'shopee_1_10'},{id:'shopee_1_11'}]};}};},
+    async batch(st){for(const s of st) executados.push([s.sql,s.args]);}};
+  const fetcher=async(url,init)=>{const q=JSON.parse(init.body).query;
+    return Response.json({data:{productOfferV2:{nodes:q.includes('itemId:10')?[{shopId:1,itemId:10,priceMin:'49.9',ratingStar:'4.8',sales:120}]:[]}}});};
+  const r=await atualizarShopeeDoDia({DB,SHOPEE_APP_ID:'1',SHOPEE_SECRET:'s'},agora,12,fetcher);
+  assert.deepEqual(r,{lidos:2,encontrados:1,restantes:0});
+  const fila=executados.find(([sql])=>sql.includes('COALESCE(o.last_checked_at,0)<?'));
+  assert.deepEqual(fila[1].slice(1,3),['Shopee',inicioDoDia(agora)]);
+  assert.ok(executados.some(([sql,a])=>sql.startsWith('INSERT INTO offer_prices')&&a[1]===49.9&&a[3]==='shopee_1_10'));
+  assert.ok(executados.some(([sql,a])=>sql.includes('refresh_failures+1')&&a[1]==='shopee_1_11'));
+  // API fora: não marca ninguém.
+  executados.length=0;
+  const r2=await atualizarShopeeDoDia({DB,SHOPEE_APP_ID:'1',SHOPEE_SECRET:'s'},agora,12,async()=>{throw new Error('fora');});
+  assert.equal(r2.lidos,0);
+  assert.ok(!executados.some(([sql])=>sql.startsWith('UPDATE')));
+});
+
+test('rota dos preços diários exige o segredo próprio; fila diária pelo refresh-candidates',async()=>{
+  const {onRequestPost}=await import('../functions/api/precos-diarios.js');
+  const req=t=>new Request('https://x/api/precos-diarios',{method:'POST',headers:t?{Authorization:`Bearer ${t}`}:{}});
+  assert.equal((await onRequestPost({request:req('x'),env:{}})).status,401);
+  assert.equal((await onRequestPost({request:req('errado'),env:{PRECOS_DIARIOS_TOKEN:'certo'}})).status,401);
+  const r=await onRequestPost({request:req('certo'),env:{PRECOS_DIARIOS_TOKEN:'certo'}});
+  assert.equal((await r.json()).erro,'shopee_sem_chave');
+  const {onRequestGet}=await import('../functions/api/refresh-candidates.js');
+  let args;
+  const DB={prepare(){return {bind(...a){args=a;return this;},async all(){return {results:[{id:'mercadolivre_MLB1'}]};}};}};
+  const g=await onRequestGet({request:new Request('https://x/api/refresh-candidates?daily=1&source=Mercado%20Livre&limit=20',{headers:{Authorization:'Bearer p'}}),env:{DB,PUBLISH_TOKEN:'p'}});
+  assert.deepEqual((await g.json()).candidates,[{id:'mercadolivre_MLB1'}]);
+  assert.equal(args[1],'Mercado Livre');
+  assert.equal(args[3],20);
+});

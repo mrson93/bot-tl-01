@@ -355,3 +355,20 @@ painel ganha o botão da campanha do bot de alertas).
   ordenada por quem está mais perto do valor.
 - Migração `0031_cliques_alerta.sql` precisa rodar **antes** do push do site
   (o site passa a ler `link_cartao`).
+
+## Histórico diário do catálogo (22/11/2026)
+
+Antes, o preço de uma oferta do site só era conferido de carona nas rodadas do
+bot (6 por vez): em 24 h, 54 de 2.330 ofertas. Agora cada oferta ativa ganha
+um preço por dia (`offer_prices`, uma linha por dia):
+
+- **Shopee:** o site lê 12 ofertas a cada 15 min (`POST /api/precos-diarios`),
+  chamado pelo Worker `telegram-control` nos minutos 3, 18, 33 e 48, com o
+  segredo `PRECOS_DIARIOS_TOKEN` (mesmo valor no site e no Worker).
+- **Mercado Livre e AliExpress:** cada rodada do bot lê até 3 lotes de 20
+  (`SITE_DIARIO_LOTES_POR_RODADA`) da fila `GET /api/refresh-candidates?daily=1`.
+  Um lote em que a loja não devolve nenhum produto é tratado como falha da
+  API: ninguém é marcado como indisponível.
+- **Amazon:** sem API (a Creators API recusa a conta), continua como antes.
+- A fila do dia é quem ainda não foi conferido desde a meia-noite de Brasília,
+  os mais clicados primeiro. Quem some 3 vezes seguidas sai do site.

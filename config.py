@@ -411,6 +411,8 @@ BLOG_GUIAS_HORA = _int("BLOG_GUIAS_HORA", 9)
 # Produtos antigos sao revistos aos poucos dentro das rodadas que ja existem.
 # Isso nao cria novas execucoes do GitHub Actions.
 SITE_REFRESH_PER_RUN = max(0, min(20, _int("SITE_REFRESH_PER_RUN", 6)))
+# Histórico diário (Mercado Livre e AliExpress): lotes de 20 por rodada do bot.
+SITE_DIARIO_LOTES_POR_RODADA = max(0, min(10, _int("SITE_DIARIO_LOTES_POR_RODADA", 3)))
 
 # Compatibilidade com instalações antigas. Posts de oferta não usam mais esse
 # link; o convite deve ficar em mensagem institucional ou post fixado.
