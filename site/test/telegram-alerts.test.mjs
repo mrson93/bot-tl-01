@@ -91,7 +91,7 @@ test('palavras são normalizadas e casam só com palavra inteira',()=>{
 
 test('cria, lista, limita, remove e apaga alertas em conversa privada',async()=>{
   const DB=database(),env={DB};
-  assert.match(t(await handleUpdate(env,message('/start'))),/Alertas de preço do Tá Barato/);
+  assert.match(t(await handleUpdate(env,message('/start'))),/Eu aviso quando um produto baixar de preço/);
   assert.match(await handleUpdate(env,message('/alerta Air Fryer')),/air fryer/);
   await handleUpdate(env,message('/alerta Air Fryer'));
   assert.equal(DB.subscriptions.length,1);
@@ -158,6 +158,6 @@ test('webhook fica fechado sem segredo e exige o cabeçalho do Telegram',async()
     assert.equal((await webhook({request:request('s'.repeat(32)),env})).status,200);
   }finally{globalThis.fetch=originalFetch;}
   assert.equal(sent.length,2);
-  assert.match(sent[0].text,/Alertas de preço do Tá Barato/);
+  assert.match(sent[0].text,/Eu aviso quando um produto baixar de preço/);
   assert.equal(sent[0].reply_markup.keyboard[0][0].text,'➕ Novo alerta');
 });

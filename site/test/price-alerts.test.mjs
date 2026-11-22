@@ -158,7 +158,7 @@ test('menu, lista com botões e tela inicial',async()=>{
   const novo=await handleUpdate({DB:db},{message:{text:'➕ Novo alerta',chat:{id:55,type:'private'}}},1000);
   assert.match(novo.text,/Copiar link/);
   const inicio=await handleUpdate({DB:db},{message:{text:'/start',chat:{id:55,type:'private'}}},1000);
-  assert.equal(inicio[1].markup.inline_keyboard[0][0].callback_data,'ex');
+  assert.equal(inicio[1].markup.inline_keyboard[0][0].callback_data,'bn');
 });
 
 test('toque de outra pessoa no botão é ignorado',async()=>{

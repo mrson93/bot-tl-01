@@ -47,29 +47,31 @@ export function parseCommand(text='') {
 
 function ajuda(env) {
   return [
-    '🔔 <b>Alertas de preço do Tá Barato</b>',
-    'Eu acompanho o preço para você e aviso no privado quando baixar de verdade. É grátis.',
+    '🔔 <b>Como funciona</b>',
     '',
-    '<b>Como usar, em 3 passos</b>',
-    '1️⃣ Abra o produto no app ou no site do <b>Mercado Livre</b>, da <b>Shopee</b> ou do <b>AliExpress</b> e toque em <b>Compartilhar → Copiar link</b>.',
-    '2️⃣ Cole o link aqui. Se quiser, já mande o preço junto: <code>https://… 199,90</code>',
-    '3️⃣ Escolha nos botões quando quer ser avisado: menor preço do histórico, um valor, queda de % ou volta ao estoque (Mercado Livre). O alerta vale 1 ano (você pode mudar).',
+    '1️⃣ No app da loja, abra o produto e toque em <b>Compartilhar → Copiar link</b>.',
+    '2️⃣ Cole o link aqui.',
+    '3️⃣ Escolha quando avisar: menor preço, um valor ou queda de %.',
     '',
-    '🔎 Não tem o link? Toque em <b>Buscar produto</b> ou mande só o nome, como <code>air fryer</code>, e escolha nos resultados. Ali também dá para pedir aviso quando o canal postar oferta disso.',
+    'Pronto. Eu confiro o preço e aviso aqui quando baixar.',
     '',
-    '💬 Em qualquer conversa, digite <code>@TaBaratoAlertaDePrecoBot fone</code> para mandar um produto com preço e histórico para alguém.',
+    '<b>Mais jeitos de usar</b>',
+    '🔎 Sem link? Mande o nome, como <code>air fryer</code>.',
+    '📱 Veja e ajuste tudo no botão <b>Meus alertas</b>.',
+    '👨‍👩‍👧 Em grupo: me adicione e use <code>/alerta link</code>.',
+    '💬 Em qualquer conversa: <code>@TaBaratoAlertaDePrecoBot fone</code>.',
     '',
-    `Até ${maxPorPessoa(env)} produtos e ${MAX_KEYWORDS_PER_CHAT} palavras por pessoa (convide amigos com /convidar para ganhar mais vagas). Guardo só o número do seu chat; /parar apaga tudo.`,
+    `Até ${maxPorPessoa(env)} produtos por pessoa. Convide amigos (/convidar) para ganhar mais vagas.`,
+    'Lojas: Mercado Livre, Shopee e AliExpress. Grátis. /parar apaga seus dados.',
   ].join('\n');
 }
 
 // /start curto: o essencial e três atalhos; o passo a passo fica no ❓ Ajuda.
 // Duas mensagens porque o menu fixo (teclado) e os botões não cabem na mesma.
 function boasVindas(antes='') {
-  return [{text:`${antes}🔔 <b>Alertas de preço do Tá Barato</b>\nEu aviso no seu privado quando o preço baixar de verdade. É grátis.\n\n👉 <b>Cole aqui o link</b> de um produto do Mercado Livre, da Shopee ou do AliExpress, ou busque pelo nome.`,markup:MENU},
-    {text:'Por onde começar?',markup:{inline_keyboard:[
-      [{text:'📲 Ver um exemplo de aviso',callback_data:'ex'}],
-      [{text:'🔎 Buscar pelo nome',callback_data:'bn'},{text:'❓ Como funciona',callback_data:'aj'}]]}}];
+  return [{text:`${antes}Oi! Eu aviso quando um produto baixar de preço.\n\n👉 <b>Cole aqui o link do produto.</b> Só isso.`,markup:MENU},
+    {text:'Mercado Livre, Shopee ou AliExpress. Sem link? Busque pelo nome.',markup:{inline_keyboard:[
+      [{text:'🔎 Buscar pelo nome',callback_data:'bn'},{text:'📲 Ver um exemplo',callback_data:'ex'}]]}}];
 }
 
 const NOVO=[

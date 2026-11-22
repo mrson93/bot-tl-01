@@ -7,7 +7,7 @@ export function services(alertBot=DEFAULT_ALERT_BOT) {
   return [
     {group:'Receba as ofertas',items:[
       {icon:'✈️',title:'Canal no Telegram',text:'Ofertas selecionadas assim que aparecem, com preço, avaliação e link oficial. Grátis e sem cadastro.',href:'https://t.me/CanalTaBarato',cta:'Entrar no canal',external:true},
-      {icon:'🔔',title:'Alerta de preço no Telegram',text:'Mande ao nosso bot o link de um produto do Mercado Livre e o preço que você quer pagar: ele acompanha o preço a cada 2 horas e te avisa no privado quando chegar lá. Também dá para criar alertas por palavra, como “air fryer”.',href:`https://t.me/${alertBot}?start=site`,cta:'Criar um alerta',external:true},
+      {icon:'🔔',title:'Alerta de preço no Telegram',text:'Mande ao nosso bot o link de um produto do Mercado Livre, da Shopee ou do AliExpress. Ele confere o preço e avisa quando baixar de verdade. Sem link? Busque pelo nome.',href:`https://t.me/${alertBot}?start=site`,cta:'Criar um alerta',external:true},
       {icon:'📸',title:'Stories no Instagram',text:'Ofertas do dia nos Stories. Responda QUERO no Direct e receba o link na conversa.',href:'https://www.instagram.com/ofertascanaltabarato/',cta:'Seguir no Instagram',external:true},
       {icon:'📣',title:'Facebook, X e Bluesky',text:'As mesmas ofertas na rede que você já usa.',href:'/#social-title',cta:'Escolher a rede'},
     ]},

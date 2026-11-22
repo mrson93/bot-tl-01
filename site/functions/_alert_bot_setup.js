@@ -8,7 +8,7 @@ const TELEGRAM_API='https://api.telegram.org';
 export const WEBHOOK_URL='https://canaltabarato.com.br/api/telegram-alerts';
 export const ATUALIZACOES=['message','callback_query','inline_query','my_chat_member'];
 export const COMANDOS=[
-  {command:'start',description:'Como funciona e menu'},
+  {command:'start',description:'Começar'},
   {command:'buscar',description:'Buscar um produto pelo nome'},
   {command:'meusalertas',description:'Ver e ajustar meus alertas'},
   {command:'convidar',description:'Convidar amigos e ganhar vagas'},
@@ -23,13 +23,13 @@ export const COMANDOS_GRUPO=[
   {command:'ajuda',description:'Como funciona no grupo'},
   {command:'parar',description:'Apagar a lista do grupo (admins)'},
 ];
-export const DESCRICAO='Cole o link de um produto do Mercado Livre, da Shopee ou do AliExpress (ou busque pelo nome) e eu aviso no seu privado quando o preço baixar de verdade: menor preço do histórico, o valor que você escolher ou queda de %. Gráfico de preço e termômetro de compra. Em qualquer conversa, digite @TaBaratoAlertaDePrecoBot e o nome do produto. Grátis, por até 1 ano. /parar apaga seus dados.';
+export const DESCRICAO='Cole o link de um produto. Eu acompanho o preço e aviso quando baixar de verdade.\n\n✅ Mercado Livre, Shopee e AliExpress\n✅ Histórico e gráfico de preço\n✅ Grátis, sem cadastro';
 // Foto do bot (sino com etiqueta de preço e seta para baixo); fonte em public/bot/alerta-icone.svg.
 export const FOTO_URL='https://canaltabarato.com.br/bot/alerta-icone.jpg';
 // Botão de menu (ao lado do campo de texto) abre o mini app.
 export const MINIAPP_URL='https://canaltabarato.com.br/app/alertas';
 export const BOTAO_MENU={type:'web_app',text:'📱 Meus alertas',web_app:{url:MINIAPP_URL}};
-export const DESCRICAO_CURTA='Alerta de preço grátis: aviso quando o produto que você quer baixar de verdade.';
+export const DESCRICAO_CURTA='Avisa quando o produto que você quer baixar de preço. Mercado Livre, Shopee e AliExpress. Grátis.';
 
 // Perfil (comandos, descrições e foto): atualiza só quando a descrição publicada
 // é diferente da daqui, ou seja, uma vez a cada versão nova do texto.

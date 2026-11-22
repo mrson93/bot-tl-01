@@ -119,3 +119,14 @@ test('mini app cria alerta colando o link, pelo mesmo caminho do chat',async()=>
   assert.match(recusado.mensagem,/Você já tem 10 produtos/);
   assert.equal(semHtml('<b>a</b> &amp; &lt;b&gt;'),'a & <b>');
 });
+
+test('página /comecar: quatro caminhos, redes e aviso de comissão',async()=>{
+  const {onRequestGet}=await import('../functions/comecar.js');
+  const r=onRequestGet({env:{}});
+  assert.equal(r.status,200);
+  const pagina=await r.text();
+  for(const t of ['Receber ofertas','Avisar quando baixar','Ver se o preço é bom','Cupons de hoje']) assert.match(pagina,new RegExp(t));
+  assert.match(pagina,/https:\/\/t\.me\/TaBaratoAlertaDePrecoBot\?start=comecar/);
+  assert.match(pagina,/Podemos ganhar comissão, sem custo para você/);
+  assert.doesNotMatch(pagina,/style=/);   // CSP: style-src 'self'
+});

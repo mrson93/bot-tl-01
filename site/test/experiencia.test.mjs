@@ -75,10 +75,10 @@ test('/start curto com atalhos e "Como funciona" com o passo a passo',async()=>{
   const [boas,atalhos]=await handleUpdate(env,{message:{chat:{id:55,type:'private'},text:'/start'}},AGORA);
   assert.ok(boas.text.split('\n').length<=5);
   assert.ok(boas.markup.keyboard);
-  assert.deepEqual(atalhos.markup.inline_keyboard.flat().map(b=>b.callback_data),['ex','bn','aj']);
+  assert.deepEqual(atalhos.markup.inline_keyboard.flat().map(b=>b.callback_data),['bn','ex']);
   const ajuda=await handleAlertCallback(env,'55','aj',AGORA);
-  assert.match(ajuda.text,/Como usar, em 3 passos/);
-  assert.match(ajuda.text,/volta ao estoque \(Mercado Livre\)/);
+  assert.match(ajuda.text,/Como funciona/);
+  assert.match(ajuda.text,/Compartilhar → Copiar link/);
 });
 
 test('botão da lista traz termômetro, nome e preço',()=>{
