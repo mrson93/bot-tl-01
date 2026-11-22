@@ -130,3 +130,15 @@ test('página /comecar: quatro caminhos, redes e aviso de comissão',async()=>{
   assert.match(pagina,/Podemos ganhar comissão, sem custo para você/);
   assert.doesNotMatch(pagina,/style=/);   // CSP: style-src 'self'
 });
+
+test('página /alertas: três passos, botão para o bot e menu com Alertas ativo',async()=>{
+  const {onRequestGet}=await import('../functions/alertas.js');
+  const pagina=await onRequestGet({env:{}}).text();
+  assert.match(pagina,/Escolha o produto\.<br>A gente avisa quando baixar\./);
+  assert.equal((pagina.match(/class="alerts-num"/g)||[]).length,3);
+  assert.match(pagina,/https:\/\/t\.me\/TaBaratoAlertaDePrecoBot\?start=site_alertas/);
+  assert.match(pagina,/href="\/alertas" aria-current="page">Alertas/);
+  assert.doesNotMatch(pagina,/style=/);
+  const {header}=await import('../functions/_site.js');
+  assert.deepEqual([...header('offers').matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m=>m[2]),['Ofertas','Alertas','Preços','Cupons']);
+});

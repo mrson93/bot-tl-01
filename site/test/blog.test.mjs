@@ -171,7 +171,7 @@ test('blog abre com estado vazio antes da primeira matéria',async()=>{
   assert.equal(response.status,200);
   const body=await response.text();
   assert.match(body,/primeiras matérias estão sendo preparadas/);
-  assert.match(body,/href="\/blog" aria-current="page"/);
+  assert.match(body,/href="\/quedas-de-preco" aria-current="page">Preços/);  // Guias fica em Preços
 });
 
 test('painel e API administrativa falham fechados sem Cloudflare Access',async()=>{

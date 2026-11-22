@@ -15,10 +15,12 @@ test('página de serviços lista os recursos reais com links próprios',async()=
   assert.ok(services().flatMap(group=>group.items).every(item=>item.href&&item.title&&item.text));
 });
 
-test('menu, rodapé e página inicial apontam para os serviços',async()=>{
+test('menu com 4 pilares; rodapé leva a Como funciona; início mostra os pilares',async()=>{
   const index=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
   const site=await readFile(new URL('../functions/_site.js',import.meta.url),'utf8');
   assert.ok(index.includes('href="/servicos"'));
-  assert.ok(index.includes('services-home'));
-  assert.ok(site.includes('href="/servicos"'));
+  assert.ok(index.includes('class="pillars"'));
+  assert.ok(!index.includes('alert-banner'));
+  assert.ok(site.includes('href="/servicos">Como funciona'));
+  assert.match(index,/<nav class="main-nav"[^>]*><a href="\/" aria-current="page">Ofertas<\/a><a href="\/alertas">Alertas<\/a><a href="\/quedas-de-preco">Preços<\/a><a href="\/cupons">Cupons<\/a><\/nav>/);
 });

@@ -19,7 +19,7 @@
   <meta name="twitter:title" content="Tá Barato | Ofertas, descontos e achados online">
   <meta name="twitter:description" content="Ofertas selecionadas por preço, desconto, avaliação e vendas, reunidas em um só lugar.">
   <title>Tá Barato | Ofertas, descontos e achados online</title>
-  <link rel="stylesheet" href="/styles.css?v=20261122-1">
+  <link rel="stylesheet" href="/styles.css?v=20261122-2">
   <script src="/analytics.js?v=20261020-1" defer></script>
   <script src="/google-analytics.js?v=20260930-1" defer></script>
   <script src="/app.js?v=20261023-1" defer></script>
@@ -66,15 +66,16 @@
       <img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt="" aria-hidden="true">
       <span>TÁ <strong>BARATO</strong></span>
     </a>
-    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/quedas-de-preco">Histórico</a><a href="/cupons">Cupons</a><a href="/blog">Blog</a><a href="/servicos">Serviços</a></nav>
+    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/alertas">Alertas</a><a href="/quedas-de-preco">Preços</a><a href="/cupons">Cupons</a></nav>
   </header>
 
   <main class="home-page">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">GARIMPO AUTOMÁTICO, ESCOLHA CRITERIOSA</p>
-        <h1>Descontos reais.<br><em>Sem enrolação.</em></h1>
-        <p class="hero-text">Comparamos preço, avaliação e histórico de vendas para mostrar só o que merece seu clique.</p>
+        <p class="eyebrow">MERCADO LIVRE · SHOPEE · AMAZON · ALIEXPRESS</p>
+        <h1>Ofertas de verdade.<br><em>Na hora certa.</em></h1>
+        <p class="hero-text">Conferimos o histórico de cada preço para você não cair em promoção falsa.</p>
+        <div class="hero-actions"><a class="hero-primary" href="#catalog-title">Ver ofertas de hoje</a><a class="hero-secondary" href="/alertas">Criar alerta de preço</a></div>
       </div>
       <aside class="live-card" aria-label="Resumo das ofertas">
         <span class="live"><i></i> <span id="updated-label">ATUALIZANDO…</span></span>
@@ -83,12 +84,14 @@
       </aside>
     </section>
 
+    <section class="pillars" aria-label="O que o Tá Barato faz">
+      <a class="pillar" href="#catalog-title"><span aria-hidden="true">🔥</span><strong>Ofertas</strong><p>O que está barato agora, conferido.</p></a>
+      <a class="pillar" href="/alertas"><span aria-hidden="true">🔔</span><strong>Alertas</strong><p>Escolha o produto. A gente avisa quando baixar.</p></a>
+      <a class="pillar" href="/quedas-de-preco"><span aria-hidden="true">📈</span><strong>Preços</strong><p>Saiba se o preço é bom antes de comprar.</p></a>
+    </section>
+
     <section class="coupon-strip" id="coupon-strip" hidden><div><p class="eyebrow">ECONOMIA EXTRA</p><strong id="coupon-strip-text"></strong></div><a href="/cupons">Ver cupons ativos →</a></section>
 
-    <section class="alert-banner" aria-labelledby="alert-banner-title">
-      <div class="alert-copy"><span class="alert-bell" aria-hidden="true">🔔</span><div><p class="eyebrow">NOVO · GRÁTIS NO TELEGRAM</p><h2 id="alert-banner-title">Avise-me quando baixar</h2><p>Cole o link de um produto do Mercado Livre e diga quanto quer pagar. Nosso bot acompanha o preço e te chama no privado quando chegar lá, sem desconto falso.</p></div></div>
-      <a href="https://t.me/TaBaratoAlertaDePrecoBot?start=home" target="_blank" rel="noopener noreferrer">Criar meu alerta <span>↗</span></a>
-    </section>
 
     <section class="social-strip" aria-labelledby="social-title">
       <div class="social-strip-copy"><p class="eyebrow">ACOMPANHE O TÁ BARATO</p><h2 id="social-title">Escolha seu canal.</h2></div>
@@ -127,15 +130,6 @@
       <nav class="price-links" aria-label="Comprar por faixa de preço"><span>Por preço:</span><a href="/faixas-de-preco/ate-50">até R$ 50</a><a href="/faixas-de-preco/de-50-a-100">R$ 50–100</a><a href="/faixas-de-preco/de-100-a-200">R$ 100–200</a><a href="/faixas-de-preco/acima-de-200">acima de R$ 200</a></nav>
     </section>
 
-    <section class="services-home" aria-labelledby="services-home-title">
-      <div class="section-head"><div><p class="eyebrow">TUDO GRÁTIS</p><h2 id="services-home-title">Mais que uma lista de ofertas.</h2></div><a href="/servicos">Ver todos os serviços →</a></div>
-      <div class="services-grid">
-        <a class="service-card" href="https://t.me/TaBaratoAlertaDePrecoBot?start=home" target="_blank" rel="noopener noreferrer"><span class="service-icon" aria-hidden="true">🔔</span><strong>Alerta de preço</strong><p>Mande o link do produto e o preço que você quer pagar, ou uma palavra como “air fryer”, e receba no privado.</p><b>Criar alerta →</b></a>
-        <a class="service-card" href="/quedas-de-preco"><span class="service-icon" aria-hidden="true">📈</span><strong>Histórico de preços</strong><p>Veja se o preço de hoje está abaixo, na média ou acima dos últimos 30 dias.</p><b>Ver histórico →</b></a>
-        <a class="service-card" href="/blog"><span class="service-icon" aria-hidden="true">📚</span><strong>Guias e comparativos</strong><p>Produtos comparados por segmento, com ficha técnica e preço consultado.</p><b>Ler guias →</b></a>
-        <a class="service-card" href="/cupons"><span class="service-icon" aria-hidden="true">🎟</span><strong>Cupons ativos</strong><p>Cupons e vouchers oficiais das lojas, com prazo e condições.</p><b>Ver cupons →</b></a>
-      </div>
-    </section>
     <section class="catalog" aria-labelledby="catalog-title">
       <div class="section-head">
         <div><p class="eyebrow">VITRINE ATUALIZADA</p><h2 id="catalog-title">Achados que valem a pena</h2></div>
@@ -187,7 +181,7 @@
   <footer>
     <div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div>
     <p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p>
-    <nav class="footer-links"><a href="/servicos">Serviços</a><a href="/blog">Blog</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
+    <nav class="footer-links"><a href="/comecar">Comece aqui</a><a href="/servicos">Como funciona</a><a href="/blog">Guias</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
   </footer>
 </body>
 </html>

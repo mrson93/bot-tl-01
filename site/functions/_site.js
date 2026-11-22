@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261122-1';
+export const STYLESHEET='/styles.css?v=20261122-2';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -144,12 +144,16 @@ export function productStructuredData(offer,canonical) {
   }]};
 }
 
+// Menu com os três pilares + cupons. Guias (blog) e histórico ficam em Preços.
+export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/alertas','Alertas','alerts'],['/quedas-de-preco','Preços','prices'],['/cupons','Cupons','coupons']];
+const ABA_DE={history:'prices',blog:'prices'};
 export function header(active='offers') {
-  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal"><a href="/"${active==='offers'?' aria-current="page"':''}>Ofertas</a><a href="/quedas-de-preco"${active==='history'?' aria-current="page"':''}>Histórico</a><a href="/cupons"${active==='coupons'?' aria-current="page"':''}>Cupons</a><a href="/blog"${active==='blog'?' aria-current="page"':''}>Blog</a><a href="/servicos"${active==='services'?' aria-current="page"':''}>Serviços</a></nav></header>`;
+  const aba=ABA_DE[active]||active;
+  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`<a href="${href}"${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
 }
 
 export function footer() {
-  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><nav class="footer-links"><a href="/servicos">Serviços</a><a href="/blog">Blog</a><a href="/stories">Ofertas dos Stories</a><a href="/quedas-de-hoje">Quedas de hoje</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
+  return `<footer><div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div><p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p><nav class="footer-links"><a href="/comecar">Comece aqui</a><a href="/servicos">Como funciona</a><a href="/blog">Guias</a><a href="/stories">Ofertas dos Stories</a><a href="/quedas-de-hoje">Quedas de hoje</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© ${new Date().getFullYear()} Tá Barato</small></footer>`;
 }
 
 export function infoPage({slug,title,eyebrow,description,content,structured=''}) {
