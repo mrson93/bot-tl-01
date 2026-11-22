@@ -20,5 +20,6 @@ test('catálogo procura todos os termos sem exigir que estejam juntos no título
   const response=await onRequestGet({request,env:{DB}}),data=await response.json();
   assert.equal(data.total,1);
   assert.equal((statements[0].sql.match(/o\.title LIKE \?/g)||[]).length,3);
-  assert.deepEqual(statements[0].args.slice(1,4),['%Galaxy%','%A36%','%256GB%']);
+  assert.deepEqual(statements[0].args.slice(4,7)  // 3 datas do histórico + 1 de cliques antes dos termos
+    ,['%Galaxy%','%A36%','%256GB%']);
 });

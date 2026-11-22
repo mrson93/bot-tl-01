@@ -19,8 +19,9 @@ test('menu com 4 pilares; rodapé leva a Como funciona; início mostra os pilare
   const index=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
   const site=await readFile(new URL('../functions/_site.js',import.meta.url),'utf8');
   assert.ok(index.includes('href="/servicos"'));
-  assert.ok(index.includes('class="pillars"'));
+  assert.ok(index.includes('class="bento"'));
   assert.ok(!index.includes('alert-banner'));
   assert.ok(site.includes('href="/servicos">Como funciona'));
-  assert.match(index,/<nav class="main-nav"[^>]*><a href="\/" aria-current="page">Ofertas<\/a><a href="\/alertas">Alertas<\/a><a href="\/quedas-de-preco">Preços<\/a><a href="\/cupons">Cupons<\/a><\/nav>/);
+  assert.match(index,/<nav class="main-nav"[^>]*><a href="\/" aria-current="page">Ofertas<\/a><a href="\/quedas-de-preco">Preços<\/a><a href="\/cupons">Cupons<\/a><a class="nav-cta" href="\/alertas">🔔 Alertas<\/a><\/nav>/);
+  assert.ok(index.includes('id="search"')&&index.includes('class="top-search"'));
 });

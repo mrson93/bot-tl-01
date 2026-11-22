@@ -43,18 +43,23 @@ function decorate(row,kind) {
   return row;
 }
 
-export async function discoveryPage(env,kind) {
-  const page=PAGES[kind];
-  if(!page) return new Response('Not found',{status:404});
-  const now=Math.floor(Date.now()/1000),since30d=now-30*86400,since7d=now-7*86400;
+// Linhas de cada lista (também usadas no bloco "Caiu agora" da página inicial).
+export async function discoveryRows(env,kind,limit=100,now=Math.floor(Date.now()/1000)) {
+  const since30d=now-30*86400,since7d=now-7*86400;
   let sql=`SELECT * FROM (${baseQuery()}) ranked`,bindings=[since30d,since7d];
   if(kind==='drops') {sql+=' WHERE previous_price IS NOT NULL AND previous_price>price AND price_changed_at>=? ORDER BY ((previous_price-price)/previous_price) DESC,price_changed_at DESC';bindings.push(since7d);}
   if(kind==='lows') sql+=' WHERE observations>=2 AND price<=min_price+0.005 ORDER BY observations DESC,discount DESC';
   if(kind==='popular') sql+=' WHERE clicks_7d>0 ORDER BY clicks_7d DESC,discount DESC';
   if(kind==='sellers') sql+=' WHERE sales>0 ORDER BY sales DESC,discount DESC';
-  sql+=' LIMIT 100';
+  sql+=` LIMIT ${Math.max(1,Math.min(100,Number(limit)||100))}`;
   const result=await env.DB.prepare(sql).bind(...bindings).all();
-  const rows=(result.results||[]).map(row=>decorate(row,kind));
+  return (result.results||[]).map(row=>decorate(row,kind));
+}
+
+export async function discoveryPage(env,kind) {
+  const page=PAGES[kind];
+  if(!page) return new Response('Not found',{status:404});
+  const rows=await discoveryRows(env,kind);
   const canonical=`${SITE}/${page.slug}`,description=shorten(page.description,155);
   const structured=JSON.stringify({'@context':'https://schema.org','@type':'CollectionPage',name:page.title,
     description,url:canonical,mainEntity:{'@type':'ItemList',itemListElement:rows.map((offer,index)=>({

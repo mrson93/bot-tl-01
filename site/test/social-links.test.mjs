@@ -11,11 +11,9 @@ const links=[
   'https://x.com/canaltabarato'
 ];
 
-test('página inicial apresenta todos os canais oficiais',async()=>{
+test('página inicial apresenta todos os canais oficiais no rodapé',async()=>{
   const page=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
-  assert.match(page,/Escolha seu canal/);
-  assert.ok(page.indexOf('class="social-strip"')<page.indexOf('id="vip-banner"'));
-  assert.equal((page.match(/cdn\.simpleicons\.org\/(facebook|instagram|telegram|bluesky|x)/g)||[]).length,5);
+  assert.match(page,/class="footer-social"/);  // as redes ficam no rodapé desde o layout de 2026-11
   assert.doesNotMatch(page,/class="telegram-link"/);
   for(const link of links) assert.ok(page.includes(link),`link ausente: ${link}`);
 });

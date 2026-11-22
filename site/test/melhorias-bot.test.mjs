@@ -137,8 +137,32 @@ test('página /alertas: três passos, botão para o bot e menu com Alertas ativo
   assert.match(pagina,/Escolha o produto\.<br>A gente avisa quando baixar\./);
   assert.equal((pagina.match(/class="alerts-num"/g)||[]).length,3);
   assert.match(pagina,/https:\/\/t\.me\/TaBaratoAlertaDePrecoBot\?start=site_alertas/);
-  assert.match(pagina,/href="\/alertas" aria-current="page">Alertas/);
+  assert.match(pagina,/href="\/alertas" class="nav-cta" aria-current="page">🔔 Alertas/);
   assert.doesNotMatch(pagina,/style=/);
   const {header}=await import('../functions/_site.js');
-  assert.deepEqual([...header('offers').matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m=>m[2]),['Ofertas','Alertas','Preços','Cupons']);
+  assert.deepEqual([...header('offers').matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m=>m[2]),['Ofertas','Preços','Cupons','🔔 Alertas']);
+});
+
+test('selo de preço da vitrine e dados do topo da página inicial',async()=>{
+  const {priceLevel,withPriceLevel}=await import('../functions/api/offers.js');
+  assert.equal(priceLevel(90,10,90,100),'baixo');
+  assert.equal(priceLevel(100,10,90,100),'medio');
+  assert.equal(priceLevel(110,10,90,100),'alto');
+  assert.equal(priceLevel(90,6,90,100),null);   // menos de 7 dias: sem selo
+  assert.deepEqual(withPriceLevel({id:'x',price:90,history_days:10,history_min:90,history_avg:100}),{id:'x',price:90,price_level:'baixo'});
+  const {dadosInicio}=await import('../functions/api/inicio.js');
+  const agora=Math.floor(Date.UTC(2026,10,22,15)/1000);
+  const linha=(id,preco,antes,quando,extra={})=>({id,title:`Produto ${id}`,price:preco,previous_price:antes,price_changed_at:quando,source:'Shopee',observations:9,min_price:preco,discount:10,...extra});
+  const DB={prepare(sql){return {bind(){return this;},
+    async all(){return {results:sql.includes('previous_price>price')?[linha('a',80,100,agora-3600),linha('b',90,100,agora-86400),linha('c',95,100,agora-3600),linha('d',99,100,agora-3600)]
+      :[linha('e',50,null,0,{discount:40,original_price:90}),linha('f',60,null,0,{discount:20})]};},
+    async first(){return {total:4};}};}};
+  const d=await dadosInicio({DB},agora);
+  assert.deepEqual(d.caiuAgora.map(o=>[o.titulo,o.queda]),[['Produto a',20],['Produto b',10],['Produto c',5]]);
+  assert.match(d.caiuAgora[0].caminho,/^\/oferta\//);
+  assert.equal(d.ofertaDoDia.titulo,'Produto e');
+  assert.equal(d.quedas.hoje,3);
+  assert.equal(d.quedas.semana.length,7);
+  assert.equal(d.quedas.semana[5],1);
+  assert.equal(d.cupons,4);
 });

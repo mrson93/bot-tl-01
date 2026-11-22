@@ -19,10 +19,10 @@
   <meta name="twitter:title" content="Tá Barato | Ofertas, descontos e achados online">
   <meta name="twitter:description" content="Ofertas selecionadas por preço, desconto, avaliação e vendas, reunidas em um só lugar.">
   <title>Tá Barato | Ofertas, descontos e achados online</title>
-  <link rel="stylesheet" href="/styles.css?v=20261122-2">
+  <link rel="stylesheet" href="/styles.css?v=20261122-5">
   <script src="/analytics.js?v=20261020-1" defer></script>
   <script src="/google-analytics.js?v=20260930-1" defer></script>
-  <script src="/app.js?v=20261023-1" defer></script>
+  <script src="/app.js?v=20261122-2" defer></script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -61,12 +61,13 @@
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar topbar-home">
     <a class="brand" href="/" aria-label="Tá Barato — início">
       <img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt="" aria-hidden="true">
       <span>TÁ <strong>BARATO</strong></span>
     </a>
-    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/alertas">Alertas</a><a href="/quedas-de-preco">Preços</a><a href="/cupons">Cupons</a></nav>
+    <label class="top-search"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar ofertas</span><input id="search" type="search" placeholder="Buscar air fryer, fone, tênis…" autocomplete="off" enterkeyhint="search"></label>
+    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/quedas-de-preco">Preços</a><a href="/cupons">Cupons</a><a class="nav-cta" href="/alertas">🔔 Alertas</a></nav>
   </header>
 
   <main class="home-page">
@@ -75,43 +76,28 @@
         <p class="eyebrow">MERCADO LIVRE · SHOPEE · AMAZON · ALIEXPRESS</p>
         <h1>Ofertas de verdade.<br><em>Na hora certa.</em></h1>
         <p class="hero-text">Conferimos o histórico de cada preço para você não cair em promoção falsa.</p>
-        <div class="hero-actions"><a class="hero-primary" href="#catalog-title">Ver ofertas de hoje</a><a class="hero-secondary" href="/alertas">Criar alerta de preço</a></div>
       </div>
-      <aside class="live-card" aria-label="Resumo das ofertas">
-        <span class="live"><i></i> <span id="updated-label">ATUALIZANDO…</span></span>
-        <div><strong id="offer-count">—</strong><small>produtos no catálogo</small></div>
-        <div><strong id="best-discount">—</strong><small>maior desconto</small></div>
+      <aside class="live-drops" aria-labelledby="live-drops-title">
+        <h2 id="live-drops-title"><i aria-hidden="true"></i>CAIU AGORA</h2>
+        <ol id="live-drops"><li class="live-empty">Conferindo os preços…</li></ol>
+        <a class="live-more" href="/quedas-de-preco">Ver todas as quedas →</a>
       </aside>
     </section>
 
-    <section class="pillars" aria-label="O que o Tá Barato faz">
-      <a class="pillar" href="#catalog-title"><span aria-hidden="true">🔥</span><strong>Ofertas</strong><p>O que está barato agora, conferido.</p></a>
-      <a class="pillar" href="/alertas"><span aria-hidden="true">🔔</span><strong>Alertas</strong><p>Escolha o produto. A gente avisa quando baixar.</p></a>
-      <a class="pillar" href="/quedas-de-preco"><span aria-hidden="true">📈</span><strong>Preços</strong><p>Saiba se o preço é bom antes de comprar.</p></a>
+    <section class="bento" aria-label="O que o Tá Barato faz">
+      <a class="tile tile-deal" id="deal-tile" href="/menores-precos"><div><small>🔥 OFERTA DO DIA</small><strong>Menor preço que já vimos</strong></div><div class="deal" id="deal"><span class="deal-text">Veja os produtos no menor preço do histórico.</span></div></a>
+      <a class="tile tile-alerts" href="/alertas"><div><small>🔔 ALERTAS</small><strong>Escolha o produto.<br>A gente avisa quando baixar.</strong></div><p>Grátis no Telegram →</p><div class="bubble" aria-hidden="true"><b>🔔 Bateu o preço que você pediu!</b><br>Fone de ouvido · <b>R$ 189,90</b><br>🟢 Mais barato que em 92% dos dias</div></a>
+      <a class="tile tile-prices" href="/quedas-de-preco"><div><small>📈 PREÇOS</small><strong id="drops-today">Caiu hoje</strong></div><div class="spark" id="drops-spark" aria-hidden="true"></div></a>
+      <a class="tile tile-coupons" href="/cupons"><div><small>🎟 CUPONS</small><strong id="coupons-count">Cupons das lojas</strong></div><p>Cupons oficiais das lojas →</p></a>
     </section>
 
-    <section class="coupon-strip" id="coupon-strip" hidden><div><p class="eyebrow">ECONOMIA EXTRA</p><strong id="coupon-strip-text"></strong></div><a href="/cupons">Ver cupons ativos →</a></section>
 
 
-    <section class="social-strip" aria-labelledby="social-title">
-      <div class="social-strip-copy"><p class="eyebrow">ACOMPANHE O TÁ BARATO</p><h2 id="social-title">Escolha seu canal.</h2></div>
-      <nav class="social-strip-links" aria-label="Redes sociais do Tá Barato">
-        <a class="facebook" href="https://www.facebook.com/canaltabarato" target="_blank" rel="noopener noreferrer"><img src="https://cdn.simpleicons.org/facebook/ffffff" alt="" aria-hidden="true">Facebook</a>
-        <a class="instagram" href="https://www.instagram.com/ofertascanaltabarato/" target="_blank" rel="noopener noreferrer"><img src="https://cdn.simpleicons.org/instagram/ffffff" alt="" aria-hidden="true">Instagram</a>
-        <a class="telegram" href="https://t.me/CanalTaBarato" target="_blank" rel="noopener noreferrer"><img src="https://cdn.simpleicons.org/telegram/ffffff" alt="" aria-hidden="true">Telegram</a>
-        <a class="bluesky" href="https://bsky.app/profile/canaltabarato.com.br" target="_blank" rel="noopener noreferrer"><img src="https://cdn.simpleicons.org/bluesky/ffffff" alt="" aria-hidden="true">Bluesky</a>
-        <a class="x" href="https://x.com/canaltabarato" target="_blank" rel="noopener noreferrer"><img src="https://cdn.simpleicons.org/x/ffffff" alt="" aria-hidden="true">X</a>
-      </nav>
-    </section>
 
-    <section class="vip-banner" id="vip-banner" hidden>
-      <div class="vip-copy"><img class="vip-brand-icon" src="https://cdn.simpleicons.org/shopee/ffffff" alt="" aria-hidden="true"><div><p class="eyebrow">BENEFÍCIOS NA SHOPEE</p><h2>Conheça o Shopee VIP</h2><p>Veja as vantagens, o valor e as condições atuais diretamente na página oficial.</p></div></div>
-      <a href="/loja/shopee-vip" target="_blank" rel="nofollow sponsored noopener">Conhecer o Shopee VIP <span>↗</span></a>
-    </section>
 
     <section class="store-shortcuts" id="store-shortcuts" aria-labelledby="store-shortcuts-title" hidden>
       <div class="store-shortcuts-head">
-        <div><p class="eyebrow">COMPRE DIRETO</p><h2 id="store-shortcuts-title">Ir para a loja</h2></div>
+        <div><h2 id="store-shortcuts-title">Ir direto para</h2></div>
         <p>Links oficiais de afiliado. Você não paga nada a mais por isso.</p>
       </div>
       <nav class="store-links" id="store-links" aria-label="Lojas parceiras"></nav>
@@ -119,28 +105,19 @@
 
     <aside class="ad-placement" data-ad-position="home-top" aria-label="Publicidade" hidden></aside>
 
-    <section class="discovery" aria-labelledby="discovery-title">
-      <div class="section-head"><div><p class="eyebrow">PREÇO COM CONTEXTO</p><h2 id="discovery-title">Encontre a melhor hora de comprar</h2></div></div>
-      <div class="discovery-grid">
-        <a href="/quedas-de-preco"><span>↘</span><strong>Quedas recentes</strong><small>O preço baixou desde a medição anterior</small></a>
-        <a href="/menores-precos"><span>◎</span><strong>Menores preços</strong><small>No menor valor já observado por nós</small></a>
-        <a href="/mais-acessadas"><span>↗</span><strong>Mais acessadas</strong><small>O que mais levou visitantes às lojas</small></a>
-        <a href="/mais-vendidos"><span>★</span><strong>Mais vendidos</strong><small>Produtos populares nas plataformas</small></a>
-      </div>
-      <nav class="price-links" aria-label="Comprar por faixa de preço"><span>Por preço:</span><a href="/faixas-de-preco/ate-50">até R$ 50</a><a href="/faixas-de-preco/de-50-a-100">R$ 50–100</a><a href="/faixas-de-preco/de-100-a-200">R$ 100–200</a><a href="/faixas-de-preco/acima-de-200">acima de R$ 200</a></nav>
-    </section>
 
     <section class="catalog" aria-labelledby="catalog-title">
       <div class="section-head">
-        <div><p class="eyebrow">VITRINE ATUALIZADA</p><h2 id="catalog-title">Achados que valem a pena</h2></div>
+        <div><p class="eyebrow">VITRINE ATUALIZADA</p><h2 id="catalog-title">Achados de hoje</h2></div>
       </div>
-      <label class="quick-search"><span>Buscar produto</span><div class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Digite o nome do produto" autocomplete="off"></div></label>
       <nav class="browse-modes" aria-label="Explorar ofertas">
         <button class="browse-mode active" type="button" data-sort="recent">Recentes</button>
         <button class="browse-mode" type="button" data-sort="trending">🔥 Em alta</button>
         <button class="browse-mode" type="button" data-sort="discount">Maior desconto</button>
         <button class="browse-mode" type="button" data-sort="sales">Mais vendidos</button>
         <button class="browse-mode" type="button" data-sort="price-asc">Menor preço</button>
+        <button class="browse-mode" type="button" data-max="50">Até R$ 50</button>
+        <button class="browse-mode" type="button" data-max="100">Até R$ 100</button>
         <button class="browse-mode" type="button" data-favorites="1">♥ Favoritos</button>
       </nav>
       <details id="filter-details" class="filter-details">
@@ -181,6 +158,7 @@
   <footer>
     <div class="brand footer-brand"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></div>
     <p>Os preços podem mudar sem aviso. Os links podem gerar comissão para o canal, sem custo adicional para você.</p>
+    <nav class="footer-social" aria-label="Redes sociais do Tá Barato"><a href="https://t.me/CanalTaBarato" target="_blank" rel="noopener noreferrer">Telegram</a><a href="https://www.instagram.com/ofertascanaltabarato/" target="_blank" rel="noopener noreferrer">Instagram</a><a href="https://www.facebook.com/canaltabarato" target="_blank" rel="noopener noreferrer">Facebook</a><a href="https://x.com/canaltabarato" target="_blank" rel="noopener noreferrer">X</a><a href="https://bsky.app/profile/canaltabarato.com.br" target="_blank" rel="noopener noreferrer">Bluesky</a></nav>
     <nav class="footer-links"><a href="/comecar">Comece aqui</a><a href="/servicos">Como funciona</a><a href="/blog">Guias</a><a href="/quedas-de-preco">Quedas de preço</a><a href="/menores-precos">Menores preços</a><a href="/mais-acessadas">Mais acessadas</a><a href="/mais-vendidos">Mais vendidos</a><a href="/sobre">Sobre</a><a href="/politica-editorial">Política editorial</a><a href="/como-escolhemos">Como escolhemos</a><a href="/faq">Dúvidas</a><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="/exclusao-de-dados">Exclusão de dados</a><a href="/contato">Contato</a></nav><small>© <span id="year"></span> Tá Barato</small>
   </footer>
 </body>

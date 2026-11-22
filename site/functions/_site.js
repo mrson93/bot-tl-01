@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261122-2';
+export const STYLESHEET='/styles.css?v=20261122-5';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -144,12 +144,14 @@ export function productStructuredData(offer,canonical) {
   }]};
 }
 
-// Menu com os três pilares + cupons. Guias (blog) e histórico ficam em Preços.
-export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/alertas','Alertas','alerts'],['/quedas-de-preco','Preços','prices'],['/cupons','Cupons','coupons']];
+// Menu com os três pilares + cupons; Alertas é o botão de destaque. Guias
+// (blog) e histórico ficam em Preços. A busca leva à vitrine da página inicial
+// (o site não usa formulários: form-action 'none').
+export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/quedas-de-preco','Preços','prices'],['/cupons','Cupons','coupons'],['/alertas','🔔 Alertas','alerts']];
 const ABA_DE={history:'prices',blog:'prices'};
 export function header(active='offers') {
   const aba=ABA_DE[active]||active;
-  return `<header class="topbar"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`<a href="${href}"${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
+  return `<header class="topbar topbar-home topbar-site"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><a class="top-search top-search-link" href="/#busca"><span aria-hidden="true">⌕</span>Buscar ofertas…</a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`<a href="${href}"${chave==='alerts'?' class="nav-cta"':''}${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
 }
 
 export function footer() {
