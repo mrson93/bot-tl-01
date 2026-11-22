@@ -63,8 +63,9 @@ diferentes de `TELEGRAM_ADMIN_ID` são ignorados sem resposta.
 5. Cadastre os comandos do bot com `setMyCommands` e confirme com `getWebhookInfo`.
 
 Na instalação atual, o token temporário usado para publicar no Cloudflare foi
-revogado depois da configuração. O token refinado do GitHub expira em
-22/11/2026 e deve ser substituído no secret `GITHUB_TOKEN` antes dessa data.
+revogado depois da configuração. O secret `GITHUB_TOKEN` usa o token refinado
+`bot-tl-01-control` (sem data de expiração; Actions e Variables em leitura e
+escrita). Se for gerado de novo, o valor novo precisa ir para o mesmo secret.
 
 O monitor de franquia é habilitado por `USAGE_MONITOR_ENABLED=true` no
 `wrangler.jsonc`. A cada execução do agendador ele confere o relatório de uso
