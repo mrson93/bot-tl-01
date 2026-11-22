@@ -314,6 +314,7 @@ def executar_campanha(nome):
         "alerta_bot": lambda: publicar_assinatura_se_preciso("alerta_bot", forcar=True),
         "post_fixado_alerta": lambda: post_fixado.executar(),
         "post_fixado_facebook": lambda: post_fixado.trocar_facebook(),
+        "post_fixado_canal": lambda: post_fixado.atualizar_canal(),
         "mercadolivre_mais_vendido": publicar_mais_vendido_mercadolivre,
         "monitor_precos": lambda: monitor_precos.executar(),
         "monitor_teste": lambda: monitor_precos.executar_teste(),

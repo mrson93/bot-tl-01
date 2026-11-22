@@ -305,13 +305,13 @@ jobs:
           CAMPANHA: ${{ inputs.campanha }}
 
       - name: Post fixado do bot de alertas (publicação única)
-        if: github.ref == 'refs/heads/main' && contains(fromJSON('["post_fixado_alerta","post_fixado_facebook"]'), inputs.campanha) && inputs.somente_pendentes != true
+        if: github.ref == 'refs/heads/main' && contains(fromJSON('["post_fixado_alerta","post_fixado_facebook","post_fixado_canal"]'), inputs.campanha) && inputs.somente_pendentes != true
         run: python main.py --campanha "$CAMPANHA"
         env:
           CAMPANHA: ${{ inputs.campanha }}
 
       - name: Recusar campanha desconhecida
-        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon","claude_pro","alerta_bot","mercadolivre_mais_vendido","monitor_precos","monitor_teste","post_fixado_alerta","post_fixado_facebook"]'), inputs.campanha)
+        if: inputs.campanha != '' && !contains(fromJSON('["shopee_vip","amazon_prime","cartao_amazon","claude_pro","alerta_bot","mercadolivre_mais_vendido","monitor_precos","monitor_teste","post_fixado_alerta","post_fixado_facebook","post_fixado_canal"]'), inputs.campanha)
         run: exit 1
 
       - name: Enviar somente o relatorio privado

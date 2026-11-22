@@ -38,3 +38,36 @@ class PostFixadoTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CanalTest(unittest.TestCase):
+    def test_troca_descricao_publica_fixa_e_solta_o_antigo(self):
+        from unittest import mock
+        chamadas = []
+
+        def post(url, json=None, timeout=None):
+            metodo = url.rsplit("/", 1)[-1]
+            chamadas.append((metodo, json))
+            resultado = {"getChat": {"pinned_message": {"message_id": 7}}, "sendMessage": {"message_id": 99}}.get(metodo, True)
+            return mock.Mock(json=lambda: {"ok": True, "result": resultado})
+
+        marcados = []
+        with mock.patch.object(post_fixado.requests, "post", side_effect=post), \
+             mock.patch.object(post_fixado.telegram_poster, "esta_configurada", return_value=True), \
+             mock.patch.object(post_fixado.store, "campanha_enviada", return_value=False), \
+             mock.patch.object(post_fixado.store, "marcar_campanha_enviada", side_effect=lambda *a: marcados.append(a)):
+            self.assertTrue(post_fixado.atualizar_canal())
+        metodos = [m for m, _ in chamadas]
+        self.assertEqual(metodos, ["getChat", "setChatDescription", "sendMessage", "pinChatMessage", "unpinChatMessage"])
+        self.assertEqual(chamadas[3][1]["message_id"], 99)
+        self.assertEqual(chamadas[4][1]["message_id"], 7)
+        self.assertLessEqual(len(post_fixado.DESCRICAO_CANAL), 255)
+        self.assertIn("Podemos ganhar comissão", chamadas[2][1]["text"])
+        self.assertEqual(marcados, [("canal-2026-11", "post_fixado_canal", "Telegram")])
+
+    def test_nao_repete_a_mesma_versao(self):
+        from unittest import mock
+        with mock.patch.object(post_fixado.store, "campanha_enviada", return_value=True), \
+             mock.patch.object(post_fixado.requests, "post") as post:
+            self.assertTrue(post_fixado.atualizar_canal())
+        post.assert_not_called()

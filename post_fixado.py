@@ -230,3 +230,70 @@ def executar():
         publicadas += 1
         print(f"   ✅ {nome}: {resultado}.")
     return publicadas > 0
+
+
+# --- Canal do Telegram: descrição e post fixado da organização (nov/2026) ------
+
+CAMPANHA_CANAL = "post_fixado_canal"
+DATA_CANAL = "canal-2026-11"  # marcação única desta versão do texto
+
+DESCRICAO_CANAL = (
+    "Ofertas reais do Mercado Livre, Shopee, Amazon e AliExpress, conferidas antes de postar.\n\n"
+    "🔔 Aviso de um produto: @TaBaratoAlertaDePrecoBot\n"
+    "🌐 canaltabarato.com.br"
+)
+POST_CANAL = (
+    "👋 <b>Bem-vindo ao Tá Barato</b>\n\n"
+    "Aqui só entra oferta conferida: preço real, comparado com o histórico.\n\n"
+    "🔥 Ative as notificações deste canal\n"
+    "🔔 Quer um produto específico? @TaBaratoAlertaDePrecoBot avisa quando baixar\n"
+    "🎟 Cupons de hoje: canaltabarato.com.br/cupons\n\n"
+    "<i>Links oficiais das lojas. Podemos ganhar comissão, sem custo para você.</i>"
+)
+BOTOES_CANAL = {"inline_keyboard": [
+    [{"text": "🔔 Criar alerta de preço", "url": BOT + "?start=canal_fixado"}],
+    [{"text": "🎟 Cupons", "url": "https://canaltabarato.com.br/cupons"},
+     {"text": "🌐 Comece aqui", "url": "https://canaltabarato.com.br/comecar"}],
+]}
+
+
+def _canal(metodo, **corpo):
+    resposta = requests.post(telegram_poster.API.format(token=config.TELEGRAM_BOT_TOKEN, metodo=metodo),
+                             json={"chat_id": config.TELEGRAM_CHANNEL, **corpo}, timeout=30).json()
+    if not resposta.get("ok"):
+        raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou {metodo}: {resposta}"))
+    return resposta.get("result")
+
+
+def atualizar_canal():
+    """Troca a descrição do canal e o post fixado (uma vez por versão do texto).
+
+    O post antigo continua no canal; só deixa de ser o fixado.
+    """
+    if store.campanha_enviada(DATA_CANAL, CAMPANHA_CANAL, "Telegram"):
+        print("   · Canal: descrição e post fixado já atualizados nesta versão.")
+        return True
+    if not telegram_poster.esta_configurada():
+        print("   ⚠️ Canal: Telegram não configurado.")
+        return False
+    if len(DESCRICAO_CANAL) > 255:
+        raise RuntimeError("Descrição do canal passa de 255 caracteres.")
+    antigo = ((_canal("getChat") or {}).get("pinned_message") or {}).get("message_id")
+    try:
+        _canal("setChatDescription", description=DESCRICAO_CANAL)
+        print("   ✅ Canal: descrição atualizada.")
+    except RuntimeError as erro:
+        if "not modified" not in str(erro):
+            raise
+        print("   · Canal: descrição já estava igual.")
+    novo = _canal("sendMessage", text=POST_CANAL, parse_mode="HTML", reply_markup=BOTOES_CANAL,
+                  disable_web_page_preview=True)["message_id"]
+    _canal("pinChatMessage", message_id=novo, disable_notification=True)
+    if antigo and antigo != novo:
+        try:
+            _canal("unpinChatMessage", message_id=antigo)
+        except RuntimeError as erro:
+            print(f"   ⚠️ Canal: não consegui soltar o fixado antigo ({str(erro)[:120]}).")
+    store.marcar_campanha_enviada(DATA_CANAL, CAMPANHA_CANAL, "Telegram")
+    print(f"   ✅ Canal: post {novo} publicado e fixado" + (f"; o {antigo} deixou de ser fixado." if antigo else "."))
+    return True

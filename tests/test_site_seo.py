@@ -120,7 +120,7 @@ class SiteSeoTest(unittest.TestCase):
         self.assertIn("store:${slug}", redirect)
         self.assertIn("CREATE TABLE IF NOT EXISTS store_links", migration)
         self.assertIn('target="_blank"', app)
-        self.assertIn('id="vip-banner"', index)
+        self.assertNotIn('id="vip-banner"', index)  # o VIP virou um atalho entre as lojas
         self.assertIn("Shopee VIP", stores)
         self.assertIn("shopee-vip", (ROOT / "site" / "functions" / "cupons.js").read_text())
 
