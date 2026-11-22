@@ -167,3 +167,32 @@ test('selo de preço da vitrine e dados do topo da página inicial',async()=>{
   assert.equal(d.quedas.semana[5],1);
   assert.equal(d.cupons,4);
 });
+
+test('oferta ganha "Avise-me quando baixar" com o produto certo; Amazon não',async()=>{
+  const {payloadAlerta}=await import('../functions/oferta/[id].js');
+  assert.equal(payloadAlerta('mercadolivre_MLB53768796'),'ml_MLB53768796');
+  assert.equal(payloadAlerta('shopee_333156228_58215216165'),'sp_333156228_58215216165');
+  assert.equal(payloadAlerta('aliexpress_1005006123456789'),'ae_1005006123456789');
+  assert.equal(payloadAlerta('amazon_B0C1234567'),null);
+  assert.equal(payloadAlerta('shopee_x'),null);
+});
+
+test('cupom com link comum da Shopee vira link de afiliado no clique e fica guardado',async()=>{
+  const {onRequestGet}=await import('../functions/cupom/[id].js');
+  const updates=[];
+  const DB={prepare(sql){return {bind(...a){this.a=a;return this;},async first(){return {destination:'https://shopee.com.br/m/black-friday'};},async run(){updates.push([sql,this.a]);}};}};
+  const pendentes=[];
+  const fetcher=async()=>Response.json({data:{generateShortLink:{shortLink:'https://s.shopee.com.br/AbC123'}}});
+  const env={DB,SHOPEE_APP_ID:'1',SHOPEE_SECRET:'s',ALLOWED_DESTINATION_HOSTS:'shopee.com.br,s.shopee.com.br'};
+  const r=await onRequestGet({params:{id:'painel_abc123'},env,fetcher,waitUntil:p=>pendentes.push(p),request:new Request('https://canaltabarato.com.br/cupom/painel_abc123')});
+  await Promise.allSettled(pendentes);
+  assert.equal(r.status,302);
+  assert.equal(r.headers.get('Location'),'https://s.shopee.com.br/AbC123');
+  assert.ok(updates.some(([sql,a])=>sql.startsWith('UPDATE coupons SET destination')&&a[0]==='https://s.shopee.com.br/AbC123'));
+});
+
+test('menu marca o atalho de Cupons para esconder quando não houver cupom',async()=>{
+  const {header,head}=await import('../functions/_site.js');
+  assert.match(header('offers'),/href="\/cupons" data-coupons>Cupons/);
+  assert.match(head({title:'x',description:'y',canonical:'https://x'}),/\/nav\.js/);
+});

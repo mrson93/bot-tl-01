@@ -22,6 +22,6 @@ test('menu com 4 pilares; rodapé leva a Como funciona; início mostra os pilare
   assert.ok(index.includes('class="bento"'));
   assert.ok(!index.includes('alert-banner'));
   assert.ok(site.includes('href="/servicos">Como funciona'));
-  assert.match(index,/<nav class="main-nav"[^>]*><a href="\/" aria-current="page">Ofertas<\/a><a href="\/quedas-de-preco">Preços<\/a><a href="\/cupons">Cupons<\/a><a class="nav-cta" href="\/alertas">🔔 Alertas<\/a><\/nav>/);
+  assert.match(index,/<nav class="main-nav"[^>]*><a href="\/" aria-current="page">Ofertas<\/a><a href="\/quedas-de-preco">Preços<\/a><a href="\/cupons" data-coupons>Cupons<\/a><a class="nav-cta" href="\/alertas">🔔 Alertas<\/a><\/nav>/);
   assert.ok(index.includes('id="search"')&&index.includes('class="top-search"'));
 });

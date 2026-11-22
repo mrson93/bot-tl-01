@@ -120,3 +120,18 @@ Os padrões são 30% Shopee, 30% Mercado Livre, 25% Amazon e 15% AliExpress.
 São metas da seleção, não uma garantia por rodada: quando uma loja não tem oferta
 elegível, as demais podem ocupar a vaga. Para desligar uma loja, use seu controle
 de ativação.
+
+## Cupons pelo painel
+
+As lojas não entregam cupons pela API (a Shopee só manda campanhas de
+categoria), então o site só mostra cupons cadastrados aqui:
+
+    /cupom Loja | CÓDIGO (ou -) | condição | dd/mm | link
+    /cupons
+    /cupom_apagar <código>
+
+Shopee aceita qualquer link da loja: o site troca pelo link curto de afiliado
+(subId `cupom`) no primeiro clique e guarda. Mercado Livre, Amazon e AliExpress
+só aceitam o link curto de afiliado (`meli.la`, `amzn.to`,
+`s.click.aliexpress.com`). Sem cupom ativo, o item Cupons some do menu e o
+bloco da página inicial vira "Menor preço".

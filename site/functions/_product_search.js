@@ -86,6 +86,19 @@ export async function gerarLinkShopee(env,idProduto,fetcher=fetch) {
   }catch{ return null; }
 }
 
+// Qualquer página da Shopee (cupom, loja, campanha) -> link curto de afiliado.
+export async function linkAfiliadoShopee(env,url,subId='cupom',fetcher=fetch) {
+  let origem;
+  try{ origem=new URL(String(url||'')); }catch{ return null; }
+  if(origem.protocol!=='https:'||!/(^|\.)shopee\.com\.br$/i.test(origem.hostname)||!shopeeConfigurada(env)) return null;
+  try{
+    const sub=String(subId).replace(/[^A-Za-z0-9]/g,'').slice(0,40)||'cupom';
+    const data=await shopeeGraphql(env,`mutation{generateShortLink(input:{originUrl:${JSON.stringify(origem.href)},subIds:["${sub}"]}){shortLink}}`,fetcher);
+    const link=String(data?.generateShortLink?.shortLink||'');
+    return /^https:\/\/([a-z0-9-]+\.)*(shopee\.com\.br|shope\.ee)\//i.test(link)?link:null;
+  }catch{ return null; }
+}
+
 // Um produto da Shopee pelo id, para o alerta já nascer com nome e preço.
 export async function lerShopee(env,idProduto,fetcher=fetch) {
   const achado=String(idProduto||'').match(/^(\d{1,15})_(\d{1,15})$/);

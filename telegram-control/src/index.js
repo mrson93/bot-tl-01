@@ -919,6 +919,8 @@ export function helpActionsText() {
     "/historico <id>: mínimo, máximo e média dos últimos 90 dias.",
     "/teste_monitor: mostra aqui como um post ficaria, sem postar no canal.",
     "/estatisticas: pessoas, produtos e avisos do bot público de alertas.",
+    "/cupom Loja | CÓDIGO | condição | dd/mm | link: põe um cupom no site.",
+    "/cupons: cupons ativos no site. /cupom_apagar <código>: tira um.",
     "",
     "⏸ Pausar (/pausar): interrompe somente as rodadas automáticas. Configurações, histórico e relatório continuam disponíveis.",
     "▶️ Retomar (/retomar): reativa no modo Econômico; depois você pode escolher outro ritmo.",

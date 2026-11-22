@@ -112,7 +112,7 @@ function nomeDe(produto) {
   return produto.nome || `${LOJA[produto.loja]} ${produto.id_produto} (nome na próxima leitura)`;
 }
 
-export const MONITOR_COMMANDS = ["add", "remover", "lista", "teste_monitor", "estatisticas", "estatísticas", "stats"];
+export const MONITOR_COMMANDS = ["add", "remover", "lista", "teste_monitor", "estatisticas", "estatísticas", "stats", "cupom", "cupons", "cupom_apagar"];
 
 export function isMonitorCommand(name, args) {
   if (MONITOR_COMMANDS.includes(name)) return true;
@@ -131,6 +131,37 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
   }
 
   if (["estatisticas", "estatísticas", "stats"].includes(name)) return reply(await estatisticas(db, agora));
+
+  if (name === "cupom") {
+    const cupom = parseCupom(String(rawText || "").replace(/^\/\S+\s*/, ""), agora);
+    if (cupom.erro) return reply(`❌ ${cupom.erro}\n\n${AJUDA_CUPOM}`);
+    await db.prepare(
+      `INSERT INTO coupons(id,source,code,title,kind,condition,destination,active_at,expires_at,published_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(cupom.id, cupom.loja, cupom.codigo, cupom.titulo, cupom.codigo ? "code" : "voucher", cupom.condicao,
+      cupom.link, agora, cupom.expira, agora).run();
+    return reply(`✅ Cupom ${cupom.id.replace(/^painel_/, "")} no site: ${cupom.loja}${cupom.codigo ? ` · ${cupom.codigo}` : " · voucher"}`
+      + `\n${cupom.condicao}\nVale até ${dataCurta(cupom.expira)}.\n\nAparece em canaltabarato.com.br/cupons em até 1 minuto.`);
+  }
+
+  if (name === "cupons") {
+    const { results = [] } = await db.prepare(
+      `SELECT id,source,code,condition,title,expires_at FROM coupons
+       WHERE (active_at IS NULL OR active_at<=?1) AND (expires_at IS NULL OR expires_at>?1) ORDER BY expires_at LIMIT 30`,
+    ).bind(agora).all();
+    if (!results.length) return reply(`🎟 Nenhum cupom ativo no site.\n\n${AJUDA_CUPOM}`);
+    return reply(["🎟 Cupons ativos no site:", "",
+      ...results.map((c) => `${String(c.id).replace(/^painel_/, "")} · ${c.source} · ${c.code || "voucher"} · ${String(c.condition || c.title || "").slice(0, 60)}`
+        + `${c.expires_at ? ` · até ${dataCurta(c.expires_at)}` : ""}`),
+      "", "Para tirar: /cupom_apagar <código da esquerda>"].join("\n"));
+  }
+
+  if (name === "cupom_apagar") {
+    const alvo = String(argumento || "").trim();
+    if (!/^[a-z0-9_]{4,40}$/i.test(alvo)) return reply("Use: /cupom_apagar <código da esquerda em /cupons>");
+    const r = await db.prepare("DELETE FROM coupons WHERE id=? OR id=?").bind(alvo, `painel_${alvo}`).run();
+    return reply(Number(r?.meta?.changes) ? "🗑 Cupom tirado do site." : "Não achei esse cupom. Veja os códigos em /cupons.");
+  }
 
   if (name === "add") {
     if (!argumento) return reply("Use: /add <link do produto na Amazon ou no Mercado Livre>");
@@ -231,6 +262,50 @@ export async function handleMonitorCommand({ name, rawText, env, reply, dispatch
 }
 
 // Disparo da coleta: no minuto 7 das horas múltiplas do intervalo (Brasília).
+// --- Cupons cadastrados pelo painel --------------------------------------------
+// As lojas não entregam cupons pela API; quem cadastra é o admin, numa linha:
+// /cupom Loja | CÓDIGO ou - | condição | dd/mm[/aaaa] | link
+// O link precisa ser de afiliado: Shopee aceita qualquer link da loja (o site
+// converte no primeiro clique); as outras só aceitam o link curto de afiliado.
+export const AJUDA_CUPOM = "Formato:\n/cupom Loja | CÓDIGO (ou -) | condição | validade dd/mm | link\n\n"
+  + "Ex.: /cupom Shopee | BLACK20 | R$ 20 off acima de R$ 100 | 30/11 | https://s.shopee.com.br/abc\n\n"
+  + "Links aceitos: Shopee (qualquer link da Shopee), Mercado Livre (meli.la), Amazon (amzn.to), AliExpress (s.click.aliexpress.com).";
+const LOJAS_CUPOM = {
+  shopee: { nome: "Shopee", hosts: ["shopee.com.br", "shope.ee"] },
+  "mercado livre": { nome: "Mercado Livre", hosts: ["meli.la"] },
+  mercadolivre: { nome: "Mercado Livre", hosts: ["meli.la"] },
+  amazon: { nome: "Amazon", hosts: ["amzn.to"] },
+  aliexpress: { nome: "AliExpress", hosts: ["s.click.aliexpress.com"] },
+};
+
+export function parseCupom(texto, agora, aleatorio = () => crypto.getRandomValues(new Uint32Array(1))[0]) {
+  const partes = String(texto || "").split("|").map((p) => p.trim());
+  if (partes.length !== 5) return { erro: "Faltam campos: são 5, separados por |." };
+  const [lojaTexto, codigoTexto, condicao, validade, linkTexto] = partes;
+  const loja = LOJAS_CUPOM[lojaTexto.toLowerCase()];
+  if (!loja) return { erro: "Loja desconhecida. Use Shopee, Mercado Livre, Amazon ou AliExpress." };
+  const codigo = codigoTexto === "-" ? "" : codigoTexto.toUpperCase();
+  if (codigo && !/^[A-Z0-9_-]{2,40}$/.test(codigo)) return { erro: "Código inválido (só letras, números, - e _)." };
+  if (condicao.length < 3 || condicao.length > 200) return { erro: "Escreva a condição do cupom (até 200 letras)." };
+  const data = validade.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+  if (!data) return { erro: "Validade no formato dd/mm (ou dd/mm/aaaa)." };
+  const hoje = new Date(agora * 1000);
+  const ano = Number(data[3]) || Number(diaBrasilia(hoje).slice(0, 4));
+  // Fim do dia em Brasília (UTC-3).
+  const expira = Math.floor(Date.UTC(ano, Number(data[2]) - 1, Number(data[1]), 23, 59, 59) / 1000) + 3 * 3600;
+  const conferida = new Date((expira - 3 * 3600) * 1000);
+  if (conferida.getUTCDate() !== Number(data[1]) || conferida.getUTCMonth() !== Number(data[2]) - 1) return { erro: "Essa data não existe." };
+  if (expira <= agora) return { erro: "Essa validade já passou." };
+  let url;
+  try { url = new URL(linkTexto); } catch { return { erro: "O link não é válido." }; }
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || !loja.hosts.some((h) => host === h || host.endsWith(`.${h}`))) {
+    return { erro: `Para ${loja.nome}, use ${loja.nome === "Shopee" ? "um link da Shopee" : `o link curto de afiliado (${loja.hosts[0]})`}.` };
+  }
+  const id = `painel_${(aleatorio() >>> 0).toString(36).padStart(6, "0").slice(-6)}`;
+  return { id, loja: loja.nome, codigo, condicao, titulo: codigo ? `${condicao}` : condicao, expira, link: url.href };
+}
+
 export function monitorDue(hour, minute, intervalHours) {
   const intervalo = Math.min(24, Math.max(1, Number.parseInt(intervalHours, 10) || 2));
   return Number(minute) === 7 && Number(hour) % intervalo === 0;

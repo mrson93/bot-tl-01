@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261122-5';
+export const STYLESHEET='/styles.css?v=20261122-7';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -113,7 +113,7 @@ export function head({title,description,canonical,structured='',image='',ads=fal
   <meta property="og:type" content="website"><meta property="og:locale" content="pt_BR"><meta property="og:site_name" content="Tá Barato">
   <meta property="og:title" content="${html(title)}"><meta property="og:description" content="${html(description)}"><meta property="og:url" content="${html(canonical)}">${image?`<meta property="og:image" content="${html(image)}">`:''}
   <meta name="twitter:card" content="${image?'summary_large_image':'summary'}"><meta name="twitter:title" content="${html(title)}"><meta name="twitter:description" content="${html(description)}">${image?`<meta name="twitter:image" content="${html(image)}">`:''}
-  <link rel="stylesheet" href="${STYLESHEET}"><script src="/analytics.js?v=20261020-1" defer></script>${GOOGLE_ANALYTICS}${ads?GOOGLE_ADSENSE:''}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
+  <link rel="stylesheet" href="${STYLESHEET}"><script src="/nav.js?v=20261122-1" defer></script><script src="/analytics.js?v=20261020-1" defer></script>${GOOGLE_ANALYTICS}${ads?GOOGLE_ADSENSE:''}${structured?`<script type="application/ld+json">${structured}</script>`:''}${CLOUDFLARE_ANALYTICS}`;
 }
 
 export function productStructuredData(offer,canonical) {
@@ -151,7 +151,7 @@ export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/quedas-de-preco','Preç
 const ABA_DE={history:'prices',blog:'prices'};
 export function header(active='offers') {
   const aba=ABA_DE[active]||active;
-  return `<header class="topbar topbar-home topbar-site"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><a class="top-search top-search-link" href="/#busca"><span aria-hidden="true">⌕</span>Buscar ofertas…</a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`<a href="${href}"${chave==='alerts'?' class="nav-cta"':''}${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
+  return `<header class="topbar topbar-home topbar-site"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><a class="top-search top-search-link" href="/#busca"><span aria-hidden="true">⌕</span>Buscar ofertas…</a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`<a href="${href}"${chave==='alerts'?' class="nav-cta"':''}${chave==='coupons'?' data-coupons':''}${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
 }
 
 export function footer() {

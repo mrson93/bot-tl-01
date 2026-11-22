@@ -80,3 +80,44 @@ test("/estatisticas mostra os cliques dos avisos e do cartão", async () => {
   });
   assert.doesNotMatch(await estatisticas(semTabela, 1_800_000_000), /Cliques para a loja/);
 });
+
+import { handleMonitorCommand, parseCupom } from "../src/monitor.js";
+
+test("/cupom: valida loja, código, data e link de afiliado", () => {
+  const agora = Math.floor(Date.UTC(2026, 10, 22, 15) / 1000);
+  const ok = parseCupom("Shopee | black20 | R$ 20 off acima de R$ 100 | 30/11 | https://shopee.com.br/m/black", agora, () => 123456);
+  assert.equal(ok.loja, "Shopee");
+  assert.equal(ok.codigo, "BLACK20");
+  assert.equal(ok.expira, Math.floor(Date.UTC(2026, 11, 1, 2, 59, 59) / 1000));   // 30/11 23:59:59 em Brasília
+  assert.match(ok.id, /^painel_[a-z0-9]{6}$/);
+  const voucher = parseCupom("Mercado Livre | - | Frete grátis no app | 30/11/2026 | https://meli.la/abc", agora);
+  assert.equal(voucher.codigo, "");
+  assert.match(parseCupom("Mercado Livre | X1 | algo bom | 30/11 | https://www.mercadolivre.com.br/x", agora).erro, /meli\.la/);
+  assert.match(parseCupom("Amazon | X1 | algo bom | 30/11 | http://amzn.to/x", agora).erro, /amzn\.to/);
+  assert.match(parseCupom("Magalu | X1 | algo bom | 30/11 | https://x.com", agora).erro, /Loja desconhecida/);
+  assert.match(parseCupom("Shopee | X1 | algo bom | 20/11 | https://shopee.com.br/x", agora).erro, /já passou/);
+  assert.match(parseCupom("Shopee | X1 | algo bom | 31/02 | https://shopee.com.br/x", agora).erro, /não existe/);
+  assert.match(parseCupom("Shopee | X1 | algo bom", agora).erro, /5, separados/);
+  assert.match(parseCupom("Shopee | <b> | algo bom | 30/11 | https://shopee.com.br/x", agora).erro, /Código inválido/);
+});
+
+test("/cupom grava no banco; /cupons lista; /cupom_apagar tira", async () => {
+  const consultas = [];
+  const db = { prepare(sql) { return { args: [], bind(...a) { this.args = a; return this; },
+    async run() { consultas.push([sql, this.args]); return { meta: { changes: 1 } }; },
+    async all() { consultas.push([sql, this.args]); return { results: [{ id: "painel_abc123", source: "Shopee", code: "BLACK20", condition: "R$ 20 off", expires_at: 1_900_000_000 }] }; },
+    async first() { return null; } }; } };
+  const respostas = [];
+  const rodar = (name, rawText) => handleMonitorCommand({ name, rawText, env: { MONITOR_DB: db }, reply: async (t) => respostas.push(t), dispatch: async () => {} });
+  await rodar("cupom", "/cupom Shopee | BLACK20 | R$ 20 off acima de R$ 100 | 30/12 | https://s.shopee.com.br/abc");
+  const insert = consultas.find(([sql]) => sql.includes("INSERT INTO coupons"));
+  assert.deepEqual(insert[1].slice(1, 7), ["Shopee", "BLACK20", "R$ 20 off acima de R$ 100", "code", "R$ 20 off acima de R$ 100", "https://s.shopee.com.br/abc"]);
+  assert.match(respostas[0], /✅ Cupom [a-z0-9]{6} no site/);
+  await rodar("cupom", "/cupom Shopee | só isso");
+  assert.match(respostas[1], /Formato:/);
+  await rodar("cupons", "/cupons");
+  assert.match(respostas[2], /abc123 · Shopee · BLACK20 · R\$ 20 off/);
+  await rodar("cupom_apagar", "/cupom_apagar abc123");
+  assert.deepEqual(consultas.at(-1)[1], ["abc123", "painel_abc123"]);
+  assert.match(respostas[3], /tirado do site/);
+});
