@@ -2,8 +2,8 @@ import {json} from '../_lib.js';
 const SORTS={recent:'o.published_at DESC',discount:'o.discount DESC,COALESCE(o.last_checked_at,o.published_at) DESC','price-asc':'o.price ASC,COALESCE(o.last_checked_at,o.published_at) DESC','price-desc':'o.price DESC,COALESCE(o.last_checked_at,o.published_at) DESC',rating:'o.rating DESC,COALESCE(o.last_checked_at,o.published_at) DESC',sales:'o.sales DESC,COALESCE(o.last_checked_at,o.published_at) DESC',trending:'(COALESCE(c.quantity,0)*20+o.discount*.7+COALESCE(o.rating,0)*5+MIN(COALESCE(o.sales,0),100000)/5000.0) DESC,COALESCE(o.last_checked_at,o.published_at) DESC'};
 export function titleSearchTerms(value){return String(value||'').trim().slice(0,80).split(/\s+/).filter(Boolean).slice(0,8).map(term=>`%${term.replace(/[\\%_]/g,'\\$&')}%`);}
 // Selo de preço do cartão: compara com os últimos 30 dias da própria oferta
-// (uma linha por dia em offer_prices). Sem 7 dias de histórico não há selo.
-export const DIAS_SELO=7;
+// (uma linha por dia em offer_prices). Sem 4 dias de histórico não há selo.
+export const DIAS_SELO=4;
 export function priceLevel(price,days,min,avg) {
   const p=Number(price),m=Number(min),a=Number(avg);
   if(!(p>0)||Number(days)<DIAS_SELO||!(m>0)||!(a>0)) return null;

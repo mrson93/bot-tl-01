@@ -148,7 +148,8 @@ test('selo de preço da vitrine e dados do topo da página inicial',async()=>{
   assert.equal(priceLevel(90,10,90,100),'baixo');
   assert.equal(priceLevel(100,10,90,100),'medio');
   assert.equal(priceLevel(110,10,90,100),'alto');
-  assert.equal(priceLevel(90,6,90,100),null);   // menos de 7 dias: sem selo
+  assert.equal(priceLevel(90,3,90,100),null);   // menos de 4 dias: sem selo
+  assert.equal(priceLevel(90,4,90,100),'baixo');
   assert.deepEqual(withPriceLevel({id:'x',price:90,history_days:10,history_min:90,history_avg:100}),{id:'x',price:90,price_level:'baixo'});
   const {dadosInicio}=await import('../functions/api/inicio.js');
   const agora=Math.floor(Date.UTC(2026,10,22,15)/1000);
