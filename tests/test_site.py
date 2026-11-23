@@ -350,3 +350,24 @@ class CampanhaBlackFridayTest(unittest.TestCase):
         self.assertEqual(site_publisher._payload_atualizacao("amazon_B000000001", oferta)["campaign"], "black_friday")
         sem = dict(oferta, blackFriday=False)
         self.assertIsNone(site_publisher._payload_atualizacao("amazon_B000000001", sem)["campaign"])
+
+
+class PausaDoHistoricoDiarioTest(unittest.TestCase):
+    def test_loja_sem_resposta_fica_pausada_ate_amanha(self):
+        from unittest import mock
+        import site_publisher
+        estado = {}
+        fonte = type("F", (), {"NOME": "Mercado Livre", "consultar_produtos": staticmethod(lambda ids: {})})
+        get = mock.Mock(return_value=mock.Mock(status_code=200, json=lambda: {"candidates": [{"id": "mercadolivre_MLB1"}]}))
+        with mock.patch.object(site_publisher, "esta_configurado", return_value=True), \
+             mock.patch.object(site_publisher, "_api_path", side_effect=lambda c: "https://x" + c), \
+             mock.patch.object(site_publisher.store, "_estado", side_effect=estado.get), \
+             mock.patch.object(site_publisher.store, "_definir_estado", side_effect=estado.__setitem__), \
+             mock.patch.object(site_publisher.requests, "get", get), \
+             mock.patch.object(site_publisher.requests, "post") as post:
+            site_publisher.atualizar_catalogo_diario([fonte], lojas=("Mercado Livre",), lotes=3)
+            self.assertEqual(get.call_count, 1)
+            self.assertIn("historico_diario_pausado:Mercado Livre", estado)
+            site_publisher.atualizar_catalogo_diario([fonte], lojas=("Mercado Livre",), lotes=3)
+            self.assertEqual(get.call_count, 1)   # pausado: nem pergunta a fila
+        post.assert_not_called()

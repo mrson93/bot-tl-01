@@ -314,3 +314,23 @@ class LinkDoCartaoECliquesTest(unittest.TestCase):
         self.assertEqual((inicio.hour, inicio.minute), (0, 0))
         with mock.patch.object(mp.shortlinks, "resumo_cliques", side_effect=RuntimeError("fora")):
             self.assertIsNone(mp._cliques_de_hoje(AGORA))
+
+
+class MotivoDaRecusaMercadoLivreTest(unittest.TestCase):
+    def test_403_leva_o_motivo_curto_no_erro_e_no_diagnostico(self):
+        import requests
+        import mercadolivre_api as ml
+        resposta = requests.Response()
+        resposta.status_code = 403
+        resposta.url = "https://api.mercadolibre.com/items/MLB1"
+        resposta._content = b'{"message":"forbidden","error":"forbidden","status":403,"cause":[],"blocked_by":"PolicyAgent","code":"PA_UNAUTHORIZED_RESULT_FROM_POLICIES"}'
+        ml.diagnostico.clear()
+        with mock.patch.object(ml, "_access_token", return_value="tok"), \
+             mock.patch.object(ml.requests, "get", return_value=resposta):
+            with self.assertRaises(requests.HTTPError) as caso:
+                ml._get("/items/MLB1")
+        self.assertIn("code=PA_UNAUTHORIZED_RESULT_FROM_POLICIES", str(caso.exception))
+        self.assertIn("blocked_by=PolicyAgent", str(caso.exception))
+        self.assertEqual(caso.exception.response.status_code, 403)
+        self.assertIn("motivo_http_403: [code=PA_UNAUTHORIZED", ml.resumo_diagnostico())
+        self.assertNotIn("tok", ml.resumo_diagnostico())

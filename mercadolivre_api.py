@@ -83,11 +83,36 @@ def _access_token(agora=None) -> str:
     return corpo["access_token"]
 
 
+def detalhe_recusa(resposta) -> str:
+    """Motivo curto que o Mercado Livre manda junto com o erro (sem dados sensíveis).
+
+    Só campos de diagnóstico do corpo JSON (code, error, message, blocked_by,
+    status), cortados em 120 caracteres; nunca o token nem o endereço completo.
+    """
+    try:
+        corpo = resposta.json()
+    except ValueError:
+        return ""
+    if not isinstance(corpo, dict):
+        return ""
+    partes = [f"{campo}={str(corpo[campo])[:60]}" for campo in ("code", "error", "message", "blocked_by", "status")
+              if corpo.get(campo) not in (None, "", [])]
+    return seguranca.redigir_segredos("; ".join(partes))[:120]
+
+
 def _get(caminho, params=None):
     resposta = requests.get(f"{API}{caminho}", params=params, timeout=30,
                             headers={"Authorization": f"Bearer {_access_token()}",
                                      "Accept": "application/json"})
-    resposta.raise_for_status()
+    if resposta.status_code >= 400:
+        detalhe = detalhe_recusa(resposta)
+        if detalhe:
+            # Guarda o primeiro motivo de cada código na rodada (vai no resumo do diagnóstico).
+            diagnostico.setdefault(f"motivo_http_{resposta.status_code}", detalhe)
+        try:
+            resposta.raise_for_status()
+        except requests.HTTPError as erro:
+            raise requests.HTTPError(f"{erro}{f' ({detalhe})' if detalhe else ''}", response=resposta) from None
     return resposta.json()
 
 
@@ -247,7 +272,8 @@ def buscar_mais_vendidos() -> list:
 
 
 def resumo_diagnostico() -> str:
-    return ", ".join(f"{chave}={valor}" for chave, valor in sorted(diagnostico.items())) or "vazio"
+    return ", ".join(f"{chave}={valor}" if not str(chave).startswith("motivo_") else f"{chave}: [{valor}]"
+                     for chave, valor in sorted(diagnostico.items())) or "vazio"
 
 
 def consultar(ids) -> dict:

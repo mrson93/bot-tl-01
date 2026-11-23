@@ -3,6 +3,7 @@ import base64
 import time
 import re
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
 import requests
@@ -10,6 +11,7 @@ import requests
 import config
 import desempenho
 import seguranca
+import store
 
 NOME = "Site"
 
@@ -387,9 +389,15 @@ def atualizar_catalogo_diario(fontes, lojas=LOJAS_DIARIAS, lotes=None):
     headers = {"Authorization": f"Bearer {config.SITE_API_TOKEN}"}
     fontes_por_nome = {fonte.NOME: fonte for fonte in fontes}
     total = {"consultados": 0, "encontrados": 0}
+    hoje = datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
     for nome in lojas:
         consultar = getattr(fontes_por_nome.get(nome), "consultar_produtos", None)
         if not callable(consultar):
+            continue
+        # Loja que não respondeu hoje fica pausada até amanhã: insistir a cada
+        # rodada só somaria consultas a uma API que está recusando.
+        chave_pausa = f"historico_diario_pausado:{nome}"
+        if store._estado(chave_pausa) == hoje:
             continue
         for _ in range(int(lotes)):
             resposta = requests.get(
@@ -405,12 +413,14 @@ def atualizar_catalogo_diario(fontes, lojas=LOJAS_DIARIAS, lotes=None):
             try:
                 encontrados = consultar(ids)
             except Exception as erro:
-                print(f"   ⚠️  Histórico diário de {nome} adiado: {seguranca.redigir_segredos(erro)}")
+                print(f"   ⚠️  Histórico diário de {nome} pausado até amanhã: {seguranca.redigir_segredos(erro)}")
+                store._definir_estado(chave_pausa, hoje)
                 break
             if not encontrados:
                 # Lote inteiro sem nada: é a API da loja que falhou, não 20 produtos
-                # que sumiram juntos. Não marca ninguém como indisponível.
-                print(f"   ⚠️  Histórico diário de {nome}: a loja não devolveu nenhum produto; tento na próxima rodada.")
+                # que sumiram juntos. Não marca ninguém e pausa a loja até amanhã.
+                print(f"   ⚠️  Histórico diário de {nome}: a loja não devolveu nenhum produto; pausado até amanhã.")
+                store._definir_estado(chave_pausa, hoje)
                 break
             atualizacoes = [_payload_atualizacao(oferta_id, encontrados.get(oferta_id)) for oferta_id in ids]
             enviada = requests.post(
