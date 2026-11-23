@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261123-2';
+export const STYLESHEET='/styles.css?v=20261123-6';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -163,7 +163,7 @@ export function emTemporada(now=Math.floor(Date.now()/1000)) {
   const hoje=new Date((now-3*3600)*1000).toISOString().slice(0,10);
   return hoje>=BLACK_FRIDAY.inicio&&hoje<=BLACK_FRIDAY.menuAte;
 }
-export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/quedas-de-preco','Preços','prices'],['/cupons','Cupons','coupons'],['/alertas','🔔 Alertas','alerts']];
+export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/precos','Preços','prices'],['/cupons','Cupons','coupons'],['/alertas','🔔 Alertas','alerts']];
 const ABA_DE={history:'prices',blog:'prices'};
 export function header(active='offers',categoria='') {
   const aba=ABA_DE[active]||active;

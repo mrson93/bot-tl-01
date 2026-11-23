@@ -135,3 +135,15 @@ test("histórico diário: chama o site a cada 15 min com o segredo, e nada sem s
   assert.equal(chamadas[0][0], SITE_PRECOS_URL);
   assert.equal(chamadas[0][1].headers.Authorization, "Bearer x");
 });
+
+test("/estatisticas lista os cliques nos blocos da página inicial", async () => {
+  const db = {
+    prepare(sql) {
+      return { bind() { return this; },
+        async first() { return sql.includes("FROM alerta_avisos") ? { dia: 0, semana: 0, mes: 0 } : { total: 0 }; },
+        async all() { return { results: sql.includes("home_clicks_daily") ? [{ block: "busca", total: 12 }, { block: "caiu-agora", total: 5 }] : [] }; } };
+    },
+  };
+  const texto = await estatisticas(db, 1_800_000_000);
+  assert.match(texto, /🏠 Cliques na página inicial \(7 dias\):\n   Busca do topo: 12\n   Caiu agora: 5/);
+});

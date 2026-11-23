@@ -413,6 +413,15 @@ export async function estatisticas(db, agora) {
       `   Nos avisos: 7 dias ${n(cliques.avisos7)}${taxa(cliques.avisos7, avisos?.semana)} · 30 dias ${n(cliques.avisos30)}${taxa(cliques.avisos30, avisos?.mes)}`,
       `   No cartão e no mini app: 7 dias ${n(cliques.cartao7)} · 30 dias ${n(cliques.cartao30)}`);
   }
+  const NOMES_BLOCO = { "caiu-agora": "Caiu agora", "oferta-dia": "Oferta do dia", alertas: "Alertas", precos: "Preços",
+    cupons: "Cupons", "menor-preco": "Menor preço", categoria: "Categorias", busca: "Busca do topo", "black-friday": "Faixa Black Friday", loja: "Lojas" };
+  const { results: blocos = [] } = await db.prepare(
+    "SELECT block,SUM(quantity) AS total FROM home_clicks_daily WHERE observed_on>=? GROUP BY block ORDER BY total DESC",
+  ).bind(diaBrasilia(new Date((agora - 6 * 86400) * 1000))).all().catch(() => ({ results: [] }));
+  if (blocos.length) {
+    linhas.push("", "🏠 Cliques na página inicial (7 dias):",
+      ...blocos.map((b) => `   ${NOMES_BLOCO[b.block] || b.block}: ${n(b.total)}`));
+  }
   linhas.push("", "Vendas dos avisos aparecem no relatório diário, no canal \"alerta\".");
   return linhas.join("\n");
 }

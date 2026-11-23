@@ -40,7 +40,8 @@ test('oferta nova continua comprável, mas só é indexável após sete observa�
   const offer={id:'amazon_ABC123',title:'Produto de teste',price:100,discount:10,image_url:'https://example.com/p.jpg',
     source:'Amazon',category:'eletronicos',shop:'Loja',published_at:1_780_000_000,last_checked_at:1_780_000_000,availability:'active'};
   async function render(days){
-    const prices=Array.from({length:days},(_,index)=>({price:100-index,observed_at:1_780_000_000+index*86400}));
+    const agora=Math.floor(Date.now()/1000);  // a página separa os últimos 30 dias no código
+    const prices=Array.from({length:days},(_,index)=>({price:100-index,observed_at:agora-(days-index)*86400}));
     const DB={prepare(){return {bind(){return this;},async first(){return offer;}};},async batch(){return [{results:prices},{results:[]}];}};
     const context={params:{id:offer.id},env:{DB}};
     return {page:await offerPage(context),head:await offerHead(context)};

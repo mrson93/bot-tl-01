@@ -140,14 +140,17 @@ class SiteSeoTest(unittest.TestCase):
     def test_historico_exibe_valores_datas_e_registros_recentes(self):
         detail = (ROOT / "site" / "functions" / "oferta" / "[id].js").read_text()
         styles = (PUBLIC / "styles.css").read_text()
-        self.assertIn("ORDER BY observed_at DESC LIMIT 30", detail)
+        ficha = (ROOT / "site" / "functions" / "_price_sheet.js").read_text()
+        self.assertIn("ORDER BY observed_at DESC LIMIT 400", detail)  # até 1 ano para as abas do gráfico
+        self.assertIn(".slice(-30)", detail)
         self.assertIn("Menor observado", detail)
         self.assertIn("Média observada", detail)
         self.assertIn("Histórico em formação", detail)
-        self.assertIn("prices.length>=7", detail)
+        self.assertIn("prices.length>=DIAS_SELO", detail)  # mesma regra do selo de preço
         self.assertIn("Variação no período", detail)
-        self.assertIn("price-line-chart", detail)
-        self.assertIn("line-path", detail)
+        self.assertIn("price-line-chart", ficha)
+        self.assertIn("line-path", ficha)
+        self.assertNotIn("style=", ficha)
         self.assertIn("Cada ponto mostra", detail)
         self.assertNotIn('style="height:', detail)
         self.assertIn(".line-path", styles)

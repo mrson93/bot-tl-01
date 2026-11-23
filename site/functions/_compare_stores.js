@@ -104,3 +104,20 @@ export function sugestaoMaisBarata(achado,precoAtual) {
 }
 
 export const nomeDaLoja=loja=>LOJA[loja]||loja;
+
+// Página da oferta: o mesmo produto em outras lojas do catálogo do site (sem
+// chamar API externa a cada visita). O mais barato de cada loja, até 4 lojas.
+export async function outrasLojasNoCatalogo(env,offer) {
+  const loja=FONTE[offer?.source], preco=Number(offer?.price);
+  const idProduto=String(offer?.id||'').replace(/^[a-z]+_/,'');
+  const palavras=palavrasChave(offer?.title);
+  if(!loja||!(preco>0)||palavras.length<3) return [];
+  const candidatos=await candidatosDoCatalogo(env,{loja,id_produto:idProduto,nome:offer.title},palavras).catch(()=>[]);
+  const porLoja=new Map();
+  for(const c of candidatos){
+    if(!(c.preco>=preco*0.5&&c.preco<=preco*1.5)||semelhanca(offer.title,c.nome)<SEMELHANCA_MINIMA) continue;
+    const atual=porLoja.get(c.loja);
+    if(!atual||c.preco<atual.preco) porLoja.set(c.loja,{...c,lojaNome:LOJA[c.loja]});
+  }
+  return [...porLoja.values()].sort((a,b)=>a.preco-b.preco).slice(0,4);
+}

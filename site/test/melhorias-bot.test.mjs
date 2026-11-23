@@ -283,7 +283,7 @@ test('faixa de categorias: em todas as páginas, sem "Outros", e a página da ca
   assert.match(faixaCategorias('casa'),/href="\/categorias\/casa" aria-current="page"/);
   const {readFile}=await import('node:fs/promises');
   const index=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
-  assert.ok(index.includes(faixaCategorias()));            // a inicial (arquivo fixo) usa a mesma faixa
+  assert.ok(index.replace(' data-metric="categoria"','').includes(faixaCategorias()));            // a inicial (arquivo fixo) usa a mesma faixa
   assert.ok(!index.includes('id="category-links"'));       // pílulas repetidas saíram dos filtros
   const card=offerCard({id:'shopee_1_2',title:'Panela',price:90,discount:10,source:'Shopee',image_url:'https://x/i.jpg',published_at:1,price_level:'baixo'});
   assert.match(card,/class="price-level level-baixo"/);
@@ -295,4 +295,70 @@ test('faixa de categorias: em todas as páginas, sem "Outros", e a página da ca
   assert.match(pagina,/href="\/categorias\/casa" aria-current="page"/);
   assert.match(pagina,/🟢 Preço baixo/);
   assert.equal(binds.at(-1),'casa');
+});
+
+test('ficha de preço: resumo junto do preço, régua e abas só com histórico longo',async()=>{
+  const ficha=await import('../functions/_price_sheet.js');
+  const r=ficha.resumoPreco([100,110,90,100],92,4);
+  assert.match(ficha.linhaResumo(r),/Média de 4 dias: <b>R\$\s?100,00<\/b> · <strong class="sheet-good">🔥 8% abaixo da média/);
+  assert.match(ficha.linhaResumo(ficha.resumoPreco([100,100],92,4)),/Histórico em formação: 2 dias/);
+  assert.match(ficha.linhaResumo(ficha.resumoPreco([100,100,100,100],110,4)),/10% acima da média/);
+  const regua=ficha.regua(r,92);
+  assert.match(regua,/<circle cx="72\.8" cy="31"/);   // 92 entre 90 e 110: 10% da barra
+  assert.doesNotMatch(regua,/style=/);
+  assert.equal(ficha.regua(ficha.resumoPreco([100,100,100,100],100,4),100),'');   // sem variação, sem régua
+  const agora=1_800_000_000;
+  const dia=n=>({price:100+n%7,observed_at:agora-n*86400});
+  const curto=ficha.graficoComAbas(Array.from({length:10},(_,i)=>dia(10-i)),agora);
+  assert.doesNotMatch(curto,/chart-tabs/);
+  const longo=ficha.graficoComAbas(Array.from({length:120},(_,i)=>dia(120-i)),agora);
+  assert.deepEqual([...longo.matchAll(/role="tab" data-periodo="(\w+)"/g)].map(m=>m[1]),['30','90','tudo']);
+  assert.equal((longo.match(/data-periodo="\w+" tabindex="0" hidden/g)||[]).length,2);
+});
+
+test('Preços: uma página com abas Caiu hoje, Menor preço e Guias',async()=>{
+  const {paginaPrecos}=await import('../functions/precos.js');
+  const linha=(id,extra={})=>({id,title:`Produto ${id}`,price:50,discount:20,source:'Shopee',image_url:'https://x/i.jpg',published_at:1,availability:'active',...extra});
+  const DB={prepare(sql){return {bind(){return this;},async all(){
+    if(sql.includes('blog_posts')) return {results:[{slug:'guia-air-fryer',title:'Qual air fryer comprar',excerpt:'x',category:'cozinha',published_at:1}]};
+    if(sql.includes('previous_price>price')) return {results:[linha('shopee_1_2',{previous_price:80,price_changed_at:1})]};
+    return {results:[linha('shopee_3_4',{observations:5,min_price:50})]};}};}};
+  const caiu=await (await paginaPrecos({DB},'')).text();
+  assert.match(caiu,/href="\/precos" aria-selected="true" aria-current="page">📉 Caiu hoje/);
+  assert.match(caiu,/Produto shopee_1_2/);
+  assert.match(caiu,/href="\/precos" aria-current="page">Preços/);   // menu marca Preços
+  const menor=await (await paginaPrecos({DB},'menor')).text();
+  assert.match(menor,/Produto shopee_3_4/);
+  assert.match(menor,/rel="canonical" href="https:\/\/canaltabarato\.com\.br\/precos\?aba=menor"/);
+  assert.match(await (await paginaPrecos({DB},'guias')).text(),/Qual air fryer comprar/);
+  assert.match(await (await paginaPrecos({DB},'<script>')).text(),/aria-selected="true" aria-current="page">📉 Caiu hoje/);
+});
+
+test('mesmo produto em outras lojas: só nome e modelo iguais, o mais barato de cada loja',async()=>{
+  const {outrasLojasNoCatalogo}=await import('../functions/_compare_stores.js');
+  const DB={prepare(){return {bind(){return this;},async all(){return {results:[
+    {id:'mercadolivre_MLB1',title:'Fone JBL Tune 520BT Bluetooth Preto',price:179,source:'Mercado Livre'},
+    {id:'mercadolivre_MLB2',title:'Fone JBL Tune 520BT Bluetooth Azul',price:199,source:'Mercado Livre'},
+    {id:'amazon_B000000001',title:'Fone JBL Tune 720BT Bluetooth',price:189,source:'Amazon'},   // outro modelo
+    {id:'shopee_1_2',title:'Fone JBL Tune 520BT Bluetooth',price:30,source:'Shopee'},           // preço fora da faixa
+  ]};}};}};
+  const r=await outrasLojasNoCatalogo({DB},{id:'amazon_B0C0000000',title:'Fone de Ouvido JBL Tune 520BT Bluetooth',price:199,source:'Amazon'});
+  assert.deepEqual(r.map(x=>[x.lojaNome,x.preco]),[['Mercado Livre',179]]);
+  assert.match(r[0].link,/\/go\/mercadolivre_MLB1$/);
+});
+
+test('métrica dos blocos da inicial: só blocos conhecidos, uma contagem por pessoa por minuto',async()=>{
+  const {onRequestPost,BLOCOS}=await import('../functions/api/home-metric.js');
+  assert.ok(BLOCOS.has('caiu-agora')&&BLOCOS.has('busca'));
+  const runs=[];
+  const DB={prepare(sql){return {sql,bind(...a){this.a=a;return this;},async run(){runs.push([sql,this.a]);return {meta:{changes:1}};},async first(){return null;}};}};
+  const env={DB,ABUSE_HASH_SECRET:'s'.repeat(40)};
+  const req=bloco=>new Request('https://canaltabarato.com.br/api/home-metric',{method:'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':'203.0.113.9','User-Agent':'Mozilla/5.0'},body:JSON.stringify({bloco})});
+  assert.equal((await onRequestPost({request:req('qualquer'),env})).status,400);
+  const r=await onRequestPost({request:req('caiu-agora'),env});
+  assert.equal(r.status,202);
+  const insert=runs.find(([sql])=>sql.startsWith('INSERT INTO home_clicks_daily'));
+  assert.ok(insert, 'gravou a contagem');
+  assert.equal(insert[1][1],'caiu-agora');
+  assert.match(insert[1][0],/^\d{4}-\d{2}-\d{2}$/);
 });

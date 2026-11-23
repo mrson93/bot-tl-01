@@ -19,11 +19,11 @@
   <meta name="twitter:title" content="Tá Barato | Ofertas, descontos e achados online">
   <meta name="twitter:description" content="Ofertas selecionadas por preço, desconto, avaliação e vendas, reunidas em um só lugar.">
   <title>Tá Barato | Ofertas, descontos e achados online</title>
-  <link rel="stylesheet" href="/styles.css?v=20261123-2">
+  <link rel="stylesheet" href="/styles.css?v=20261123-6">
   <script src="/analytics.js?v=20261020-1" defer></script>
   <script src="/google-analytics.js?v=20260930-1" defer></script>
   <script src="/nav.js?v=20261123-1" defer></script>
-  <script src="/app.js?v=20261123-1" defer></script>
+  <script src="/app.js?v=20261123-3" defer></script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -68,9 +68,9 @@
       <span>TÁ <strong>BARATO</strong></span>
     </a>
     <label class="top-search"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar ofertas</span><input id="search" type="search" placeholder="Buscar air fryer, fone, tênis…" autocomplete="off" enterkeyhint="search"></label>
-    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/quedas-de-preco">Preços</a><a href="/cupons" data-coupons>Cupons</a><a class="nav-cta" href="/alertas">🔔 Alertas</a></nav>
+    <nav class="main-nav" aria-label="Principal"><a href="/" aria-current="page">Ofertas</a><a href="/precos">Preços</a><a href="/cupons" data-coupons>Cupons</a><a class="nav-cta" href="/alertas">🔔 Alertas</a></nav>
   </header>
-  <nav class="cat-strip" aria-label="Categorias"><div class="cat-strip-inner"><a href="/categorias/eletronicos"><span aria-hidden="true">📱</span>Eletrônicos</a><a href="/categorias/casa"><span aria-hidden="true">🏠</span>Casa</a><a href="/categorias/cozinha"><span aria-hidden="true">🍳</span>Cozinha</a><a href="/categorias/beleza"><span aria-hidden="true">💄</span>Beleza</a><a href="/categorias/esportes"><span aria-hidden="true">⚽</span>Esportes</a><a href="/categorias/moda"><span aria-hidden="true">👕</span>Moda</a><a href="/categorias/infantil"><span aria-hidden="true">🧸</span>Infantil</a><a href="/categorias/ferramentas"><span aria-hidden="true">🔧</span>Ferramentas</a><a href="/categorias/pet"><span aria-hidden="true">🐾</span>Pet</a><a href="/categorias/automotivo"><span aria-hidden="true">🚗</span>Automotivo</a><a href="/categorias/mercado"><span aria-hidden="true">🛒</span>Mercado</a></div></nav>
+  <nav class="cat-strip" data-metric="categoria" aria-label="Categorias"><div class="cat-strip-inner"><a href="/categorias/eletronicos"><span aria-hidden="true">📱</span>Eletrônicos</a><a href="/categorias/casa"><span aria-hidden="true">🏠</span>Casa</a><a href="/categorias/cozinha"><span aria-hidden="true">🍳</span>Cozinha</a><a href="/categorias/beleza"><span aria-hidden="true">💄</span>Beleza</a><a href="/categorias/esportes"><span aria-hidden="true">⚽</span>Esportes</a><a href="/categorias/moda"><span aria-hidden="true">👕</span>Moda</a><a href="/categorias/infantil"><span aria-hidden="true">🧸</span>Infantil</a><a href="/categorias/ferramentas"><span aria-hidden="true">🔧</span>Ferramentas</a><a href="/categorias/pet"><span aria-hidden="true">🐾</span>Pet</a><a href="/categorias/automotivo"><span aria-hidden="true">🚗</span>Automotivo</a><a href="/categorias/mercado"><span aria-hidden="true">🛒</span>Mercado</a></div></nav>
 
   <main class="home-page">
     <section class="hero">
@@ -79,7 +79,7 @@
         <h1>Ofertas de verdade.<br><em>Na hora certa.</em></h1>
         <p class="hero-text">Conferimos o histórico de cada preço para você não cair em promoção falsa.</p>
       </div>
-      <aside class="live-drops" aria-labelledby="live-drops-title">
+      <aside class="live-drops" data-metric="caiu-agora" aria-labelledby="live-drops-title">
         <h2 id="live-drops-title"><i aria-hidden="true"></i>CAIU AGORA</h2>
         <ol id="live-drops"><li class="live-empty">Conferindo os preços…</li></ol>
         <a class="live-more" href="/quedas-de-preco">Ver todas as quedas →</a>
@@ -87,17 +87,17 @@
     </section>
 
     <section class="bento" aria-label="O que o Tá Barato faz">
-      <a class="tile tile-deal" id="deal-tile" href="/menores-precos"><div><small>🔥 OFERTA DO DIA</small><strong>Menor preço que já vimos</strong></div><div class="deal" id="deal"><span class="deal-text">Veja os produtos no menor preço do histórico.</span></div></a>
-      <a class="tile tile-alerts" href="/alertas"><div><small>🔔 ALERTAS</small><strong>Escolha o produto.<br>A gente avisa quando baixar.</strong></div><p>Grátis no Telegram →</p><div class="bubble" aria-hidden="true"><b>🔔 Bateu o preço que você pediu!</b><br>Fone de ouvido · <b>R$ 189,90</b><br>🟢 Mais barato que em 92% dos dias</div></a>
-      <a class="tile tile-prices" href="/quedas-de-preco"><div><small>📈 PREÇOS</small><strong id="drops-today">Caiu hoje</strong></div><div class="spark" id="drops-spark" aria-hidden="true"></div></a>
-      <a class="tile tile-coupons" href="/cupons"><div><small>🎟 CUPONS</small><strong id="coupons-count">Cupons das lojas</strong></div><p>Cupons oficiais das lojas →</p></a>
+      <a class="tile tile-deal" id="deal-tile" data-metric="oferta-dia" href="/menores-precos"><div><small>🔥 OFERTA DO DIA</small><strong>Menor preço que já vimos</strong></div><div class="deal" id="deal"><span class="deal-text">Veja os produtos no menor preço do histórico.</span></div></a>
+      <a class="tile tile-alerts" href="/alertas" data-metric="alertas"><div><small>🔔 ALERTAS</small><strong>Escolha o produto.<br>A gente avisa quando baixar.</strong></div><p>Grátis no Telegram →</p><div class="bubble" aria-hidden="true"><b>🔔 Bateu o preço que você pediu!</b><br>Fone de ouvido · <b>R$ 189,90</b><br>🟢 Mais barato que em 92% dos dias</div></a>
+      <a class="tile tile-prices" href="/precos" data-metric="precos"><div><small>📈 PREÇOS</small><strong id="drops-today">Caiu hoje</strong></div><div class="spark" id="drops-spark" aria-hidden="true"></div></a>
+      <a class="tile tile-coupons" href="/cupons" data-metric="cupons"><div><small>🎟 CUPONS</small><strong id="coupons-count">Cupons das lojas</strong></div><p>Cupons oficiais das lojas →</p></a>
     </section>
 
 
 
 
 
-    <section class="store-shortcuts" id="store-shortcuts" aria-labelledby="store-shortcuts-title" hidden>
+    <section class="store-shortcuts" data-metric="loja" id="store-shortcuts" aria-labelledby="store-shortcuts-title" hidden>
       <div class="store-shortcuts-head">
         <div><h2 id="store-shortcuts-title">Ir direto para</h2></div>
         <p>Links oficiais de afiliado. Você não paga nada a mais por isso.</p>

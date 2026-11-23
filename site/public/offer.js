@@ -7,3 +7,7 @@ const reported=()=>{try{return new Set(JSON.parse(localStorage.getItem('tb:repor
 report?.addEventListener('click',async()=>{report.disabled=true;try{const response=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({offer_id:report.dataset.offerId,kind:'expired'})});if(!response.ok)throw new Error();const ids=reported();ids.add(report.dataset.offerId);localStorage.setItem('tb:reported',JSON.stringify([...ids]));report.textContent='Obrigado pelo aviso ✓';}catch{report.textContent='Não foi possível enviar. Tente novamente.';report.disabled=false;}});
 if(report&&reported().has(report.dataset.offerId)){report.disabled=true;report.textContent='Aviso já enviado ✓';}
 updateFavorite();
+// Abas do gráfico (30 dias, 90 dias, tudo): mostra só o período escolhido.
+document.querySelectorAll('.chart-tabs').forEach(abas=>abas.addEventListener('click',e=>{const b=e.target.closest('[data-periodo]');if(!b)return;
+  abas.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
+  abas.parentElement.querySelectorAll('.price-chart-scroll[data-periodo]').forEach(g=>{g.hidden=g.dataset.periodo!==b.dataset.periodo;});}));
