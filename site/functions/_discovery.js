@@ -1,4 +1,5 @@
 import {SITE,footer,head,header,html,offerCard,offerPath,responseHtml,shorten} from './_site.js';
+import {priceLevel} from './api/offers.js';
 
 const OFFER_COLUMNS=`o.id,o.title,o.price,o.original_price,o.discount,o.rating,o.sales,
   o.shop,o.image_url,o.source,o.category,o.published_at,o.cataloged_at,o.last_checked_at,
@@ -34,6 +35,7 @@ function baseQuery() {
 
 function decorate(row,kind) {
   const observations=Number(row.observations)||0;
+  row.price_level=priceLevel(row.price,observations,row.min_price,row.avg_price);
   if(kind==='drops') {
     const drop=((Number(row.previous_price)-Number(row.price))/Number(row.previous_price))*100;
     row.insight_label=`Caiu ${drop.toLocaleString('pt-BR',{maximumFractionDigits:1})}% desde a medição anterior`;

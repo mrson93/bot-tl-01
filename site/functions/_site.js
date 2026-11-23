@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261123-1';
+export const STYLESHEET='/styles.css?v=20261123-2';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -147,6 +147,16 @@ export function productStructuredData(offer,canonical) {
 // Menu com os três pilares + cupons; Alertas é o botão de destaque. Guias
 // (blog) e histórico ficam em Preços. A busca leva à vitrine da página inicial
 // (o site não usa formulários: form-action 'none').
+// Faixa de categorias logo abaixo do topo (ordem: tamanho da categoria). "Outros"
+// e "Livros" ficam de fora: um não diz nada, o outro tem poucas ofertas.
+export const CATEGORIAS_FAIXA=[['eletronicos','📱','Eletrônicos'],['casa','🏠','Casa'],['cozinha','🍳','Cozinha'],['beleza','💄','Beleza'],
+  ['esportes','⚽','Esportes'],['moda','👕','Moda'],['infantil','🧸','Infantil'],['ferramentas','🔧','Ferramentas'],['pet','🐾','Pet'],
+  ['automotivo','🚗','Automotivo'],['mercado','🛒','Mercado']];
+export function faixaCategorias(ativa='') {
+  return `<nav class="cat-strip" aria-label="Categorias"><div class="cat-strip-inner">${CATEGORIAS_FAIXA.map(([slug,icone,nome])=>
+    `<a href="/categorias/${slug}"${slug===ativa?' aria-current="page"':''}><span aria-hidden="true">${icone}</span>${nome}</a>`).join('')}</div></nav>`;
+}
+
 // Black Friday: o item do menu só aparece na temporada (dias de Brasília).
 export const BLACK_FRIDAY={inicio:'2026-11-20',dia:'2026-11-27',fim:'2026-12-01',menuAte:'2026-12-02'};
 export function emTemporada(now=Math.floor(Date.now()/1000)) {
@@ -155,9 +165,9 @@ export function emTemporada(now=Math.floor(Date.now()/1000)) {
 }
 export const MENU_PRINCIPAL=[['/','Ofertas','offers'],['/quedas-de-preco','Preços','prices'],['/cupons','Cupons','coupons'],['/alertas','🔔 Alertas','alerts']];
 const ABA_DE={history:'prices',blog:'prices'};
-export function header(active='offers') {
+export function header(active='offers',categoria='') {
   const aba=ABA_DE[active]||active;
-  return `<header class="topbar topbar-home topbar-site"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><a class="top-search top-search-link" href="/#busca"><span aria-hidden="true">⌕</span>Buscar ofertas…</a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`${chave==='alerts'&&emTemporada()?`<a class="nav-bf" href="/black-friday"${aba==='black'?' aria-current="page"':''}>🖤 Black Friday</a>`:''}<a href="${href}"${chave==='alerts'?' class="nav-cta"':''}${chave==='coupons'?' data-coupons':''}${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>`;
+  return `<header class="topbar topbar-home topbar-site"><a class="brand" href="/" aria-label="Tá Barato — início"><img class="brand-mark" src="https://t.me/i/userpic/320/CanalTaBarato.jpg" alt=""><span>TÁ <strong>BARATO</strong></span></a><a class="top-search top-search-link" href="/#busca"><span aria-hidden="true">⌕</span>Buscar ofertas…</a><nav class="main-nav" aria-label="Principal">${MENU_PRINCIPAL.map(([href,nome,chave])=>`${chave==='alerts'&&emTemporada()?`<a class="nav-bf" href="/black-friday"${aba==='black'?' aria-current="page"':''}>🖤 Black Friday</a>`:''}<a href="${href}"${chave==='alerts'?' class="nav-cta"':''}${chave==='coupons'?' data-coupons':''}${aba===chave?' aria-current="page"':''}>${nome}</a>`).join('')}</nav></header>${faixaCategorias(categoria)}`;
 }
 
 export function footer() {
@@ -169,6 +179,8 @@ export function infoPage({slug,title,eyebrow,description,content,structured=''})
   return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title:`${title} | Tá Barato`,description,canonical,structured})}</head><body>${header()}<main class="info-page"><p class="eyebrow">${html(eyebrow)}</p><h1>${html(title)}</h1><div class="info-content">${content}</div></main>${footer()}</body></html>`,200,'public, max-age=3600, stale-while-revalidate=86400');
 }
 
+// Selo de preço (igual ao da vitrine da página inicial), quando a oferta tem histórico.
+const NIVEL_PRECO={baixo:'🟢 Preço baixo',medio:'🟡 Na média',alto:'🔴 Preço alto'};
 export function offerCard(offer) {
   const discount=Number(offer.discount)||0;
   const rating=offer.rating?`⭐ ${Number(offer.rating).toFixed(1)}`:'';
@@ -178,7 +190,7 @@ export function offerCard(offer) {
   const checked=offer.last_checked_at||offer.published_at;
   const status=offer.availability==='unverified'?'<span class="check-pending">Revisando disponibilidade</span>':'';
   const insight=offer.insight_label?`<p class="analysis-chip">${html(offer.insight_label)}</p>`:'';
-  return `<article class="offer-card"><div class="offer-media">${discount?`<span class="discount">−${Math.round(discount)}%</span>`:''}<a class="offer-detail-link" href="${offerPath(offer)}"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"></a></div><div class="offer-body"><div class="card-kicker"><span class="source">${html(offer.source)}</span><time title="Preço consultado na plataforma">${html(ageLabel(checked))}</time></div>${status}${insight}<h3><a class="title-link" href="${offerPath(offer)}">${html(offer.title)}</a></h3>${flags.length?`<div class="offer-flags">${flags.map(flag=>`<span>${html(flag)}</span>`).join('')}</div>`:''}<div class="card-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div><p class="meta">${rating}${sales}</p><p class="card-store">${store}</p><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
+  return `<article class="offer-card"><div class="offer-media">${discount?`<span class="discount">−${Math.round(discount)}%</span>`:''}${NIVEL_PRECO[offer.price_level]?`<span class="price-level level-${offer.price_level}" title="Comparado com os últimos 30 dias">${NIVEL_PRECO[offer.price_level]}</span>`:''}<a class="offer-detail-link" href="${offerPath(offer)}"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"></a></div><div class="offer-body"><div class="card-kicker"><span class="source">${html(offer.source)}</span><time title="Preço consultado na plataforma">${html(ageLabel(checked))}</time></div>${status}${insight}<h3><a class="title-link" href="${offerPath(offer)}">${html(offer.title)}</a></h3>${flags.length?`<div class="offer-flags">${flags.map(flag=>`<span>${html(flag)}</span>`).join('')}</div>`:''}<div class="card-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div><p class="meta">${rating}${sales}</p><p class="card-store">${store}</p><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
 }
 
 export function notFound(title='Página não encontrada') {

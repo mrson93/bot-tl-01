@@ -274,3 +274,25 @@ test('publicação e atualização guardam o selo Black Friday da loja',async()=
   const {CAMPANHAS}=await import('../functions/api/publish.js');
   assert.ok(CAMPANHAS.has('black_friday')&&!CAMPANHAS.has('qualquer'));
 });
+
+test('faixa de categorias: em todas as páginas, sem "Outros", e a página da categoria fica marcada com selo de preço',async()=>{
+  const {faixaCategorias,header,CATEGORIAS_FAIXA,offerCard}=await import('../functions/_site.js');
+  assert.equal(CATEGORIAS_FAIXA[0][0],'eletronicos');
+  assert.ok(!CATEGORIAS_FAIXA.some(([slug])=>slug==='outros'||slug==='livros'));
+  assert.match(header('offers'),/<nav class="cat-strip"/);
+  assert.match(faixaCategorias('casa'),/href="\/categorias\/casa" aria-current="page"/);
+  const {readFile}=await import('node:fs/promises');
+  const index=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  assert.ok(index.includes(faixaCategorias()));            // a inicial (arquivo fixo) usa a mesma faixa
+  assert.ok(!index.includes('id="category-links"'));       // pílulas repetidas saíram dos filtros
+  const card=offerCard({id:'shopee_1_2',title:'Panela',price:90,discount:10,source:'Shopee',image_url:'https://x/i.jpg',published_at:1,price_level:'baixo'});
+  assert.match(card,/class="price-level level-baixo"/);
+  const {collectionPage}=await import('../functions/_collection.js');
+  let binds;
+  const DB={prepare(sql){return {bind(...a){if(sql.includes('FROM offers o'))binds=a;return this;},
+    async all(){return sql.includes('DISTINCT')?{results:[{value:'casa'}]}:{results:[{id:'shopee_1_2',title:'Panela',price:90,discount:10,source:'Shopee',image_url:'https://x/i.jpg',published_at:1,history_days:5,history_min:90,history_avg:100}]};}};}};
+  const pagina=await (await collectionPage({DB},'category','casa')).text();
+  assert.match(pagina,/href="\/categorias\/casa" aria-current="page"/);
+  assert.match(pagina,/🟢 Preço baixo/);
+  assert.equal(binds.at(-1),'casa');
+});
