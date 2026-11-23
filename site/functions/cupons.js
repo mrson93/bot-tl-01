@@ -50,7 +50,7 @@ async function externalCoupons(stores,now) {
   }
 }
 
-function couponCard(coupon) {
+export function couponCard(coupon) {
   const hasCode=Boolean(coupon.code);
   const primary=hasCode?coupon.code:(coupon.title||'Voucher disponível');
   const href=coupon.href||`/cupom/${encodeURIComponent(coupon.id)}`;

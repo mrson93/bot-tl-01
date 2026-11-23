@@ -86,6 +86,7 @@ def publicar(fonte, oferta):
             "coupon_condition": oferta.get("cupomCondicao"),
             "coupon_expires_at": _timestamp(oferta.get("cupomExpiraEm")),
             "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
+            "campaign": "black_friday" if oferta.get("blackFriday") else None,
         }, timeout=15, allow_redirects=False,
     )
     if not 200 <= resposta.status_code < 300:
@@ -311,6 +312,7 @@ def _payload_atualizacao(oferta_id, oferta):
         "shop": oferta.get("shopName"), "image_url": imagem,
         "category": _categoria(oferta),
         "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
+        "campaign": "black_friday" if oferta.get("blackFriday") else None,
     }
 
 

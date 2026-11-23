@@ -235,3 +235,42 @@ test('rota dos preços diários exige o segredo próprio; fila diária pelo refr
   assert.equal(args[1],'Mercado Livre');
   assert.equal(args[3],20);
 });
+
+test('Black Friday: fases da contagem, menu só na temporada e página com selo, quedas e filtro',async()=>{
+  const bf=await import('../functions/black-friday.js');
+  const em=(d,h=15)=>Math.floor(Date.UTC(2026,10,d,h)/1000);
+  assert.deepEqual(bf.situacao(em(23)),{fase:'antes',texto:'Faltam 4 dias'});
+  assert.equal(bf.situacao(em(26)).texto,'Falta 1 dia');
+  assert.equal(bf.situacao(em(27)).texto,'É hoje!');
+  assert.equal(bf.situacao(em(29)).fase,'agora');
+  assert.equal(bf.situacao(Math.floor(Date.UTC(2026,11,2,15)/1000)).fase,'depois');
+  assert.ok(bf.emTemporada(em(22))&&!bf.emTemporada(em(19))&&!bf.emTemporada(Math.floor(Date.UTC(2026,11,3,15)/1000)));
+  const oferta=(id,source,extra={})=>({id,title:`Produto ${id}`,price:100,discount:30,source,image_url:'https://x/i.jpg',published_at:em(22),availability:'active',...extra});
+  const consultas=[];
+  const DB={prepare(sql){return {sql,bind(...a){this.a=a;return this;},async all(){consultas.push([sql,this.a]);
+    if(sql.includes("campaign='black_friday'")) return {results:[oferta('amazon_B000000001','Amazon')]};
+    if(sql.includes('FROM coupons')) return {results:[]};
+    if(sql.includes('previous_price>price')) return {results:[oferta('shopee_1_2','Shopee',{previous_price:150,price_changed_at:em(22)}),oferta('mercadolivre_MLB1','Mercado Livre',{previous_price:120,price_changed_at:em(22)})]};
+    return {results:[]};}};}};
+  const html=await (await bf.paginaBlackFriday({DB},'shopee',em(23))).text();
+  assert.match(html,/Só desconto de verdade/);
+  assert.match(html,/Faltam 4 dias/);
+  assert.match(html,/href="\/black-friday\?loja=shopee" aria-current="page">Shopee/);
+  assert.match(html,/Produto shopee_1_2/);
+  assert.doesNotMatch(html,/Produto mercadolivre_MLB1/);   // filtrado pela loja
+  assert.ok(consultas.find(([sql])=>sql.includes("campaign='black_friday'"))[1].includes('Shopee'));
+  assert.match(html,/start=black_friday/);
+  assert.doesNotMatch(html,/style=/);
+  assert.doesNotMatch(html,/Cupons ativos/);   // sem cupom, sem bloco
+});
+
+test('publicação e atualização guardam o selo Black Friday da loja',async()=>{
+  const {onRequestPost}=await import('../functions/api/refresh.js');
+  const statements=[];
+  const DB={prepare(sql){return {sql,bind(...a){this.a=a;return this;}};},async batch(st){statements.push(...st);}};
+  const body={updates:[{id:'amazon_B000000001',found:true,title:'Echo',price:299,image_url:'https://m.media-amazon.com/x.jpg',campaign:'black_friday'}]};
+  await onRequestPost({request:new Request('https://x/api/refresh',{method:'POST',headers:{Authorization:'Bearer p','Content-Type':'application/json'},body:JSON.stringify(body)}),env:{DB,PUBLISH_TOKEN:'p'},waitUntil(){}});
+  assert.ok(statements.some(s=>s.sql.startsWith('UPDATE offers SET campaign=?')&&s.a[0]==='black_friday'&&s.a[2]==='amazon_B000000001'));
+  const {CAMPANHAS}=await import('../functions/api/publish.js');
+  assert.ok(CAMPANHAS.has('black_friday')&&!CAMPANHAS.has('qualquer'));
+});

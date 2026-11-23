@@ -341,3 +341,12 @@ class HistoricoDiarioTest(unittest.TestCase):
             r = site_publisher.atualizar_catalogo_diario(self._fontes(lambda ids: {}), lojas=("Mercado Livre",), lotes=3)
         post.assert_not_called()
         self.assertEqual(r["consultados"], 0)
+
+
+class CampanhaBlackFridayTest(unittest.TestCase):
+    def test_payload_leva_o_selo_black_friday(self):
+        import site_publisher
+        oferta = {"price": 10, "imageUrl": "https://m.media-amazon.com/x.jpg", "productName": "Echo", "blackFriday": True}
+        self.assertEqual(site_publisher._payload_atualizacao("amazon_B000000001", oferta)["campaign"], "black_friday")
+        sem = dict(oferta, blackFriday=False)
+        self.assertIsNone(site_publisher._payload_atualizacao("amazon_B000000001", sem)["campaign"])
