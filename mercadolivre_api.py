@@ -93,7 +93,7 @@ def _access_token(agora=None) -> str:
     store._definir_estado(_CHAVE_EXPIRA, momento + int(corpo.get("expires_in") or 21600))
     # Permissões que o Mercado Livre deu a este token (não é segredo): mostram
     # se a autorização já tem as permissões funcionais novas.
-    store._definir_estado(_CHAVE_ESCOPOS, " ".join(str(corpo.get("scope") or "").split())[:300])
+    store._definir_estado(_CHAVE_ESCOPOS, " ".join(str(corpo.get("scope") or "").split())[:4000])
     return corpo["access_token"]
 
 
@@ -300,16 +300,27 @@ def buscar_mais_vendidos() -> list:
             ofertas += _itens(itens, posicoes)
         except (requests.RequestException, ValueError, KeyError) as erro:
             _anotar(f"itens_{_motivo(erro)}")
+            diagnostico.setdefault("motivo_itens", seguranca.redigir_segredos(
+                f"{type(erro).__name__}: {erro}")[:120])
     validas = [o for o in ofertas if o["productName"] and o["price"] > 0]
     _anotar("ofertas", len(validas))
     return validas
+
+
+def _escopos_resumidos() -> str:
+    """Escopos do token sem os genéricos (urn:global:admin...), que enchem a linha."""
+    todos = str(store._estado(_CHAVE_ESCOPOS) or "").split()
+    if not todos:
+        return "desconhecido"
+    proprios = [e for e in todos if not e.startswith("urn:global:admin:")]
+    return f"{len(todos)} no total; fora os genéricos: {' '.join(proprios) or 'nenhum'}"
 
 
 def resumo_diagnostico() -> str:
     texto = ", ".join(f"{chave}={valor}" if not str(chave).startswith("motivo_") else f"{chave}: [{valor}]"
                       for chave, valor in sorted(diagnostico.items())) or "vazio"
     if "motivo_http_403" in diagnostico:
-        texto += f", escopos_ml: [{store._estado(_CHAVE_ESCOPOS) or 'desconhecido'}]"
+        texto += f", escopos_ml: [{_escopos_resumidos()}]"
     return texto
 
 

@@ -50,6 +50,7 @@ class MercadoLivreApiTest(unittest.TestCase):
     def test_guarda_os_escopos_do_token_e_mostra_no_resumo_de_403(self):
         novo = resposta(corpo={"access_token": "A1", "refresh_token": "TG-novo", "expires_in": 21600,
                                "scope": "offline_access read urn:ml:mktp:publish-sync:read"})
+        # (os genéricos urn:global:admin:... ficam fora do resumo)
         with patch.object(api.requests, "post", return_value=novo):
             api._access_token(agora=1000)
         self.assertEqual("offline_access read urn:ml:mktp:publish-sync:read", store._estado("ml_escopos"))
@@ -57,7 +58,10 @@ class MercadoLivreApiTest(unittest.TestCase):
         api.diagnostico["destaques"] = 3
         self.assertNotIn("escopos", api.resumo_diagnostico())
         api.diagnostico["motivo_http_403"] = "code=PA_UNAUTHORIZED_RESULT_FROM_POLICIES"
-        self.assertIn("escopos_ml: [offline_access read urn:ml:mktp:publish-sync:read]", api.resumo_diagnostico())
+        self.assertIn("escopos_ml: [3 no total; fora os genéricos: offline_access read urn:ml:mktp:publish-sync:read]",
+                      api.resumo_diagnostico())
+        store._definir_estado("ml_escopos", "read urn:global:admin:info:/read-only urn:global:admin:users:/read-write")
+        self.assertIn("escopos_ml: [3 no total; fora os genéricos: read]", api.resumo_diagnostico())
         api.diagnostico.clear()
 
     def test_leitura_em_lote_usa_items_bulk_e_conta_os_recusados(self):
