@@ -47,6 +47,30 @@ class MercadoLivreApiTest(unittest.TestCase):
             api._access_token(agora=1000 + 21600)
         self.assertEqual("TG-novo", post.call_args.kwargs["data"]["refresh_token"])
 
+    def test_guarda_os_escopos_do_token_e_mostra_no_resumo_de_403(self):
+        novo = resposta(corpo={"access_token": "A1", "refresh_token": "TG-novo", "expires_in": 21600,
+                               "scope": "offline_access read urn:ml:mktp:publish-sync:read"})
+        with patch.object(api.requests, "post", return_value=novo):
+            api._access_token(agora=1000)
+        self.assertEqual("offline_access read urn:ml:mktp:publish-sync:read", store._estado("ml_escopos"))
+        api.diagnostico.clear()
+        api.diagnostico["destaques"] = 3
+        self.assertNotIn("escopos", api.resumo_diagnostico())
+        api.diagnostico["motivo_http_403"] = "code=PA_UNAUTHORIZED_RESULT_FROM_POLICIES"
+        self.assertIn("escopos_ml: [offline_access read urn:ml:mktp:publish-sync:read]", api.resumo_diagnostico())
+        api.diagnostico.clear()
+
+    def test_leitura_em_lote_usa_items_bulk_e_conta_os_recusados(self):
+        lote = [{"id": "MLB1", "status_code": 200, "body": {"id": "MLB1", "price": 10}},
+                {"id": "MLB2", "status_code": 403, "body": {"message": "forbidden"}}]
+        api.diagnostico.clear()
+        with patch.object(api, "_get", return_value=lote) as get:
+            itens = api._lote(["MLB1", "MLB2"])
+        get.assert_called_once_with("/items/bulk", {"ids": "MLB1,MLB2"})
+        self.assertEqual([{"id": "MLB1", "price": 10}, None], itens)
+        self.assertEqual(1, api.diagnostico["lote_http_403"])
+        api.diagnostico.clear()
+
     def test_autorizacao_revogada_vira_erro_especifico(self):
         negado = resposta(400, {"error": "invalid_grant"})
         with patch.object(api.requests, "post", return_value=negado):
@@ -79,8 +103,8 @@ class MercadoLivreApiTest(unittest.TestCase):
                 return {"name": "Air Fryer Mondial 4L", "permalink": "https://www.mercadolivre.com.br/air-fryer/p/MLB111",
                         "pictures": [{"url": "http://http2.mlstatic.com/a.jpg"}],
                         "buy_box_winner": {"price": 300, "original_price": 400}}
-            if caminho == "/items":
-                return [{"code": 200, "body": {"id": "MLB222", "title": "Fone Bluetooth", "price": 90,
+            if caminho == "/items/bulk":
+                return [{"id": "MLB222", "status_code": 200, "body": {"id": "MLB222", "title": "Fone Bluetooth", "price": 90,
                          "original_price": None, "condition": "new", "status": "active",
                          "permalink": "https://produto.mercadolivre.com.br/MLB-222-fone",
                          "thumbnail": "https://http2.mlstatic.com/b.jpg"}}]
@@ -144,8 +168,8 @@ class MercadoLivreApiTest(unittest.TestCase):
         def get(caminho, params=None):
             if caminho.startswith("/highlights/"):
                 return {"content": [{"id": "MLB222", "type": "ITEM", "position": 1}]}
-            if caminho == "/items":
-                return [{"code": 200, "body": {"id": "MLB222", "title": "Fone", "price": 90,
+            if caminho == "/items/bulk":
+                return [{"id": "MLB222", "status_code": 200, "body": {"id": "MLB222", "title": "Fone", "price": 90,
                          "original_price": 120, "condition": "new", "status": "active",
                          "permalink": "https://produto.mercadolivre.com.br/MLB-222-fone",
                          "thumbnail": "https://http2.mlstatic.com/b.jpg"}}]
@@ -215,7 +239,7 @@ class AnuncioProibidoTest(unittest.TestCase):
         item = {"id": "MLB4079863189", "title": " Lanterna  Tática ", "price": 89.9, "status": "active",
                 "available_quantity": 3, "permalink": "https://produto.mercadolivre.com.br/MLB-4079863189",
                 "pictures": [{"secure_url": "https://http2.mlstatic.com/a.jpg"}]}
-        respostas = {"/items/MLB4079863189": self._http(403), "/items": [{"code": 200, "body": item}]}
+        respostas = {"/items/MLB4079863189": self._http(403), "/items/bulk": [{"id": "MLB4079863189", "status_code": 200, "body": item}]}
 
         def falso(caminho, params=None):
             r = respostas[caminho]
@@ -229,7 +253,7 @@ class AnuncioProibidoTest(unittest.TestCase):
     def test_403_nos_dois_caminhos_continua_erro(self):
         import mercadolivre_api as api
         from unittest.mock import patch
-        respostas = {"/items/MLB1": self._http(403), "/items": [{"code": 403, "body": {"message": "forbidden"}}]}
+        respostas = {"/items/MLB1": self._http(403), "/items/bulk": [{"id": "MLB1", "status_code": 403, "body": {"message": "forbidden"}}]}
 
         def falso(caminho, params=None):
             r = respostas[caminho]

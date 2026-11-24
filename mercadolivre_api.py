@@ -26,6 +26,7 @@ _CHAVE_ACESSO = "ml_access_token"
 _CHAVE_EXPIRA = "ml_access_expira"
 _CHAVE_RODIZIO = "ml_categoria_rodizio"
 _CHAVE_PRAZO_BLOQUEADO = "ml_prazo_bloqueado_ate"
+_CHAVE_ESCOPOS = "ml_escopos"
 
 
 # Contagem por etapa da última busca, para o log (sem dados de produto).
@@ -80,6 +81,9 @@ def _access_token(agora=None) -> str:
     store._definir_estado(_CHAVE_REFRESH, corpo["refresh_token"])
     store._definir_estado(_CHAVE_ACESSO, corpo["access_token"])
     store._definir_estado(_CHAVE_EXPIRA, momento + int(corpo.get("expires_in") or 21600))
+    # Permissões que o Mercado Livre deu a este token (não é segredo): mostram
+    # se a autorização já tem as permissões funcionais novas.
+    store._definir_estado(_CHAVE_ESCOPOS, " ".join(str(corpo.get("scope") or "").split())[:300])
     return corpo["access_token"]
 
 
@@ -211,12 +215,32 @@ def _produto_catalogo(produto_id, posicao):
     return oferta
 
 
+def _lote(ids) -> list:
+    """Anúncios pela leitura em lote (/items/bulk, até 20 por vez).
+
+    Cada elemento vem como {"id", "status_code", "body"}; os recusados (403,
+    404...) entram como None, para quem chama contar.
+    """
+    itens = []
+    for bloco in _get("/items/bulk", {"ids": ",".join(ids[:20])}) or []:
+        if not isinstance(bloco, dict):
+            itens.append(None)
+            continue
+        if "body" not in bloco:
+            itens.append(bloco)
+            continue
+        status = int(bloco.get("status_code") or bloco.get("code") or 200)
+        if status != 200:
+            _anotar(f"lote_http_{status}")
+        itens.append(bloco["body"] if status == 200 and isinstance(bloco["body"], dict) else None)
+    return itens
+
+
 def _itens(ids, posicoes):
     if not ids:
         return []
     resultado = []
-    for bloco in _get("/items", {"ids": ",".join(ids[:20])}) or []:
-        item = bloco.get("body") if isinstance(bloco, dict) and "body" in bloco else bloco
+    for item in _lote(ids):
         if not isinstance(item, dict) or item.get("status") not in (None, "active"):
             _anotar("item_inativo")
             continue
@@ -272,8 +296,11 @@ def buscar_mais_vendidos() -> list:
 
 
 def resumo_diagnostico() -> str:
-    return ", ".join(f"{chave}={valor}" if not str(chave).startswith("motivo_") else f"{chave}: [{valor}]"
-                     for chave, valor in sorted(diagnostico.items())) or "vazio"
+    texto = ", ".join(f"{chave}={valor}" if not str(chave).startswith("motivo_") else f"{chave}: [{valor}]"
+                      for chave, valor in sorted(diagnostico.items())) or "vazio"
+    if "motivo_http_403" in diagnostico:
+        texto += f", escopos_ml: [{store._estado(_CHAVE_ESCOPOS) or 'desconhecido'}]"
+    return texto
 
 
 def consultar(ids) -> dict:
@@ -306,13 +333,8 @@ def _categoria(categoria_id):
 
 
 def _item_em_lote(identificador):
-    """Anúncio pela leitura em lote (/items?ids=); None se também não vier."""
-    for bloco in _get("/items", {"ids": identificador}) or []:
-        if not isinstance(bloco, dict):
-            continue
-        if "body" in bloco and int(bloco.get("code") or 200) != 200:
-            continue
-        item = bloco.get("body") if "body" in bloco else bloco
+    """Anúncio pela leitura em lote (/items/bulk); None se também não vier."""
+    for item in _lote([identificador]):
         if isinstance(item, dict) and str(item.get("id") or "").upper() == identificador:
             return item
     return None

@@ -300,6 +300,17 @@ if __name__ == "__main__":
 
 
 class HistoricoDiarioTest(unittest.TestCase):
+    def setUp(self):
+        # Estado em memória: a pausa "até amanhã" não pode vazar para o banco
+        # local e derrubar os outros testes no mesmo dia.
+        from unittest import mock
+        import site_publisher
+        estado = {}
+        for nome, efeito in (("_estado", estado.get), ("_definir_estado", estado.__setitem__)):
+            remendo = mock.patch.object(site_publisher.store, nome, side_effect=efeito)
+            remendo.start()
+            self.addCleanup(remendo.stop)
+
     def _fontes(self, consultar):
         fonte = type("F", (), {"NOME": "Mercado Livre", "consultar_produtos": staticmethod(consultar)})
         return [fonte]
