@@ -15,37 +15,58 @@ const PAUSA_MS = 4000;
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function baixarAqui(url) {
-  const resposta = await fetch(url, { credentials: "include", cache: "no-store" });
-  return { html: await resposta.text(), url: resposta.url, status: resposta.status };
+// Lido do service worker, o Mercado Livre não recebe o login (cookie de
+// terceiro) e devolve uma página vazia, sem produtos. A leitura roda dentro
+// de uma aba do Mercado Livre: a que estiver aberta ou uma aberta em segundo
+// plano só para isso (fechada no fim).
+function esperarCarregar(abaId) {
+  return new Promise((resolver) => {
+    const limite = setTimeout(fim, 30000);
+    function fim() {
+      clearTimeout(limite);
+      chrome.tabs.onUpdated.removeListener(ouvir);
+      resolver();
+    }
+    function ouvir(id, mudanca) {
+      if (id === abaId && mudanca.status === "complete") fim();
+    }
+    chrome.tabs.onUpdated.addListener(ouvir);
+  });
 }
 
-// Plano B: a mesma leitura feita de dentro de uma aba do Mercado Livre já
-// aberta (cookies de primeira parte), quando a leitura em segundo plano cai
-// na verificação.
-async function baixarNaAba(url) {
-  const [aba] = await chrome.tabs.query({ url: "https://www.mercadolivre.com.br/*" });
-  if (!aba?.id) return null;
+async function abaDoMercadoLivre() {
+  const abas = await chrome.tabs.query({ url: "https://www.mercadolivre.com.br/*" });
+  const pronta = abas.find((aba) => aba.status === "complete") || abas[0];
+  if (pronta?.id) return { id: pronta.id, temporaria: false };
+  const nova = await chrome.tabs.create({ url: "https://www.mercadolivre.com.br/", active: false });
+  await esperarCarregar(nova.id);
+  return { id: nova.id, temporaria: true };
+}
+
+async function baixarNaAba(abaId, endereco) {
   const [{ result } = {}] = await chrome.scripting.executeScript({
-    target: { tabId: aba.id },
-    func: async (endereco) => {
-      const r = await fetch(endereco, { credentials: "include", cache: "no-store" });
+    target: { tabId: abaId },
+    func: async (url) => {
+      const r = await fetch(url, { credentials: "include", cache: "no-store" });
       return { html: await r.text(), url: r.url, status: r.status };
     },
-    args: [url],
+    args: [endereco],
   });
-  return result || null;
+  if (!result) throw new Error("Não consegui ler a página na aba do Mercado Livre.");
+  return result;
 }
 
-async function lerCategoria(categoria) {
-  const url = BASE + categoria;
-  let pagina = await baixarAqui(url);
-  if (pediuVerificacao(pagina.html, pagina.url)) pagina = (await baixarNaAba(url)) || pagina;
+async function lerCategoria(abaId, categoria) {
+  const pagina = await baixarNaAba(abaId, BASE + categoria);
   if (pediuVerificacao(pagina.html, pagina.url)) {
-    throw new Error("O Mercado Livre pediu verificação. Abra mercadolivre.com.br, entre na conta e deixe uma aba aberta.");
+    throw new Error("O Mercado Livre pediu verificação. Abra mercadolivre.com.br e entre na conta.");
   }
   if (pagina.status >= 400) throw new Error(`O Mercado Livre respondeu ${pagina.status}`);
-  return lerPagina(pagina.html, categoria);
+  const produtos = lerPagina(pagina.html, categoria);
+  if (!produtos.length && pagina.html.length < 50000) {
+    throw new Error("A página veio sem produtos: confira se está logado no Mercado Livre neste navegador.");
+  }
+  return produtos;
 }
 
 export function categoriasDaRodada(lista, inicio, quantidade = POR_RODADA) {
@@ -62,9 +83,14 @@ async function enviar() {
   try {
     if (!tokenSite) throw new Error("Falta salvar o token do site.");
     const produtos = [];
-    for (const [i, categoria] of escolhidas.entries()) {
-      if (i) await esperar(PAUSA_MS);
-      produtos.push(...await lerCategoria(categoria));
+    const aba = await abaDoMercadoLivre();
+    try {
+      for (const [i, categoria] of escolhidas.entries()) {
+        if (i) await esperar(PAUSA_MS);
+        produtos.push(...await lerCategoria(aba.id, categoria));
+      }
+    } finally {
+      if (aba.temporaria) await chrome.tabs.remove(aba.id).catch(() => {});
     }
     if (!produtos.length) throw new Error("As páginas de mais vendidos vieram sem produtos.");
     const resposta = await fetch(SITE, {

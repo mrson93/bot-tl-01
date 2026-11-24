@@ -10,9 +10,10 @@ usa essa cópia quando a API não traz ofertas (até 3 h de idade,
 - A cada hora, lê 4 categorias (revezando as mesmas do bot), com pausa de
   4 s entre elas, como uma pessoa navegando.
 - Envia só nome, preço, preço "de", foto e link de cada produto.
-- Só funciona com o Chrome aberto e logado no Mercado Livre. Se a leitura em
-  segundo plano cair na verificação, ela tenta de dentro de uma aba do
-  Mercado Livre aberta.
+- Só funciona com o Chrome aberto e logado no Mercado Livre. A leitura roda
+  de dentro de uma aba do Mercado Livre (sem ela, o site não recebe o login e
+  devolve a página vazia): usa uma aba já aberta ou abre uma em segundo plano
+  e fecha no fim.
 
 ## Instalar (Chrome ou Brave)
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tá Barato · Mercado Livre",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Lê os mais vendidos do Mercado Livre neste navegador e envia uma cópia ao site do canal para o bot.",
   "permissions": [
     "storage",
