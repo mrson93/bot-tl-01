@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tá Barato · Mercado Livre",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Lê os mais vendidos do Mercado Livre neste navegador e envia uma cópia ao site do canal para o bot.",
   "permissions": [
     "storage",
@@ -19,6 +19,17 @@
   "options_page": "opcoes.html",
   "action": {
     "default_title": "Tá Barato · Mercado Livre",
-    "default_popup": "opcoes.html"
+    "default_popup": "opcoes.html",
+    "default_icon": {
+      "16": "icones/icone16.png",
+      "32": "icones/icone32.png",
+      "48": "icones/icone48.png"
+    }
+  },
+  "icons": {
+    "16": "icones/icone16.png",
+    "32": "icones/icone32.png",
+    "48": "icones/icone48.png",
+    "128": "icones/icone128.png"
   }
 }
