@@ -9,6 +9,7 @@ Nada é publicado sem os parâmetros de afiliado confirmados
 (MERCADOLIVRE_AFILIADO_PARAMETROS): sem eles não há como garantir comissão.
 """
 import hashlib
+import re
 import time
 from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -155,6 +156,10 @@ def _imagem(dados) -> str:
     fotos = [f for f in (dados.get("pictures") or []) if isinstance(f, dict)]
     candidatas = [fotos[0].get("secure_url"), fotos[0].get("url")] if fotos else []
     candidatas.append(dados.get("thumbnail"))
+    # /items/bulk pode vir só com o id da foto: monta o endereço do mlstatic.
+    for foto_id in ([f.get("id") for f in fotos[:1]] + [dados.get("thumbnail_id")]):
+        if re.fullmatch(r"[\w-]{6,80}", str(foto_id or "")):
+            candidatas.append(f"https://http2.mlstatic.com/D_NQ_NP_{foto_id}-O.webp")
     for url in candidatas:
         try:
             return seguranca.validar_url_https_em_hosts(str(url or "").replace("http://", "https://"),
@@ -276,6 +281,7 @@ def _itens(ids, posicoes):
             # derrubar o resto do lote.
             _anotar("item_descartado")
             diagnostico.setdefault("motivo_item_descartado", f"{type(erro).__name__}: {erro}"[:120])
+            diagnostico.setdefault("campos_item_descartado", ",".join(sorted(map(str, item)))[:300])
             continue
         if item.get("original_price") and float(item["original_price"]) > float(item.get("price") or 0):
             fim = _fim_promocao(item["id"], item.get("price"))

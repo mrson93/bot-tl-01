@@ -107,6 +107,14 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertIn("Imagem do Mercado Livre", api.diagnostico["motivo_item_descartado"])
         api.diagnostico.clear()
 
+    def test_foto_so_com_id_vira_endereco_do_mlstatic(self):
+        self.assertEqual("https://http2.mlstatic.com/D_NQ_NP_730568-MLA9998_112025-O.webp",
+                         api._imagem({"pictures": [{"id": "730568-MLA9998_112025"}]}))
+        self.assertEqual("https://http2.mlstatic.com/D_NQ_NP_1234-MLB99-O.webp",
+                         api._imagem({"thumbnail_id": "1234-MLB99", "thumbnail": ""}))
+        with self.assertRaises(ValueError):
+            api._imagem({"thumbnail_id": "../x"})
+
     def test_autorizacao_revogada_vira_erro_especifico(self):
         negado = resposta(400, {"error": "invalid_grant"})
         with patch.object(api.requests, "post", return_value=negado):
