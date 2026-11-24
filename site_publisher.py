@@ -63,6 +63,25 @@ def ler_lista_amazon(lista_id):
     return capturada, paginas
 
 
+def ler_lista_mercadolivre():
+    """Cópia dos mais vendidos do Mercado Livre enviada pela extensão: (epoch, itens)."""
+    resposta = requests.get(
+        _api_path("/api/ml-list"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        timeout=20, allow_redirects=False,
+    )
+    if resposta.status_code == 404:
+        return None
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou a lista do Mercado Livre ({resposta.status_code})")
+    dados = resposta.json() or {}
+    itens = [i for i in dados.get("items") or [] if isinstance(i, dict)]
+    capturada = _timestamp(dados.get("captured_at"))
+    if not itens or not capturada:
+        return None
+    return capturada, itens
+
+
 def _categoria(oferta):
     # A releitura de preço traz a oferta crua da loja, sem a categoria que o bot
     # deu ao publicar; sem isto o site rebaixava tudo para "outros".

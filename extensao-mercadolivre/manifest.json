@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Tá Barato · Mercado Livre",
+  "version": "1.0.0",
+  "description": "Lê os mais vendidos do Mercado Livre neste navegador e envia uma cópia ao site do canal para o bot.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.mercadolivre.com.br/*",
+    "https://canaltabarato.com.br/*"
+  ],
+  "background": {
+    "service_worker": "fundo.js",
+    "type": "module"
+  },
+  "options_page": "opcoes.html",
+  "action": {
+    "default_title": "Tá Barato · Mercado Livre",
+    "default_popup": "opcoes.html"
+  }
+}

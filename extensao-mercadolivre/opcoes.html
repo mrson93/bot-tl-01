@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Tá Barato · Mercado Livre</title>
+  <style>
+    body { font: 14px/1.4 Arial, sans-serif; margin: 16px; width: 320px; color: #111; }
+    h1 { font-size: 16px; margin: 0 0 8px; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 6px; }
+    button { margin-top: 10px; padding: 6px 12px; }
+    small { color: #555; display: block; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Mais vendidos do Mercado Livre</h1>
+  <p>A cada hora, a extensão lê 4 categorias de mais vendidos neste navegador e envia ao site do canal. Deixe o Chrome aberto e logado no Mercado Livre.</p>
+  <label for="token">Token do site</label>
+  <input id="token" type="password" autocomplete="off" placeholder="cole o token (ML_LIST_TOKEN)">
+  <button id="salvar-token">Salvar token</button>
+  <label for="categorias">Categorias</label>
+  <textarea id="categorias" rows="3"></textarea>
+  <small>Códigos separados por vírgula (ex.: MLB1000). Em branco, usa as mesmas do bot.</small>
+  <button id="salvar-categorias">Salvar categorias</button>
+  <button id="enviar-agora">Enviar agora</button>
+  <small id="envio"></small>
+  <script type="module" src="opcoes.js"></script>
+</body>
+</html>

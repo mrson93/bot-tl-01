@@ -150,5 +150,51 @@ class MercadoLivreTest(unittest.TestCase):
         self.assertIn("API", avisar.call_args.kwargs["impacto"])
 
 
+    def _com_api_vazia(self, copia):
+        return [patch.object(mercadolivre.config, "MERCADOLIVRE_LIST_URL", ""),
+                patch.object(mercadolivre.mercadolivre_api, "pode_publicar", return_value=True),
+                patch.object(mercadolivre.mercadolivre_api, "buscar_mais_vendidos", return_value=[]),
+                patch.object(mercadolivre.mercadolivre_api, "resumo_diagnostico", return_value=""),
+                patch.object(mercadolivre.mercadolivre_api.config, "MERCADOLIVRE_AFILIADO_PARAMETROS",
+                             "matt_word=canaltabarato&matt_tool=71195511"),
+                patch.object(mercadolivre.site_publisher, "ler_lista_mercadolivre", return_value=copia)]
+
+    def test_api_sem_ofertas_usa_a_copia_da_extensao_com_link_de_afiliado(self):
+        import time
+        itens = [{"id": "MLB5410852112", "product_id": "MLB24028629", "title": "Fone P20i", "price": 118.75,
+                  "original_price": 149.9, "image": "https://http2.mlstatic.com/D_Q_NP_2X_1-AB.webp",
+                  "url": "https://www.mercadolivre.com.br/fone/p/MLB24028629", "position": 1},
+                 {"id": "MLB1234567", "title": "Foto ruim", "price": 10, "image": "https://evil.com/a.webp",
+                  "url": "https://www.mercadolivre.com.br/x/p/MLB1"}]
+        remendos = self._com_api_vazia((time.time() - 1800, itens))
+        for r in remendos:
+            r.start()
+        try:
+            ofertas = mercadolivre.buscar_ofertas()
+        finally:
+            for r in reversed(remendos):
+                r.stop()
+        self.assertEqual(["mercadolivre_MLB24028629"], [o["oferta_id"] for o in ofertas])
+        oferta = ofertas[0]
+        self.assertEqual((118.75, 149.9, 21, 1), (oferta["price"], oferta["precoOriginal"],
+                                                  oferta["priceDiscountRate"], oferta["_ml_mais_vendido"]))
+        self.assertIn("matt_tool=71195511", oferta["productUrl"])
+
+    def test_copia_velha_ou_ausente_nao_vira_oferta(self):
+        import time
+        item = {"id": "MLB5410852112", "title": "Fone", "price": 10,
+                "image": "https://http2.mlstatic.com/a.webp", "url": "https://www.mercadolivre.com.br/p/MLB1"}
+        for copia in (None, (time.time() - 5 * 3600, [item])):
+            remendos = self._com_api_vazia(copia)
+            for r in remendos:
+                r.start()
+            try:
+                with self.assertRaises(RuntimeError):
+                    mercadolivre.buscar_ofertas()
+            finally:
+                for r in reversed(remendos):
+                    r.stop()
+
+
 if __name__ == "__main__":
     unittest.main()

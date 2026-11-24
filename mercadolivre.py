@@ -11,6 +11,7 @@ import mercadolivre_api
 import monitor
 import observabilidade
 import seguranca
+import site_publisher
 import store
 
 NOME = "Mercado Livre"
@@ -253,6 +254,9 @@ def buscar_ofertas() -> list:
         except Exception as erro:
             print(f"   ⚠️  Mercado Livre (API) indisponível: {seguranca.redigir_segredos(erro)}")
             observabilidade.evento("fonte_falha", fonte="Mercado Livre API", motivo="erro")
+    if not ofertas and mercadolivre_api.pode_publicar():
+        for oferta in _ofertas_da_extensao():
+            ofertas.setdefault(oferta["oferta_id"], oferta)
     if not ofertas and erro_lista:
         raise erro_lista
     if erro_lista:
@@ -273,6 +277,42 @@ def buscar_ofertas() -> list:
         raise RuntimeError("Nenhuma oferta válida encontrada na lista do Mercado Livre")
     _ultima_leitura.update(em=time.monotonic(), ofertas=[dict(o) for o in ofertas.values()])
     return list(ofertas.values())
+
+
+def _ofertas_da_extensao() -> list:
+    """Mais vendidos lidos pela extensão do navegador (cópia no site).
+
+    O Mercado Livre recusa preço de catálogo à API e pede verificação ao
+    servidor do bot; a extensão lê a mesma página no navegador do dono do canal.
+    """
+    try:
+        copia = site_publisher.ler_lista_mercadolivre()
+    except Exception as erro:
+        print(f"   ⚠️  Cópia do Mercado Livre no site indisponível: {seguranca.redigir_segredos(erro)}")
+        return []
+    if not copia:
+        print("   ℹ️  Sem cópia do Mercado Livre no site (extensão ainda não enviou).")
+        return []
+    capturada, itens = copia
+    idade = (time.time() - capturada) / 3600
+    if idade > config.MERCADOLIVRE_COPIA_MAX_HORAS:
+        print(f"   ⚠️  Cópia do Mercado Livre no site tem {idade:.0f} h; velha demais, ignorada.")
+        return []
+    ofertas, descartados = [], 0
+    for item in itens:
+        try:
+            ofertas.append(mercadolivre_api._oferta(
+                item.get("product_id") or item["id"], item.get("title"), item.get("price"),
+                item.get("original_price"), item.get("url"),
+                seguranca.validar_url_https_em_hosts(item.get("image"), ("mlstatic.com",),
+                                                     "Imagem do Mercado Livre"),
+                item.get("position")))
+        except (KeyError, TypeError, ValueError):
+            descartados += 1
+    validas = [o for o in ofertas if o["productName"] and o["price"] > 0]
+    print(f"   Mercado Livre (extensão): {len(validas)} mais vendido(s) da cópia de "
+          f"{int(idade * 60)} min" + (f", {descartados} descartado(s)" if descartados else "") + ".")
+    return validas
 
 
 def _leitura_recente():
