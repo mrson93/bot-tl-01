@@ -94,6 +94,10 @@ h1 em{font-family:Georgia,serif;font-weight:400;color:var(--orange)}
 .source a{color:inherit}
 .card-kicker{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .card-kicker time{font-size:12px;color:var(--muted);white-space:nowrap}
+.price-check{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
+.price-check.check-fresh{color:#1f7a3d}
+.price-check.check-stale{color:#8a6500}
+.offer-page .price-check{font-size:14px;margin-top:6px}
 .check-pending{display:inline-block;margin-top:8px;color:#8a6500;background:#fff3c4;border:1px solid #ead57b;padding:4px 7px;font-size:11px;font-weight:800}
 .analysis-chip{display:inline-block;width:max-content;max-width:100%;margin:9px 0 0;padding:5px 8px;color:var(--green);background:#e8f7f0;border:1px solid #addbc8;font-size:11px;font-weight:850;line-height:1.35}
 .featured h3{font-size:clamp(27px,3vw,40px);line-height:1.08;letter-spacing:-.045em;margin:12px 0 18px}

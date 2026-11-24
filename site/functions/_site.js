@@ -1,5 +1,5 @@
 export const SITE='https://canaltabarato.com.br';
-export const STYLESHEET='/styles.css?v=20261123-6';
+export const STYLESHEET='/styles.css?v=20261125-1';
 const CLOUDFLARE_ANALYTICS=`<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"b38a565601354278a8c4050fbda67923"}'></script>`;
 const GOOGLE_ANALYTICS='<script src="/google-analytics.js?v=20260930-1" defer></script>';
 const GOOGLE_ADSENSE='<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5239970037930660" crossorigin="anonymous"></script>';
@@ -81,6 +81,23 @@ export function ageLabel(timestamp,now=Math.floor(Date.now()/1000)) {
   if(seconds<86400) return `há ${Math.floor(seconds/3600)} h`;
   const days=Math.floor(seconds/86400);
   return `há ${days} ${days===1?'dia':'dias'}`;
+}
+
+// "Preço conferido": última leitura do preço que deu certo (last_seen_at; a
+// tentativa que falha só mexe em last_checked_at). Até 24 h normal, até 72 h
+// neutro, depois disso aviso de que pode ter mudado.
+export const CONFERIDO_FRESCO=24*3600;
+export const CONFERIDO_VELHO=72*3600;
+export function priceCheck(offer,now=Math.floor(Date.now()/1000)) {
+  const seen=Number(offer?.last_seen_at||offer?.published_at||0);
+  if(!seen) return {level:'stale',text:'Preço ainda não conferido'};
+  const age=Math.max(0,now-seen);
+  const level=age<CONFERIDO_FRESCO?'fresh':age<CONFERIDO_VELHO?'ok':'stale';
+  return {level,text:level==='stale'?`⚠ Conferido ${ageLabel(seen,now)} · pode ter mudado`:`✓ Preço conferido ${ageLabel(seen,now)}`};
+}
+export function priceCheckHtml(offer,tag='p',now) {
+  const {level,text}=priceCheck(offer,now);
+  return `<${tag} class="price-check check-${level}" title="Última vez que lemos o preço na loja">${html(text)}</${tag}>`;
 }
 
 export function couponActive(offer,now=Math.floor(Date.now()/1000)) {
@@ -187,10 +204,9 @@ export function offerCard(offer) {
   const sales=offer.sales?`${rating?' · ':''}${compact(offer.sales)} vendidos`:'';
   const store=offer.shop?`<a class="store-link" href="/lojas/${slugify(offer.shop)}">${html(offer.shop)}</a>`:html(offer.source);
   const flags=[offer.payment_label,couponActive(offer)?`Cupom ${offer.coupon_code}`:''].filter(Boolean);
-  const checked=offer.last_checked_at||offer.published_at;
   const status=offer.availability==='unverified'?'<span class="check-pending">Revisando disponibilidade</span>':'';
   const insight=offer.insight_label?`<p class="analysis-chip">${html(offer.insight_label)}</p>`:'';
-  return `<article class="offer-card"><div class="offer-media">${discount?`<span class="discount">−${Math.round(discount)}%</span>`:''}${NIVEL_PRECO[offer.price_level]?`<span class="price-level level-${offer.price_level}" title="Comparado com os últimos 30 dias">${NIVEL_PRECO[offer.price_level]}</span>`:''}<a class="offer-detail-link" href="${offerPath(offer)}"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"></a></div><div class="offer-body"><div class="card-kicker"><span class="source">${html(offer.source)}</span><time title="Preço consultado na plataforma">${html(ageLabel(checked))}</time></div>${status}${insight}<h3><a class="title-link" href="${offerPath(offer)}">${html(offer.title)}</a></h3>${flags.length?`<div class="offer-flags">${flags.map(flag=>`<span>${html(flag)}</span>`).join('')}</div>`:''}<div class="card-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div><p class="meta">${rating}${sales}</p><p class="card-store">${store}</p><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
+  return `<article class="offer-card"><div class="offer-media">${discount?`<span class="discount">−${Math.round(discount)}%</span>`:''}${NIVEL_PRECO[offer.price_level]?`<span class="price-level level-${offer.price_level}" title="Comparado com os últimos 30 dias">${NIVEL_PRECO[offer.price_level]}</span>`:''}<a class="offer-detail-link" href="${offerPath(offer)}"><img src="${html(offer.image_url)}" alt="${html(offer.title)}" loading="lazy"></a></div><div class="offer-body"><div class="card-kicker"><span class="source">${html(offer.source)}</span></div>${status}${insight}<h3><a class="title-link" href="${offerPath(offer)}">${html(offer.title)}</a></h3>${flags.length?`<div class="offer-flags">${flags.map(flag=>`<span>${html(flag)}</span>`).join('')}</div>`:''}<div class="card-price"><span class="price">${html(money(offer.price))}</span>${offer.original_price?`<span class="was">${html(money(offer.original_price))}</span>`:''}</div>${priceCheckHtml(offer)}<p class="meta">${rating}${sales}</p><p class="card-store">${store}</p><a class="buy" href="/go/${encodeURIComponent(offer.id)}" rel="nofollow sponsored">Ver oferta ↗</a></div></article>`;
 }
 
 export function notFound(title='Página não encontrada') {

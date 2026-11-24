@@ -35,7 +35,7 @@ export async function collectionPage(env,kind,requestedSlug) {
   const clickSince=Math.floor(Date.now()/1000)-86400;
   const offers=await env.DB.prepare(`SELECT o.id,o.title,o.price,o.original_price,
     o.discount,o.rating,o.sales,o.shop,o.image_url,o.source,o.category,
-    o.published_at,o.cataloged_at,o.last_checked_at,o.availability,o.coupon_code,o.coupon_condition,o.coupon_expires_at,
+    o.published_at,o.cataloged_at,o.last_checked_at,o.last_seen_at,o.availability,o.coupon_code,o.coupon_condition,o.coupon_expires_at,
     o.payment_label,COALESCE(c.quantity,0) clicks_24h,
     (SELECT COUNT(*) FROM offer_prices h WHERE h.offer_id=o.id AND h.observed_at>=?) history_days,(SELECT MIN(price) FROM offer_prices h WHERE h.offer_id=o.id AND h.observed_at>=?) history_min,(SELECT AVG(price) FROM offer_prices h WHERE h.offer_id=o.id AND h.observed_at>=?) history_avg FROM offers o
     LEFT JOIN (SELECT offer_id,COUNT(*) quantity FROM clicks WHERE clicked_at>=? GROUP BY offer_id) c ON c.offer_id=o.id

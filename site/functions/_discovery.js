@@ -2,7 +2,7 @@ import {SITE,footer,head,header,html,offerCard,offerPath,responseHtml,shorten} f
 import {priceLevel} from './api/offers.js';
 
 const OFFER_COLUMNS=`o.id,o.title,o.price,o.original_price,o.discount,o.rating,o.sales,
-  o.shop,o.image_url,o.source,o.category,o.published_at,o.cataloged_at,o.last_checked_at,
+  o.shop,o.image_url,o.source,o.category,o.published_at,o.cataloged_at,o.last_checked_at,o.last_seen_at,
   o.availability,o.price_changed_at,o.coupon_code,o.coupon_condition,o.coupon_expires_at,o.payment_label`;
 
 const PAGES={
