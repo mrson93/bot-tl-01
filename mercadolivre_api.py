@@ -8,6 +8,7 @@ reaproveitado entre rodadas para renovar o mínimo possível.
 Nada é publicado sem os parâmetros de afiliado confirmados
 (MERCADOLIVRE_AFILIADO_PARAMETROS): sem eles não há como garantir comissão.
 """
+import hashlib
 import time
 from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -27,6 +28,7 @@ _CHAVE_EXPIRA = "ml_access_expira"
 _CHAVE_RODIZIO = "ml_categoria_rodizio"
 _CHAVE_PRAZO_BLOQUEADO = "ml_prazo_bloqueado_ate"
 _CHAVE_ESCOPOS = "ml_escopos"
+_CHAVE_ORIGEM = "ml_refresh_origem"
 
 
 # Contagem por etapa da última busca, para o log (sem dados de produto).
@@ -63,6 +65,14 @@ def parametros_afiliado() -> list:
 
 def _access_token(agora=None) -> str:
     momento = int(agora or time.time())
+    # Autorização nova (scripts/autorizar_mercadolivre.py grava outro secret):
+    # vale mais que o token guardado no estado, que é da autorização anterior.
+    origem = hashlib.sha256(str(config.MERCADOLIVRE_REFRESH_TOKEN or "").encode()).hexdigest()[:16]
+    if config.MERCADOLIVRE_REFRESH_TOKEN and store._estado(_CHAVE_ORIGEM) != origem:
+        store._definir_estado(_CHAVE_REFRESH, config.MERCADOLIVRE_REFRESH_TOKEN)
+        store._definir_estado(_CHAVE_ACESSO, "")
+        store._definir_estado(_CHAVE_EXPIRA, 0)
+        store._definir_estado(_CHAVE_ORIGEM, origem)
     salvo = store._estado(_CHAVE_ACESSO)
     expira = int(store._estado(_CHAVE_EXPIRA) or 0)
     if salvo and momento < expira - 300:

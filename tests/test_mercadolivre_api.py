@@ -71,6 +71,21 @@ class MercadoLivreApiTest(unittest.TestCase):
         self.assertEqual(1, api.diagnostico["lote_http_403"])
         api.diagnostico.clear()
 
+    def test_autorizacao_nova_no_secret_substitui_o_token_guardado(self):
+        primeiro = resposta(corpo={"access_token": "A1", "refresh_token": "TG-girado", "expires_in": 21600})
+        with patch.object(api.requests, "post", return_value=primeiro):
+            api._access_token(agora=1000)
+        self.assertEqual("TG-girado", store._estado("ml_refresh_token"))
+        novo = resposta(corpo={"access_token": "A2", "refresh_token": "TG-depois", "expires_in": 21600})
+        with patch.object(api.config, "MERCADOLIVRE_REFRESH_TOKEN", "TG-reautorizado"), \
+             patch.object(api.requests, "post", return_value=novo) as post:
+            self.assertEqual("A2", api._access_token(agora=2000))   # nem reaproveita o A1
+        self.assertEqual("TG-reautorizado", post.call_args.kwargs["data"]["refresh_token"])
+        with patch.object(api.config, "MERCADOLIVRE_REFRESH_TOKEN", "TG-reautorizado"), \
+             patch.object(api.requests, "post", return_value=novo) as post:
+            self.assertEqual("A2", api._access_token(agora=3000))   # mesmo secret: segue girando
+        post.assert_not_called()
+
     def test_autorizacao_revogada_vira_erro_especifico(self):
         negado = resposta(400, {"error": "invalid_grant"})
         with patch.object(api.requests, "post", return_value=negado):
