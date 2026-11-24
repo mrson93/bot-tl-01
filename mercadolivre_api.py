@@ -151,10 +151,17 @@ def link_afiliado(url: str) -> str:
 
 
 def _imagem(dados) -> str:
-    fotos = dados.get("pictures") or []
-    url = (fotos[0].get("secure_url") or fotos[0].get("url")) if fotos else dados.get("thumbnail")
-    url = str(url or "").replace("http://", "https://")
-    return seguranca.validar_url_https_em_hosts(url, _HOSTS_IMAGEM, "Imagem do Mercado Livre")
+    """Primeira foto válida: secure_url, url da 1ª foto, depois a miniatura."""
+    fotos = [f for f in (dados.get("pictures") or []) if isinstance(f, dict)]
+    candidatas = [fotos[0].get("secure_url"), fotos[0].get("url")] if fotos else []
+    candidatas.append(dados.get("thumbnail"))
+    for url in candidatas:
+        try:
+            return seguranca.validar_url_https_em_hosts(str(url or "").replace("http://", "https://"),
+                                                        _HOSTS_IMAGEM, "Imagem do Mercado Livre")
+        except ValueError:
+            continue
+    raise ValueError("Imagem do Mercado Livre invalida ou insegura")
 
 
 def _oferta(identificador, titulo, preco, original, url, imagem, posicao) -> dict:
@@ -206,6 +213,9 @@ def _produto_catalogo(produto_id, posicao):
     vencedor = dados.get("buy_box_winner") or {}
     preco, original = vencedor.get("price"), vencedor.get("original_price")
     if not preco:
+        # Campos que o catálogo devolve sem vencedor (só nomes, para achar outro
+        # caminho até o preço quando /products/<id>/items for recusado).
+        diagnostico.setdefault("produto_campos", ",".join(sorted(map(str, dados)))[:300])
         # Sem vencedor da compra: o preço vem dos anúncios que vendem o produto.
         anuncios = (_get(f"/products/{produto_id}/items", {"limit": 5}) or {}).get("results") or []
         validos = [a for a in anuncios if a.get("price")]
@@ -257,9 +267,16 @@ def _itens(ids, posicoes):
         if item.get("condition") not in (None, "new"):
             _anotar("item_usado")
             continue
-        oferta = _oferta(item["id"], item.get("title"), item.get("price"),
-                         item.get("original_price"), item.get("permalink"),
-                         _imagem(item), posicoes.get(item["id"]))
+        try:
+            oferta = _oferta(item["id"], item.get("title"), item.get("price"),
+                             item.get("original_price"), item.get("permalink"),
+                             _imagem(item), posicoes.get(item["id"]))
+        except (ValueError, KeyError, TypeError) as erro:
+            # Um anúncio com foto ou link fora do padrão sai sozinho, sem
+            # derrubar o resto do lote.
+            _anotar("item_descartado")
+            diagnostico.setdefault("motivo_item_descartado", f"{type(erro).__name__}: {erro}"[:120])
+            continue
         if item.get("original_price") and float(item["original_price"]) > float(item.get("price") or 0):
             fim = _fim_promocao(item["id"], item.get("price"))
             if fim:

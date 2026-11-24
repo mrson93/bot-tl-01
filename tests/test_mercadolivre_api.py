@@ -90,6 +90,23 @@ class MercadoLivreApiTest(unittest.TestCase):
             self.assertEqual("A2", api._access_token(agora=3000))   # mesmo secret: segue girando
         post.assert_not_called()
 
+    def test_foto_fora_do_padrao_descarta_so_aquele_anuncio(self):
+        bom = {"id": "MLB1", "title": "Fone", "price": 90, "status": "active", "condition": "new",
+               "permalink": "https://produto.mercadolivre.com.br/MLB-1-fone",
+               "pictures": [{"secure_url": "https://exemplo.com/x.jpg"}],
+               "thumbnail": "http://http2.mlstatic.com/b.jpg"}
+        ruim = {"id": "MLB2", "title": "Mouse", "price": 50, "status": "active", "condition": "new",
+                "permalink": "https://produto.mercadolivre.com.br/MLB-2-mouse", "thumbnail": ""}
+        lote = [{"id": "MLB1", "status_code": 200, "body": bom}, {"id": "MLB2", "status_code": 200, "body": ruim}]
+        api.diagnostico.clear()
+        with patch.object(api, "_get", return_value=lote):
+            ofertas = api._itens(["MLB1", "MLB2"], {"MLB1": 1, "MLB2": 2})
+        self.assertEqual(["mercadolivre_MLB1"], [o["oferta_id"] for o in ofertas])
+        self.assertEqual("https://http2.mlstatic.com/b.jpg", ofertas[0]["imageUrl"])   # caiu na miniatura
+        self.assertEqual(1, api.diagnostico["item_descartado"])
+        self.assertIn("Imagem do Mercado Livre", api.diagnostico["motivo_item_descartado"])
+        api.diagnostico.clear()
+
     def test_autorizacao_revogada_vira_erro_especifico(self):
         negado = resposta(400, {"error": "invalid_grant"})
         with patch.object(api.requests, "post", return_value=negado):
