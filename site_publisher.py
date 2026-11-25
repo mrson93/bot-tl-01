@@ -12,6 +12,7 @@ import config
 import desempenho
 import seguranca
 import store
+import telegram_poster
 
 NOME = "Site"
 
@@ -106,7 +107,7 @@ def publicar(fonte, oferta):
             "coupon_code": oferta.get("cupom"),
             "coupon_condition": oferta.get("cupomCondicao"),
             "coupon_expires_at": _timestamp(oferta.get("cupomExpiraEm")),
-            "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
+            "payment_label": telegram_poster.rotulo_pagamento(oferta),
             "campaign": "black_friday" if oferta.get("blackFriday") else None,
         }, timeout=15, allow_redirects=False,
     )
@@ -332,7 +333,7 @@ def _payload_atualizacao(oferta_id, oferta):
         "rating": oferta.get("ratingStar"), "sales": oferta.get("sales"),
         "shop": oferta.get("shopName"), "image_url": imagem,
         "category": _categoria(oferta),
-        "payment_label": "Preço no app" if oferta.get("precoNoApp") else None,
+        "payment_label": telegram_poster.rotulo_pagamento(oferta),
         "campaign": "black_friday" if oferta.get("blackFriday") else None,
     }
 

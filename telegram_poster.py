@@ -17,6 +17,20 @@ NOME = "Telegram"
 TRACKING_ID = config.TELEGRAM_TRACKING_ID  # vazio = usa o padrao da loja
 
 
+def sufixo_preco(oferta) -> str:
+    """Onde vale o preço mostrado: " no app" (AliExpress) ou " no Pix" (Mercado Livre)."""
+    if oferta.get("precoNoApp"):
+        return " no app"
+    if oferta.get("precoNoPix"):
+        return " no Pix"
+    return ""
+
+
+def rotulo_pagamento(oferta):
+    """Rótulo do site para o mesmo caso: "Preço no app" ou "Preço no Pix"."""
+    sufixo = sufixo_preco(oferta)
+    return f"Preço{sufixo}" if sufixo else None
+
 def esta_configurada() -> bool:
     return bool(config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHANNEL)
 
@@ -246,14 +260,14 @@ def montar_legenda(oferta: dict, link_afiliado: str) -> str:
     if original and preco:
         try:
             if float(original) > float(preco):
-                sufixo = " no app" if oferta.get("precoNoApp") else ""
+                sufixo = sufixo_preco(oferta)
                 linhas.append(f"💰 De <s>R$ {_preco(original)}</s> por <b>R$ {_preco(preco)}</b>{sufixo}")
             else:
                 linhas.append(f"💰 <b>R$ {_preco(preco)}</b>" + (f" · {int(round(desconto))}% OFF" if desconto else ""))
         except (ValueError, TypeError):
             linhas.append(f"💰 <b>R$ {_preco(preco)}</b>")
     elif preco:
-        sufixo = " no app" if oferta.get("precoNoApp") else ""
+        sufixo = sufixo_preco(oferta)
         linhas.append(f"💰 <b>R$ {_preco(preco)}</b>{sufixo}" + (f" · {int(round(desconto))}% OFF" if desconto else ""))
     historico = linha_historico(oferta)
     if historico:

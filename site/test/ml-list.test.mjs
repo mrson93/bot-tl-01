@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {cleanItem,onRequestGet,onRequestPost} from '../functions/api/ml-list.js';
+import {cleanItem,onRequestGet,onRequestPost,refreshPublished} from '../functions/api/ml-list.js';
 import {extrairObjeto,lerPagina,pediuVerificacao} from '../../extensao-mercadolivre/leitura.js';
 import {categoriasDaRodada} from '../../extensao-mercadolivre/fundo.js';
 
@@ -11,6 +11,7 @@ const cartao=(id,titulo,atual,anterior,extra={})=>({
     {type:'title',title:{text:titulo}},
     {type:'seller'},
     {type:'price',price:{current_price:{value:atual,currency:'BRL'},discount_pct:10,
+      discount_complement:{text:'{discount_complement}',values:[{key:'discount_complement',type:'label',label:{text:'no Pix'}}]},
       price_labels:anterior?[{text:'{previous_price}',values:[{key:'previous_price',type:'price',price:{value:anterior,currency:'BRL'}}]}]:[]}},
   ],
   metadata:{id,product_id:'MLB24028629',url:`www.mercadolivre.com.br/produto-${id}/p/MLB24028629?pdp_filters=x#polycard_client=y`},
@@ -37,7 +38,7 @@ test('extensão: tira id, título, preço, foto e link de cada cartão, na ordem
     id:'MLB5410852112',product_id:'MLB24028629',title:'Fone Soundcore P20i',price:118.75,original_price:149.9,
     image:'https://http2.mlstatic.com/D_Q_NP_2X_730568-MLA99983575997_112025-AB.webp',
     url:'https://www.mercadolivre.com.br/produto-MLB5410852112/p/MLB24028629',
-    category:'MLB1000',position:1,
+    category:'MLB1000',position:1,pix:true,
   });
   assert.equal(produtos[1].original_price,null);
   assert.equal(produtos[1].position,2);
@@ -59,18 +60,19 @@ test('extensão: reveza 4 categorias por rodada',()=>{
 
 // --- Site: /api/ml-list ---
 
-function fakeDb(){
-  const state={row:null};
+function fakeDb(ofertas=[]){
+  const state={row:null,executados:[]};
   const prepare=sql=>({
     sql,args:[],
     bind(...args){this.args=args;return this;},
     async run(){
-      if(sql.startsWith('INSERT')){const [items,categories,captured_at]=this.args;state.row={items,categories,captured_at};}
+      if(sql.startsWith('INSERT INTO ml_list')){const [items,categories,captured_at]=this.args;state.row={items,categories,captured_at};}
       return {};
     },
     async first(){return state.row;},
+    async all(){return {results:ofertas.filter(id=>this.args.includes(id)).map(id=>({id}))};},
   });
-  return {state,prepare};
+  return {state,prepare,async batch(st){state.executados.push(...st.map(s=>[s.sql.replace(/\s+/g,' ').slice(0,40),s.args]));}};
 }
 const env=()=>({DB:fakeDb(),ML_LIST_TOKEN:'token-da-extensao-ml',PUBLISH_TOKEN:'token-do-bot'});
 const post=(token,body)=>new Request('https://canaltabarato.com.br/api/ml-list',{
@@ -108,4 +110,20 @@ test('site: só aceita links do Mercado Livre e fotos do mlstatic',()=>{
   assert.equal(cleanItem(item(1,{price:0})),null);
   assert.equal(cleanItem(item(1,{original_price:5})).original_price,null);   // menor que o preço
   assert.equal(cleanItem(item(1,{original_price:50})).original_price,50);
+});
+
+test('site: a cópia confere o preço das ofertas do Mercado Livre já publicadas',async()=>{
+  const db=fakeDb(['mercadolivre_MLB24028629','mercadolivre_MLB100000002']);
+  const agora=1_800_000_000;
+  const n=await refreshPublished({DB:db},[
+    {...item(1),id:'MLB5410852112',product_id:'MLB24028629',price:371.07,original_price:562.02,pix:true},
+    item(2,{price:20,original_price:null}),
+    item(3),   // não publicada: nada muda
+  ],agora);
+  assert.equal(n,2);
+  const atualizacoes=db.state.executados.filter(([sql])=>sql.startsWith('UPDATE offers SET original_price'));
+  assert.deepEqual(atualizacoes.map(([,a])=>a),[[562.02,34,'Preço no Pix','mercadolivre_MLB24028629'],[null,0,null,'mercadolivre_MLB100000002']]);
+  const precos=db.state.executados.filter(([sql])=>sql.startsWith('UPDATE offers SET price_changed_at'));
+  assert.deepEqual(precos[0][1],[371.07,agora,null,null,'mercadolivre_MLB24028629']);
+  assert.equal(db.state.executados.filter(([sql])=>sql.startsWith('INSERT INTO offer_prices')).length,2);
 });

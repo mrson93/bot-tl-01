@@ -186,6 +186,16 @@ class FormatacaoTest(unittest.TestCase):
         self.assertEqual(1, legenda.count("COMPRAR"))
         self.assertNotIn("Compartilhe", legenda)
 
+    def test_preco_no_pix_do_mercado_livre_aparece_no_post_e_no_site(self):
+        oferta = {"fonte": "Mercado Livre", "productName": "Controle PS5",
+                  "price": 371.07, "precoOriginal": 562.02, "precoNoPix": True}
+        self.assertIn("R$ 371,07</b> no Pix", telegram.montar_legenda(oferta, "https://oferta.test"))
+        texto, _ = bluesky.montar_texto(oferta, "https://oferta.test")
+        self.assertIn("R$ 371,07 no Pix", texto)
+        self.assertEqual("Preço no Pix", telegram.rotulo_pagamento(oferta))
+        self.assertIsNone(telegram.rotulo_pagamento({"price": 10}))
+        self.assertEqual("Preço no app", telegram.rotulo_pagamento({"precoNoApp": True}))
+
     def test_cupom_e_preco_no_app_so_aparecem_quando_informados(self):
         oferta = {"fonte": "AliExpress", "productName": "Fone Bluetooth",
                   "price": 79.9, "precoOriginal": 99.9, "precoNoApp": True,

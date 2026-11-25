@@ -163,7 +163,7 @@ class MercadoLivreTest(unittest.TestCase):
         import time
         itens = [{"id": "MLB5410852112", "product_id": "MLB24028629", "title": "Fone P20i", "price": 118.75,
                   "original_price": 149.9, "image": "https://http2.mlstatic.com/D_Q_NP_2X_1-AB.webp",
-                  "url": "https://www.mercadolivre.com.br/fone/p/MLB24028629", "position": 1},
+                  "url": "https://www.mercadolivre.com.br/fone/p/MLB24028629", "position": 1, "pix": True},
                  {"id": "MLB1234567", "title": "Foto ruim", "price": 10, "image": "https://evil.com/a.webp",
                   "url": "https://www.mercadolivre.com.br/x/p/MLB1"}]
         remendos = self._com_api_vazia((time.time() - 1800, itens))
@@ -179,6 +179,7 @@ class MercadoLivreTest(unittest.TestCase):
         self.assertEqual((118.75, 149.9, 21, 1), (oferta["price"], oferta["precoOriginal"],
                                                   oferta["priceDiscountRate"], oferta["_ml_mais_vendido"]))
         self.assertIn("matt_tool=71195511", oferta["productUrl"])
+        self.assertTrue(oferta["precoNoPix"])
 
     def test_copia_velha_ou_ausente_nao_vira_oferta(self):
         import time

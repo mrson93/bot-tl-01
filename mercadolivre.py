@@ -301,12 +301,15 @@ def _ofertas_da_extensao() -> list:
     ofertas, descartados = [], 0
     for item in itens:
         try:
-            ofertas.append(mercadolivre_api._oferta(
+            oferta = mercadolivre_api._oferta(
                 item.get("product_id") or item["id"], item.get("title"), item.get("price"),
                 item.get("original_price"), item.get("url"),
                 seguranca.validar_url_https_em_hosts(item.get("image"), ("mlstatic.com",),
                                                      "Imagem do Mercado Livre"),
-                item.get("position")))
+                item.get("position"))
+            # O preço do cartão de mais vendidos é o do Pix quando a página diz.
+            oferta["precoNoPix"] = bool(item.get("pix"))
+            ofertas.append(oferta)
         except (KeyError, TypeError, ValueError):
             descartados += 1
     validas = [o for o in ofertas if o["productName"] and o["price"] > 0]

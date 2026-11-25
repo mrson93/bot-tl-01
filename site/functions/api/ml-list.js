@@ -1,4 +1,5 @@
 import {authorized,json,readJsonLimited} from '../_lib.js';
+import {statementsDoPreco} from '../_daily_prices.js';
 
 // A extensão "Tá Barato · Mercado Livre" lê os mais vendidos no navegador do
 // dono do canal (o Mercado Livre recusa preço de catálogo à API e pede
@@ -34,10 +35,40 @@ export function cleanItem(raw){
     url:httpsIn(raw?.url,'mercadolivre.com.br'),
     category:CATEGORY.test(String(raw?.category||''))?String(raw.category):null,
     position:Number.isInteger(raw?.position)&&raw.position>0&&raw.position<1000?raw.position:null,
+    pix:raw?.pix===true,
   };
   if(item.original_price&&!(item.original_price>item.price)) item.original_price=null;
   if(!ID.test(item.id)||!item.title||!item.price||!item.image||!item.url) return null;
   return item;
+}
+
+// A cópia também confere o preço das ofertas do Mercado Livre já publicadas
+// (a API não deixa mais o site reler o catálogo): mesmo preço, preço "de",
+// rótulo do Pix, histórico do dia e "preço conferido" agora.
+const LOTE_IDS=90;
+export async function refreshPublished(env,items,now){
+  const porId=new Map();
+  for(const item of items){
+    for(const id of [item.product_id,item.id]) if(id&&!porId.has(`mercadolivre_${id}`)) porId.set(`mercadolivre_${id}`,item);
+  }
+  const ids=[...porId.keys()];
+  const existentes=[];
+  for(let i=0;i<ids.length;i+=LOTE_IDS){
+    const lote=ids.slice(i,i+LOTE_IDS);
+    const {results=[]}=await env.DB.prepare(`SELECT id FROM offers WHERE id IN (${lote.map(()=>'?').join(',')})`).bind(...lote).all();
+    existentes.push(...results.map(row=>row.id));
+  }
+  const statements=[];
+  for(const id of existentes){
+    const item=porId.get(id);
+    const original=item.original_price&&item.original_price>item.price?item.original_price:null;
+    const discount=original?Math.round((1-item.price/original)*1000)/10:0;
+    statements.push(...statementsDoPreco(env,id,{preco:item.price,nota:null,vendas:null},now),
+      env.DB.prepare('UPDATE offers SET original_price=?,discount=?,payment_label=? WHERE id=?')
+        .bind(original,discount,item.pix?'Preço no Pix':null,id));
+  }
+  if(statements.length) await env.DB.batch(statements);
+  return existentes.length;
 }
 
 async function ensureTable(env){
@@ -64,7 +95,8 @@ export async function onRequestPost({request,env}){
   await env.DB.prepare(
     'INSERT INTO ml_list(id,items,categories,captured_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET items=excluded.items,categories=excluded.categories,captured_at=excluded.captured_at'
   ).bind(JSON.stringify(items),JSON.stringify(categories),now).run();
-  return json({ok:true,items:items.length,captured_at:now},201);
+  const refreshed=await refreshPublished(env,items,now);
+  return json({ok:true,items:items.length,refreshed,captured_at:now},201);
 }
 
 // O bot lê com o mesmo token que já usa para publicar no site.

@@ -181,7 +181,7 @@ def montar_texto(oferta: dict, link_afiliado: str) -> tuple:
     # o "de" preferido e o que a loja informa, igual ao Telegram
     original = oferta.get("precoOriginal")
     linha_preco = ""
-    sufixo_app = " no app" if oferta.get("precoNoApp") else ""
+    sufixo_app = fmt.sufixo_preco(oferta)
     if original and preco:
         try:
             if float(original) > float(preco):

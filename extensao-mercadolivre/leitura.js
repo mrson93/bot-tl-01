@@ -84,6 +84,9 @@ export function lerCartao(cartao, contexto = {}) {
     .flatMap((l) => (Array.isArray(l?.values) ? l.values : []))
     .find((v) => v?.key === "previous_price");
   const anterior = numero(rotulo?.price?.value ?? preco.previous_price?.value);
+  // O preço do cartão costuma ser o do Pix ("no Pix" vem num campo à parte).
+  const complemento = (Array.isArray(preco.discount_complement?.values) ? preco.discount_complement.values : [])
+    .map((v) => String(v?.label?.text || "")).join(" ");
   const produto = {
     id: String(meta.id || ""),
     product_id: ID.test(String(meta.product_id || "")) ? meta.product_id : null,
@@ -92,6 +95,7 @@ export function lerCartao(cartao, contexto = {}) {
     original_price: anterior && atual && anterior > atual ? anterior : null,
     image: imagem(cartao, contexto),
     url: endereco(meta, contexto),
+    pix: /\bpix\b/i.test(complemento),
   };
   if (!ID.test(produto.id) || !produto.title || !produto.price || !produto.image || !produto.url) return null;
   return produto;
