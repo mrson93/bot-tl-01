@@ -45,11 +45,14 @@ async function candidatosDoCatalogo(env,produto,palavras) {
   // As 3 palavras mais longas filtram bem sem perder o produto.
   const termos=[...palavras].sort((a,b)=>b.length-a.length).slice(0,3).map(p=>`%${p.replace(/[\\%_]/g,'\\$&')}%`);
   if(termos.length<2) return [];
+  // Com a categoria, a busca lê só as ofertas dela (índice), e não o catálogo
+  // inteiro: era a consulta que mais gastava a cota diária do D1.
+  const categoria=produto.categoria&&produto.categoria!=='outros'?produto.categoria:null;
   const {results=[]}=await env.DB.prepare(
-    `SELECT id,title,price,source FROM offers WHERE availability!='unavailable' AND price>0 AND id<>?
+    `SELECT id,title,price,source FROM offers WHERE ${categoria?'category=? AND ':''}availability!='unavailable' AND price>0 AND id<>?
        AND ${termos.map(()=>"title LIKE ? ESCAPE '\\' COLLATE NOCASE").join(' AND ')}
      ORDER BY price ASC LIMIT 20`,
-  ).bind(`${produto.loja}_${produto.id_produto}`,...termos).all();
+  ).bind(...(categoria?[categoria]:[]),`${produto.loja}_${produto.id_produto}`,...termos).all();
   return results.map(r=>({loja:FONTE[r.source],nome:String(r.title||''),preco:Number(r.price),
     link:`${SITE}/go/${encodeURIComponent(r.id)}`})).filter(c=>c.loja&&c.loja!==produto.loja);
 }
@@ -112,7 +115,7 @@ export async function outrasLojasNoCatalogo(env,offer) {
   const idProduto=String(offer?.id||'').replace(/^[a-z]+_/,'');
   const palavras=palavrasChave(offer?.title);
   if(!loja||!(preco>0)||palavras.length<3) return [];
-  const candidatos=await candidatosDoCatalogo(env,{loja,id_produto:idProduto,nome:offer.title},palavras).catch(()=>[]);
+  const candidatos=await candidatosDoCatalogo(env,{loja,id_produto:idProduto,nome:offer.title,categoria:offer.category},palavras).catch(()=>[]);
   const porLoja=new Map();
   for(const c of candidatos){
     if(!(c.preco>=preco*0.5&&c.preco<=preco*1.5)||semelhanca(offer.title,c.nome)<SEMELHANCA_MINIMA) continue;

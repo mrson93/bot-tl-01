@@ -1,5 +1,6 @@
 import {SITE,footer,head,header,html,offerCard,offerPath,responseHtml,shorten} from './_site.js';
 import {priceLevel} from './api/offers.js';
+import {cachedJson} from './_cache_json.js';
 
 const OFFER_COLUMNS=`o.id,o.title,o.price,o.original_price,o.discount,o.rating,o.sales,
   o.shop,o.image_url,o.source,o.category,o.published_at,o.cataloged_at,o.last_checked_at,o.last_seen_at,
@@ -46,7 +47,14 @@ function decorate(row,kind) {
 }
 
 // Linhas de cada lista (também usadas no bloco "Caiu agora" da página inicial).
-export async function discoveryRows(env,kind,limit=100,now=Math.floor(Date.now()/1000)) {
+// Cada lista custa ~25 mil linhas lidas (histórico de 30 dias por oferta):
+// guardada por 30 min, as páginas que a usam deixam de repetir a consulta.
+export const DISCOVERY_CACHE_SECONDS=1800;
+export async function discoveryRows(env,kind,limit=100,now=Math.floor(Date.now()/1000),cache) {
+  return cachedJson(`discovery:${kind}:${limit}`,DISCOVERY_CACHE_SECONDS,()=>queryDiscovery(env,kind,limit,now),cache);
+}
+
+async function queryDiscovery(env,kind,limit,now) {
   const since30d=now-30*86400,since7d=now-7*86400;
   let sql=`SELECT * FROM (${baseQuery()}) ranked`,bindings=[since30d,since7d];
   if(kind==='drops') {sql+=' WHERE previous_price IS NOT NULL AND previous_price>price AND price_changed_at>=? ORDER BY ((previous_price-price)/previous_price) DESC,price_changed_at DESC';bindings.push(since7d);}

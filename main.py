@@ -1589,7 +1589,10 @@ def _publicar_fila(fila, limite):
         if loja:
             lojas_hoje[loja] = lojas_hoje.get(loja, 0) + 1
         nome = (oferta.get("productName") or "")[:50]
-        print(f"   ✅ Postado ({fonte.NOME}): {nome}...")
+        motivo = oferta.get("_motivo") or "inedita"
+        cliques = (f", {oferta['_cliques_periodo']} cliques em {config.REPESCAGEM_DIAS_CLIQUES} dias"
+                   if motivo == "repescagem" else "")
+        print(f"   ✅ Postado ({fonte.NOME}): {nome}... [motivo: {motivo}{cliques}]")
 
         if postadas < limite:
             time.sleep(config.DELAY_BETWEEN_POSTS_SECONDS)

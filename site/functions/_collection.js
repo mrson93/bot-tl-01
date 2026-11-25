@@ -2,6 +2,7 @@ import {SITE,footer,head,header,html,label,notFound,offerCard,offerPath,
   responseHtml,shorten,slugify} from './_site.js';
 import {indexableCollection} from './_indexing.js';
 import {withPriceLevel} from './api/offers.js';
+import {cachedJson} from './_cache_json.js';
 
 const CONFIG={
   category:{column:'category',plural:'categorias',heading:name=>`Ofertas de ${label(name)}`,
@@ -18,10 +19,11 @@ const valuesMemo=new Map();
 async function collectionValues(env,column) {
   const memo=valuesMemo.get(column);
   if(memo&&memo.expires>Date.now()) return memo.rows;
-  const result=await env.DB.prepare(
+  // Os robôs abrem muitas páginas de loja: a lista (que varre o catálogo
+  // inteiro) fica 6 h no cache da Cloudflare, além da memória da instância.
+  const rows=await cachedJson(`collection-values:${column}`,6*3600,async()=>(await env.DB.prepare(
     `SELECT DISTINCT ${column} value FROM offers WHERE availability!='unavailable' AND ${column} IS NOT NULL AND TRIM(${column})!=''`
-  ).all();
-  const rows=result.results||[];
+  ).all()).results||[]);
   valuesMemo.set(column,{rows,expires:Date.now()+VALUES_TTL_MS});
   return rows;
 }
