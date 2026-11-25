@@ -48,6 +48,7 @@ class MainTest(unittest.TestCase):
              patch.object(main, "canais_ativos", return_value=[
                  unittest.mock.Mock(NOME="Telegram")]), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main, "cliques_para_repescagem", return_value={"amazon_PROMO": 5, "amazon_CHEIO": 5}), \
              patch.object(main.monitor, "avisar_estoque_lista"):
             for oid in ("amazon_PROMO", "amazon_CHEIO"):
                 main.store.marcar_postada(oid, 100, 30, "Amazon", agora=int(_time.time()) - 3 * 86400)
@@ -58,6 +59,60 @@ class MainTest(unittest.TestCase):
             candidatos = main.buscar_candidatos(Fonte)
         self.assertEqual(["amazon_PROMO"], [c["oferta_id"] for c in candidatos])
         self.assertEqual("repescagem", candidatos[0]["_motivo"])
+
+    def _repescagem(self, cliques, ids=("shopee_1_1", "shopee_1_2", "shopee_1_3")):
+        import tempfile
+        import time as _time
+        from pathlib import Path
+        base = {"fonte": "Shopee", "productName": "Produto", "price": 100, "priceDiscountRate": 30,
+                "ratingStar": 4.9, "sales": 5000}
+        nomes = {"shopee_1_1": "Fone bluetooth", "shopee_1_2": "Panela de pressão", "shopee_1_3": "Tênis corrida"}
+        class Fonte:
+            NOME = "Shopee"
+            @staticmethod
+            def buscar_ofertas():
+                return [dict(base, oferta_id=oid, productName=nomes[oid]) for oid in ids]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main.config, "DIAS_ANTES_DE_REPETIR", 7), \
+             patch.object(main, "canais_ativos", return_value=[unittest.mock.Mock(NOME="Telegram")]), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main, "ofertas_mais_clicadas", return_value={}), \
+             patch.object(main, "cliques_para_repescagem", return_value=cliques):
+            for i, oid in enumerate(ids):
+                main.store.marcar_postada(oid, 100, 30, "Shopee", agora=int(_time.time()) - (8 + i) * 86400)
+                main.store.registrar_entrega(oid, "Telegram", True, 100, "Shopee")
+            candidatos = main.buscar_candidatos(Fonte)
+            return main._ordenar_candidatos(candidatos) if candidatos else []
+
+    def test_sem_ineditas_volta_so_quem_teve_cliques_e_as_mais_clicadas_primeiro(self):
+        candidatos = self._repescagem({"shopee_1_1": 4, "shopee_1_2": 2, "shopee_1_3": 12})
+        self.assertEqual(["shopee_1_3", "shopee_1_1"], [c["oferta_id"] for c in candidatos])
+        self.assertEqual({"repescagem"}, {c["_motivo"] for c in candidatos})
+        self.assertEqual(12, candidatos[0]["_cliques_periodo"])
+
+    def test_sem_saber_os_cliques_nao_reposta(self):
+        self.assertEqual([], self._repescagem(None))
+        self.assertEqual([], self._repescagem({}))
+
+    def test_cliques_da_repescagem_sao_lidos_uma_vez_por_hora(self):
+        import tempfile
+        from pathlib import Path
+        agora = main.datetime(2026, 11, 25, 12, tzinfo=main.FUSO_BRASILIA)
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=True), \
+             patch.object(main.shortlinks, "resumo_cliques",
+                          return_value={"por_oferta": {"shopee_1_1": 7}}) as resumo:
+            self.assertEqual({"shopee_1_1": 7}, main.cliques_para_repescagem(agora))
+            self.assertEqual({"shopee_1_1": 7}, main.cliques_para_repescagem(agora + main.timedelta(minutes=30)))
+            self.assertEqual(1, resumo.call_count)
+            inicio, fim = resumo.call_args.args
+            self.assertEqual(30, (fim - inicio).days)
+            resumo.side_effect = RuntimeError("fora do ar")
+            self.assertIsNone(main.cliques_para_repescagem(agora + main.timedelta(hours=2)))
+        with patch.object(main.shortlinks, "esta_configurado", return_value=False):
+            self.assertIsNone(main.cliques_para_repescagem(agora))
 
     def test_oferta_bem_clicada_volta_uma_vez_no_dia_seguinte(self):
         import tempfile
@@ -106,6 +161,7 @@ class MainTest(unittest.TestCase):
              patch.object(main, "canais_ativos", return_value=[
                  unittest.mock.Mock(NOME="Telegram")]), \
              patch.object(main.site_publisher, "esta_configurado", return_value=False), \
+             patch.object(main, "cliques_para_repescagem", return_value={"amazon_B0F9Z2DV83": 5}), \
              patch.object(main.monitor, "avisar_estoque_lista"):
             antigo = _time.time() - 10 * 86400
             main.store.marcar_postada(oferta["oferta_id"], 500, 50, "Amazon", agora=antigo)

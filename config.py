@@ -95,6 +95,11 @@ BUFFER_CANAIS = ("Facebook", "X")
 REPOST_CLICADAS_ATIVO = _bool("REPOST_CLICADAS_ATIVO", True)
 REPOST_CLICADAS_MIN_CLIQUES = max(1, _int("REPOST_CLICADAS_MIN_CLIQUES", 3))
 REPOST_CLICADAS_POR_DIA = max(0, _int("REPOST_CLICADAS_POR_DIA", 3))
+# Repescagem (oferta postada há DIAS_ANTES_DE_REPETIR dias ou mais, usada
+# quando faltam inéditas): só volta quem teve pelo menos este número de
+# cliques nos últimos REPESCAGEM_DIAS_CLIQUES dias; as mais clicadas primeiro.
+REPESCAGEM_MIN_CLIQUES = max(1, _int("REPESCAGEM_MIN_CLIQUES", 3))
+REPESCAGEM_DIAS_CLIQUES = max(1, _int("REPESCAGEM_DIAS_CLIQUES", 30))
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro

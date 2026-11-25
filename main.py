@@ -983,6 +983,33 @@ def ofertas_mais_clicadas(agora=None) -> dict:
             if int(qtd) >= config.REPOST_CLICADAS_MIN_CLIQUES}
 
 
+def cliques_para_repescagem(agora=None):
+    """Cliques por oferta nos últimos REPESCAGEM_DIAS_CLIQUES dias (cache de 1 h).
+
+    None quando não dá para saber (encurtador fora ou não configurado): aí a
+    repescagem fica parada, em vez de voltar a repostar sem olhar cliques.
+    """
+    if not shortlinks.esta_configurado():
+        return None
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    chave = "cliques_repescagem"
+    try:
+        salvo = json.loads(store._estado(chave) or "null")
+    except (TypeError, ValueError):
+        salvo = None
+    if not salvo or agora.timestamp() - float(salvo.get("em") or 0) > 3600:
+        try:
+            resumo = shortlinks.resumo_cliques(
+                agora - timedelta(days=config.REPESCAGEM_DIAS_CLIQUES), agora)
+        except Exception as erro:
+            print(f"   ⚠️  Cliques de {config.REPESCAGEM_DIAS_CLIQUES} dias indisponíveis; "
+                  f"repescagem parada nesta rodada: {seguranca.redigir_segredos(erro)}")
+            return None
+        salvo = {"em": agora.timestamp(), "por_oferta": resumo.get("por_oferta") or {}}
+        store._definir_estado(chave, json.dumps(salvo))
+    return {str(oid): int(qtd) for oid, qtd in salvo["por_oferta"].items()}
+
+
 def _pode_repostar_clicada(oid, preco, clicadas, agora=None) -> bool:
     """Postada num dia anterior recente, bem clicada, sem aumento de preço e
     ainda não repostada por este motivo."""
@@ -1140,6 +1167,7 @@ def buscar_candidatos(fonte) -> list:
     if site_publisher.esta_configurado():
         nomes_canais.append("Site")
     clicadas = ofertas_mais_clicadas()
+    cliques_periodo = None   # lidos só se aparecer alguma repescagem
     canais_buffer = [n for n in nomes_canais if n in config.BUFFER_CANAIS]
     canais_gerais = [n for n in nomes_canais if n not in config.BUFFER_CANAIS]
     candidatos = []
@@ -1148,6 +1176,7 @@ def buscar_candidatos(fonte) -> list:
         "sem_id": 0, "preco": 0, "desconto": 0,
         "desconto_preferido": 0, "avaliacao": 0, "vendas": 0,
         "comissao": 0, "repetida": 0, "replica": 0, "modelo_antigo": 0,
+        "repescagem_sem_cliques": 0,
     }
     for oferta in ofertas:
         oferta["categoria"] = (oferta.get("categoria")
@@ -1188,6 +1217,15 @@ def buscar_candidatos(fonte) -> list:
         motivo = (None if uma_vez and store.ja_postada(oid) else
                   store.avaliar_elegibilidade(oid, preco,
                       config.DIAS_ANTES_DE_REPETIR, config.QUEDA_PRECO_REPOST_PERCENT))
+        if motivo == "repescagem":
+            # Sem inéditas, volta só o que o público clicou (as mais clicadas
+            # primeiro, na ordenação). Sem saber os cliques, não reposta.
+            if cliques_periodo is None:
+                cliques_periodo = cliques_para_repescagem() or {}
+            oferta["_cliques_periodo"] = cliques_periodo.get(oid, 0)
+            if oferta["_cliques_periodo"] < config.REPESCAGEM_MIN_CLIQUES:
+                motivo = None
+                rejeicoes["repescagem_sem_cliques"] += 1
         if motivo is None and _pode_repostar_clicada(oid, preco, clicadas):
             motivo = "mais_clicada"
             oferta["_cliques"] = clicadas[oid]
@@ -1335,9 +1373,11 @@ def _ordenar_candidatos(candidatos):
     def chave(oferta):
         motivo = oferta.get("_motivo")
         if motivo == "repescagem":
-            comercial = -store.quando_postada(oferta["oferta_id"])
-        else:
-            comercial = pontuacao(oferta)
+            # Repescagem só concorre com repescagem (prioridade própria): as
+            # mais clicadas primeiro e, no empate, a postada há mais tempo.
+            return (prioridade[motivo], int(oferta.get("_cliques_periodo") or 0),
+                    -store.quando_postada(oferta["oferta_id"]))
+        comercial = pontuacao(oferta)
         desconto = float(oferta.get("priceDiscountRate") or 0)
         cupom = bool(str(oferta.get("cupom") or "").strip())
         curada = oferta.get("fonte") in {"Amazon", "Mercado Livre"}
