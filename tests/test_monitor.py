@@ -33,6 +33,29 @@ class MonitorTest(unittest.TestCase):
         self.assertIn("Telegram: ❌ falhou", mensagem)
         self.assertIn("Facebook: ❌ falhou", mensagem)
 
+    def test_extensao_mercado_livre_parada_avisa_de_6_em_6_h_e_nao_de_madrugada(self):
+        import tempfile
+        from pathlib import Path
+        resposta = Mock()
+        resposta.json.return_value = {"ok": True}
+        sessao = Mock(post=Mock(return_value=resposta))
+        tarde = datetime(2026, 11, 25, 18, 0, tzinfo=timezone.utc)      # 15:00 em Brasília
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(monitor.config, "TELEGRAM_ADMIN_ID", "123"), \
+             patch.object(monitor.config, "TELEGRAM_BOT_TOKEN", "token"):
+            self.assertTrue(monitor.avisar_copia_mercadolivre(7.4, tarde, sessao))
+            self.assertIn("não envia os mais vendidos há 7 h", sessao.post.call_args.kwargs["json"]["text"])
+            from datetime import timedelta
+            self.assertFalse(monitor.avisar_copia_mercadolivre(9, tarde + timedelta(hours=2), sessao))
+            self.assertTrue(monitor.avisar_copia_mercadolivre(13, tarde + timedelta(hours=6, minutes=1), sessao))
+            # Madrugada (02:00 em Brasília): não avisa.
+            self.assertFalse(monitor.avisar_copia_mercadolivre(20, datetime(2026, 11, 26, 5, 0, tzinfo=timezone.utc), sessao))
+            # Cópia em dia rearma: a próxima parada avisa na hora.
+            monitor.avisar_copia_mercadolivre(None)
+            self.assertTrue(monitor.avisar_copia_mercadolivre(4, tarde + timedelta(hours=7), sessao))
+        self.assertEqual(3, sessao.post.call_count)
+
     def test_estoque_lista_alerta_uma_vez_e_rearma(self):
         import tempfile
         from pathlib import Path

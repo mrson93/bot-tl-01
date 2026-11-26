@@ -127,3 +127,15 @@ test('site: a cópia confere o preço das ofertas do Mercado Livre já publicada
   assert.deepEqual(precos[0][1],[371.07,agora,null,null,'mercadolivre_MLB24028629']);
   assert.equal(db.state.executados.filter(([sql])=>sql.startsWith('INSERT INTO offer_prices')).length,2);
 });
+
+import {ATRASO_MINUTOS,deveEnviarAtrasado} from '../../extensao-mercadolivre/fundo.js';
+
+test('extensão: envio atrasado só depois de 70 min sem sucesso e sem outro envio em andamento',()=>{
+  const agora=Date.UTC(2026,10,25,21,0), min=60*1000;
+  assert.equal(ATRASO_MINUTOS,70);
+  assert.equal(deveEnviarAtrasado(agora-30*min,agora,0),false);
+  assert.equal(deveEnviarAtrasado(agora-7*60*min,agora,0),true);
+  assert.equal(deveEnviarAtrasado(undefined,agora,0),true);
+  assert.equal(deveEnviarAtrasado(agora-7*60*min,agora,agora-2*min),false);   // envio em andamento
+  assert.equal(deveEnviarAtrasado(agora-7*60*min,agora,agora-10*min),true);   // trava velha (envio morreu)
+});

@@ -74,7 +74,43 @@ export function categoriasDaRodada(lista, inicio, quantidade = POR_RODADA) {
   return Array.from({ length: Math.min(quantidade, lista.length) }, (_, i) => lista[(inicio + i) % lista.length]);
 }
 
+// O Chrome às vezes perde o alarme de hora em hora (Mac dormindo, extensão
+// suspensa): em 25/11/2026 ela ficou 7 h sem enviar, sem erro nenhum. Por
+// isso, a cada vez que a extensão acorda, confere o alarme, e uma página do
+// Mercado Livre aberta dispara o envio atrasado.
+export const ATRASO_MINUTOS = 70;
+const TRAVA_MS = 5 * 60 * 1000;
+
+export function deveEnviarAtrasado(ultimoSucessoEm, agora, enviandoDesde) {
+  if (enviandoDesde && agora - enviandoDesde < TRAVA_MS) return false;
+  return !ultimoSucessoEm || agora - ultimoSucessoEm > ATRASO_MINUTOS * 60 * 1000;
+}
+
+async function garantirAgendamento() {
+  const alarme = await chrome.alarms.get(ALARME);
+  if (!alarme) agendar();
+}
+
+async function enviarSeAtrasado() {
+  const { ultimoSucessoEm, enviandoDesde } = await chrome.storage.local.get(["ultimoSucessoEm", "enviandoDesde"]);
+  if (deveEnviarAtrasado(ultimoSucessoEm, Date.now(), enviandoDesde)) await enviar();
+}
+
 async function enviar() {
+  const { enviandoDesde } = await chrome.storage.local.get("enviandoDesde");
+  if (enviandoDesde && Date.now() - enviandoDesde < TRAVA_MS) {
+    return { ok: false, erro: "Já tem um envio em andamento. Tente de novo em alguns minutos." };
+  }
+  await chrome.storage.local.set({ enviandoDesde: Date.now() });
+  try {
+    return await enviarAgora();
+  } finally {
+    await chrome.storage.local.set({ enviandoDesde: 0 });
+    await garantirAgendamento();
+  }
+}
+
+async function enviarAgora() {
   const { tokenSite, rodizio = 0 } = await chrome.storage.local.get(["tokenSite", "rodizio"]);
   const { categorias } = await chrome.storage.sync.get("categorias");
   const lista = Array.isArray(categorias) && categorias.length ? categorias : CATEGORIAS_PADRAO;
@@ -105,7 +141,8 @@ async function enviar() {
   } catch (erro) {
     resultado = { ok: false, erro: String(erro?.message || erro) };
   }
-  await chrome.storage.local.set({ ultimoEnvio: { ...resultado, em: Date.now() } });
+  const em = Date.now();
+  await chrome.storage.local.set({ ultimoEnvio: { ...resultado, em }, ...(resultado.ok ? { ultimoSucessoEm: em } : {}) });
   return resultado;
 }
 
@@ -118,6 +155,14 @@ if (globalThis.chrome?.runtime?.onInstalled) {
   chrome.runtime.onStartup.addListener(agendar);
   chrome.alarms.onAlarm.addListener((alarme) => {
     if (alarme.name === ALARME) enviar();
+  });
+  // Toda vez que a extensão acorda (alarme, mensagem, aba): o alarme existe?
+  garantirAgendamento();
+  // Página do Mercado Livre carregada com o envio atrasado: envia agora.
+  chrome.tabs.onUpdated.addListener((_id, mudanca, aba) => {
+    if (mudanca.status === "complete" && String(aba?.url || "").startsWith("https://www.mercadolivre.com.br/")) {
+      enviarSeAtrasado();
+    }
   });
   // Botão "Enviar agora" das opções.
   chrome.runtime.onMessage.addListener((mensagem, _remetente, responder) => {

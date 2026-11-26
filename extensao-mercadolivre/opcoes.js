@@ -18,11 +18,21 @@ async function enviarAgora() {
   mostrarEnvio(await chrome.runtime.sendMessage({ tipo: "enviar-mais-vendidos" }).then(
     (resultado) => ({ ...resultado, em: Date.now() }),
   ));
+  mostrarProximo();
+}
+
+const proximo = document.getElementById("proximo");
+async function mostrarProximo() {
+  const alarme = await chrome.alarms.get("enviar-mais-vendidos");
+  proximo.textContent = alarme
+    ? `Próximo envio automático: ${new Date(alarme.scheduledTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+    : "Envio automático desligado: clique em Enviar agora para religar.";
 }
 
 chrome.storage.local.get(["tokenSite", "ultimoEnvio"]).then((valores) => {
   if (valores.tokenSite) token.placeholder = "token salvo (cole outro para trocar)";
   mostrarEnvio(valores.ultimoEnvio);
+  mostrarProximo();
 });
 chrome.storage.sync.get("categorias").then(({ categorias: lista }) => {
   categorias.value = Array.isArray(lista) ? lista.join(", ") : "";

@@ -71,6 +71,36 @@ def avisar_falha_total_publicacao(loja, titulo, resultados, sessao=requests):
     return _enviar_privado("\n".join(linhas), sessao)
 
 
+_CHAVE_COPIA_ML = "aviso_copia_mercadolivre"
+AVISO_COPIA_ML_INTERVALO = 6 * 3600
+
+
+def avisar_copia_mercadolivre(idade_horas, agora=None, sessao=requests):
+    """Extensão do Mercado Livre parada (cópia velha ou ausente): avisa no
+    máximo a cada 6 h, nunca de madrugada, e rearma quando a cópia volta.
+
+    idade_horas=None quer dizer cópia em dia: só rearma o aviso.
+    """
+    if idade_horas is None:
+        store._definir_estado(_CHAVE_COPIA_ML, "")
+        return False
+    agora = agora or datetime.now(timezone.utc)
+    hora_brasilia = (agora.hour - 3) % 24
+    if hora_brasilia >= 23 or hora_brasilia < 7:
+        return False
+    ultimo = float(store._estado(_CHAVE_COPIA_ML) or 0)
+    if ultimo and agora.timestamp() - ultimo < AVISO_COPIA_ML_INTERVALO:
+        return False
+    quanto = f"há {int(idade_horas)} h" if idade_horas < 999 else "ainda"
+    mensagem = (f"🛒 Mercado Livre: a extensão do Chrome não envia os mais vendidos {quanto}. "
+                "Sem ela, o Mercado Livre fica fora do canal. Abra o ícone ML no Chrome e "
+                "clique em Enviar agora.")
+    if _enviar_privado(mensagem, sessao):
+        store._definir_estado(_CHAVE_COPIA_ML, str(agora.timestamp()))
+        return True
+    return False
+
+
 def avisar_estoque_lista(loja, ineditas, sessao=requests):
     """Notifica uma vez quando a lista curada fica sem produtos inéditos."""
     # Chave nova: alertas antigos de "estoque baixo" não podem impedir o

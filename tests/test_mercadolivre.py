@@ -157,7 +157,8 @@ class MercadoLivreTest(unittest.TestCase):
                 patch.object(mercadolivre.mercadolivre_api, "resumo_diagnostico", return_value=""),
                 patch.object(mercadolivre.mercadolivre_api.config, "MERCADOLIVRE_AFILIADO_PARAMETROS",
                              "matt_word=canaltabarato&matt_tool=71195511"),
-                patch.object(mercadolivre.site_publisher, "ler_lista_mercadolivre", return_value=copia)]
+                patch.object(mercadolivre.site_publisher, "ler_lista_mercadolivre", return_value=copia),
+                patch.object(mercadolivre.monitor, "avisar_copia_mercadolivre")]
 
     def test_api_sem_ofertas_usa_a_copia_da_extensao_com_link_de_afiliado(self):
         import time
@@ -195,6 +196,22 @@ class MercadoLivreTest(unittest.TestCase):
             finally:
                 for r in reversed(remendos):
                     r.stop()
+
+
+    def test_copia_velha_avisa_o_admin_e_copia_em_dia_rearma(self):
+        import time
+        item = {"id": "MLB5410852112", "title": "Fone", "price": 10,
+                "image": "https://http2.mlstatic.com/a.webp", "url": "https://www.mercadolivre.com.br/p/MLB1"}
+        with patch.object(mercadolivre.site_publisher, "ler_lista_mercadolivre",
+                          return_value=(time.time() - 7 * 3600, [item])), \
+             patch.object(mercadolivre.monitor, "avisar_copia_mercadolivre") as avisar:
+            self.assertEqual([], mercadolivre._ofertas_da_extensao())
+        self.assertAlmostEqual(7, avisar.call_args.args[0], delta=0.1)
+        with patch.object(mercadolivre.site_publisher, "ler_lista_mercadolivre",
+                          return_value=(time.time() - 600, [item])), \
+             patch.object(mercadolivre.monitor, "avisar_copia_mercadolivre") as avisar:
+            mercadolivre._ofertas_da_extensao()
+        avisar.assert_called_once_with(None)
 
 
 if __name__ == "__main__":

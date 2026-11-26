@@ -279,6 +279,13 @@ def buscar_ofertas() -> list:
     return list(ofertas.values())
 
 
+def _avisar_copia(idade_horas):
+    try:
+        monitor.avisar_copia_mercadolivre(idade_horas)
+    except Exception as erro:
+        print(f"   ⚠️  Aviso da extensão do Mercado Livre indisponível: {seguranca.redigir_segredos(erro)}")
+
+
 def _ofertas_da_extensao() -> list:
     """Mais vendidos lidos pela extensão do navegador (cópia no site).
 
@@ -292,12 +299,15 @@ def _ofertas_da_extensao() -> list:
         return []
     if not copia:
         print("   ℹ️  Sem cópia do Mercado Livre no site (extensão ainda não enviou).")
+        _avisar_copia(999)
         return []
     capturada, itens = copia
     idade = (time.time() - capturada) / 3600
     if idade > config.MERCADOLIVRE_COPIA_MAX_HORAS:
         print(f"   ⚠️  Cópia do Mercado Livre no site tem {idade:.0f} h; velha demais, ignorada.")
+        _avisar_copia(idade)
         return []
+    _avisar_copia(None)
     ofertas, descartados = [], 0
     for item in itens:
         try:
