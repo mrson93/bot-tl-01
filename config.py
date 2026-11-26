@@ -98,8 +98,11 @@ REPOST_CLICADAS_POR_DIA = max(0, _int("REPOST_CLICADAS_POR_DIA", 3))
 # Repescagem (oferta postada há DIAS_ANTES_DE_REPETIR dias ou mais, usada
 # quando faltam inéditas): só volta quem teve pelo menos este número de
 # cliques nos últimos REPESCAGEM_DIAS_CLIQUES dias; as mais clicadas primeiro.
-REPESCAGEM_MIN_CLIQUES = max(1, _int("REPESCAGEM_MIN_CLIQUES", 3))
+REPESCAGEM_MIN_CLIQUES = max(1, _int("REPESCAGEM_MIN_CLIQUES", 1))
 REPESCAGEM_DIAS_CLIQUES = max(1, _int("REPESCAGEM_DIAS_CLIQUES", 30))
+# Antes deste momento (deploy do filtro "só cliques do Brasil", 15/11/2026) os
+# cliques eram quase todos robôs de datacenter: não contam para a repescagem.
+REPESCAGEM_CLIQUES_DESDE = _int("REPESCAGEM_CLIQUES_DESDE", 1794704400)
 
 # --- Instagram Stories (Graph API via Pagina do Facebook) ---
 # Reutiliza o token protegido da Pagina, mas fica desligado ate o primeiro

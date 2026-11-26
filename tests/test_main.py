@@ -86,8 +86,11 @@ class MainTest(unittest.TestCase):
             return main._ordenar_candidatos(candidatos) if candidatos else []
 
     def test_sem_ineditas_volta_so_quem_teve_cliques_e_as_mais_clicadas_primeiro(self):
-        candidatos = self._repescagem({"shopee_1_1": 4, "shopee_1_2": 2, "shopee_1_3": 12})
+        candidatos = self._repescagem({"shopee_1_1": 4, "shopee_1_2": 0, "shopee_1_3": 12})
         self.assertEqual(["shopee_1_3", "shopee_1_1"], [c["oferta_id"] for c in candidatos])
+        # Basta 1 clique real.
+        um = self._repescagem({"shopee_1_2": 1})
+        self.assertEqual(["shopee_1_2"], [c["oferta_id"] for c in um])
         self.assertEqual({"repescagem"}, {c["_motivo"] for c in candidatos})
         self.assertEqual(12, candidatos[0]["_cliques_periodo"])
 
@@ -108,11 +111,21 @@ class MainTest(unittest.TestCase):
             self.assertEqual({"shopee_1_1": 7}, main.cliques_para_repescagem(agora + main.timedelta(minutes=30)))
             self.assertEqual(1, resumo.call_count)
             inicio, fim = resumo.call_args.args
-            self.assertEqual(30, (fim - inicio).days)
+            # Antes do filtro de robôs (15/11 01:00 UTC) não conta.
+            self.assertEqual(main.config.REPESCAGEM_CLIQUES_DESDE, int(inicio.timestamp()))
             resumo.side_effect = RuntimeError("fora do ar")
             self.assertIsNone(main.cliques_para_repescagem(agora + main.timedelta(hours=2)))
         with patch.object(main.shortlinks, "esta_configurado", return_value=False):
             self.assertIsNone(main.cliques_para_repescagem(agora))
+        # Depois de 15/12 a janela volta a ser de 30 dias.
+        dezembro = main.datetime(2026, 12, 20, 12, tzinfo=main.FUSO_BRASILIA)
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(main.store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main.shortlinks, "esta_configurado", return_value=True), \
+             patch.object(main.shortlinks, "resumo_cliques", return_value={"por_oferta": {}}) as resumo:
+            main.cliques_para_repescagem(dezembro)
+            inicio, fim = resumo.call_args.args
+            self.assertEqual(30, (fim - inicio).days)
 
     def test_oferta_bem_clicada_volta_uma_vez_no_dia_seguinte(self):
         import tempfile

@@ -998,9 +998,10 @@ def cliques_para_repescagem(agora=None):
     except (TypeError, ValueError):
         salvo = None
     if not salvo or agora.timestamp() - float(salvo.get("em") or 0) > 3600:
+        inicio = max(agora - timedelta(days=config.REPESCAGEM_DIAS_CLIQUES),
+                     datetime.fromtimestamp(config.REPESCAGEM_CLIQUES_DESDE, FUSO_BRASILIA))
         try:
-            resumo = shortlinks.resumo_cliques(
-                agora - timedelta(days=config.REPESCAGEM_DIAS_CLIQUES), agora)
+            resumo = shortlinks.resumo_cliques(inicio, agora)
         except Exception as erro:
             print(f"   ⚠️  Cliques de {config.REPESCAGEM_DIAS_CLIQUES} dias indisponíveis; "
                   f"repescagem parada nesta rodada: {seguranca.redigir_segredos(erro)}")
