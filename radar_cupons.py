@@ -26,15 +26,16 @@ _MENSAGEM = re.compile(
     r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>.*?<time[^>]*datetime="([^"]+)"',
     re.S,
 )
-# Código: perto de "cupom/código/use", 4 a 20 letras e números em maiúsculas,
-# com pelo menos uma letra (preço e data não contam).
+# Código: logo depois de 🎟/🏷 ou de "cupom/código/use:", 4 a 20 caracteres
+# em MAIÚSCULAS e números (a palavra-chave aceita qualquer caixa; o código não).
 _CODIGO = re.compile(
-    r"(?:cupom|cupon|c[oó]digo|c[oó]d\.?|use|aplique|voucher)\s*(?:de\s+desconto)?\s*[:\-–]?\s*"
-    r"[\"'“`]?([A-Z0-9][A-Z0-9_-]{3,19})\b",
-    re.I,
+    r"(?:[🎟🏷🎫]\ufe0f?|(?i:cupom|cupon|c[oó]digo|c[oó]d\.?|use|aplique|voucher)\s*"
+    r"(?i:de\s+desconto)?\s*[:\-–]?)\s*[\"'“`]?([A-Z0-9][A-Z0-9_-]{3,19})(?![a-z])"
 )
 _NAO_CODIGO = {"OFF", "AQUI", "LINK", "NOVO", "HOJE", "SHOPEE", "AMAZON", "PRIME", "FRETE", "GRATIS",
-               "GRÁTIS", "DESCONTO", "VALIDO", "VÁLIDO", "ABAIXO", "ACIMA", "ATIVE", "RESGATE", "APP"}
+               "DESCONTO", "VALIDO", "ABAIXO", "ACIMA", "ATIVE", "RESGATE", "APP", "MERCADO", "LIVRE",
+               "MAGALU", "LIMITE", "CORRE", "CUPOM", "CUPONS", "CUPONZAO", "LISTA", "LOGO", "USA", "CLIQUE",
+               "COMPRE", "ALIEXPRESS", "SHEIN", "KABUM", "MAGAZINE", "LUIZA", "BLACK", "FRIDAY", "TODOS"}
 _LOJAS = (("Shopee", r"shopee|shope\.ee"), ("Amazon", r"amazon|amzn"),
           ("Mercado Livre", r"mercado\s*livre|meli\.la|mercadolivre"),
           ("AliExpress", r"aliexpress|s\.click"), ("Magalu", r"magalu|magazine\s*luiza"),
@@ -58,9 +59,9 @@ def codigos(texto):
     """Códigos de cupom citados numa mensagem (sem repetir)."""
     achados = []
     for codigo in _CODIGO.findall(texto):
-        codigo = codigo.strip("-_").upper()
+        codigo = codigo.strip("-_")
         if (len(codigo) < 4 or codigo in _NAO_CODIGO or not re.search(r"[A-Z]", codigo)
-                or codigo.isdigit() or codigo in achados):
+                or codigo.isdigit() or codigo in achados or re.fullmatch(r"(?:R\$)?\d+%?", codigo)):
             continue
         achados.append(codigo)
     return achados
@@ -101,12 +102,23 @@ def executar(agora=None, sessao=requests) -> int:
         return 0
     agora = agora or datetime.now(timezone.utc)
     local = agora.astimezone(FUSO)
-    if local.hour not in config.RADAR_CUPONS_HORAS:
-        return 0
-    chave_hora = f"radar_cupons:{local.strftime('%Y-%m-%d-%H')}"
-    if store._estado(chave_hora):
-        return 0
-    store._definir_estado(chave_hora, "feito")
+    intervalo = config.RADAR_CUPONS_INTERVALO_MIN
+    if intervalo > 0:
+        # Modo contínuo (a cada N minutos), quieto de madrugada: as mensagens
+        # da noite continuam na página e saem no primeiro radar da manhã.
+        if local.hour >= 23 or local.hour < 7:
+            return 0
+        ultimo = float(store._estado("radar_cupons_ultimo") or 0)
+        if agora.timestamp() - ultimo < intervalo * 60 - 60:
+            return 0
+        store._definir_estado("radar_cupons_ultimo", agora.timestamp())
+    else:
+        if local.hour not in config.RADAR_CUPONS_HORAS:
+            return 0
+        chave_hora = f"radar_cupons:{local.strftime('%Y-%m-%d-%H')}"
+        if store._estado(chave_hora):
+            return 0
+        store._definir_estado(chave_hora, "feito")
     try:
         vistos = json.loads(store._estado(_CHAVE_VISTOS) or "{}")
     except (TypeError, ValueError):

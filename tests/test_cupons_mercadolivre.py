@@ -104,6 +104,31 @@ class RadarCuponsTest(unittest.TestCase):
         self.assertIn("/cupom", texto)
         self.assertEqual(1, enviar.call_count)
 
+    def test_modo_a_cada_10_minutos_e_quieto_de_madrugada(self):
+        sessao = Mock(get=Mock(return_value=Mock(status_code=200, text=self.PAGINA)))
+        base = datetime(2026, 11, 26, 13, 0, tzinfo=timezone.utc)            # 10:00 em Brasília
+        from datetime import timedelta
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(radar_cupons.config, "RADAR_CUPONS_CANAIS", ("canal_teste",)), \
+             patch.object(radar_cupons.config, "RADAR_CUPONS_INTERVALO_MIN", 10), \
+             patch.object(radar_cupons.time, "sleep"), \
+             patch.object(radar_cupons.monitor, "enviar_mensagem_privada"):
+            self.assertEqual(2, radar_cupons.executar(base, sessao))
+            self.assertEqual(1, sessao.get.call_count)
+            radar_cupons.executar(base + timedelta(minutes=5), sessao)       # cedo demais
+            self.assertEqual(1, sessao.get.call_count)
+            radar_cupons.executar(base + timedelta(minutes=10), sessao)
+            self.assertEqual(2, sessao.get.call_count)
+            radar_cupons.executar(datetime(2026, 11, 27, 5, 0, tzinfo=timezone.utc), sessao)   # 02:00
+            self.assertEqual(2, sessao.get.call_count)
+
+    def test_codigos_no_formato_do_ingresso_e_sem_palavras_comuns(self):
+        self.assertEqual(["VALEHOJE", "CHEGOUOFF"],
+                         radar_cupons.codigos("🎟️ VALEHOJE R$300 OFF acima de R$2299 🎟️ CHEGOUOFF 10% OFF"))
+        self.assertEqual([], radar_cupons.codigos("CUPONS!! MERCADO LIVRE Usa logoooooo"))
+        self.assertEqual(["L40CTTM249BF"], radar_cupons.codigos("Usa logoooooo: 🎟️ L40CTTM249BF 40% OFF máx R$150"))
+
     def test_sem_canais_o_radar_fica_desligado(self):
         with patch.object(radar_cupons.config, "RADAR_CUPONS_CANAIS", ()):
             self.assertEqual(0, radar_cupons.executar())

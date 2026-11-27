@@ -453,6 +453,8 @@ CUPOM_ALERTAS_POR_DIA = max(0, _int("CUPOM_ALERTAS_POR_DIA", 2))
 RADAR_CUPONS_CANAIS = tuple(c.strip() for c in (_get("RADAR_CUPONS_CANAIS") or "").split(",") if c.strip())
 RADAR_CUPONS_HORAS = [int(x) for x in (_get("RADAR_CUPONS_HORAS") or "10,15,20").split(",")
                       if x.strip().isdigit()]
+# Maior que 0: lê a cada N minutos (das 7:00 às 23:00) em vez das horas acima.
+RADAR_CUPONS_INTERVALO_MIN = max(0, _int("RADAR_CUPONS_INTERVALO_MIN", 0))
 # Consulta campanhas oficiais da API afiliada da Shopee. Não usa scraping e
 # continua funcionando independentemente do domínio público da vitrine.
 SHOPEE_CAMPANHAS_CUPOM = _bool("SHOPEE_CAMPANHAS_CUPOM", True)
