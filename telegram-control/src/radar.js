@@ -24,10 +24,15 @@ const NAO_CODIGO = new Set(("OFF AQUI LINK NOVO HOJE SHOPEE AMAZON PRIME FRETE G
 const ESGOTOU = /esgot(?:ou|ado|ada|aram|amos)|acabou|encerr(?:ou|ado|ada)|expirou|n[aã]o (?:est[aá] )?funciona|morreu|caiu o cupom/i;
 const CANAL_VALIDO = /^[A-Za-z][A-Za-z0-9_]{3,31}$/;
 
-function desescapar(texto) {
-  return texto.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+export function desescapar(texto) {
+  return String(texto)
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d{1,7});/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 }
+
+const escaparHtml = (texto) => String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export function textoDaMensagem(trechoHtml) {
   return desescapar(String(trechoHtml).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
@@ -93,7 +98,7 @@ async function garantirTabela(db) {
 
 export function textoDoPost(cupom) {
   const linhas = [`🎟 <b>CUPOM · ${cupom.loja.toUpperCase()}</b>`, "", `<code>${cupom.codigo}</code>`];
-  if (cupom.regra) linhas.push(`ℹ️ ${cupom.regra.replace(/[<>&]/g, "")}`);
+  if (cupom.regra) linhas.push(`ℹ️ ${escaparHtml(desescapar(cupom.regra))}`);
   linhas.push("", "📋 Copie o código, abra a loja e use no carrinho.", "⏳ Pode acabar a qualquer momento.");
   return linhas.join("\n");
 }
@@ -144,10 +149,31 @@ async function encerrar(env, linha, agora, fetchImpl) {
   await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='encerrado' WHERE chave=?").bind(linha.chave).run();
 }
 
+// Conserto único (27/11/2026): as primeiras regras vieram com "R&#036;" da
+// página do canal. Corrige o texto guardado, o post do canal e o site.
+async function consertarRegras(env, fetchImpl) {
+  const { results = [] } = await env.MONITOR_DB.prepare("SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons WHERE regra LIKE '%&#%' LIMIT 30").all();
+  const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
+  for (const linha of results) {
+    const regra = desescapar(linha.regra);
+    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=? WHERE chave=?").bind(regra, linha.chave).run();
+    if (linha.cupom_id) await env.MONITOR_DB.prepare("UPDATE coupons SET condition=? WHERE id=?").bind(regra, linha.cupom_id).run();
+    const [slug] = linha.chave.split(":");
+    const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra };
+    if (linha.mensagem_canal) {
+      await telegram(env, "editMessageText", { chat_id: canal, message_id: linha.mensagem_canal, parse_mode: "HTML",
+        disable_web_page_preview: true, text: textoDoPost(cupom), reply_markup: botoesDoPost(cupom) }, fetchImpl).catch(() => {});
+    }
+  }
+}
+
 export async function runRadarCupons(controller, env, fetchImpl = fetch) {
   const agoraMs = Number(controller?.scheduledTime || Date.now());
-  if (new Date(agoraMs).getUTCMinutes() % 2 !== 0 || !radarAtivo(agoraMs)) return null;
+  if (new Date(agoraMs).getUTCMinutes() % 2 !== 0) return null;
   if (!env.MONITOR_DB || !env.TELEGRAM_BOT_TOKEN) return null;
+  await garantirTabela(env.MONITOR_DB);
+  await consertarRegras(env, fetchImpl).catch(() => {});
+  if (!radarAtivo(agoraMs)) return null;
   const lista = canais(env);
   if (!lista.length) return null;
   const agora = Math.floor(agoraMs / 1000);

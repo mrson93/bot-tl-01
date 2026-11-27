@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { apagarCupomDoRadar, botoesDoPost, codigosDoTexto, lojaDoTexto, mensagensDaPagina, radarAtivo, regraDoCupom, runRadarCupons } from "../src/radar.js";
+import { apagarCupomDoRadar, botoesDoPost, desescapar, textoDoPost, codigosDoTexto, lojaDoTexto, mensagensDaPagina, radarAtivo, regraDoCupom, runRadarCupons } from "../src/radar.js";
 
 const msg = (texto, iso) => `<div class="tgme_widget_message_text js-message_text" dir="auto">${texto}</div><div><time datetime="${iso}"></time></div>`;
 
@@ -99,4 +99,10 @@ test("radar: quando o canal diz que esgotou, o post vira encerrado; o botão Apa
   assert.ok(telegram.some(([m]) => m === "deleteMessage"));
   assert.equal(db.coupons.has("radar_shopee_BLACK20"), false);
   assert.equal(await apagarCupomDoRadar(env, "x:y", impl), false);
+});
+
+test("radar: R$ codificado na página vira R$ no post (sem quebrar o HTML)", () => {
+  assert.equal(desescapar("R&#036;300 OFF &#33;&#33; &amp; &#x24;5"), "R$300 OFF !! & $5");
+  const texto = textoDoPost({ loja: "Mercado Livre", codigo: "VALEHOJE", regra: "R&#036;300 OFF acima de R&#036;2299 <b>" });
+  assert.match(texto, /ℹ️ R\$300 OFF acima de R\$2299 &lt;b&gt;/);
 });
