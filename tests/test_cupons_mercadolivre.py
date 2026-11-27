@@ -159,6 +159,26 @@ class CanalDeCuponsTest(unittest.TestCase):
         self.assertEqual("https://t.me/CanalTaBaratoCupons", botao["url"])
 
 
+class PaginasDeCuponsTest(unittest.TestCase):
+    def test_links_de_afiliado_das_paginas_de_cupons_sem_perfil(self):
+        import site_publisher
+        with patch("shopee.gerar_link", return_value="https://s.shopee.com.br/cupons") as shopee, \
+             patch.object(site_publisher.config, "AMAZON_TAGS_CANAIS", {"telegram": "canaltb-telegram-20"}), \
+             patch.object(mercadolivre.mercadolivre_api.config, "MERCADOLIVRE_AFILIADO_PARAMETROS",
+                          "matt_word=canaltabarato&matt_tool=71195511"), \
+             patch.object(site_publisher, "publicar_assinatura") as publicar:
+            self.assertEqual(["Shopee", "Mercado Livre", "Amazon"], site_publisher.publicar_paginas_cupons())
+        self.assertEqual("https://shopee.com.br/m/cupom-de-desconto", shopee.call_args.args[0])
+        links = {c.args[0]: c.args[1] for c in publicar.call_args_list}
+        self.assertEqual("https://s.shopee.com.br/cupons", links["Cupons Shopee"])
+        self.assertEqual("https://www.mercadolivre.com.br/cupons?matt_word=canaltabarato&matt_tool=71195511",
+                         links["Cupons Mercado Livre"])
+        self.assertEqual("https://www.amazon.com.br/cupons?tag=canaltb-telegram-20", links["Cupons Amazon"])
+        for link in links.values():
+            self.assertNotIn("social", link)
+            self.assertNotIn("/shop/", link)
+
+
 class RadarCuponsTest(unittest.TestCase):
     PAGINA = """
     <div class="tgme_widget_message_text js-message_text">🔥 Shopee: use o cupom <b>BLACK20</b> acima de R$ 99</div>

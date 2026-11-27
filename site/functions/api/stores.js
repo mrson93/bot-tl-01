@@ -7,10 +7,15 @@ const STORES={
   'Cartão Amazon':{slug:'cartao-amazon',name:'Cartão Amazon'},
   AliExpress:{slug:'aliexpress',name:'AliExpress'},
   Amazon:{slug:'amazon',name:'Amazon'},
+  // Páginas de cupons de cada loja (link de afiliado sem mostrar o nosso
+  // perfil): usadas pelos botões "Ativar na loja" dos cupons, fora da vitrine.
+  'Cupons Shopee':{slug:'cupons-shopee',name:'Cupons Shopee'},
+  'Cupons Mercado Livre':{slug:'cupons-mercadolivre',name:'Cupons Mercado Livre'},
+  'Cupons Amazon':{slug:'cupons-amazon',name:'Cupons Amazon'},
 };
 
 export async function onRequestGet({env}) {
-  const result=await env.DB.prepare("SELECT slug,name,updated_at FROM store_links WHERE slug<>'mercadolivre' ORDER BY name").all();
+  const result=await env.DB.prepare("SELECT slug,name,updated_at FROM store_links WHERE slug<>'mercadolivre' AND slug NOT LIKE 'cupons-%' ORDER BY name").all();
   return json({stores:result.results||[]},200,'public, max-age=300, stale-while-revalidate=900');
 }
 

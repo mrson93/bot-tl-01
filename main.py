@@ -110,6 +110,13 @@ def sincronizar_links_lojas_site(lojas, agora=None):
         except Exception as erro:
             print(f"   ⚠️  Atalho de {fonte.NOME} indisponível: "
                   f"{seguranca.redigir_segredos(erro)}")
+    # Páginas de cupons das lojas (botão "Ativar na loja" dos cupons).
+    if not store.link_loja_site_sincronizado(data, "Paginas de cupons"):
+        feitas = site_publisher.publicar_paginas_cupons()
+        if len(feitas) == len(site_publisher.PAGINAS_CUPONS):
+            store.marcar_link_loja_site_sincronizado(data, "Paginas de cupons")
+        if feitas:
+            print(f"🎟 Páginas de cupons atualizadas no site: {', '.join(feitas)}.")
     return atualizados
 
 

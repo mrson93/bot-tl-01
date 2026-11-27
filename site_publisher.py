@@ -288,6 +288,47 @@ def publicar_loja(fonte):
         raise RuntimeError(f"Site recusou o atalho da loja ({resposta.status_code})")
 
 
+# Páginas de cupons de cada loja: o botão "Ativar na loja" dos cupons abre a
+# página de resgate com o nosso código de afiliado, sem mostrar o perfil.
+PAGINAS_CUPONS = {
+    "Shopee": "https://shopee.com.br/m/cupom-de-desconto",
+    "Mercado Livre": "https://www.mercadolivre.com.br/cupons",
+    "Amazon": "https://www.amazon.com.br/cupons",
+}
+HOSTS_CUPONS = {
+    "Shopee": ("s.shopee.com.br", "shope.ee", "shopee.com.br"),
+    "Mercado Livre": ("mercadolivre.com.br",),
+    "Amazon": ("amazon.com.br",),
+}
+
+
+def link_pagina_cupons(loja):
+    """Link de afiliado da página de cupons da loja (sem o nosso perfil)."""
+    pagina = PAGINAS_CUPONS[loja]
+    if loja == "Shopee":
+        import shopee
+        return shopee.gerar_link(pagina, config.SHOPEE_SUBID, ["cupons"])
+    if loja == "Mercado Livre":
+        import mercadolivre_api
+        return mercadolivre_api.link_afiliado(pagina)
+    tag = config.AMAZON_TAGS_CANAIS.get("telegram") or config.AMAZON_ASSOCIATE_TAG
+    if not tag:
+        raise RuntimeError("Sem tag de associado da Amazon")
+    return f"{pagina}?tag={tag}"
+
+
+def publicar_paginas_cupons():
+    """Guarda no site (/loja/cupons-<loja>) o link de afiliado das páginas de cupons."""
+    feitas = []
+    for loja in PAGINAS_CUPONS:
+        try:
+            publicar_assinatura(f"Cupons {loja}", link_pagina_cupons(loja), HOSTS_CUPONS[loja])
+            feitas.append(loja)
+        except Exception as erro:
+            print(f"   ⚠️  Página de cupons de {loja} não atualizada: {seguranca.redigir_segredos(erro)}")
+    return feitas
+
+
 def publicar_assinatura(nome, link_afiliado, hosts):
     """Mantém no site o atalho rastreável de uma assinatura (VIP, Prime)."""
     destino = seguranca.validar_url_https_em_hosts(

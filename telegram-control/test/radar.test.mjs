@@ -17,6 +17,8 @@ test("radar: lê códigos, loja e regra no formato do canal", () => {
   assert.equal(radarAtivo(Date.parse("2026-11-27T05:00:00Z")), false);   // 02:00
   assert.deepEqual(botoesDoPost({ codigo: "BLACK20", loja: "Shopee", slug: "shopee" }).inline_keyboard,
     [[{ text: "📋 Copiar código", copy_text: { text: "BLACK20" } }], [{ text: "🛒 Ativar na Shopee", url: "https://canaltabarato.com.br/loja/shopee" }]]);
+  assert.equal(botoesDoPost({ codigo: "X1234", loja: "Shopee", slug: "shopee", linkSlug: "cupons-shopee" }).inline_keyboard[1][0].url,
+    "https://canaltabarato.com.br/loja/cupons-shopee");
 });
 
 function fakeDb() {
@@ -26,7 +28,7 @@ function fakeDb() {
     async run() {
       sqls.push(sql);
       if (sql.startsWith("INSERT OR IGNORE INTO radar_cupons")) { const [chave, loja, codigo, canal] = this.args; if (!radar.has(chave)) radar.set(chave, { chave, loja, codigo, canal, visto_em: this.args[5], status: "novo" }); }
-      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args[2]), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1] });
+      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2] });
       if (sql.startsWith("UPDATE radar_cupons SET status='encerrado'")) radar.get(this.args[0]).status = "encerrado";
       if (sql.startsWith("UPDATE radar_cupons SET status='apagado'")) radar.get(this.args[0]).status = "apagado";
       if (sql.includes("INSERT INTO coupons")) coupons.set(this.args[0], { id: this.args[0], code: this.args[2], expires_at: this.args[7] });
@@ -35,12 +37,13 @@ function fakeDb() {
       return {};
     },
     async first() {
-      if (sql.includes("FROM store_links")) return { destination: "https://s.shopee.com.br/afiliado" };
+      if (sql.includes("FROM store_links")) return this.args[0] === "cupons-shopee" ? { destination: "https://s.shopee.com.br/cupons" } : null;
       if (sql.includes("FROM radar_cupons WHERE chave=?")) return radar.get(this.args[0]) || null;
       return null;
     },
     async all() {
       if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ chave })) };
+      if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && !r.link_slug) };
       if (sql.includes("status='publicado'")) return { results: [...radar.values()].filter((r) => r.status === "publicado") };
       return { results: [] };
     },
@@ -79,6 +82,7 @@ test("radar: publica sozinho os códigos novos de Shopee, Amazon e Mercado Livre
   assert.equal(aviso[1].chat_id, "999");
   assert.equal(aviso[1].reply_markup.inline_keyboard[0][0].callback_data, "rc:del:shopee:BLACK20");
   assert.equal(db.coupons.get("radar_shopee_BLACK20").code, "BLACK20");
+  assert.equal(post[1].reply_markup.inline_keyboard[1][0].url, "https://canaltabarato.com.br/loja/cupons-shopee");
 });
 
 test("radar: quando o canal diz que esgotou, o post vira encerrado; o botão Apagar tira tudo", async () => {

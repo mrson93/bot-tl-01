@@ -87,7 +87,7 @@ export async function onRequestGet({env}) {
       expires_at,published_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
       ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END,expires_at ASC,published_at DESC LIMIT 100`
     ).bind(now-ENCERRADO_VISIVEL).all(),
-    env.DB.prepare("SELECT slug,name FROM store_links WHERE slug<>'mercadolivre' ORDER BY name").all(),
+    env.DB.prepare("SELECT slug,name FROM store_links WHERE slug<>'mercadolivre' AND slug NOT LIKE 'cupons-%' ORDER BY name").all(),
   ]);
   // Ativos primeiro; os que acabaram nas últimas 24 h vão para o fim, como "Encerrado".
   const official=(result.results||[]).map(coupon=>({...coupon,href:`/cupom/${encodeURIComponent(coupon.id)}`,

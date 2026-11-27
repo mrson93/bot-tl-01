@@ -93,7 +93,9 @@ async function telegram(env, metodo, corpo, fetchImpl) {
 
 async function garantirTabela(db) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS radar_cupons(chave TEXT PRIMARY KEY,loja TEXT NOT NULL,codigo TEXT NOT NULL,
-    canal TEXT NOT NULL,regra TEXT,visto_em INTEGER NOT NULL,status TEXT NOT NULL,mensagem_canal INTEGER,cupom_id TEXT)`).run();
+    canal TEXT NOT NULL,regra TEXT,visto_em INTEGER NOT NULL,status TEXT NOT NULL,mensagem_canal INTEGER,cupom_id TEXT,link_slug TEXT)`).run();
+  // Tabela criada antes da coluna link_slug (27/11/2026).
+  await db.prepare("ALTER TABLE radar_cupons ADD COLUMN link_slug TEXT").run().catch(() => {});
 }
 
 export function textoDoPost(cupom) {
@@ -106,26 +108,36 @@ export function textoDoPost(cupom) {
 export function botoesDoPost(cupom) {
   return { inline_keyboard: [
     [{ text: "📋 Copiar código", copy_text: { text: cupom.codigo } }],
-    [{ text: `🛒 Ativar na ${cupom.loja === "Mercado Livre" ? "loja" : cupom.loja}`, url: `${SITE}/loja/${cupom.slug}` }],
+    [{ text: `🛒 Ativar na ${cupom.loja === "Mercado Livre" ? "loja" : cupom.loja}`, url: `${SITE}/loja/${cupom.linkSlug || cupom.slug}` }],
   ] };
+}
+
+// Página de cupons da loja (link de afiliado sem o nosso perfil), guardada
+// pelo bot em store_links como "cupons-<loja>"; sem ela, o atalho da loja.
+async function linkDaLoja(db, slug) {
+  for (const candidato of [`cupons-${slug}`, slug]) {
+    const linha = await db.prepare("SELECT destination FROM store_links WHERE slug=?").bind(candidato).first().catch(() => null);
+    if (linha?.destination) return { linkSlug: candidato, destino: linha.destination };
+  }
+  return { linkSlug: slug, destino: null };
 }
 
 async function publicar(env, cupom, agora, fetchImpl) {
   const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
+  const { linkSlug, destino } = await linkDaLoja(env.MONITOR_DB, cupom.slug);
+  cupom.linkSlug = linkSlug;
   const post = await telegram(env, "sendMessage", {
     chat_id: canal, text: textoDoPost(cupom), parse_mode: "HTML", disable_web_page_preview: true,
     reply_markup: botoesDoPost(cupom),
   }, fetchImpl);
-  const destino = await env.MONITOR_DB.prepare("SELECT destination FROM store_links WHERE slug=?").bind(cupom.slug).first()
-    .then((linha) => linha?.destination).catch(() => null);
   const cupomId = `radar_${cupom.slug}_${cupom.codigo}`.slice(0, 100);
   if (destino) {
     await env.MONITOR_DB.prepare(`INSERT INTO coupons(id,source,code,title,kind,condition,destination,active_at,expires_at,published_at)
       VALUES(?,?,?,?,'code',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET condition=excluded.condition,expires_at=excluded.expires_at,published_at=excluded.published_at`)
       .bind(cupomId, cupom.loja, cupom.codigo, cupom.codigo, cupom.regra || null, destino, agora, agora + VALIDADE_S, agora).run();
   }
-  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=? WHERE chave=?")
-    .bind(post?.message_id || null, destino ? cupomId : null, cupom.chave).run();
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=? WHERE chave=?")
+    .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.chave).run();
   await telegram(env, "sendMessage", {
     chat_id: env.TELEGRAM_ADMIN_ID, disable_web_page_preview: true,
     text: `🎟 Publicado no canal de cupons: ${cupom.loja} · ${cupom.codigo}${cupom.regra ? ` (${cupom.regra})` : ""} — de @${cupom.canal}`,
@@ -149,17 +161,24 @@ async function encerrar(env, linha, agora, fetchImpl) {
   await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='encerrado' WHERE chave=?").bind(linha.chave).run();
 }
 
-// Conserto único (27/11/2026): as primeiras regras vieram com "R&#036;" da
-// página do canal. Corrige o texto guardado, o post do canal e o site.
+// Conserto único (27/11/2026): os primeiros posts vieram com "R&#036;" da
+// página do canal e com o botão para o atalho da loja (que mostra o nosso
+// perfil). Corrige o texto, o botão (página de cupons) e o site.
 async function consertarRegras(env, fetchImpl) {
-  const { results = [] } = await env.MONITOR_DB.prepare("SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons WHERE regra LIKE '%&#%' LIMIT 30").all();
+  const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons
+    WHERE status='publicado' AND (link_slug IS NULL OR regra LIKE '%&#%') LIMIT 30`).all();
   const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
   for (const linha of results) {
-    const regra = desescapar(linha.regra);
-    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=? WHERE chave=?").bind(regra, linha.chave).run();
-    if (linha.cupom_id) await env.MONITOR_DB.prepare("UPDATE coupons SET condition=? WHERE id=?").bind(regra, linha.cupom_id).run();
+    const regra = desescapar(linha.regra || "");
     const [slug] = linha.chave.split(":");
-    const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra };
+    const link = await linkDaLoja(env.MONITOR_DB, slug);
+    if (!link.linkSlug.startsWith("cupons-")) continue;   // página de cupons ainda não salva pelo bot
+    const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra, ...link };
+    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,link_slug=? WHERE chave=?").bind(regra, link.linkSlug, linha.chave).run();
+    if (linha.cupom_id) {
+      await env.MONITOR_DB.prepare("UPDATE coupons SET condition=?,destination=COALESCE(?,destination) WHERE id=?")
+        .bind(regra || null, link.destino, linha.cupom_id).run();
+    }
     if (linha.mensagem_canal) {
       await telegram(env, "editMessageText", { chat_id: canal, message_id: linha.mensagem_canal, parse_mode: "HTML",
         disable_web_page_preview: true, text: textoDoPost(cupom), reply_markup: botoesDoPost(cupom) }, fetchImpl).catch(() => {});
