@@ -279,6 +279,53 @@ def buscar_ofertas() -> list:
     return list(ofertas.values())
 
 
+PAGINA_CUPONS = "https://www.mercadolivre.com.br/cupons"
+_COPIA_CUPONS_MAX_HORAS = 24
+
+
+def _valor_cupom(cupom):
+    """Ordem dos cupons: sem compra mínima primeiro; depois o maior desconto em R$."""
+    minimo = cupom.get("min_value")
+    return (minimo == 0, float(cupom.get("cap_value") or 0), -float(minimo or 0))
+
+
+def buscar_cupons() -> list:
+    """Cupons públicos de campanha da página de cupons (cópia da extensão).
+
+    O cupom do Mercado Livre se ativa na conta de quem compra, sem código: o
+    link leva à página de cupons com o código de afiliado.
+    """
+    if not mercadolivre_api.pode_publicar():
+        return []
+    copia = site_publisher.ler_cupons_mercadolivre()
+    if not copia:
+        print("   ℹ️  Sem cupons do Mercado Livre no site (extensão ainda não enviou).")
+        return []
+    capturada, cupons = copia
+    idade = (time.time() - capturada) / 3600
+    if idade > _COPIA_CUPONS_MAX_HORAS:
+        print(f"   ⚠️  Cupons do Mercado Livre no site têm {idade:.0f} h; velhos demais, ignorados.")
+        return []
+    agora = int(time.time())
+    destino = mercadolivre_api.link_afiliado(PAGINA_CUPONS)
+    resultado = []
+    for cupom in sorted(cupons, key=_valor_cupom, reverse=True):
+        titulo = " ".join(str(cupom.get("title") or "").split())
+        expira = int(cupom.get("expires_at") or 0) or None
+        if not titulo or (expira and expira <= agora):
+            continue
+        regras = [str(cupom.get(c) or "").strip().rstrip(".") for c in ("min_text", "cap_text")]
+        condicao = " · ".join([r for r in regras if r] + ["ative na página de cupons do Mercado Livre"])
+        resultado.append({
+            "id": f"mercadolivre_cupom_{cupom.get('id')}",
+            "fonte": NOME, "codigo": "", "titulo": titulo, "tipo": "voucher",
+            "condicao": condicao[:220], "destino": destino,
+            "ativo_em": int(cupom.get("starts_at") or 0) or None, "expira_em": expira,
+            "_fonte_obj": __import__(__name__),
+        })
+    return resultado
+
+
 def _avisar_copia(idade_horas):
     try:
         monitor.avisar_copia_mercadolivre(idade_horas)

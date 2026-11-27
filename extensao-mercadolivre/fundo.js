@@ -2,6 +2,7 @@
 // verificação anti-robô que o Mercado Livre mostra ao servidor do bot) e
 // guarda uma cópia no site. O bot usa essa cópia quando a API não traz preço.
 import { lerPagina, pediuVerificacao } from "./leitura.js";
+import { lerCupons } from "./cupons.js";
 
 const SITE = "https://canaltabarato.com.br/api/ml-list";
 const BASE = "https://www.mercadolivre.com.br/mais-vendidos/";
@@ -9,6 +10,9 @@ const BASE = "https://www.mercadolivre.com.br/mais-vendidos/";
 export const CATEGORIAS_PADRAO = ["MLB1574", "MLB5726", "MLB1000", "MLB1648", "MLB1051", "MLB1246",
   "MLB1276", "MLB263532", "MLB1144", "MLB1132", "MLB1071", "MLB1430"];
 const ALARME = "enviar-mais-vendidos";
+const ALARME_CUPONS = "enviar-cupons";
+const SITE_CUPONS = "https://canaltabarato.com.br/api/ml-coupons";
+const CUPONS_MINUTOS = 360;
 const INTERVALO_MINUTOS = 60;
 const POR_RODADA = 4;
 const PAUSA_MS = 4000;
@@ -89,6 +93,41 @@ export function deveEnviarAtrasado(ultimoSucessoEm, agora, enviandoDesde) {
 async function garantirAgendamento() {
   const alarme = await chrome.alarms.get(ALARME);
   if (!alarme) agendar();
+  if (!(await chrome.alarms.get(ALARME_CUPONS))) agendarCupons();
+}
+
+// Cupons públicos da página de cupons, a cada 6 h (mudam bem menos que os preços).
+async function enviarCupons() {
+  const { tokenSite } = await chrome.storage.local.get("tokenSite");
+  let resultado;
+  try {
+    if (!tokenSite) throw new Error("Falta salvar o token do site.");
+    const aba = await abaDoMercadoLivre();
+    let pagina;
+    try {
+      pagina = await baixarNaAba(aba.id, "https://www.mercadolivre.com.br/cupons");
+    } finally {
+      if (aba.temporaria) await chrome.tabs.remove(aba.id).catch(() => {});
+    }
+    if (pediuVerificacao(pagina.html, pagina.url)) throw new Error("O Mercado Livre pediu verificação.");
+    const cupons = lerCupons(pagina.html);
+    if (!cupons.length) throw new Error("A página de cupons veio sem cupons.");
+    const resposta = await fetch(SITE_CUPONS, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenSite}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ coupons: cupons }),
+    });
+    if (!resposta.ok) throw new Error(`O site respondeu ${resposta.status}`);
+    resultado = { ok: true, cupons: cupons.length };
+  } catch (erro) {
+    resultado = { ok: false, erro: String(erro?.message || erro) };
+  }
+  await chrome.storage.local.set({ ultimoEnvioCupons: { ...resultado, em: Date.now() } });
+  return resultado;
+}
+
+function agendarCupons() {
+  chrome.alarms.create(ALARME_CUPONS, { delayInMinutes: 2, periodInMinutes: CUPONS_MINUTOS });
 }
 
 async function enviarSeAtrasado() {
@@ -148,6 +187,7 @@ async function enviarAgora() {
 
 function agendar() {
   chrome.alarms.create(ALARME, { delayInMinutes: 1, periodInMinutes: INTERVALO_MINUTOS });
+  agendarCupons();
 }
 
 if (globalThis.chrome?.runtime?.onInstalled) {
@@ -155,6 +195,7 @@ if (globalThis.chrome?.runtime?.onInstalled) {
   chrome.runtime.onStartup.addListener(agendar);
   chrome.alarms.onAlarm.addListener((alarme) => {
     if (alarme.name === ALARME) enviar();
+    if (alarme.name === ALARME_CUPONS) enviarCupons();
   });
   // Toda vez que a extensão acorda (alarme, mensagem, aba): o alarme existe?
   garantirAgendamento();
@@ -166,6 +207,10 @@ if (globalThis.chrome?.runtime?.onInstalled) {
   });
   // Botão "Enviar agora" das opções.
   chrome.runtime.onMessage.addListener((mensagem, _remetente, responder) => {
+    if (mensagem?.tipo === "enviar-cupons") {
+      enviarCupons().then(responder);
+      return true;
+    }
     if (mensagem?.tipo !== "enviar-mais-vendidos") return false;
     enviar().then(responder);
     return true;

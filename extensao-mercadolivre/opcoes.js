@@ -29,10 +29,22 @@ async function mostrarProximo() {
     : "Envio automático desligado: clique em Enviar agora para religar.";
 }
 
-chrome.storage.local.get(["tokenSite", "ultimoEnvio"]).then((valores) => {
+const cuponsInfo = document.getElementById("cupons");
+function mostrarCupons(ultimo) {
+  if (!ultimo) { cuponsInfo.textContent = "Cupons: nenhum envio ainda (a cada 6 h)."; return; }
+  const quando = new Date(ultimo.em).toLocaleString("pt-BR");
+  cuponsInfo.textContent = ultimo.ok ? `Cupons: ${ultimo.cupons} enviados em ${quando}.` : `Cupons: falhou em ${quando}: ${ultimo.erro}`;
+}
+document.getElementById("enviar-cupons").addEventListener("click", async () => {
+  cuponsInfo.textContent = "Lendo a página de cupons…";
+  mostrarCupons({ ...(await chrome.runtime.sendMessage({ tipo: "enviar-cupons" })), em: Date.now() });
+});
+
+chrome.storage.local.get(["tokenSite", "ultimoEnvio", "ultimoEnvioCupons"]).then((valores) => {
   if (valores.tokenSite) token.placeholder = "token salvo (cole outro para trocar)";
   mostrarEnvio(valores.ultimoEnvio);
   mostrarProximo();
+  mostrarCupons(valores.ultimoEnvioCupons);
 });
 chrome.storage.sync.get("categorias").then(({ categorias: lista }) => {
   categorias.value = Array.isArray(lista) ? lista.join(", ") : "";

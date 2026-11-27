@@ -15,6 +15,15 @@ usa essa cópia quando a API não traz ofertas (até 3 h de idade,
   devolve a página vazia): usa uma aba já aberta ou abre uma em segundo plano
   e fecha no fim.
 
+## Cupons
+
+A cada 6 h a extensão também lê https://www.mercadolivre.com.br/cupons e
+envia ao site (`/api/ml-coupons`) só os cupons públicos de campanha ("Em
+produtos selecionados"). Os de seguidor, de loja e da aba "Meus cupons" são
+pessoais e ficam de fora. O bot publica os melhores em /cupons e nos canais
+(no máximo `CUPOM_ALERTAS_POR_DIA` alertas por dia), com o link de afiliado da
+página de cupons. O botão "Enviar cupons agora" faz o envio na hora.
+
 ## Instalar (Chrome ou Brave)
 
 1. Crie o token do site (uma vez). No terminal, na pasta do projeto:

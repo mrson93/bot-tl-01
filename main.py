@@ -48,6 +48,7 @@ import site_publisher
 import observabilidade
 import monitor
 import monitor_precos
+import radar_cupons
 import post_fixado
 import idempotencia
 
@@ -714,6 +715,8 @@ def publicar_cupons(cupons) -> int:
     limite_site = config.CUPOM_RESUMO_MAX_ITENS if site_ativo else 0
     publicados_site = 0
     alertas_iniciados = 0
+    chave_dia = f"cupom_alertas:{datetime.now(FUSO_BRASILIA).date().isoformat()}"
+    alertas_hoje = int(store._estado(chave_dia) or 0)
     for cupom in cupons:
         store.salvar_cupom(cupom)
         if (site_ativo and publicados_site < limite_site
@@ -731,7 +734,8 @@ def publicar_cupons(cupons) -> int:
                 print("   ⚠️  Cupom recusado pelo Site: "
                       f"{seguranca.redigir_segredos(erro)}")
         if (not config.CUPOM_ALERTA_SEPARADO
-                or alertas_iniciados >= config.CUPOM_ALERTAS_POR_RODADA):
+                or alertas_iniciados >= config.CUPOM_ALERTAS_POR_RODADA
+                or alertas_hoje + alertas_iniciados >= config.CUPOM_ALERTAS_POR_DIA):
             continue
         pendentes = [canal for canal in canais_ativos()
                      if hasattr(canal, "postar_cupom")
@@ -752,7 +756,17 @@ def publicar_cupons(cupons) -> int:
                 store.registrar_entrega_cupom(cupom["id"], canal.NOME, False)
                 print(f"   ⚠️  Alerta de cupom falhou no {canal.NOME}: "
                       f"{seguranca.redigir_segredos(erro)}")
+    if alertas_iniciados:
+        store._definir_estado(chave_dia, alertas_hoje + alertas_iniciados)
     return publicados
+
+
+def radar_cupons_seguro():
+    """Radar de cupons dos canais do Telegram (só avisa o admin); nunca derruba a rodada."""
+    try:
+        radar_cupons.executar()
+    except Exception as erro:
+        print(f"⚠️ Radar de cupons falhou: {seguranca.redigir_segredos(erro)}")
 
 
 def enviar_resumo_cupons_se_preciso(agora=None) -> bool:
@@ -1827,6 +1841,7 @@ def main():
             enviar_relatorio_seguro()
             enviar_resumo_cupons_se_preciso()
             enviar_top_whatsapp_se_preciso()
+            radar_cupons_seguro()
             print(f"⏳ Proxima postagem prevista para {datetime.fromtimestamp(proximo).strftime('%H:%M')}.")
             return
         try:
@@ -1844,6 +1859,7 @@ def main():
         enviar_relatorio_seguro()
         enviar_resumo_cupons_se_preciso()
         enviar_top_whatsapp_se_preciso()
+        radar_cupons_seguro()
         return
 
     print(f"🤖 Bot no ar! Procurando ofertas a cada "

@@ -445,6 +445,14 @@ BLACK_FRIDAY_MAX_PERCENTUAL = max(0.0, min(100.0, _float("BLACK_FRIDAY_MAX_PERCE
 # copiados, vencidos ou sem destino verificavel.
 CUPOM_ALERTA_SEPARADO = _bool("CUPOM_ALERTA_SEPARADO", True)
 CUPOM_ALERTAS_POR_RODADA = max(0, _int("CUPOM_ALERTAS_POR_RODADA", 1))
+# Teto de alertas de cupom por dia nos canais (os cupons do Mercado Livre são
+# dezenas: sem teto, sairia um a cada rodada).
+CUPOM_ALERTAS_POR_DIA = max(0, _int("CUPOM_ALERTAS_POR_DIA", 2))
+# Radar de cupons: canais públicos do Telegram (usuários, separados por
+# vírgula) lidos nas horas abaixo; os códigos novos vão só para o admin.
+RADAR_CUPONS_CANAIS = tuple(c.strip() for c in (_get("RADAR_CUPONS_CANAIS") or "").split(",") if c.strip())
+RADAR_CUPONS_HORAS = [int(x) for x in (_get("RADAR_CUPONS_HORAS") or "10,15,20").split(",")
+                      if x.strip().isdigit()]
 # Consulta campanhas oficiais da API afiliada da Shopee. Não usa scraping e
 # continua funcionando independentemente do domínio público da vitrine.
 SHOPEE_CAMPANHAS_CUPOM = _bool("SHOPEE_CAMPANHAS_CUPOM", True)
