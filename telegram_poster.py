@@ -593,6 +593,11 @@ def postar_claude_pro(link: str, variante=0) -> None:
                       aviso=_AVISO_CLAUDE_PRO)
 
 
+def canal_cupons():
+    """Canal só de cupons (@CanalTaBaratoCupons); sem ele, o canal principal."""
+    return config.TELEGRAM_CANAL_CUPONS or config.TELEGRAM_CHANNEL
+
+
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Alerta enxuto para cupom cuja pagina de resgate veio da API oficial."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
@@ -610,13 +615,13 @@ def postar_cupom(cupom: dict, link_afiliado: str) -> None:
         linhas.append("ℹ️ " + condicao)
     linhas.extend(["📱 Resgate agora no aplicativo antes de finalizar.", "",
                    "⏳ Cupom sujeito a disponibilidade e regras da plataforma."])
+    # Com código: "Copiar código" (copia com um toque) e "Ativar na loja" lado a lado.
+    botoes = ([[{"text": "📋 Copiar código", "copy_text": {"text": str(cupom.get("codigo")).strip()}}],
+               [{"text": "🛒 Ativar na loja", "url": link_afiliado}]] if codigo
+              else [[{"text": "🎟 Ativar voucher", "url": link_afiliado}]])
     dados = {
-        "chat_id": config.TELEGRAM_CHANNEL, "text": "\n".join(linhas),
-        "parse_mode": "HTML",
-        "reply_markup": {"inline_keyboard": [[{
-            "text": "🎟 Resgatar cupom" if codigo else "🎟 Ativar voucher",
-            "url": link_afiliado
-        }]]},
+        "chat_id": canal_cupons(), "text": "\n".join(linhas),
+        "parse_mode": "HTML", "reply_markup": {"inline_keyboard": botoes},
     }
     resposta = requests.post(API.format(token=config.TELEGRAM_BOT_TOKEN,
                                         metodo="sendMessage"), json=dados, timeout=30)
@@ -639,7 +644,7 @@ def encerrar_cupom(cupom: dict, mensagem_id) -> None:
     linhas += ["", "Este cupom acabou ou saiu da página da loja. Fique de olho no canal: "
                "avisamos os próximos assim que aparecerem."]
     resposta = requests.post(API.format(token=config.TELEGRAM_BOT_TOKEN, metodo="editMessageText"), json={
-        "chat_id": config.TELEGRAM_CHANNEL, "message_id": int(mensagem_id), "text": "\n".join(linhas),
+        "chat_id": canal_cupons(), "message_id": int(mensagem_id), "text": "\n".join(linhas),
         "parse_mode": "HTML", "reply_markup": {"inline_keyboard": []},
     }, timeout=30)
     corpo = resposta.json()
@@ -662,7 +667,7 @@ def postar_resumo_cupons(cupons: list, links: dict) -> None:
             linha += " — " + condicao
         linhas.append(linha)
     primeiro = links.get(cupons[0]["id"])
-    dados = {"chat_id": config.TELEGRAM_CHANNEL, "text": "\n".join(linhas),
+    dados = {"chat_id": canal_cupons(), "text": "\n".join(linhas),
              "parse_mode": "HTML"}
     if primeiro:
         dados["reply_markup"] = {"inline_keyboard": [[{

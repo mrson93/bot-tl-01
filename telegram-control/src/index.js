@@ -13,6 +13,7 @@ import {
 } from "./settings.js";
 import { checkUsageLimit } from "./usage-monitor.js";
 import { githubFetch } from "./github-retry.js";
+import { apagarCupomDoRadar, runRadarCupons } from "./radar.js";
 import { MINUTO_SAUDE, coletaAtrasada, handleMonitorCommand, intervaloDoMonitor, isMonitorCommand, monitorDue, textoColetaAtrasada } from "./monitor.js";
 
 const MODES = Object.freeze({
@@ -969,6 +970,16 @@ async function handleAuthorizedUpdate(update, env, fetchImpl) {
   const callback = update.callback_query;
   const chatId = callback?.message?.chat?.id || update.message.chat.id;
   const callbackData = String(callback?.data || "");
+  if (callbackData.startsWith("rc:del:")) {
+    const apagado = await apagarCupomDoRadar(env, callbackData.slice(7), fetchImpl).catch(() => false);
+    await answerCallback(env, callback.id, apagado ? "Cupom apagado do canal e do site" : "Cupom não encontrado", fetchImpl);
+    if (apagado) {
+      await telegramRequest(env, "editMessageReplyMarkup", {
+        chat_id: chatId, message_id: callback.message?.message_id, reply_markup: { inline_keyboard: [] },
+      }, fetchImpl).catch(() => {});
+    }
+    return;
+  }
   if (callbackData.startsWith("mode:")) {
     const mode = callbackData.slice(5);
     if (!MODES[mode]) return answerCallback(env, callback.id, "Opção inválida", fetchImpl);
@@ -1306,6 +1317,9 @@ export async function runScheduledTasks(controller, env, fetchImpl = fetch) {
     }),
     runDailyPrices(controller, env, fetchImpl).catch(() => {
       console.error(JSON.stringify({ event: "daily_prices_failed" }));
+    }),
+    runRadarCupons(controller, env, fetchImpl).catch((error) => {
+      console.error(JSON.stringify({ event: "radar_cupons_failed", reason: String(error?.message || error).slice(0, 80) }));
     }),
   ]);
 }

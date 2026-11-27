@@ -795,6 +795,33 @@ def encerrar_cupons(cupons_atuais, agora=None) -> int:
     return encerrados
 
 
+CONVITE_CUPONS_HORA = 13
+
+
+def enviar_convite_cupons_se_preciso(agora=None) -> bool:
+    """Uma vez por dia, um convite curto no canal de ofertas para o canal de cupons."""
+    agora = agora or datetime.now(FUSO_BRASILIA)
+    if (agora.hour != CONVITE_CUPONS_HORA or not telegram_poster.esta_configurada()
+            or not config.TELEGRAM_CANAL_CUPONS):
+        return False
+    chave = f"convite_cupons:{agora.date().isoformat()}"
+    if store._estado(chave):
+        return False
+    store._definir_estado(chave, "feito")
+    link = "https://t.me/" + config.TELEGRAM_CANAL_CUPONS.lstrip("@")
+    try:
+        resposta = requests.post(telegram_poster.API.format(token=config.TELEGRAM_BOT_TOKEN, metodo="sendMessage"), json={
+            "chat_id": config.TELEGRAM_CHANNEL, "parse_mode": "HTML", "disable_web_page_preview": True,
+            "text": ("🎟 <b>Cupons em tempo real</b>\n\nOs cupons do Mercado Livre, Shopee e Amazon saem "
+                     "no nosso canal só de cupons, com o botão de copiar o código e o aviso de quando acabam."),
+            "reply_markup": {"inline_keyboard": [[{"text": "🎟 Entrar no canal de cupons", "url": link}]]},
+        }, timeout=30).json()
+        return bool(resposta.get("ok"))
+    except Exception as erro:
+        print(f"⚠️ Convite do canal de cupons falhou: {seguranca.redigir_segredos(erro)}")
+        return False
+
+
 def radar_cupons_seguro():
     """Radar de cupons dos canais do Telegram (só avisa o admin); nunca derruba a rodada."""
     try:
@@ -1878,6 +1905,7 @@ def main():
             # O relatorio diario nao depende de haver uma oferta liberada agora.
             enviar_relatorio_seguro()
             enviar_resumo_cupons_se_preciso()
+            enviar_convite_cupons_se_preciso()
             enviar_top_whatsapp_se_preciso()
             radar_cupons_seguro()
             print(f"⏳ Proxima postagem prevista para {datetime.fromtimestamp(proximo).strftime('%H:%M')}.")
@@ -1896,6 +1924,7 @@ def main():
         # Ele roda por ultimo para nunca atrasar a publicacao nem o agendamento.
         enviar_relatorio_seguro()
         enviar_resumo_cupons_se_preciso()
+        enviar_convite_cupons_se_preciso()
         enviar_top_whatsapp_se_preciso()
         radar_cupons_seguro()
         return

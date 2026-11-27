@@ -1,0 +1,215 @@
+// Radar de cupons em tempo real: a cada 2 minutos (7:00–23:00 de Brasília) lê
+// a página pública t.me/s/<canal> dos canais configurados, publica no canal
+// de cupons os códigos novos de Amazon, Mercado Livre e Shopee (com "Copiar
+// código" e "Ativar na loja" pelo nosso link de afiliado da loja), coloca no
+// site e avisa o admin com um botão para apagar. Quando o canal de origem diz
+// que o código esgotou, o post vira "encerrado" e sai do site.
+
+export const RADAR_PADRAO = "sddescontos";
+export const CANAL_CUPONS_PADRAO = "@CanalTaBaratoCupons";
+const SITE = "https://canaltabarato.com.br";
+const FUSO_MS = 3 * 3600 * 1000;
+const JANELA_S = 3 * 3600;          // só mensagens das últimas 3 h
+const VALIDADE_S = 12 * 3600;       // sem data informada: 12 h no site
+const LOJAS = [
+  ["Shopee", "shopee", /shopee|shope\.ee/i],
+  ["Amazon", "amazon", /amazon|amzn/i],
+  ["Mercado Livre", "mercadolivre", /mercado\s*livre|meli\.la|mercadolivre/i],
+];
+const OUTRAS_LOJAS = /aliexpress|s\.click|magalu|magazine\s*luiza|shein|kabum|netshoes|centauro|casas\s*bahia/i;
+const CODIGO = /(?:[🎟🏷🎫]️?|(?:[Cc][Uu][Pp][Oo][MmNn]|[Cc][ÓóOo][Dd][Ii][Gg][Oo]|[Cc][ÓóOo][Dd]\.?|[Uu][Ss][Ee]|[Aa][Pp][Ll][Ii][Qq][Uu][Ee]|[Vv][Oo][Uu][Cc][Hh][Ee][Rr])\s*(?:[Dd][Ee]\s+[Dd][Ee][Ss][Cc][Oo][Nn][Tt][Oo])?\s*[:\-–]?)\s*["'“`]?([A-Z0-9][A-Z0-9_-]{3,19})(?![a-z])/gu;
+const NAO_CODIGO = new Set(("OFF AQUI LINK NOVO HOJE SHOPEE AMAZON PRIME FRETE GRATIS DESCONTO VALIDO ABAIXO ACIMA ATIVE "
+  + "RESGATE APP MERCADO LIVRE MAGALU LIMITE CORRE CUPOM CUPONS CUPONZAO LISTA LOGO USA CLIQUE COMPRE ALIEXPRESS "
+  + "SHEIN KABUM MAGAZINE LUIZA BLACK FRIDAY TODOS").split(" "));
+const ESGOTOU = /esgot(?:ou|ado|ada|aram|amos)|acabou|encerr(?:ou|ado|ada)|expirou|n[aã]o (?:est[aá] )?funciona|morreu|caiu o cupom/i;
+const CANAL_VALIDO = /^[A-Za-z][A-Za-z0-9_]{3,31}$/;
+
+function desescapar(texto) {
+  return texto.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+}
+
+export function textoDaMensagem(trechoHtml) {
+  return desescapar(String(trechoHtml).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+// [{texto, momento}] das mensagens da página pública do canal.
+export function mensagensDaPagina(html) {
+  const resultado = [];
+  const padrao = /<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<time[^>]*datetime="([^"]+)"/g;
+  for (const [, corpo, quando] of html.matchAll(padrao)) {
+    const momento = Math.floor(Date.parse(quando) / 1000);
+    if (Number.isFinite(momento)) resultado.push({ texto: textoDaMensagem(corpo), momento });
+  }
+  return resultado;
+}
+
+export function codigosDoTexto(texto) {
+  const achados = [];
+  for (const [, bruto] of String(texto).matchAll(CODIGO)) {
+    const codigo = bruto.replace(/^[-_]+|[-_]+$/g, "");
+    if (codigo.length < 4 || NAO_CODIGO.has(codigo) || !/[A-Z]/.test(codigo) || /^\d+$/.test(codigo)
+        || achados.includes(codigo)) continue;
+    achados.push(codigo);
+  }
+  return achados;
+}
+
+export function lojaDoTexto(texto) {
+  const loja = LOJAS.find(([, , padrao]) => padrao.test(texto));
+  return loja ? { nome: loja[0], slug: loja[1] } : null;
+}
+
+// Regra do cupom logo depois do código ("R$300 OFF acima de R$2299"), sem links.
+export function regraDoCupom(texto, codigo) {
+  const depois = String(texto).split(codigo)[1] || "";
+  return depois.replace(/https?:\/\/\S+/g, "").split(/[🎟🏷🎫👇]|RESGATE|Na lista/i)[0]
+    .replace(/\s+/g, " ").replace(/^[\s:,.-]+|[\s,.-]+$/g, "").slice(0, 120);
+}
+
+export function radarAtivo(agoraMs) {
+  const hora = new Date(agoraMs - FUSO_MS).getUTCHours();
+  return hora >= 7 && hora < 23;
+}
+
+function canais(env) {
+  return String(env.RADAR_CUPONS_CANAIS ?? RADAR_PADRAO).split(",").map((c) => c.trim().replace(/^@/, ""))
+    .filter((c) => CANAL_VALIDO.test(c)).slice(0, 10);
+}
+
+async function telegram(env, metodo, corpo, fetchImpl) {
+  const resposta = await fetchImpl(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${metodo}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo),
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!dados.ok) throw new Error(`telegram_${metodo}_${dados.error_code || resposta.status}`);
+  return dados.result;
+}
+
+async function garantirTabela(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS radar_cupons(chave TEXT PRIMARY KEY,loja TEXT NOT NULL,codigo TEXT NOT NULL,
+    canal TEXT NOT NULL,regra TEXT,visto_em INTEGER NOT NULL,status TEXT NOT NULL,mensagem_canal INTEGER,cupom_id TEXT)`).run();
+}
+
+export function textoDoPost(cupom) {
+  const linhas = [`🎟 <b>CUPOM · ${cupom.loja.toUpperCase()}</b>`, "", `<code>${cupom.codigo}</code>`];
+  if (cupom.regra) linhas.push(`ℹ️ ${cupom.regra.replace(/[<>&]/g, "")}`);
+  linhas.push("", "📋 Copie o código, abra a loja e use no carrinho.", "⏳ Pode acabar a qualquer momento.");
+  return linhas.join("\n");
+}
+
+export function botoesDoPost(cupom) {
+  return { inline_keyboard: [
+    [{ text: "📋 Copiar código", copy_text: { text: cupom.codigo } }],
+    [{ text: `🛒 Ativar na ${cupom.loja === "Mercado Livre" ? "loja" : cupom.loja}`, url: `${SITE}/loja/${cupom.slug}` }],
+  ] };
+}
+
+async function publicar(env, cupom, agora, fetchImpl) {
+  const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
+  const post = await telegram(env, "sendMessage", {
+    chat_id: canal, text: textoDoPost(cupom), parse_mode: "HTML", disable_web_page_preview: true,
+    reply_markup: botoesDoPost(cupom),
+  }, fetchImpl);
+  const destino = await env.MONITOR_DB.prepare("SELECT destination FROM store_links WHERE slug=?").bind(cupom.slug).first()
+    .then((linha) => linha?.destination).catch(() => null);
+  const cupomId = `radar_${cupom.slug}_${cupom.codigo}`.slice(0, 100);
+  if (destino) {
+    await env.MONITOR_DB.prepare(`INSERT INTO coupons(id,source,code,title,kind,condition,destination,active_at,expires_at,published_at)
+      VALUES(?,?,?,?,'code',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET condition=excluded.condition,expires_at=excluded.expires_at,published_at=excluded.published_at`)
+      .bind(cupomId, cupom.loja, cupom.codigo, cupom.codigo, cupom.regra || null, destino, agora, agora + VALIDADE_S, agora).run();
+  }
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=? WHERE chave=?")
+    .bind(post?.message_id || null, destino ? cupomId : null, cupom.chave).run();
+  await telegram(env, "sendMessage", {
+    chat_id: env.TELEGRAM_ADMIN_ID, disable_web_page_preview: true,
+    text: `🎟 Publicado no canal de cupons: ${cupom.loja} · ${cupom.codigo}${cupom.regra ? ` (${cupom.regra})` : ""} — de @${cupom.canal}`,
+    reply_markup: { inline_keyboard: [[{ text: "🗑 Apagar", callback_data: `rc:del:${cupom.chave}`.slice(0, 64) }]] },
+  }, fetchImpl).catch(() => {});
+}
+
+async function encerrar(env, linha, agora, fetchImpl) {
+  const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
+  if (linha.mensagem_canal) {
+    await telegram(env, "editMessageText", {
+      chat_id: canal, message_id: linha.mensagem_canal, parse_mode: "HTML",
+      text: `❌ <b>CUPOM ENCERRADO · ${linha.loja.toUpperCase()}</b>\n\n🎟 <s>${linha.codigo}</s>\n\nEste cupom acabou. Ative as notificações para pegar o próximo.`,
+      reply_markup: { inline_keyboard: [] },
+    }, fetchImpl).catch(() => {});
+  }
+  if (linha.cupom_id) {
+    await env.MONITOR_DB.prepare("UPDATE coupons SET expires_at=MIN(COALESCE(expires_at,?),?) WHERE id=?")
+      .bind(agora, agora, linha.cupom_id).run();
+  }
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='encerrado' WHERE chave=?").bind(linha.chave).run();
+}
+
+export async function runRadarCupons(controller, env, fetchImpl = fetch) {
+  const agoraMs = Number(controller?.scheduledTime || Date.now());
+  if (new Date(agoraMs).getUTCMinutes() % 2 !== 0 || !radarAtivo(agoraMs)) return null;
+  if (!env.MONITOR_DB || !env.TELEGRAM_BOT_TOKEN) return null;
+  const lista = canais(env);
+  if (!lista.length) return null;
+  const agora = Math.floor(agoraMs / 1000);
+  await garantirTabela(env.MONITOR_DB);
+  let publicados = 0, encerrados = 0;
+  for (const canal of lista) {
+    const resposta = await fetchImpl(`https://t.me/s/${canal}`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; radar-cupons)" } });
+    if (!resposta.ok) continue;
+    const recentes = mensagensDaPagina(await resposta.text()).filter((m) => agora - m.momento <= JANELA_S);
+    const candidatos = new Map();
+    for (const { texto } of recentes) {
+      if (ESGOTOU.test(texto)) continue;
+      const loja = lojaDoTexto(texto);
+      if (!loja || OUTRAS_LOJAS.test(texto)) continue;
+      for (const codigo of codigosDoTexto(texto)) {
+        const chave = `${loja.slug}:${codigo}`;
+        if (!candidatos.has(chave)) candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra: regraDoCupom(texto, codigo) });
+      }
+    }
+    const chaves = [...candidatos.keys()];
+    const existentes = new Set();
+    for (let i = 0; i < chaves.length; i += 50) {
+      const lote = chaves.slice(i, i + 50);
+      const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave FROM radar_cupons WHERE chave IN (${lote.map(() => "?").join(",")})`).bind(...lote).all();
+      for (const linha of results) existentes.add(linha.chave);
+    }
+    for (const cupom of candidatos.values()) {
+      if (existentes.has(cupom.chave)) continue;
+      await env.MONITOR_DB.prepare("INSERT OR IGNORE INTO radar_cupons(chave,loja,codigo,canal,regra,visto_em,status) VALUES(?,?,?,?,?,?,'novo')")
+        .bind(cupom.chave, cupom.loja, cupom.codigo, canal, cupom.regra || null, agora).run();
+      try {
+        await publicar(env, cupom, agora, fetchImpl);
+        publicados += 1;
+      } catch (error) {
+        console.error(JSON.stringify({ event: "radar_publish_failed", chave: cupom.chave, reason: String(error?.message || error).slice(0, 80) }));
+      }
+    }
+    // Esgotou? Os publicados que o canal de origem disse que acabaram.
+    const avisos = recentes.filter((m) => ESGOTOU.test(m.texto));
+    if (avisos.length) {
+      const { results = [] } = await env.MONITOR_DB.prepare("SELECT chave,loja,codigo,mensagem_canal,cupom_id FROM radar_cupons WHERE status='publicado' AND canal=? AND visto_em>=?")
+        .bind(canal, agora - 2 * 86400).all();
+      for (const linha of results) {
+        const citado = avisos.some((m) => new RegExp(`(?<![A-Z0-9])${linha.codigo.replace(/[-_]/g, "\\$&")}(?![A-Z0-9])`).test(m.texto));
+        if (!citado) continue;
+        await encerrar(env, linha, agora, fetchImpl);
+        encerrados += 1;
+      }
+    }
+  }
+  if (publicados || encerrados) console.log(JSON.stringify({ event: "radar_cupons", publicados, encerrados }));
+  return { publicados, encerrados };
+}
+
+// Botão "🗑 Apagar" do aviso no admin: tira do canal de cupons e do site.
+export async function apagarCupomDoRadar(env, chave, fetchImpl = fetch) {
+  const linha = await env.MONITOR_DB.prepare("SELECT chave,mensagem_canal,cupom_id FROM radar_cupons WHERE chave=?").bind(chave).first();
+  if (!linha) return false;
+  if (linha.mensagem_canal) {
+    await telegram(env, "deleteMessage", { chat_id: env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO, message_id: linha.mensagem_canal }, fetchImpl).catch(() => {});
+  }
+  if (linha.cupom_id) await env.MONITOR_DB.prepare("DELETE FROM coupons WHERE id=?").bind(linha.cupom_id).run();
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='apagado' WHERE chave=?").bind(chave).run();
+  return true;
+}

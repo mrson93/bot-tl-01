@@ -119,6 +119,46 @@ class CupomEncerradoTest(unittest.TestCase):
         self.assertIn("<s>20% OFF em LIQUIDA</s>", corpo["text"])
 
 
+class CanalDeCuponsTest(unittest.TestCase):
+    def _postar(self, cupom):
+        resposta = Mock()
+        resposta.json.return_value = {"ok": True, "result": {"message_id": 77}}
+        with patch.object(main.telegram_poster.requests, "post", return_value=resposta) as post, \
+             patch.object(main.telegram_poster.config, "TELEGRAM_BOT_TOKEN", "t"), \
+             patch.object(main.telegram_poster.config, "TELEGRAM_CHANNEL", "@CanalTaBarato"), \
+             patch.object(main.telegram_poster.config, "TELEGRAM_CANAL_CUPONS", "@CanalTaBaratoCupons"):
+            mensagem = main.telegram_poster.postar_cupom(cupom, "https://s.shopee.com.br/x")
+        return mensagem, post.call_args.kwargs["json"]
+
+    def test_cupom_com_codigo_vai_para_o_canal_de_cupons_com_copiar_e_ativar(self):
+        mensagem, corpo = self._postar({"fonte": "Shopee", "codigo": "BLACK20", "titulo": "R$ 20 OFF"})
+        self.assertEqual(77, mensagem)
+        self.assertEqual("@CanalTaBaratoCupons", corpo["chat_id"])
+        self.assertEqual([[{"text": "📋 Copiar código", "copy_text": {"text": "BLACK20"}}],
+                          [{"text": "🛒 Ativar na loja", "url": "https://s.shopee.com.br/x"}]],
+                         corpo["reply_markup"]["inline_keyboard"])
+
+    def test_voucher_sem_codigo_tem_so_o_botao_de_ativar(self):
+        _, corpo = self._postar({"fonte": "Mercado Livre", "codigo": "", "titulo": "20% OFF em LIQUIDA"})
+        self.assertEqual([[{"text": "🎟 Ativar voucher", "url": "https://s.shopee.com.br/x"}]],
+                         corpo["reply_markup"]["inline_keyboard"])
+
+    def test_convite_diario_no_canal_de_ofertas(self):
+        treze = datetime(2026, 11, 27, 13, 5, tzinfo=main.FUSO_BRASILIA)
+        resposta = Mock()
+        resposta.json.return_value = {"ok": True}
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(main.telegram_poster, "esta_configurada", return_value=True), \
+             patch.object(main.config, "TELEGRAM_CANAL_CUPONS", "@CanalTaBaratoCupons"), \
+             patch.object(main.requests, "post", return_value=resposta) as post:
+            self.assertTrue(main.enviar_convite_cupons_se_preciso(treze))
+            self.assertFalse(main.enviar_convite_cupons_se_preciso(treze))          # uma vez por dia
+            self.assertFalse(main.enviar_convite_cupons_se_preciso(treze.replace(hour=15)))
+        botao = post.call_args.kwargs["json"]["reply_markup"]["inline_keyboard"][0][0]
+        self.assertEqual("https://t.me/CanalTaBaratoCupons", botao["url"])
+
+
 class RadarCuponsTest(unittest.TestCase):
     PAGINA = """
     <div class="tgme_widget_message_text js-message_text">🔥 Shopee: use o cupom <b>BLACK20</b> acima de R$ 99</div>
