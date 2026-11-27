@@ -66,6 +66,59 @@ class CuponsMercadoLivreTest(unittest.TestCase):
         self.assertEqual(2, canal.postar_cupom.call_count)
 
 
+class CupomEncerradoTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = patch.object(store, "_DB", Path(self.tmp.name) / "estado.db")
+        self.p.start()
+
+    def tearDown(self):
+        self.p.stop()
+        self.tmp.cleanup()
+
+    def _publicar(self, cid, expira=None):
+        store.salvar_cupom({"id": cid, "fonte": "Mercado Livre", "codigo": "", "titulo": "20% OFF em LIQUIDA",
+                            "tipo": "voucher", "condicao": "", "destino": "https://www.mercadolivre.com.br/cupons",
+                            "ativo_em": None, "expira_em": expira})
+        store.registrar_mensagem_cupom(cid, "Telegram", 555)
+        store.registrar_mensagem_cupom(cid, "Site")
+
+    def test_cupom_que_sumiu_da_pagina_vira_encerrado_no_telegram_e_no_site(self):
+        self._publicar("mercadolivre_cupom_1")
+        self._publicar("mercadolivre_cupom_2")
+        ainda = [{"id": "mercadolivre_cupom_2", "fonte": "Mercado Livre"}]
+        with patch.object(main.telegram_poster, "encerrar_cupom") as editar, \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "encerrar_cupom") as site:
+            self.assertEqual(2, main.encerrar_cupons(ainda))
+            self.assertEqual(0, main.encerrar_cupons(ainda))      # já avisado: não repete
+        self.assertEqual("mercadolivre_cupom_1", editar.call_args.args[0]["id"])
+        self.assertEqual("555", str(editar.call_args.args[1]))
+        site.assert_called_once_with("mercadolivre_cupom_1")
+
+    def test_sem_copia_do_mercado_livre_so_encerra_os_vencidos(self):
+        self._publicar("mercadolivre_cupom_1")
+        self._publicar("mercadolivre_cupom_3", expira=int(time.time()) - 60)
+        with patch.object(main.telegram_poster, "encerrar_cupom") as editar, \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "encerrar_cupom"):
+            main.encerrar_cupons([])                               # cópia não veio: não dá para dizer que sumiu
+        self.assertEqual(["mercadolivre_cupom_3"], [c.args[0]["id"] for c in editar.call_args_list])
+
+    def test_mensagem_do_telegram_fica_encerrada_e_sem_botao(self):
+        resposta = Mock()
+        resposta.json.return_value = {"ok": True}
+        with patch.object(main.telegram_poster.requests, "post", return_value=resposta) as post, \
+             patch.object(main.telegram_poster.config, "TELEGRAM_BOT_TOKEN", "t"), \
+             patch.object(main.telegram_poster.config, "TELEGRAM_CHANNEL", "@canal"):
+            main.telegram_poster.encerrar_cupom({"fonte": "Mercado Livre", "titulo": "20% OFF em LIQUIDA"}, "555")
+        corpo = post.call_args.kwargs["json"]
+        self.assertTrue(post.call_args.args[0].endswith("/editMessageText"))
+        self.assertEqual((555, []), (corpo["message_id"], corpo["reply_markup"]["inline_keyboard"]))
+        self.assertIn("CUPOM ENCERRADO · MERCADO LIVRE", corpo["text"])
+        self.assertIn("<s>20% OFF em LIQUIDA</s>", corpo["text"])
+
+
 class RadarCuponsTest(unittest.TestCase):
     PAGINA = """
     <div class="tgme_widget_message_text js-message_text">🔥 Shopee: use o cupom <b>BLACK20</b> acima de R$ 99</div>
@@ -128,6 +181,28 @@ class RadarCuponsTest(unittest.TestCase):
                          radar_cupons.codigos("🎟️ VALEHOJE R$300 OFF acima de R$2299 🎟️ CHEGOUOFF 10% OFF"))
         self.assertEqual([], radar_cupons.codigos("CUPONS!! MERCADO LIVRE Usa logoooooo"))
         self.assertEqual(["L40CTTM249BF"], radar_cupons.codigos("Usa logoooooo: 🎟️ L40CTTM249BF 40% OFF máx R$150"))
+
+    def test_avisa_o_admin_quando_o_canal_diz_que_esgotou(self):
+        self.assertEqual(["VALEHOJE"], radar_cupons.esgotados(["VALEHOJE ESGOTOU 😭"], {"VALEHOJE", "OUTRO10"}))
+        self.assertEqual([], radar_cupons.esgotados(["Corre que está esgotando: VALEHOJE"], {"VALEHOJE"}))
+        pagina2 = self.PAGINA + """
+        <div class="tgme_widget_message_text js-message_text">BLACK20 esgotou, galera</div>
+        <a><time datetime="2026-11-26T17:00:00+00:00"></time></a>"""
+        sessoes = [Mock(get=Mock(return_value=Mock(status_code=200, text=t))) for t in (self.PAGINA, pagina2, pagina2)]
+        base = datetime(2026, 11, 26, 13, 0, tzinfo=timezone.utc)
+        from datetime import timedelta
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(store, "_DB", Path(tmp) / "estado.db"), \
+             patch.object(radar_cupons.config, "RADAR_CUPONS_CANAIS", ("canal_teste",)), \
+             patch.object(radar_cupons.config, "RADAR_CUPONS_INTERVALO_MIN", 10), \
+             patch.object(radar_cupons.time, "sleep"), \
+             patch.object(radar_cupons.monitor, "enviar_mensagem_privada") as enviar:
+            radar_cupons.executar(base, sessoes[0])
+            radar_cupons.executar(base + timedelta(hours=4, minutes=10), sessoes[1])
+            radar_cupons.executar(base + timedelta(hours=4, minutes=20), sessoes[2])   # não repete
+        avisos = [c.args[0] for c in enviar.call_args_list if c.args[0].startswith("❌")]
+        self.assertEqual(1, len(avisos))
+        self.assertIn("BLACK20 (@canal_teste)", avisos[0])
 
     def test_sem_canais_o_radar_fica_desligado(self):
         with patch.object(radar_cupons.config, "RADAR_CUPONS_CANAIS", ()):

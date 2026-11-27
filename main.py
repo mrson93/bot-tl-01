@@ -728,6 +728,7 @@ def publicar_cupons(cupons) -> int:
                 )
                 site_publisher.publicar_cupom(cupom, link_site)
                 store.registrar_entrega_cupom(cupom["id"], "Site", True)
+                store.registrar_mensagem_cupom(cupom["id"], "Site")
                 publicados_site += 1
             except Exception as erro:
                 store.registrar_entrega_cupom(cupom["id"], "Site", False)
@@ -749,8 +750,10 @@ def publicar_cupons(cupons) -> int:
                     cupom["destino"], getattr(canal, "TRACKING_ID", "") or None,
                     ["cupom", "resgate"],
                 )
-                canal.postar_cupom(cupom, link)
+                mensagem_id = canal.postar_cupom(cupom, link)
                 store.registrar_entrega_cupom(cupom["id"], canal.NOME, True)
+                if mensagem_id and canal.NOME == telegram_poster.NOME:
+                    store.registrar_mensagem_cupom(cupom["id"], canal.NOME, mensagem_id)
                 publicados += 1
             except Exception as erro:
                 store.registrar_entrega_cupom(cupom["id"], canal.NOME, False)
@@ -759,6 +762,36 @@ def publicar_cupons(cupons) -> int:
     if alertas_iniciados:
         store._definir_estado(chave_dia, alertas_hoje + alertas_iniciados)
     return publicados
+
+
+def encerrar_cupons(cupons_atuais, agora=None) -> int:
+    """Cupom vencido, ou que sumiu da página de cupons do Mercado Livre numa
+    cópia nova da extensão: a mensagem do Telegram vira "encerrado" e o site
+    mostra "Encerrado" por 24 h."""
+    momento = int(agora or time.time())
+    ids_atuais = {str(c.get("id")) for c in cupons_atuais}
+    # Só dá para dizer que um cupom do Mercado Livre sumiu se a cópia veio.
+    copia_ml = any(c.get("fonte") == mercadolivre.NOME for c in cupons_atuais)
+    encerrados = 0
+    for pub in store.cupons_publicados_abertos():
+        vencido = bool(pub.get("expira_em")) and int(pub["expira_em"]) <= momento
+        sumiu = (copia_ml and str(pub["id"]).startswith("mercadolivre_cupom_")
+                 and str(pub["id"]) not in ids_atuais)
+        if not (vencido or sumiu):
+            continue
+        try:
+            if pub["canal"] == telegram_poster.NOME and pub.get("mensagem_id"):
+                telegram_poster.encerrar_cupom(pub, pub["mensagem_id"])
+            elif pub["canal"] == "Site" and site_publisher.esta_configurado():
+                site_publisher.encerrar_cupom(pub["id"])
+            store.marcar_cupom_encerrado(pub["id"], pub["canal"], momento)
+            encerrados += 1
+        except Exception as erro:
+            print(f"   ⚠️  Aviso de cupom encerrado falhou no {pub['canal']}: "
+                  f"{seguranca.redigir_segredos(erro)}")
+    if encerrados:
+        print(f"🎟 Cupons encerrados avisados: {encerrados}.")
+    return encerrados
 
 
 def radar_cupons_seguro():
@@ -1660,6 +1693,10 @@ def rodar_uma_vez() -> int:
     diagnosticar_cupons_aliexpress()
     diagnosticar_amazon_api()
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))
+    try:
+        encerrar_cupons(_deduplicar_cupons(cupons))
+    except Exception as erro:
+        print(f"   ⚠️  Verificação de cupons encerrados falhou: {seguranca.redigir_segredos(erro)}")
     fila = _priorizar_campeao_no_pico(_ordenar_candidatos(candidatos))
     total = _publicar_fila(fila, limite)
     vip = publicar_assinaturas_se_preciso(alertas_cupom=alertas_cupom)

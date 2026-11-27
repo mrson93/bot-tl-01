@@ -80,15 +80,37 @@ def mensagens(pagina_html, agora, horas=24):
     return resultado
 
 
-def ler_canal(canal, agora, sessao=requests):
+# "Esgotando" é chamada para correr, não aviso de fim: fica de fora.
+_ESGOTOU = re.compile(r"esgot(?:ou|ado|ada|aram|amos)|acabou|encerr(?:ou|ado|ada)|expirou|"
+                      r"n[aã]o (?:est[aá] )?funciona|morreu|caiu o cupom", re.I)
+
+
+def esgotados(textos, codigos_vistos):
+    """Códigos já avisados que o canal diz que acabaram (esgotou, acabou...)."""
+    achados = []
+    for texto in textos:
+        if not _ESGOTOU.search(texto):
+            continue
+        for codigo in codigos_vistos:
+            if re.search(rf"(?<![A-Z0-9]){re.escape(codigo)}(?![A-Z0-9])", texto) and codigo not in achados:
+                achados.append(codigo)
+    return achados
+
+
+def _pagina(canal, sessao):
     if not _CANAL.match(canal):
         raise ValueError(f"Canal inválido: {canal!r}")
     resposta = sessao.get(f"https://t.me/s/{canal}", timeout=20, allow_redirects=False,
                           headers={"User-Agent": "Mozilla/5.0 (compatible; radar-cupons)"})
     if resposta.status_code != 200:
         raise RuntimeError(f"t.me respondeu {resposta.status_code}")
+    return resposta.text
+
+
+def ler_canal(canal, agora, sessao=requests, pagina=None):
+    pagina = pagina if pagina is not None else _pagina(canal, sessao)
     achados = []
-    for texto, _momento in mensagens(resposta.text, agora):
+    for texto, _momento in mensagens(pagina, agora):
         for codigo in codigos(texto):
             achados.append({"canal": canal, "codigo": codigo, "loja": _loja(texto),
                             "trecho": texto[:140]})
@@ -125,10 +147,21 @@ def executar(agora=None, sessao=requests) -> int:
         vistos = {}
     limite_vistos = agora.timestamp() - 7 * 86400
     vistos = {codigo: quando for codigo, quando in vistos.items() if quando > limite_vistos}
-    novos, falhas = [], []
+    try:
+        avisados_esgotados = set(json.loads(store._estado("radar_cupons_esgotados") or "[]"))
+    except (TypeError, ValueError):
+        avisados_esgotados = set()
+    novos, falhas, acabaram = [], [], []
     for canal in canais[:20]:
         try:
-            for achado in ler_canal(canal, agora.timestamp(), sessao):
+            pagina = _pagina(canal, sessao)
+            textos = [t for t, _m in mensagens(pagina, agora.timestamp(), horas=12)]
+            conhecidos = {chave.split(":", 1)[1] for chave in vistos}
+            for codigo in esgotados(textos, conhecidos):
+                if codigo not in avisados_esgotados:
+                    avisados_esgotados.add(codigo)
+                    acabaram.append(f"{codigo} (@{canal})")
+            for achado in ler_canal(canal, agora.timestamp(), sessao, pagina):
                 chave = f"{achado['loja']}:{achado['codigo']}"
                 if chave in vistos:
                     continue
@@ -138,6 +171,12 @@ def executar(agora=None, sessao=requests) -> int:
             falhas.append(f"{canal} ({seguranca.redigir_segredos(erro)[:40]})")
         time.sleep(1)
     store._definir_estado(_CHAVE_VISTOS, json.dumps(vistos))
+    validos = {chave.split(":", 1)[1] for chave in vistos}
+    store._definir_estado("radar_cupons_esgotados", json.dumps(sorted(avisados_esgotados & validos)))
+    if acabaram:
+        monitor.enviar_mensagem_privada("❌ Radar de cupons: esgotou, segundo o canal: " + ", ".join(acabaram)
+                                        + ". Se você publicou algum deles com /cupom, apague com /cupom_apagar.",
+                                        sessao)
     print(f"🎟 Radar de cupons: {len(novos)} código(s) novo(s) em {len(canais)} canal(is)"
           + (f"; falharam: {', '.join(falhas)}" if falhas else "") + ".")
     if not novos:

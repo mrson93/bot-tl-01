@@ -623,6 +623,29 @@ def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     corpo = resposta.json()
     if not corpo.get("ok"):
         raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou cupom: {corpo}"))
+    return (corpo.get("result") or {}).get("message_id")
+
+
+def encerrar_cupom(cupom: dict, mensagem_id) -> None:
+    """Edita o alerta do cupom: título "encerrado" e sem o botão de resgate."""
+    fonte = html.escape(str(cupom.get("fonte") or "loja"))
+    codigo = html.escape(str(cupom.get("codigo") or "").strip())
+    titulo = html.escape(str(cupom.get("titulo") or "").strip()[:180])
+    linhas = [f"❌ <b>CUPOM ENCERRADO · {fonte.upper()}</b>", ""]
+    if codigo:
+        linhas.append(f"🎟 <s>{codigo}</s>")
+    elif titulo:
+        linhas.append(f"🎟 <s>{titulo}</s>")
+    linhas += ["", "Este cupom acabou ou saiu da página da loja. Fique de olho no canal: "
+               "avisamos os próximos assim que aparecerem."]
+    resposta = requests.post(API.format(token=config.TELEGRAM_BOT_TOKEN, metodo="editMessageText"), json={
+        "chat_id": config.TELEGRAM_CHANNEL, "message_id": int(mensagem_id), "text": "\n".join(linhas),
+        "parse_mode": "HTML", "reply_markup": {"inline_keyboard": []},
+    }, timeout=30)
+    corpo = resposta.json()
+    # "message is not modified" = já estava encerrada: tudo certo.
+    if not corpo.get("ok") and "not modified" not in str(corpo.get("description", "")):
+        raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou editar o cupom: {corpo}"))
 
 
 def postar_resumo_cupons(cupons: list, links: dict) -> None:

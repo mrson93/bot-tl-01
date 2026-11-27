@@ -50,7 +50,12 @@ async function externalCoupons(stores,now) {
   }
 }
 
+const ENCERRADO_VISIVEL=86400;
+
 export function couponCard(coupon) {
+  if(coupon.ended){
+    return `<article class="coupon-card coupon-ended"><div class="coupon-card-head"><span>${html(coupon.source)}</span><small>Encerrado</small></div><strong class="coupon-code coupon-title"><s>${html(coupon.code||coupon.title||'Cupom')}</s></strong><p>Este cupom acabou ou saiu da página da loja. Os próximos aparecem aqui assim que forem liberados.</p></article>`;
+  }
   const hasCode=Boolean(coupon.code);
   const primary=hasCode?coupon.code:(coupon.title||'Voucher disponível');
   const href=coupon.href||`/cupom/${encodeURIComponent(coupon.id)}`;
@@ -81,10 +86,12 @@ export async function onRequestGet({env}) {
     env.DB.prepare(`SELECT id,source,code,title,kind,condition,active_at,
       expires_at,published_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
       ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END,expires_at ASC,published_at DESC LIMIT 100`
-    ).bind(now).all(),
+    ).bind(now-ENCERRADO_VISIVEL).all(),
     env.DB.prepare("SELECT slug,name FROM store_links WHERE slug<>'mercadolivre' ORDER BY name").all(),
   ]);
-  const official=(result.results||[]).map(coupon=>({...coupon,href:`/cupom/${encodeURIComponent(coupon.id)}`}));
+  // Ativos primeiro; os que acabaram nas últimas 24 h vão para o fim, como "Encerrado".
+  const official=(result.results||[]).map(coupon=>({...coupon,href:`/cupom/${encodeURIComponent(coupon.id)}`,
+    ended:Boolean(coupon.expires_at&&coupon.expires_at<=now)})).sort((a,b)=>Number(a.ended)-Number(b.ended));
   const external=await externalCoupons(storeResult.results||[],now);
   const seen=new Set(official.filter(coupon=>coupon.code).map(coupon=>`${normalized(coupon.source)}:${String(coupon.code).toUpperCase()}`));
   const additional=external.filter(coupon=>{const key=`${normalized(coupon.source)}:${coupon.code.toUpperCase()}`;if(seen.has(key)) return false;seen.add(key);return true;});
@@ -95,5 +102,5 @@ export async function onRequestGet({env}) {
   const cards=coupons.map(couponCard).join('');
   const stores=storeResult.results||[];
   const regularStores=stores.filter(store=>store.slug!=='shopee-vip');
-  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.length} ${coupons.length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${vipBanner(stores)}${storeShortcuts(regularStores)}${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
+  return responseHtml(`<!doctype html><html lang="pt-BR"><head>${head({title,description,canonical})}<script src="/coupons.js" defer></script></head><body>${header('coupons')}<main class="coupons-page"><div class="collection-heading"><p class="eyebrow">ECONOMIA EXTRA</p><h1>Cupons ativos</h1><p>Clique no código para copiá-lo e abrir a loja em uma nova aba. Confirme a validade e as condições antes de finalizar.</p><strong>${coupons.filter(c=>!c.ended).length} ${coupons.filter(c=>!c.ended).length===1?'benefício disponível':'benefícios disponíveis'}</strong></div>${vipBanner(stores)}${storeShortcuts(regularStores)}${coupons.length?`<div class="coupon-grid">${cards}</div>`:'<div class="empty"><span>🎟</span><h2>Nenhum cupom ativo agora</h2><p>Quando encontrarmos um código ou voucher válido, ele aparecerá aqui automaticamente.</p></div>'}</main>${footer()}</body></html>`);
 }

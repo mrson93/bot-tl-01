@@ -94,6 +94,8 @@ h1 em{font-family:Georgia,serif;font-weight:400;color:var(--orange)}
 .source a{color:inherit}
 .card-kicker{display:flex;justify-content:space-between;gap:12px;align-items:center}
 .card-kicker time{font-size:12px;color:var(--muted);white-space:nowrap}
+.coupon-card.coupon-ended{opacity:.55;filter:grayscale(1)}
+.coupon-card.coupon-ended small{font-weight:800}
 .price-check{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--muted)}
 .price-check.check-fresh{color:#1f7a3d}
 .price-check.check-stale{color:#8a6500}

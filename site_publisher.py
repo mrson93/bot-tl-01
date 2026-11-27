@@ -251,6 +251,17 @@ def publicar_cupom(cupom, link_afiliado):
         raise RuntimeError(f"Site recusou o cupom ({resposta.status_code})")
 
 
+def encerrar_cupom(cupom_id):
+    """Marca o cupom como encerrado no site (fica 24 h como "Encerrado" e sai)."""
+    resposta = requests.post(
+        _api_path("/api/coupons"),
+        headers={"Authorization": f"Bearer {config.SITE_API_TOKEN}"},
+        json={"id": str(cupom_id), "ended": True}, timeout=15, allow_redirects=False,
+    )
+    if not 200 <= resposta.status_code < 300:
+        raise RuntimeError(f"Site recusou encerrar o cupom ({resposta.status_code})")
+
+
 def publicar_loja(fonte):
     """Gera e publica o atalho afiliado para a página principal da loja."""
     if fonte.NOME == "Amazon" and config.AMAZON_LIST_URL:

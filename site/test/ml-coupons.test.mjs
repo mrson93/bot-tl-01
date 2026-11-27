@@ -57,3 +57,20 @@ test('site: cupom vencido ou sem "OFF" fica de fora',()=>{
   assert.equal(cleanCoupon({...bom,title:'Frete grátis'},1_900_000_000),null);
   assert.equal(cleanCoupon({...bom,id:'abc'},1_900_000_000),null);
 });
+
+import {onRequestPost as postCoupon} from '../functions/api/coupons.js';
+import {couponCard} from '../functions/cupons.js';
+
+test('site: cupom encerrado vence agora e aparece apagado como "Encerrado"',async()=>{
+  const sqls=[];
+  const env={PUBLISH_TOKEN:'token-do-bot',DB:{prepare(sql){return {bind(...a){sqls.push([sql,a]);return this;},async run(){return {};}};}}};
+  const r=await postCoupon({request:new Request('https://x/api/coupons',{method:'POST',headers:{Authorization:'Bearer token-do-bot','Content-Type':'application/json'},
+    body:JSON.stringify({id:'mercadolivre_cupom_1',ended:true})}),env,waitUntil(){}});
+  assert.equal(r.status,200);
+  assert.match(sqls[0][0],/UPDATE coupons SET expires_at=MIN/);
+  assert.equal(sqls[0][1][2],'mercadolivre_cupom_1');
+  const html=couponCard({source:'Mercado Livre',title:'20% OFF em LIQUIDA',ended:true});
+  assert.match(html,/coupon-ended/);
+  assert.match(html,/<small>Encerrado<\/small>/);
+  assert.doesNotMatch(html,/Ativar voucher/);
+});

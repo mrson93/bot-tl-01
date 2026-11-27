@@ -44,6 +44,9 @@ def _criar_esquema(con):
     if "tipo" not in colunas_cupom:
         con.execute("ALTER TABLE cupons_ativos ADD COLUMN tipo TEXT NOT NULL DEFAULT 'codigo'")
     con.execute("CREATE TABLE IF NOT EXISTS entregas_cupom (id TEXT NOT NULL, canal TEXT NOT NULL, sucesso INTEGER NOT NULL, entregue_em INTEGER NOT NULL, PRIMARY KEY(id,canal))")
+    # Onde cada cupom foi publicado (mensagem do Telegram, Site), para avisar
+    # "encerrado" quando ele vencer ou sumir da página da loja.
+    con.execute("CREATE TABLE IF NOT EXISTS mensagens_cupom (id TEXT NOT NULL, canal TEXT NOT NULL, mensagem_id TEXT NOT NULL DEFAULT '', publicado_em INTEGER NOT NULL, encerrado_em INTEGER, PRIMARY KEY(id,canal))")
     con.execute("CREATE TABLE IF NOT EXISTS eventos (id INTEGER PRIMARY KEY AUTOINCREMENT, ocorrido_em INTEGER NOT NULL, execucao_id TEXT NOT NULL, tipo TEXT NOT NULL, oferta_id TEXT, canal TEXT, fonte TEXT, motivo TEXT, quantidade INTEGER NOT NULL DEFAULT 1)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_eventos_periodo ON eventos(ocorrido_em,tipo)")
     con.execute("CREATE TABLE IF NOT EXISTS vendas_produto_diarias (data TEXT NOT NULL, fonte TEXT NOT NULL, oferta_id TEXT NOT NULL, vendas INTEGER NOT NULL, observado_em INTEGER NOT NULL, PRIMARY KEY(data,fonte,oferta_id))")
@@ -408,6 +411,32 @@ def registrar_entrega_cupom(cupom_id, canal, sucesso, agora=None):
             "ON CONFLICT(id,canal) DO UPDATE SET sucesso=excluded.sucesso,entregue_em=excluded.entregue_em",
             (str(cupom_id), str(canal), int(bool(sucesso)), int(agora or time.time())),
         )
+
+
+def registrar_mensagem_cupom(cupom_id, canal, mensagem_id="", agora=None):
+    with _conn() as con:
+        con.execute(
+            "INSERT INTO mensagens_cupom(id,canal,mensagem_id,publicado_em) VALUES(?,?,?,?) "
+            "ON CONFLICT(id,canal) DO UPDATE SET mensagem_id=excluded.mensagem_id,publicado_em=excluded.publicado_em,encerrado_em=NULL",
+            (str(cupom_id), str(canal), str(mensagem_id or ""), int(agora or time.time())),
+        )
+
+
+def cupons_publicados_abertos():
+    """Publicações de cupom ainda não marcadas como encerradas, com fonte e validade."""
+    with _conn() as con:
+        linhas = con.execute(
+            "SELECT m.id,m.canal,m.mensagem_id,c.fonte,c.titulo,c.codigo,c.expira_em FROM mensagens_cupom m "
+            "LEFT JOIN cupons_ativos c ON c.id=m.id WHERE m.encerrado_em IS NULL"
+        ).fetchall()
+    campos = ("id", "canal", "mensagem_id", "fonte", "titulo", "codigo", "expira_em")
+    return [dict(zip(campos, linha)) for linha in linhas]
+
+
+def marcar_cupom_encerrado(cupom_id, canal, agora=None):
+    with _conn() as con:
+        con.execute("UPDATE mensagens_cupom SET encerrado_em=? WHERE id=? AND canal=?",
+                    (int(agora or time.time()), str(cupom_id), str(canal)))
 
 
 def cupons_ativos(limite=5, agora=None):

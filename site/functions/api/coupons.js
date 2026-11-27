@@ -17,6 +17,16 @@ export async function onRequestPost(context) {
   let body;try{body=await readJsonLimited(request,16384);}catch(error){
     return json({error:error?.message==='too_large'?'too_large':'invalid_json'},error?.message==='too_large'?413:400);
   }
+  // Cupom que acabou (venceu ou saiu da página da loja): vence agora e fica
+  // 24 h na página como "Encerrado" antes de ser apagado.
+  if(body?.ended===true){
+    const endedId=String(body.id||'').slice(0,100);
+    if(!endedId) return json({error:'invalid_coupon'},400);
+    const agora=Math.floor(Date.now()/1000);
+    await env.DB.prepare('UPDATE coupons SET expires_at=MIN(COALESCE(expires_at,?),?) WHERE id=?').bind(agora,agora,endedId).run();
+    context.waitUntil(notifyIndexNow(['/cupons']));
+    return json({ok:true,ended:endedId});
+  }
   const destination=safeUrl(body.destination,env.ALLOWED_DESTINATION_HOSTS);
   const id=String(body.id||'').slice(0,100);
   const source=String(body.source||'').trim().slice(0,30);
