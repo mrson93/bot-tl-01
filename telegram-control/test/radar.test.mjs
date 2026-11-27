@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { apagarCupomDoRadar, botoesDoPost, desescapar, textoDoPost, codigosDoTexto, lojaDoTexto, mensagensDaPagina, radarAtivo, regraDoCupom, runRadarCupons } from "../src/radar.js";
+import { apagarCupomDoRadar, botoesDoPost, desescapar, formatarRegra, textoDoPost, codigosDoTexto, lojaDoTexto, mensagensDaPagina, radarAtivo, regraDoCupom, runRadarCupons } from "../src/radar.js";
 
 const msg = (texto, iso) => `<div class="tgme_widget_message_text js-message_text" dir="auto">${texto}</div><div><time datetime="${iso}"></time></div>`;
 
@@ -28,7 +28,7 @@ function fakeDb() {
     async run() {
       sqls.push(sql);
       if (sql.startsWith("INSERT OR IGNORE INTO radar_cupons")) { const [chave, loja, codigo, canal] = this.args; if (!radar.has(chave)) radar.set(chave, { chave, loja, codigo, canal, visto_em: this.args[5], status: "novo" }); }
-      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2] });
+      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2], regra_v: 2 });
       if (sql.startsWith("UPDATE radar_cupons SET status='encerrado'")) radar.get(this.args[0]).status = "encerrado";
       if (sql.startsWith("UPDATE radar_cupons SET status='apagado'")) radar.get(this.args[0]).status = "apagado";
       if (sql.includes("INSERT INTO coupons")) coupons.set(this.args[0], { id: this.args[0], code: this.args[2], expires_at: this.args[7] });
@@ -43,7 +43,7 @@ function fakeDb() {
     },
     async all() {
       if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ chave })) };
-      if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && !r.link_slug) };
+      if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && !r.link_slug && !r.regra_v) };
       if (sql.includes("status='publicado'")) return { results: [...radar.values()].filter((r) => r.status === "publicado") };
       return { results: [] };
     },
@@ -78,7 +78,7 @@ test("radar: publica sozinho os códigos novos de Shopee, Amazon e Mercado Livre
   assert.equal(post[0], "sendMessage");
   assert.equal(post[1].chat_id, "@CanalTaBaratoCupons");
   assert.match(post[1].text, /<code>BLACK20<\/code>/);
-  assert.match(post[1].text, /R\$20 OFF acima de R\$99/);
+  assert.match(post[1].text, /ℹ️ R\$ 20 OFF · compra mínima R\$ 99/);
   assert.equal(aviso[1].chat_id, "999");
   assert.equal(aviso[1].reply_markup.inline_keyboard[0][0].callback_data, "rc:del:shopee:BLACK20");
   assert.equal(db.coupons.get("radar_shopee_BLACK20").code, "BLACK20");
@@ -107,6 +107,16 @@ test("radar: quando o canal diz que esgotou, o post vira encerrado; o botão Apa
 
 test("radar: R$ codificado na página vira R$ no post (sem quebrar o HTML)", () => {
   assert.equal(desescapar("R&#036;300 OFF &#33;&#33; &amp; &#x24;5"), "R$300 OFF !! & $5");
-  const texto = textoDoPost({ loja: "Mercado Livre", codigo: "VALEHOJE", regra: "R&#036;300 OFF acima de R&#036;2299 <b>" });
-  assert.match(texto, /ℹ️ R\$300 OFF acima de R\$2299 &lt;b&gt;/);
+  const texto = textoDoPost({ loja: "Mercado Livre", codigo: "VALEHOJE", regra: formatarRegra("R&#036;300 OFF acima de R&#036;2299 <b>") });
+  assert.match(texto, /ℹ️ R\$ 300 OFF · compra mínima R\$ 2\.299/);
+});
+
+test("radar: desconto, compra mínima e máximo em formato fixo", () => {
+  assert.equal(formatarRegra("200 de 799 RÁPIDOOOOO&#33;&#33;"), "R$ 200 OFF · compra mínima R$ 799");
+  assert.equal(formatarRegra("15% acima de 79 máx 60"), "15% OFF · compra mínima R$ 79 · máximo R$ 60");
+  assert.equal(formatarRegra("12% OFF acima de R&#036;599 máx R&#036;300 em Tech"), "12% OFF · compra mínima R$ 599 · máximo R$ 300");
+  assert.equal(formatarRegra("30% OFF acima de R$299,90"), "30% OFF · compra mínima R$ 299,90");
+  assert.equal(formatarRegra("15% OFF máx R$1.000"), "15% OFF · máximo R$ 1.000");
+  assert.equal(formatarRegra("150 OFF em 1 unidade"), "R$ 150 OFF");
+  assert.equal(formatarRegra("CORRE logo"), "");
 });

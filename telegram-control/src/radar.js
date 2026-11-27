@@ -1,4 +1,4 @@
-// Radar de cupons em tempo real: a cada 2 minutos (7:00–23:00 de Brasília) lê
+// Radar de cupons em tempo real: a cada 2 minutos, 24 horas por dia, lê
 // a página pública t.me/s/<canal> dos canais configurados, publica no canal
 // de cupons os códigos novos de Amazon, Mercado Livre e Shopee (com "Copiar
 // código" e "Ativar na loja" pelo nosso link de afiliado da loja), coloca no
@@ -72,6 +72,36 @@ export function regraDoCupom(texto, codigo) {
     .replace(/\s+/g, " ").replace(/^[\s:,.-]+|[\s,.-]+$/g, "").slice(0, 120);
 }
 
+// "2299" → "R$ 2.299"; "299,90" → "R$ 299,90"; "1.000" → "R$ 1.000".
+function reais(texto) {
+  const limpo = String(texto).replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
+  const valor = Number(limpo);
+  if (!Number.isFinite(valor) || valor <= 0 || valor > 1_000_000) return null;
+  return `R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: Number.isInteger(valor) ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+// Regra do cupom em formato fixo: "15% OFF · compra mínima R$ 79 · máximo R$ 60".
+// Os canais escrevem de vários jeitos ("200 de 799", "R$300 OFF acima de
+// R$2299", "15% acima de 79 máx 60"); sem desconto reconhecido, não mostra nada.
+export function formatarRegra(trecho) {
+  const t = desescapar(String(trecho || "")).replace(/\s+/g, " ");
+  const num = "(\\d{1,3}(?:\\.\\d{3})+(?:,\\d{1,2})?|\\d+(?:,\\d{1,2})?)";
+  const pct = t.match(/(\d{1,2})\s*%/);
+  const offReais = t.match(new RegExp(`R?\\$?\\s*${num}\\s*(?:OFF|de desconto)`, "i"));
+  const deAte = t.match(new RegExp(`^\\s*R?\\$?\\s*${num}\\s+(?:de|em compras? de|acima de)\\s+R?\\$?\\s*${num}`, "i"));
+  const minimo = t.match(new RegExp(`(?:acima de|a partir de|m[ií]n(?:imo|ima)?(?: de)?|compras? (?:acima )?de)\\s*R?\\$?\\s*${num}`, "i"));
+  const maximo = t.match(new RegExp(`(?:m[aá]x(?:imo)?\\.?|limite(?: de)?|at[eé])\\s*(?:de\\s*)?R?\\$?\\s*${num}`, "i"));
+  let desconto = null, minimoTexto = minimo ? reais(minimo[1]) : null;
+  if (pct) desconto = `${pct[1]}% OFF`;
+  else if (offReais && reais(offReais[1])) desconto = `${reais(offReais[1])} OFF`;
+  else if (deAte && reais(deAte[1])) { desconto = `${reais(deAte[1])} OFF`; minimoTexto = minimoTexto || reais(deAte[2]); }
+  if (!desconto) return "";
+  const partes = [desconto];
+  if (minimoTexto) partes.push(`compra mínima ${minimoTexto}`);
+  if (pct && maximo && reais(maximo[1])) partes.push(`máximo ${reais(maximo[1])}`);
+  return partes.join(" · ");
+}
+
 export function radarAtivo(agoraMs) {
   const hora = new Date(agoraMs - FUSO_MS).getUTCHours();
   return hora >= 7 && hora < 23;
@@ -96,11 +126,12 @@ async function garantirTabela(db) {
     canal TEXT NOT NULL,regra TEXT,visto_em INTEGER NOT NULL,status TEXT NOT NULL,mensagem_canal INTEGER,cupom_id TEXT,link_slug TEXT)`).run();
   // Tabela criada antes da coluna link_slug (27/11/2026).
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN link_slug TEXT").run().catch(() => {});
+  await db.prepare("ALTER TABLE radar_cupons ADD COLUMN regra_v INTEGER").run().catch(() => {});
 }
 
 export function textoDoPost(cupom) {
   const linhas = [`🎟 <b>CUPOM · ${cupom.loja.toUpperCase()}</b>`, "", `<code>${cupom.codigo}</code>`];
-  if (cupom.regra) linhas.push(`ℹ️ ${escaparHtml(desescapar(cupom.regra))}`);
+  if (cupom.regra) linhas.push(`ℹ️ ${escaparHtml(cupom.regra)}`);
   linhas.push("", "📋 Copie o código, abra a loja e use no carrinho.", "⏳ Pode acabar a qualquer momento.");
   return linhas.join("\n");
 }
@@ -136,7 +167,7 @@ async function publicar(env, cupom, agora, fetchImpl) {
       VALUES(?,?,?,?,'code',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET condition=excluded.condition,expires_at=excluded.expires_at,published_at=excluded.published_at`)
       .bind(cupomId, cupom.loja, cupom.codigo, cupom.codigo, cupom.regra || null, destino, agora, agora + VALIDADE_S, agora).run();
   }
-  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=? WHERE chave=?")
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=?,regra_v=2 WHERE chave=?")
     .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.chave).run();
   await telegram(env, "sendMessage", {
     chat_id: env.TELEGRAM_ADMIN_ID, disable_web_page_preview: true,
@@ -166,15 +197,15 @@ async function encerrar(env, linha, agora, fetchImpl) {
 // perfil). Corrige o texto, o botão (página de cupons) e o site.
 async function consertarRegras(env, fetchImpl) {
   const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons
-    WHERE status='publicado' AND (link_slug IS NULL OR regra LIKE '%&#%') LIMIT 30`).all();
+    WHERE status='publicado' AND (link_slug IS NULL OR COALESCE(regra_v,0)<2) LIMIT 30`).all();
   const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
   for (const linha of results) {
-    const regra = desescapar(linha.regra || "");
+    const regra = formatarRegra(linha.regra || "");
     const [slug] = linha.chave.split(":");
     const link = await linkDaLoja(env.MONITOR_DB, slug);
     if (!link.linkSlug.startsWith("cupons-")) continue;   // página de cupons ainda não salva pelo bot
     const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra, ...link };
-    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,link_slug=? WHERE chave=?").bind(regra, link.linkSlug, linha.chave).run();
+    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,link_slug=?,regra_v=2 WHERE chave=?").bind(regra, link.linkSlug, linha.chave).run();
     if (linha.cupom_id) {
       await env.MONITOR_DB.prepare("UPDATE coupons SET condition=?,destination=COALESCE(?,destination) WHERE id=?")
         .bind(regra || null, link.destino, linha.cupom_id).run();
@@ -192,7 +223,6 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
   if (!env.MONITOR_DB || !env.TELEGRAM_BOT_TOKEN) return null;
   await garantirTabela(env.MONITOR_DB);
   await consertarRegras(env, fetchImpl).catch(() => {});
-  if (!radarAtivo(agoraMs)) return null;
   const lista = canais(env);
   if (!lista.length) return null;
   const agora = Math.floor(agoraMs / 1000);
@@ -209,7 +239,7 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
       if (!loja || OUTRAS_LOJAS.test(texto)) continue;
       for (const codigo of codigosDoTexto(texto)) {
         const chave = `${loja.slug}:${codigo}`;
-        if (!candidatos.has(chave)) candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra: regraDoCupom(texto, codigo) });
+        if (!candidatos.has(chave)) candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra: formatarRegra(regraDoCupom(texto, codigo)) });
       }
     }
     const chaves = [...candidatos.keys()];
