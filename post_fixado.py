@@ -235,11 +235,13 @@ def executar():
 # --- Canal do Telegram: descrição e post fixado da organização (nov/2026) ------
 
 CAMPANHA_CANAL = "post_fixado_canal"
-DATA_CANAL = "canal-2026-11"  # marcação única desta versão do texto
+DATA_CANAL = "canal-2026-11-cupons"  # marcação única desta versão do texto
+CANAL_CUPONS = "https://t.me/CanalTaBaratoCupons"
 
 DESCRICAO_CANAL = (
     "Ofertas reais do Mercado Livre, Shopee, Amazon e AliExpress, conferidas antes de postar.\n\n"
     "🔔 Aviso de um produto: @TaBaratoAlertaDePrecoBot\n"
+    "🎟 Cupons: @CanalTaBaratoCupons\n"
     "🌐 canaltabarato.com.br"
 )
 POST_CANAL = (
@@ -247,12 +249,12 @@ POST_CANAL = (
     "Aqui só entra oferta conferida: preço real, comparado com o histórico.\n\n"
     "🔥 Ative as notificações deste canal\n"
     "🔔 Quer um produto específico? @TaBaratoAlertaDePrecoBot avisa quando baixar\n"
-    "🎟 Cupons de hoje: canaltabarato.com.br/cupons\n\n"
+    "🎟 Cupons em tempo real, com aviso de quando acabam: @CanalTaBaratoCupons\n\n"
     "<i>Links oficiais das lojas. Podemos ganhar comissão, sem custo para você.</i>"
 )
 BOTOES_CANAL = {"inline_keyboard": [
     [{"text": "🔔 Criar alerta de preço", "url": BOT + "?start=canal_fixado"}],
-    [{"text": "🎟 Cupons", "url": "https://canaltabarato.com.br/cupons"},
+    [{"text": "🎟 Canal de cupons", "url": CANAL_CUPONS},
      {"text": "🌐 Comece aqui", "url": "https://canaltabarato.com.br/comecar"}],
 ]}
 
@@ -296,4 +298,72 @@ def atualizar_canal():
             print(f"   ⚠️ Canal: não consegui soltar o fixado antigo ({str(erro)[:120]}).")
     store.marcar_campanha_enviada(DATA_CANAL, CAMPANHA_CANAL, "Telegram")
     print(f"   ✅ Canal: post {novo} publicado e fixado" + (f"; o {antigo} deixou de ser fixado." if antigo else "."))
+    return True
+
+
+# --- Canal só de cupons (@CanalTaBaratoCupons) ---
+CAMPANHA_CUPONS = "canal_cupons"
+DATA_CUPONS = "cupons-2026-11"
+FOTO_CUPONS = Path(__file__).parent / "assets" / "canal-ta-barato-cupons-logo.jpg"
+DESCRICAO_CUPONS = (
+    "🎟 Só cupons e vouchers ativos do Mercado Livre, Shopee, Amazon e outras lojas. "
+    "Quando um acaba, avisamos.\n\n"
+    "🔥 Ofertas: @CanalTaBarato\n"
+    "🔔 Alerta de preço: @TaBaratoAlertaDePrecoBot\n"
+    "🌐 canaltabarato.com.br/cupons"
+)
+POST_CUPONS = (
+    "🎟 <b>Bem-vindo ao Tá Barato Cupons</b>\n\n"
+    "Aqui só entram cupons e vouchers das lojas oficiais, assim que aparecem.\n\n"
+    "📋 Toque em <b>Copiar código</b> e depois em <b>Ativar na loja</b>\n"
+    "❌ Cupom que acabou fica marcado como <b>encerrado</b>\n"
+    "🔔 Ative as notificações para pegar os cupons antes de esgotar\n\n"
+    "<i>Links oficiais das lojas. Podemos ganhar comissão, sem custo para você.</i>"
+)
+BOTOES_CUPONS = {"inline_keyboard": [
+    [{"text": "🔥 Canal de ofertas", "url": "https://t.me/CanalTaBarato"}],
+    [{"text": "🎟 Cupons no site", "url": "https://canaltabarato.com.br/cupons"}],
+]}
+
+
+def _cupons(metodo, arquivos=None, **corpo):
+    url = telegram_poster.API.format(token=config.TELEGRAM_BOT_TOKEN, metodo=metodo)
+    dados = {"chat_id": config.TELEGRAM_CANAL_CUPONS, **corpo}
+    resposta = (requests.post(url, data=dados, files=arquivos, timeout=60) if arquivos
+                else requests.post(url, json=dados, timeout=30)).json()
+    if not resposta.get("ok"):
+        raise RuntimeError(seguranca.redigir_segredos(f"Telegram recusou {metodo} no canal de cupons: {resposta}"))
+    return resposta.get("result")
+
+
+def configurar_canal_cupons():
+    """Foto, descrição e post fixado do canal de cupons (uma vez por versão)."""
+    if store.campanha_enviada(DATA_CUPONS, CAMPANHA_CUPONS, "Telegram"):
+        print("   · Canal de cupons: já configurado nesta versão.")
+        return True
+    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CANAL_CUPONS:
+        print("   ⚠️ Canal de cupons: falta TELEGRAM_BOT_TOKEN ou TELEGRAM_CANAL_CUPONS.")
+        return False
+    if len(DESCRICAO_CUPONS) > 255:
+        raise RuntimeError("Descrição do canal de cupons passa de 255 caracteres.")
+    with open(FOTO_CUPONS, "rb") as foto:
+        _cupons("setChatPhoto", arquivos={"photo": ("cupons.jpg", foto, "image/jpeg")})
+    print("   ✅ Canal de cupons: foto atualizada.")
+    try:
+        _cupons("setChatDescription", description=DESCRICAO_CUPONS)
+        print("   ✅ Canal de cupons: descrição atualizada.")
+    except RuntimeError as erro:
+        if "not modified" not in str(erro):
+            raise
+    antigo = ((_cupons("getChat") or {}).get("pinned_message") or {}).get("message_id")
+    novo = _cupons("sendMessage", text=POST_CUPONS, parse_mode="HTML", reply_markup=BOTOES_CUPONS,
+                   disable_web_page_preview=True)["message_id"]
+    _cupons("pinChatMessage", message_id=novo, disable_notification=True)
+    if antigo and antigo != novo:
+        try:
+            _cupons("unpinChatMessage", message_id=antigo)
+        except RuntimeError:
+            pass
+    store.marcar_campanha_enviada(DATA_CUPONS, CAMPANHA_CUPONS, "Telegram")
+    print(f"   ✅ Canal de cupons: post {novo} publicado e fixado.")
     return True
