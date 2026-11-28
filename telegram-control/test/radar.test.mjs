@@ -27,10 +27,11 @@ function fakeDb() {
     args: [], bind(...a) { this.args = a; return this; },
     async run() {
       sqls.push(sql);
-      if (sql.startsWith("INSERT OR IGNORE INTO radar_cupons")) { const [chave, loja, codigo, canal] = this.args; if (!radar.has(chave)) radar.set(chave, { chave, loja, codigo, canal, visto_em: this.args[5], status: "novo" }); }
-      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2], regra_v: 3, nota: this.args[3], ultimo_visto: this.args[4] });
+      if (sql.startsWith("INSERT OR IGNORE INTO radar_cupons")) { const [chave, loja, codigo, canal, regra] = this.args; if (!radar.has(chave)) radar.set(chave, { chave, loja, codigo, canal, regra, visto_em: this.args[5], status: "novo" }); }
+      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2], regra_v: 3, nota: this.args[3], ultimo_visto: this.args[4], regra_unica: this.args[5] });
       if (sql.startsWith("UPDATE radar_cupons SET status='encerrado'")) radar.get(this.args[0]).status = "encerrado";
       if (sql.startsWith("UPDATE radar_cupons SET status='apagado'")) radar.get(this.args[0]).status = "apagado";
+      if (sql.startsWith("UPDATE radar_cupons SET regra=?,nota=?,regra_unica=1")) Object.assign(radar.get(this.args[2]), { regra: this.args[0], nota: this.args[1], regra_unica: 1 });
       if (sql.includes("INSERT INTO coupons")) coupons.set(this.args[0], { id: this.args[0], code: this.args[2], expires_at: this.args[7] });
       if (sql.startsWith("UPDATE coupons SET expires_at")) coupons.get(this.args[2]).expires_at = this.args[1];
       if (sql.startsWith("DELETE FROM coupons")) coupons.delete(this.args[0]);
@@ -42,7 +43,7 @@ function fakeDb() {
       return null;
     },
     async all() {
-      if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ chave })) };
+      if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ ...radar.get(chave) })) };
       if (sql.includes("COALESCE(ultimo_visto,visto_em)<?")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && (r.ultimo_visto || r.visto_em) < this.args[0]) };
       if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && (!String(r.link_slug || "").startsWith("cupons-") || !r.regra_v)) };
       if (sql.includes("status='publicado'")) return { results: [...radar.values()].filter((r) => r.status === "publicado") };
@@ -162,4 +163,24 @@ test("radar: cupom que some do canal de origem por 12 h vira encerrado", async (
   assert.equal(r.encerrados, 1);
   assert.equal(db.radar.get("shopee:VELHO20").status, "encerrado");
   assert.ok(telegram.some(([m, c]) => m === "editMessageText" && /CUPOM ENCERRADO/.test(c.text)));
+});
+
+test("radar: regra de mensagem com um código só corrige o cupom tirado de uma lista", async () => {
+  const db = fakeDb();
+  db.radar.set("mercadolivre:BFMP100", { chave: "mercadolivre:BFMP100", loja: "Mercado Livre", codigo: "BFMP100", status: "publicado",
+    regra: "R$ 1.200 OFF · compra mínima R$ 4.000", mensagem_canal: 20, link_slug: "cupons-mercadolivre", regra_v: 3, regra_unica: 0,
+    visto_em: Date.parse("2026-11-28T01:00:00Z") / 1000, ultimo_visto: Date.parse("2026-11-28T15:00:00Z") / 1000 });
+  const pagina = msg("CUPOM MERCADO LIVRE 💛 🟡 R$200 OFF acima de R$500 🎟 Cupom: BFMP100 *Válido cartão Mercado Pago", "2026-11-28T01:30:00+00:00");
+  const { impl, telegram } = fakeFetch([pagina, pagina]);
+  const env = { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "1", RADAR_CUPONS_CANAIS: "baixouprecofcupons" };
+  await runRadarCupons({ scheduledTime: Date.parse("2026-11-28T16:00:00Z") }, env, impl);
+  const linha = db.radar.get("mercadolivre:BFMP100");
+  assert.equal(linha.regra, "R$ 200 OFF · compra mínima R$ 500");
+  assert.equal(linha.regra_unica, 1);
+  const edicao = telegram.find(([m]) => m === "editMessageText");
+  assert.match(edicao[1].text, /💸 R\$ 200 OFF\n🛒 Compra mínima R\$ 500\n💳 Só no cartão Mercado Pago/);
+  // Já corrigido: não edita de novo.
+  const antes = telegram.length;
+  await runRadarCupons({ scheduledTime: Date.parse("2026-11-28T16:02:00Z") }, env, impl);
+  assert.equal(telegram.filter(([m]) => m === "editMessageText").length, telegram.slice(0, antes).filter(([m]) => m === "editMessageText").length);
 });

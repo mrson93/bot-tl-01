@@ -149,6 +149,8 @@ async function garantirTabela(db) {
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN regra_v INTEGER").run().catch(() => {});
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN nota TEXT").run().catch(() => {});
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN ultimo_visto INTEGER").run().catch(() => {});
+  // 1 = regra tirada de uma mensagem com um código só (mais confiável).
+  await db.prepare("ALTER TABLE radar_cupons ADD COLUMN regra_unica INTEGER").run().catch(() => {});
   // Publicados antes da verificação (28/11/2026): 12 h de prazo a partir de agora.
   await db.prepare("UPDATE radar_cupons SET ultimo_visto=? WHERE ultimo_visto IS NULL AND status='publicado'")
     .bind(Math.floor(Date.now() / 1000)).run().catch(() => {});
@@ -205,8 +207,8 @@ async function publicar(env, cupom, agora, fetchImpl) {
     // "Verificado em" no site (coluna da migração 0034; antes dela, ignora).
     await env.MONITOR_DB.prepare("UPDATE coupons SET verified_at=? WHERE id=?").bind(agora, cupomId).run().catch(() => {});
   }
-  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=?,regra_v=3,nota=?,ultimo_visto=? WHERE chave=?")
-    .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.nota || null, agora, cupom.chave).run();
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=?,regra_v=3,nota=?,ultimo_visto=?,regra_unica=? WHERE chave=?")
+    .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.nota || null, agora, cupom.unico ? 1 : 0, cupom.chave).run();
   await telegram(env, "sendMessage", {
     chat_id: env.TELEGRAM_ADMIN_ID, disable_web_page_preview: true,
     text: `🎟 Publicado no canal de cupons: ${cupom.loja} · ${cupom.codigo}${cupom.regra ? ` (${cupom.regra})` : ""} — de @${cupom.canal}`,
@@ -228,6 +230,24 @@ async function encerrar(env, linha, agora, fetchImpl) {
       .bind(agora, agora, linha.cupom_id).run();
   }
   await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='encerrado' WHERE chave=?").bind(linha.chave).run();
+}
+
+// A mesma regra veio de uma mensagem com um código só (mais confiável que a
+// lista "🎟 A regra 🎟 B regra" de outro canal): corrige o post e o site.
+async function corrigirRegra(env, linha, cupom, fetchImpl) {
+  const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,nota=?,regra_unica=1 WHERE chave=?")
+    .bind(cupom.regra, cupom.nota || null, linha.chave).run();
+  if (linha.cupom_id) {
+    await env.MONITOR_DB.prepare("UPDATE coupons SET condition=? WHERE id=?")
+      .bind([cupom.regra, cupom.nota].filter(Boolean).join(" · ") || null, linha.cupom_id).run();
+  }
+  if (linha.mensagem_canal) {
+    const [slug] = linha.chave.split(":");
+    const post = { loja: linha.loja, slug, codigo: linha.codigo, regra: cupom.regra, nota: cupom.nota, linkSlug: linha.link_slug };
+    await telegram(env, "editMessageText", { chat_id: canal, message_id: linha.mensagem_canal, parse_mode: "HTML",
+      disable_web_page_preview: true, text: textoDoPost(post), reply_markup: botoesDoPost(post) }, fetchImpl).catch(() => {});
+  }
 }
 
 // Conserto único (27/11/2026): os primeiros posts vieram com "R&#036;" da
@@ -269,8 +289,20 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
   for (const canal of lista) {
     const resposta = await fetchImpl(`https://t.me/s/${canal}`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; radar-cupons)" } });
     if (!resposta.ok) continue;
-    const recentes = mensagensDaPagina(await resposta.text()).filter((m) => agora - m.momento <= JANELA_S);
+    const todas = mensagensDaPagina(await resposta.text());
+    const recentes = todas.filter((m) => agora - m.momento <= JANELA_S);
     const candidatos = new Map();
+    // Regras de mensagens com um código só (a página inteira, para corrigir
+    // cupons já publicados a partir de uma lista de outro canal).
+    const unicas = new Map();
+    for (const { texto } of todas) {
+      if (ESGOTOU.test(texto)) continue;
+      const loja = lojaDoTexto(texto);
+      const codigos = loja && !OUTRAS_LOJAS.test(texto) ? codigosDoTexto(texto) : [];
+      if (codigos.length !== 1) continue;
+      const regra = regraNaMensagem(texto, codigos[0], 1);
+      if (regra) unicas.set(`${loja.slug}:${codigos[0]}`, { regra, nota: notaDoCupom(texto) });
+    }
     const vistos = new Set();
     for (const { texto } of recentes) {
       if (ESGOTOU.test(texto)) continue;
@@ -283,9 +315,11 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
         if (candidatos.has(chave)) continue;
         // Só publica cupom com regra reconhecida (desconto em % ou R$):
         // código solto, sem valor nem mínimo, fica estranho no canal.
-        const regra = regraNaMensagem(texto, codigo, codigos.length);
+        const unica = unicas.get(chave);
+        const regra = unica?.regra || regraNaMensagem(texto, codigo, codigos.length);
         if (!regra) continue;
-        candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra, nota: notaDoCupom(texto) });
+        candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra,
+          nota: unica ? unica.nota : notaDoCupom(texto), unico: Boolean(unica) });
       }
     }
     // Reapareceu no canal de origem: continua valendo ("Verificado em" no site).
@@ -297,12 +331,19 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
       await env.MONITOR_DB.prepare(`UPDATE coupons SET verified_at=?,expires_at=MAX(COALESCE(expires_at,0),?) WHERE id IN
         (SELECT cupom_id FROM radar_cupons WHERE status='publicado' AND chave IN (${marcas}))`).bind(agora, agora + VALIDADE_S, ...lote).run().catch(() => {});
     }
-    const chaves = [...candidatos.keys()];
+    const chaves = [...new Set([...candidatos.keys(), ...unicas.keys()])];
     const existentes = new Set();
     for (let i = 0; i < chaves.length; i += 50) {
       const lote = chaves.slice(i, i + 50);
-      const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave FROM radar_cupons WHERE chave IN (${lote.map(() => "?").join(",")})`).bind(...lote).all();
-      for (const linha of results) existentes.add(linha.chave);
+      const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,status,regra,regra_unica,mensagem_canal,cupom_id,link_slug
+        FROM radar_cupons WHERE chave IN (${lote.map(() => "?").join(",")})`).bind(...lote).all();
+      for (const linha of results) {
+        existentes.add(linha.chave);
+        const unica = unicas.get(linha.chave);
+        if (unica && linha.status === "publicado" && !linha.regra_unica && unica.regra !== linha.regra) {
+          await corrigirRegra(env, linha, unica, fetchImpl);
+        }
+      }
     }
     for (const cupom of candidatos.values()) {
       if (existentes.has(cupom.chave)) continue;
