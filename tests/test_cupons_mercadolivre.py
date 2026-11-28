@@ -140,8 +140,10 @@ class CanalDeCuponsTest(unittest.TestCase):
 
     def test_voucher_sem_codigo_tem_so_o_botao_de_ativar(self):
         _, corpo = self._postar({"fonte": "Mercado Livre", "codigo": "", "titulo": "20% OFF em LIQUIDA"})
-        self.assertEqual([[{"text": "🎟 Ativar voucher", "url": "https://s.shopee.com.br/x"}]],
+        self.assertEqual([[{"text": "🎟 Ativar cupom", "url": "https://s.shopee.com.br/x"}]],
                          corpo["reply_markup"]["inline_keyboard"])
+        self.assertIn("🎟 <b>CUPOM DISPONÍVEL · MERCADO LIVRE</b>", corpo["text"])
+        self.assertIn("🏷 <b>20% OFF em LIQUIDA</b>", corpo["text"])
 
     def test_convite_diario_no_canal_de_ofertas(self):
         treze = datetime(2026, 11, 27, 13, 5, tzinfo=main.FUSO_BRASILIA)
@@ -177,6 +179,71 @@ class PaginasDeCuponsTest(unittest.TestCase):
         for link in links.values():
             self.assertNotIn("social", link)
             self.assertNotIn("/shop/", link)
+
+
+class CuponsNasRedesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = patch.object(store, "_DB", Path(self.tmp.name) / "estado.db")
+        self.p.start()
+
+    def tearDown(self):
+        self.p.stop()
+        self.tmp.cleanup()
+
+    def test_linhas_fixas_do_cupom(self):
+        ml = {"condicao": "Compra mínima R$ 2.699 · Limite de R$ 200 · ative na página de cupons do Mercado Livre"}
+        self.assertEqual(["🛒 Compra mínima R$ 2.699", "🔝 Desconto máximo R$ 200"], main.telegram_poster.linhas_do_cupom(ml))
+        radar = {"condicao": "R$ 200 OFF · compra mínima R$ 500 · Só no cartão Mercado Pago"}
+        self.assertEqual(["💸 R$ 200 OFF", "🛒 Compra mínima R$ 500", "💳 Só no cartão Mercado Pago"],
+                         main.telegram_poster.linhas_do_cupom(radar))
+        texto = main.telegram_poster.texto_cupom({"fonte": "Shopee", "codigo": "BLACK20", "titulo": "BLACK20",
+                                                  "condicao": "15% OFF · máximo R$ 60"}, html_ok=False)
+        self.assertEqual("🎟 CUPOM DISPONÍVEL · SHOPEE\n\n🔑 Código: BLACK20\n💸 15% OFF\n🔝 Desconto máximo R$ 60\n\n"
+                         "👉 Copie o código e use no carrinho.", texto)
+
+    def test_cupons_do_radar_vao_so_para_as_redes_com_teto_por_dia(self):
+        agora = int(time.time())
+        resposta = Mock(status_code=200)
+        resposta.json.return_value = {"coupons": [
+            {"id": "radar_shopee_BLACK20", "source": "Shopee", "code": "BLACK20", "condition": "R$ 20 OFF",
+             "published_at": agora - 600, "expires_at": agora + 3600},
+            {"id": "radar_shopee_VELHO", "source": "Shopee", "code": "VELHO", "published_at": agora - 8 * 3600},
+            {"id": "mercadolivre_cupom_1", "source": "Mercado Livre", "published_at": agora}]}
+        with patch.object(main.requests, "get", return_value=resposta), \
+             patch.object(main.site_publisher, "_api_path", side_effect=lambda c: "https://canaltabarato.com.br" + c):
+            radar = main.cupons_do_radar(agora)
+        self.assertEqual(["radar_shopee_BLACK20"], [c["id"] for c in radar])
+        self.assertEqual("https://canaltabarato.com.br/cupom/radar_shopee_BLACK20", radar[0]["destino"])
+        telegram, bluesky = Mock(NOME="Telegram", TRACKING_ID=""), Mock(NOME="Bluesky", TRACKING_ID="")
+        outros = [dict(radar[0], id=f"radar_shopee_X{i}", codigo=f"X{i}") for i in range(3)]
+        with patch.object(main.config, "CUPOM_ALERTA_SEPARADO", True), \
+             patch.object(main.config, "CUPOM_ALERTAS_POR_RODADA", 1), \
+             patch.object(main.config, "CUPOM_REDES_POR_DIA", 2), \
+             patch.object(main.site_publisher, "esta_configurado", return_value=True), \
+             patch.object(main.site_publisher, "publicar_cupom") as site, \
+             patch.object(main, "canais_ativos", return_value=[telegram, bluesky]):
+            for _ in range(4):
+                main.publicar_cupons(radar + outros)
+        telegram.postar_cupom.assert_not_called()      # o Worker já postou no canal de cupons
+        site.assert_not_called()                       # e no site
+        self.assertEqual(2, bluesky.postar_cupom.call_count)   # teto do dia nas redes
+
+    def test_x_e_facebook_recebem_o_cupom_em_texto(self):
+        import buffer_x, facebook
+        cupom = {"id": "radar_shopee_BLACK20", "fonte": "Shopee", "codigo": "BLACK20", "condicao": "R$ 20 OFF"}
+        with patch.object(buffer_x, "esta_configurada", return_value=True), \
+             patch.object(buffer_x, "_chave", return_value="k"), patch.object(buffer_x, "_canal", return_value="c"), \
+             patch.object(buffer_x.buffer_api, "publicar_confirmado", side_effect=lambda oid, nome, criar, **k: criar()), \
+             patch.object(buffer_x.buffer_api, "publicar_no_canal") as no_canal:
+            buffer_x.postar_cupom(cupom, "https://canaltabarato.com.br/cupom/radar_shopee_BLACK20")
+        self.assertIn("🔑 Código: BLACK20", no_canal.call_args.args[0])
+        self.assertIsNone(no_canal.call_args.args[1])
+        with patch.object(facebook.buffer_facebook, "esta_configurado", return_value=True), \
+             patch.object(facebook.buffer_facebook, "publicar_confirmado", side_effect=lambda oid, nome, criar: criar()), \
+             patch.object(facebook.buffer_facebook, "publicar") as publicar:
+            facebook.postar_cupom(cupom, "https://canaltabarato.com.br/cupom/radar_shopee_BLACK20")
+        self.assertIn("CUPOM DISPONÍVEL · SHOPEE", publicar.call_args.args[0])
 
 
 class RadarCuponsTest(unittest.TestCase):

@@ -223,3 +223,15 @@ def postar(oferta: dict, link_afiliado: str) -> None:
             # risco de duplicar uma publicacao visivel.
             pass
     _publicar("feed", {"message": texto, "link": link_afiliado})
+
+
+def postar_cupom(cupom: dict, link_afiliado: str) -> None:
+    """Cupom em texto na mesma página das ofertas."""
+    import telegram_poster as fmt
+    link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
+    texto = fmt.texto_cupom(cupom, html_ok=False) + "\n\n🔗 " + link_afiliado
+    if buffer_facebook.esta_configurado():
+        buffer_facebook.publicar_confirmado(str(cupom.get("id") or ""), NOME,
+                                            lambda: buffer_facebook.publicar(texto, None, None))
+        return
+    _publicar("feed", {"message": texto, "link": link_afiliado, "published": "true"})

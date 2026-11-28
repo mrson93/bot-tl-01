@@ -722,11 +722,26 @@ def publicar_cupons(cupons) -> int:
     publicados = 0
     limite_site = config.CUPOM_RESUMO_MAX_ITENS if site_ativo else 0
     publicados_site = 0
-    alertas_iniciados = 0
-    chave_dia = f"cupom_alertas:{datetime.now(FUSO_BRASILIA).date().isoformat()}"
-    alertas_hoje = int(store._estado(chave_dia) or 0)
+    dia = datetime.now(FUSO_BRASILIA).date().isoformat()
+    # Teto por canal e por dia: no canal de cupons cabem mais; nas redes das
+    # ofertas (Bluesky, Facebook, X) poucos, para não abafar as ofertas.
+    feitos_hoje, nesta_rodada = {}, set()
+
+    def limite_do_canal(nome):
+        return (config.CUPOM_ALERTAS_POR_DIA if nome == telegram_poster.NOME
+                else config.CUPOM_REDES_POR_DIA)
+
+    def ja_feitos(nome):
+        if nome not in feitos_hoje:
+            feitos_hoje[nome] = int(store._estado(f"cupom_alertas:{dia}:{nome}") or 0)
+        return feitos_hoje[nome]
+
     for cupom in cupons:
         store.salvar_cupom(cupom)
+        if cupom.get("_radar"):
+            # O Worker já publicou no canal de cupons e no site.
+            store.registrar_entrega_cupom(cupom["id"], telegram_poster.NOME, True)
+            store.registrar_entrega_cupom(cupom["id"], "Site", True)
         if (site_ativo and publicados_site < limite_site
                 and store.cupom_pendente(cupom["id"], "Site")):
             try:
@@ -742,16 +757,15 @@ def publicar_cupons(cupons) -> int:
                 store.registrar_entrega_cupom(cupom["id"], "Site", False)
                 print("   ⚠️  Cupom recusado pelo Site: "
                       f"{seguranca.redigir_segredos(erro)}")
-        if (not config.CUPOM_ALERTA_SEPARADO
-                or alertas_iniciados >= config.CUPOM_ALERTAS_POR_RODADA
-                or alertas_hoje + alertas_iniciados >= config.CUPOM_ALERTAS_POR_DIA):
+        if not config.CUPOM_ALERTA_SEPARADO:
             continue
+        # Um cupom novo por canal a cada rodada, até o teto do dia.
         pendentes = [canal for canal in canais_ativos()
                      if hasattr(canal, "postar_cupom")
+                     and canal.NOME not in nesta_rodada
+                     and len(nesta_rodada & {canal.NOME}) < config.CUPOM_ALERTAS_POR_RODADA
+                     and ja_feitos(canal.NOME) < limite_do_canal(canal.NOME)
                      and store.cupom_pendente(cupom["id"], canal.NOME)]
-        if not pendentes:
-            continue
-        alertas_iniciados += 1
         for canal in pendentes:
             try:
                 link = cupom["_fonte_obj"].gerar_link(
@@ -763,13 +777,47 @@ def publicar_cupons(cupons) -> int:
                 if mensagem_id and canal.NOME == telegram_poster.NOME:
                     store.registrar_mensagem_cupom(cupom["id"], canal.NOME, mensagem_id)
                 publicados += 1
+                nesta_rodada.add(canal.NOME)
+                feitos_hoje[canal.NOME] = ja_feitos(canal.NOME) + 1
+                store._definir_estado(f"cupom_alertas:{dia}:{canal.NOME}", feitos_hoje[canal.NOME])
             except Exception as erro:
                 store.registrar_entrega_cupom(cupom["id"], canal.NOME, False)
                 print(f"   ⚠️  Alerta de cupom falhou no {canal.NOME}: "
                       f"{seguranca.redigir_segredos(erro)}")
-    if alertas_iniciados:
-        store._definir_estado(chave_dia, alertas_hoje + alertas_iniciados)
     return publicados
+
+
+class _LinkPronto:
+    """Cupom do radar: o link /cupom/<id> do site já leva ao nosso afiliado."""
+    @staticmethod
+    def gerar_link(url, *_args, **_kwargs):
+        return url
+
+
+def cupons_do_radar(agora=None) -> list:
+    """Cupons que o radar (Worker) publicou nas últimas 6 h, para levar às redes."""
+    momento = int(agora or time.time())
+    try:
+        resposta = requests.get(site_publisher._api_path("/api/coupons"), timeout=15,
+                                allow_redirects=False)
+        lista = (resposta.json() or {}).get("coupons") or [] if resposta.status_code == 200 else []
+    except Exception as erro:
+        print(f"   ⚠️  Cupons do radar indisponíveis: {seguranca.redigir_segredos(erro)}")
+        return []
+    resultado = []
+    for item in lista:
+        cid = str(item.get("id") or "")
+        if not cid.startswith("radar_") or int(item.get("published_at") or 0) < momento - 6 * 3600:
+            continue
+        if item.get("expires_at") and int(item["expires_at"]) <= momento:
+            continue
+        resultado.append({
+            "id": cid, "fonte": str(item.get("source") or ""), "codigo": str(item.get("code") or ""),
+            "titulo": str(item.get("code") or ""), "tipo": "code", "condicao": str(item.get("condition") or ""),
+            "destino": f"https://canaltabarato.com.br/cupom/{cid}", "ativo_em": None, "expira_em": None,
+            "_fonte_obj": _LinkPronto, "_radar": True,
+        })
+    return resultado
 
 
 def encerrar_cupons(cupons_atuais, agora=None) -> int:
@@ -1724,7 +1772,8 @@ def rodar_uma_vez() -> int:
                     fonte = futuros[futuro]
                     print(f"   ❌ Falha inesperada em {fonte.NOME}: "
                           f"{seguranca.redigir_segredos(erro)}")
-    cupons = cupons_oficiais(candidatos) + cupons_das_plataformas(lojas)
+    # Radar primeiro: cupom em tempo real tem prioridade na vaga das redes.
+    cupons = cupons_do_radar() + cupons_oficiais(candidatos) + cupons_das_plataformas(lojas)
     diagnosticar_cupons_aliexpress()
     diagnosticar_amazon_api()
     alertas_cupom = publicar_cupons(_deduplicar_cupons(cupons))

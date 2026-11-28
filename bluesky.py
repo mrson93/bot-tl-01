@@ -474,16 +474,12 @@ def postar_convite_telegram(link: str, variante=0) -> None:
 def postar_cupom(cupom: dict, link_afiliado: str) -> None:
     """Publica alerta de cupom sem imagem, mantendo o link clicavel."""
     link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
-    fonte = str(cupom.get("fonte") or "Loja")
-    codigo = str(cupom.get("codigo") or "").strip()
-    titulo = str(cupom.get("titulo") or "Voucher disponível").strip()
-    condicao = str(cupom.get("condicao") or "").strip()
-    rotulo = "CUPOM LIBERADO" if codigo else "VOUCHER LIBERADO"
-    texto = f"🚨 {rotulo} · {fonte}\n\n🎟 {codigo or titulo}"
-    if condicao:
-        espaco = 300 - len(texto) - len("\nℹ️ \n\nResgate agora: ") - len(link_afiliado)
-        texto += "\nℹ️ " + condicao[:max(0, espaco)].rstrip()
-    texto += "\n\nResgate agora: " + link_afiliado
+    import telegram_poster as fmt
+    corpo = fmt.texto_cupom(cupom, html_ok=False)
+    espaco = 300 - len("\n🔗 ") - len(link_afiliado)
+    if len(corpo) > espaco:
+        corpo = corpo[:espaco].rsplit("\n", 1)[0]
+    texto = corpo + "\n🔗 " + link_afiliado
     inicio = len(texto[:texto.rindex(link_afiliado)].encode("utf-8"))
     sess = _sessao()
     record = {

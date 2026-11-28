@@ -58,6 +58,12 @@ export async function onRequestPost({request,env}){
   await ensureTable(env);
   await env.DB.prepare('INSERT INTO ml_coupons(id,coupons,captured_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET coupons=excluded.coupons,captured_at=excluded.captured_at')
     .bind(JSON.stringify(coupons),now).run();
+  // Ainda na página de cupons: "Verificado em" agora nos já publicados no site.
+  const ids=coupons.map(c=>`mercadolivre_cupom_${c.id}`);
+  for(let i=0;i<ids.length;i+=90){
+    const lote=ids.slice(i,i+90);
+    await env.DB.prepare(`UPDATE coupons SET verified_at=? WHERE id IN (${lote.map(()=>'?').join(',')})`).bind(now,...lote).run().catch(()=>{});
+  }
   return json({ok:true,coupons:coupons.length,captured_at:now},201);
 }
 

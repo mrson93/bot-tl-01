@@ -5,7 +5,7 @@
 // site e avisa o admin com um botão para apagar. Quando o canal de origem diz
 // que o código esgotou, o post vira "encerrado" e sai do site.
 
-export const RADAR_PADRAO = "sddescontos";
+export const RADAR_PADRAO = "sddescontos,baixouprecofcupons";
 export const CANAL_CUPONS_PADRAO = "@CanalTaBaratoCupons";
 const SITE = "https://canaltabarato.com.br";
 const FUSO_MS = 3 * 3600 * 1000;
@@ -72,6 +72,26 @@ export function regraDoCupom(texto, codigo) {
     .replace(/\s+/g, " ").replace(/^[\s:,.-]+|[\s,.-]+$/g, "").slice(0, 120);
 }
 
+// Regra do cupom na mensagem: depois do código (lista "🎟 CÓDIGO regra"),
+// ou a mensagem inteira quando ela traz um código só (o @baixouprecofcupons
+// escreve a regra antes: "R$200 OFF acima de R$500 · Cupom: BFMP100").
+export function regraNaMensagem(texto, codigo, total) {
+  const depois = formatarRegra(regraDoCupom(texto, codigo));
+  if (depois) return depois;
+  const semLinks = String(texto).replace(/https?:\/\/\S+/g, " ");
+  if (total === 1) return formatarRegra(semLinks);
+  const antes = semLinks.split(codigo)[0].split(/[🎟🏷🎫]/).at(-1) || "";
+  return formatarRegra(antes);
+}
+
+// Condição extra que o canal de origem avisa ("*Válido cartão Mercado Pago").
+export function notaDoCupom(texto) {
+  if (/cart[aã]o (?:de cr[eé]dito )?mercado ?pago/i.test(texto)) return "Só no cartão Mercado Pago";
+  if (/primeira compra/i.test(texto)) return "Só na primeira compra";
+  if (/novos? (?:usu[aá]rios?|clientes?)/i.test(texto)) return "Só para novos clientes";
+  return "";
+}
+
 // "2299" → "R$ 2.299"; "299,90" → "R$ 299,90"; "1.000" → "R$ 1.000".
 function reais(texto) {
   const limpo = String(texto).replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
@@ -127,12 +147,27 @@ async function garantirTabela(db) {
   // Tabela criada antes da coluna link_slug (27/11/2026).
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN link_slug TEXT").run().catch(() => {});
   await db.prepare("ALTER TABLE radar_cupons ADD COLUMN regra_v INTEGER").run().catch(() => {});
+  await db.prepare("ALTER TABLE radar_cupons ADD COLUMN nota TEXT").run().catch(() => {});
+  await db.prepare("ALTER TABLE radar_cupons ADD COLUMN ultimo_visto INTEGER").run().catch(() => {});
+  // Publicados antes da verificação (28/11/2026): 12 h de prazo a partir de agora.
+  await db.prepare("UPDATE radar_cupons SET ultimo_visto=? WHERE ultimo_visto IS NULL AND status='publicado'")
+    .bind(Math.floor(Date.now() / 1000)).run().catch(() => {});
+}
+
+// "R$ 200 OFF · compra mínima R$ 500 · máximo R$ 60" → linhas do post.
+export function linhasDaRegra(regra) {
+  return String(regra || "").split(" · ").filter(Boolean).map((parte, i) => {
+    if (/^compra mínima /.test(parte)) return `🛒 Compra mínima ${parte.slice(14)}`;
+    if (/^máximo /.test(parte)) return `🔝 Desconto máximo ${parte.slice(7)}`;
+    return i === 0 ? `💸 ${parte}` : parte;
+  });
 }
 
 export function textoDoPost(cupom) {
-  const linhas = [`🎟 <b>CUPOM · ${cupom.loja.toUpperCase()}</b>`, "", `<code>${cupom.codigo}</code>`];
-  if (cupom.regra) linhas.push(`ℹ️ ${escaparHtml(cupom.regra)}`);
-  linhas.push("", "📋 Copie o código, abra a loja e use no carrinho.", "⏳ Pode acabar a qualquer momento.");
+  const linhas = [`🎟 <b>CUPOM DISPONÍVEL · ${escaparHtml(cupom.loja.toUpperCase())}</b>`, "",
+    `🔑 Código: <code>${escaparHtml(cupom.codigo)}</code>`, ...linhasDaRegra(cupom.regra).map(escaparHtml)];
+  if (cupom.nota) linhas.push(`💳 ${escaparHtml(cupom.nota)}`);
+  linhas.push("", "👉 Copie o código e use no carrinho.", "⏳ Pode acabar a qualquer momento.");
   return linhas.join("\n");
 }
 
@@ -165,10 +200,13 @@ async function publicar(env, cupom, agora, fetchImpl) {
   if (destino) {
     await env.MONITOR_DB.prepare(`INSERT INTO coupons(id,source,code,title,kind,condition,destination,active_at,expires_at,published_at)
       VALUES(?,?,?,?,'code',?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET condition=excluded.condition,expires_at=excluded.expires_at,published_at=excluded.published_at`)
-      .bind(cupomId, cupom.loja, cupom.codigo, cupom.codigo, cupom.regra || null, destino, agora, agora + VALIDADE_S, agora).run();
+      .bind(cupomId, cupom.loja, cupom.codigo, cupom.codigo, [cupom.regra, cupom.nota].filter(Boolean).join(" · ") || null,
+        destino, agora, agora + VALIDADE_S, agora).run();
+    // "Verificado em" no site (coluna da migração 0034; antes dela, ignora).
+    await env.MONITOR_DB.prepare("UPDATE coupons SET verified_at=? WHERE id=?").bind(agora, cupomId).run().catch(() => {});
   }
-  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=?,regra_v=2 WHERE chave=?")
-    .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.chave).run();
+  await env.MONITOR_DB.prepare("UPDATE radar_cupons SET status='publicado',mensagem_canal=?,cupom_id=?,link_slug=?,regra_v=3,nota=?,ultimo_visto=? WHERE chave=?")
+    .bind(post?.message_id || null, destino ? cupomId : null, linkSlug, cupom.nota || null, agora, cupom.chave).run();
   await telegram(env, "sendMessage", {
     chat_id: env.TELEGRAM_ADMIN_ID, disable_web_page_preview: true,
     text: `🎟 Publicado no canal de cupons: ${cupom.loja} · ${cupom.codigo}${cupom.regra ? ` (${cupom.regra})` : ""} — de @${cupom.canal}`,
@@ -181,7 +219,7 @@ async function encerrar(env, linha, agora, fetchImpl) {
   if (linha.mensagem_canal) {
     await telegram(env, "editMessageText", {
       chat_id: canal, message_id: linha.mensagem_canal, parse_mode: "HTML",
-      text: `❌ <b>CUPOM ENCERRADO · ${linha.loja.toUpperCase()}</b>\n\n🎟 <s>${linha.codigo}</s>\n\nEste cupom acabou. Ative as notificações para pegar o próximo.`,
+      text: `❌ <b>CUPOM ENCERRADO · ${escaparHtml(linha.loja.toUpperCase())}</b>\n\n🔑 <s>${escaparHtml(linha.codigo)}</s>\n\nEste cupom acabou. Ative as notificações para pegar o próximo.`,
       reply_markup: { inline_keyboard: [] },
     }, fetchImpl).catch(() => {});
   }
@@ -196,16 +234,16 @@ async function encerrar(env, linha, agora, fetchImpl) {
 // página do canal e com o botão para o atalho da loja (que mostra o nosso
 // perfil). Corrige o texto, o botão (página de cupons) e o site.
 async function consertarRegras(env, fetchImpl) {
-  const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons
-    WHERE status='publicado' AND (link_slug IS NULL OR link_slug NOT LIKE 'cupons-%' OR COALESCE(regra_v,0)<2) LIMIT 30`).all();
+  const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,regra,nota,mensagem_canal,cupom_id FROM radar_cupons
+    WHERE status='publicado' AND (link_slug IS NULL OR link_slug NOT LIKE 'cupons-%' OR COALESCE(regra_v,0)<3) LIMIT 30`).all();
   const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
   for (const linha of results) {
     const regra = formatarRegra(linha.regra || "");
     const [slug] = linha.chave.split(":");
     const link = await linkDaLoja(env.MONITOR_DB, slug);
     if (!link.linkSlug.startsWith("cupons-")) continue;   // página de cupons ainda não salva pelo bot
-    const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra, ...link };
-    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,link_slug=?,regra_v=2 WHERE chave=?").bind(regra, link.linkSlug, linha.chave).run();
+    const cupom = { loja: linha.loja, slug, codigo: linha.codigo, regra, nota: linha.nota, ...link };
+    await env.MONITOR_DB.prepare("UPDATE radar_cupons SET regra=?,link_slug=?,regra_v=3 WHERE chave=?").bind(regra, link.linkSlug, linha.chave).run();
     if (linha.cupom_id) {
       await env.MONITOR_DB.prepare("UPDATE coupons SET condition=?,destination=COALESCE(?,destination) WHERE id=?")
         .bind(regra || null, link.destino, linha.cupom_id).run();
@@ -233,14 +271,31 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
     if (!resposta.ok) continue;
     const recentes = mensagensDaPagina(await resposta.text()).filter((m) => agora - m.momento <= JANELA_S);
     const candidatos = new Map();
+    const vistos = new Set();
     for (const { texto } of recentes) {
       if (ESGOTOU.test(texto)) continue;
       const loja = lojaDoTexto(texto);
       if (!loja || OUTRAS_LOJAS.test(texto)) continue;
-      for (const codigo of codigosDoTexto(texto)) {
+      const codigos = codigosDoTexto(texto);
+      for (const codigo of codigos) {
         const chave = `${loja.slug}:${codigo}`;
-        if (!candidatos.has(chave)) candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra: formatarRegra(regraDoCupom(texto, codigo)) });
+        vistos.add(chave);
+        if (candidatos.has(chave)) continue;
+        // Só publica cupom com regra reconhecida (desconto em % ou R$):
+        // código solto, sem valor nem mínimo, fica estranho no canal.
+        const regra = regraNaMensagem(texto, codigo, codigos.length);
+        if (!regra) continue;
+        candidatos.set(chave, { chave, loja: loja.nome, slug: loja.slug, codigo, canal, regra, nota: notaDoCupom(texto) });
       }
+    }
+    // Reapareceu no canal de origem: continua valendo ("Verificado em" no site).
+    const reconfirmados = [...vistos];
+    for (let i = 0; i < reconfirmados.length; i += 50) {
+      const lote = reconfirmados.slice(i, i + 50);
+      const marcas = lote.map(() => "?").join(",");
+      await env.MONITOR_DB.prepare(`UPDATE radar_cupons SET ultimo_visto=? WHERE status='publicado' AND chave IN (${marcas})`).bind(agora, ...lote).run();
+      await env.MONITOR_DB.prepare(`UPDATE coupons SET verified_at=?,expires_at=MAX(COALESCE(expires_at,0),?) WHERE id IN
+        (SELECT cupom_id FROM radar_cupons WHERE status='publicado' AND chave IN (${marcas}))`).bind(agora, agora + VALIDADE_S, ...lote).run().catch(() => {});
     }
     const chaves = [...candidatos.keys()];
     const existentes = new Set();
@@ -272,6 +327,13 @@ export async function runRadarCupons(controller, env, fetchImpl = fetch) {
         encerrados += 1;
       }
     }
+  }
+  // Sumiu do canal de origem há 12 h: encerra (não dá para saber se ainda vale).
+  const { results: sumidos = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,mensagem_canal,cupom_id FROM radar_cupons
+    WHERE status='publicado' AND COALESCE(ultimo_visto,visto_em)<? LIMIT 20`).bind(agora - VALIDADE_S).all();
+  for (const linha of sumidos) {
+    await encerrar(env, linha, agora, fetchImpl);
+    encerrados += 1;
   }
   if (publicados || encerrados) console.log(JSON.stringify({ event: "radar_cupons", publicados, encerrados }));
   return { publicados, encerrados };

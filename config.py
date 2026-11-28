@@ -448,6 +448,8 @@ CUPOM_ALERTAS_POR_RODADA = max(0, _int("CUPOM_ALERTAS_POR_RODADA", 1))
 # Teto de alertas de cupom por dia nos canais (os cupons do Mercado Livre são
 # dezenas: sem teto, sairia um a cada rodada).
 CUPOM_ALERTAS_POR_DIA = max(0, _int("CUPOM_ALERTAS_POR_DIA", 8))
+# Cupons por dia nas redes das ofertas (Bluesky, Facebook, X).
+CUPOM_REDES_POR_DIA = max(0, _int("CUPOM_REDES_POR_DIA", 6))
 # Canal do Telegram só de cupons.
 TELEGRAM_CANAL_CUPONS = _get("TELEGRAM_CANAL_CUPONS") or "@CanalTaBaratoCupons"
 # Radar de cupons: canais públicos do Telegram (usuários, separados por

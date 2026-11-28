@@ -60,6 +60,8 @@ export function couponCard(coupon) {
   const primary=hasCode?coupon.code:(coupon.title||'Voucher disponível');
   const href=coupon.href||`/cupom/${encodeURIComponent(coupon.id)}`;
   const validity=coupon.external?'Atualizado recentemente':dateLabel(coupon.expires_at);
+  const quando=t=>new Date(Number(t)*1000).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const datas=coupon.external||!coupon.published_at?'':`<p class="coupon-dates">Enviado em ${html(quando(coupon.published_at))} · Verificado em ${html(quando(coupon.verified_at||coupon.published_at))}</p>`;
   const primaryAction=hasCode
     ?`<a class="coupon-code coupon-code-action coupon-redeem" href="${html(href)}" target="_blank" rel="nofollow sponsored noopener" data-code="${html(coupon.code)}" aria-label="Copiar o cupom ${html(coupon.code)} e abrir a loja"><span>${html(primary)}</span><small class="coupon-action-label">Copiar e abrir a loja ↗</small></a>`
     :`<strong class="coupon-code coupon-title">${html(primary)}</strong>`;
@@ -67,7 +69,7 @@ export function couponCard(coupon) {
     ?`<p class="coupon-origin">Fonte complementar: <a href="${html(coupon.origin)}" target="_blank" rel="noopener noreferrer nofollow">CupomDesconto</a> · confirme o código no carrinho.</p>`:'';
   const voucherAction=!hasCode
     ?`<div class="coupon-actions coupon-actions-single"><a class="buy" href="${html(href)}" target="_blank" rel="nofollow sponsored noopener">Ativar voucher ↗</a></div>`:'';
-  return `<article class="coupon-card"><div class="coupon-card-head"><span>${html(coupon.source)}</span><small>${html(validity)}</small></div>${primaryAction}${coupon.condition?`<p>${html(coupon.condition)}</p>`:'<p>Confira as condições no aplicativo antes de finalizar.</p>'}${origin}${voucherAction}</article>`;
+  return `<article class="coupon-card"><div class="coupon-card-head"><span>${html(coupon.source)}</span><small>${html(validity)}</small></div>${primaryAction}${coupon.condition?`<p>${html(coupon.condition)}</p>`:'<p>Confira as condições no aplicativo antes de finalizar.</p>'}${origin}${voucherAction}${datas}</article>`;
 }
 
 function storeShortcuts(stores) {
@@ -84,8 +86,8 @@ export async function onRequestGet({env}) {
   const now=Math.floor(Date.now()/1000);
   const [result,storeResult]=await Promise.all([
     env.DB.prepare(`SELECT id,source,code,title,kind,condition,active_at,
-      expires_at,published_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
-      ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END,expires_at ASC,published_at DESC LIMIT 100`
+      expires_at,published_at,verified_at FROM coupons WHERE expires_at IS NULL OR expires_at>?
+      ORDER BY published_at DESC LIMIT 100`
     ).bind(now-ENCERRADO_VISIVEL).all(),
     env.DB.prepare("SELECT slug,name FROM store_links WHERE slug<>'mercadolivre' AND slug NOT LIKE 'cupons-%' ORDER BY name").all(),
   ]);

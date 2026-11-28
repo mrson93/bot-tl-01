@@ -176,3 +176,20 @@ def postar(oferta: dict, link_afiliado: str) -> None:
     buffer_api.publicar_confirmado(
         str(oferta.get("oferta_id") or ""), NOME, criar, api_key=chave,
     )
+
+
+def postar_cupom(cupom: dict, link_afiliado: str) -> None:
+    """Cupom em texto (sem card) na mesma conta das ofertas."""
+    if not esta_configurada():
+        raise RuntimeError("Buffer não configurado para o X")
+    corpo = fmt.texto_cupom(cupom, html_ok=False)
+    # O X conta cada link como 23 caracteres.
+    while _comprimento_x(corpo + "\n🔗 " + link_afiliado) > 280 and "\n" in corpo:
+        corpo = corpo.rsplit("\n", 1)[0]
+    texto = corpo + "\n🔗 " + link_afiliado
+    chave = _chave()
+    buffer_api.publicar_confirmado(
+        str(cupom.get("id") or ""), NOME,
+        lambda: buffer_api.publicar_no_canal(texto, None, None, _canal(), api_key=chave),
+        api_key=chave,
+    )

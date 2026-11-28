@@ -28,7 +28,7 @@ function fakeDb() {
     async run() {
       sqls.push(sql);
       if (sql.startsWith("INSERT OR IGNORE INTO radar_cupons")) { const [chave, loja, codigo, canal] = this.args; if (!radar.has(chave)) radar.set(chave, { chave, loja, codigo, canal, visto_em: this.args[5], status: "novo" }); }
-      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2], regra_v: 2 });
+      if (sql.startsWith("UPDATE radar_cupons SET status='publicado'")) Object.assign(radar.get(this.args.at(-1)), { status: "publicado", mensagem_canal: this.args[0], cupom_id: this.args[1], link_slug: this.args[2], regra_v: 3, nota: this.args[3], ultimo_visto: this.args[4] });
       if (sql.startsWith("UPDATE radar_cupons SET status='encerrado'")) radar.get(this.args[0]).status = "encerrado";
       if (sql.startsWith("UPDATE radar_cupons SET status='apagado'")) radar.get(this.args[0]).status = "apagado";
       if (sql.includes("INSERT INTO coupons")) coupons.set(this.args[0], { id: this.args[0], code: this.args[2], expires_at: this.args[7] });
@@ -43,6 +43,7 @@ function fakeDb() {
     },
     async all() {
       if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ chave })) };
+      if (sql.includes("COALESCE(ultimo_visto,visto_em)<?")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && (r.ultimo_visto || r.visto_em) < this.args[0]) };
       if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && (!String(r.link_slug || "").startsWith("cupons-") || !r.regra_v)) };
       if (sql.includes("status='publicado'")) return { results: [...radar.values()].filter((r) => r.status === "publicado") };
       return { results: [] };
@@ -78,7 +79,7 @@ test("radar: publica sozinho os códigos novos de Shopee, Amazon e Mercado Livre
   assert.equal(post[0], "sendMessage");
   assert.equal(post[1].chat_id, "@CanalTaBaratoCupons");
   assert.match(post[1].text, /<code>BLACK20<\/code>/);
-  assert.match(post[1].text, /ℹ️ R\$ 20 OFF · compra mínima R\$ 99/);
+  assert.match(post[1].text, /💸 R\$ 20 OFF\n🛒 Compra mínima R\$ 99/);
   assert.equal(aviso[1].chat_id, "999");
   assert.equal(aviso[1].reply_markup.inline_keyboard[0][0].callback_data, "rc:del:shopee:BLACK20");
   assert.equal(db.coupons.get("radar_shopee_BLACK20").code, "BLACK20");
@@ -87,7 +88,7 @@ test("radar: publica sozinho os códigos novos de Shopee, Amazon e Mercado Livre
 
 test("radar: quando o canal diz que esgotou, o post vira encerrado; o botão Apagar tira tudo", async () => {
   const db = fakeDb();
-  const env = { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "999" };
+  const env = { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "999", RADAR_CUPONS_CANAIS: "sddescontos" };
   const p1 = msg("CUPOM SHOPEE 🎟️ BLACK20 R$20 OFF", "2026-11-27T15:58:00+00:00");
   const p2 = p1 + msg("BLACK20 ESGOTOU 😭", "2026-11-27T16:03:00+00:00");
   const { impl, telegram } = fakeFetch([p1, p2]);
@@ -108,7 +109,7 @@ test("radar: quando o canal diz que esgotou, o post vira encerrado; o botão Apa
 test("radar: R$ codificado na página vira R$ no post (sem quebrar o HTML)", () => {
   assert.equal(desescapar("R&#036;300 OFF &#33;&#33; &amp; &#x24;5"), "R$300 OFF !! & $5");
   const texto = textoDoPost({ loja: "Mercado Livre", codigo: "VALEHOJE", regra: formatarRegra("R&#036;300 OFF acima de R&#036;2299 <b>") });
-  assert.match(texto, /ℹ️ R\$ 300 OFF · compra mínima R\$ 2\.299/);
+  assert.match(texto, /CUPOM DISPONÍVEL · MERCADO LIVRE<\/b>\n\n🔑 Código: <code>VALEHOJE<\/code>\n💸 R\$ 300 OFF\n🛒 Compra mínima R\$ 2\.299/);
 });
 
 test("radar: desconto, compra mínima e máximo em formato fixo", () => {
@@ -137,4 +138,28 @@ test("radar: post publicado com o atalho da loja (perfil) é refeito quando a p�
   const edicao = telegram.find(([m]) => m === "editMessageText");
   assert.equal(edicao[1].reply_markup.inline_keyboard[1][0].url, "https://canaltabarato.com.br/loja/cupons-mercadolivre");
   assert.equal(db.radar.get("mercadolivre:VALEHOJE").link_slug, "cupons-mercadolivre");
+});
+
+test("radar: formato do @baixouprecofcupons (regra antes do código) e aviso do cartão", async () => {
+  const db = fakeDb();
+  const pagina = msg("CUPOM MERCADO LIVRE 💛 🟡 R$200 OFF acima de R$500 🎟 Cupom: BFMP100 🔗 https://mercadolivre.com/sec/x *Válido cartão Mercado Pago", "2026-11-28T15:58:00+00:00")
+    + msg("Mercado Livre: use o cupom SOLTO10", "2026-11-28T15:59:00+00:00");   // sem regra: não publica
+  const { impl, telegram } = fakeFetch([pagina]);
+  const r = await runRadarCupons({ scheduledTime: Date.parse("2026-11-28T16:00:00Z") },
+    { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "1", RADAR_CUPONS_CANAIS: "baixouprecofcupons" }, impl);
+  assert.equal(r.publicados, 1);
+  const post = telegram.find(([m, c]) => m === "sendMessage" && c.chat_id === "@CanalTaBaratoCupons");
+  assert.match(post[1].text, /🔑 Código: <code>BFMP100<\/code>\n💸 R\$ 200 OFF\n🛒 Compra mínima R\$ 500\n💳 Só no cartão Mercado Pago/);
+  assert.equal(db.radar.has("mercadolivre:SOLTO10"), false);
+});
+
+test("radar: cupom que some do canal de origem por 12 h vira encerrado", async () => {
+  const db = fakeDb();
+  db.radar.set("shopee:VELHO20", { chave: "shopee:VELHO20", loja: "Shopee", codigo: "VELHO20", status: "publicado", mensagem_canal: 9,
+    visto_em: Date.parse("2026-11-28T01:00:00Z") / 1000, ultimo_visto: Date.parse("2026-11-28T02:00:00Z") / 1000, link_slug: "cupons-shopee", regra_v: 3 });
+  const { impl, telegram } = fakeFetch([""]);
+  const r = await runRadarCupons({ scheduledTime: Date.parse("2026-11-28T16:00:00Z") }, { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "1" }, impl);
+  assert.equal(r.encerrados, 1);
+  assert.equal(db.radar.get("shopee:VELHO20").status, "encerrado");
+  assert.ok(telegram.some(([m, c]) => m === "editMessageText" && /CUPOM ENCERRADO/.test(c.text)));
 });

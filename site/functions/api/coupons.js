@@ -40,11 +40,11 @@ export async function onRequestPost(context) {
   const now=Math.floor(Date.now()/1000);
   if(expiresAt&&expiresAt<=now) return json({error:'expired_coupon'},409);
   await env.DB.prepare(`INSERT INTO coupons(id,source,code,title,kind,condition,destination,
-    active_at,expires_at,published_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id)
+    active_at,expires_at,published_at,verified_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id)
     DO UPDATE SET source=excluded.source,code=excluded.code,title=excluded.title,kind=excluded.kind,condition=excluded.condition,
     destination=excluded.destination,active_at=excluded.active_at,
-    expires_at=excluded.expires_at,published_at=excluded.published_at`
-  ).bind(id,source,code,title||code,kind,condition,destination,activeAt,expiresAt,now).run();
+    expires_at=excluded.expires_at,verified_at=excluded.verified_at`
+  ).bind(id,source,code,title||code,kind,condition,destination,activeAt,expiresAt,now,now).run();
   context.waitUntil(env.DB.prepare('DELETE FROM coupons WHERE expires_at IS NOT NULL AND expires_at<?').bind(now-86400).run());
   context.waitUntil(notifyIndexNow(['/cupons']));
   return json({ok:true},201);

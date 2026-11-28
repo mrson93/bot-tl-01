@@ -598,29 +598,73 @@ def canal_cupons():
     return config.TELEGRAM_CANAL_CUPONS or config.TELEGRAM_CHANNEL
 
 
-def postar_cupom(cupom: dict, link_afiliado: str) -> None:
-    """Alerta enxuto para cupom cuja pagina de resgate veio da API oficial."""
-    link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
-    fonte = html.escape(str(cupom.get("fonte") or "loja"))
-    codigo = html.escape(str(cupom.get("codigo") or "").strip())
-    titulo = html.escape(str(cupom.get("titulo") or "Voucher disponível").strip()[:180])
-    condicao = html.escape(str(cupom.get("condicao") or "").strip()[:180])
-    rotulo = "CUPOM LIBERADO" if codigo else "VOUCHER LIBERADO"
-    linhas = [f"🚨 <b>{rotulo} · {fonte.upper()}</b>", ""]
+def linhas_do_cupom(cupom: dict) -> list:
+    """Regra do cupom em linhas fixas: desconto, compra mínima, máximo, aviso e validade.
+
+    Aceita a condição dos cupons do Mercado Livre ("Compra mínima R$ 599 ·
+    Limite de R$ 300 · ative…") e a do radar ("R$ 200 OFF · compra mínima
+    R$ 500 · máximo R$ 60 · Só no cartão Mercado Pago").
+    """
+    linhas = []
+    for parte in str(cupom.get("condicao") or "").split("·"):
+        parte = " ".join(parte.split()).rstrip(".")
+        baixo = parte.lower()
+        if not parte or baixo.startswith("ative na página") or baixo.startswith("confira"):
+            continue
+        if baixo.startswith("sem compra mínima"):
+            linhas.append("🛒 Sem compra mínima")
+        elif baixo.startswith("compra mínima"):
+            linhas.append("🛒 Compra mínima " + parte[len("compra mínima"):].strip())
+        elif baixo.startswith("limite de") or baixo.startswith("máximo"):
+            valor = parte.split(" ", 2)[-1] if baixo.startswith("limite de") else parte[len("máximo"):].strip()
+            linhas.append("🔝 Desconto máximo " + valor)
+        elif re.search(r"\bOFF\b", parte, re.I):
+            linhas.append("💸 " + parte)
+        else:
+            linhas.append("💳 " + parte)
+    expira = cupom.get("expira_em")
+    if expira:
+        try:
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            quando = datetime.fromtimestamp(int(expira), ZoneInfo("America/Sao_Paulo")).strftime("%d/%m")
+            linhas.append(f"⏰ Válido até {quando}")
+        except (TypeError, ValueError, OverflowError, OSError):
+            pass
+    return linhas
+
+
+def texto_cupom(cupom: dict, html_ok: bool = True) -> str:
+    """Post do cupom (Telegram em HTML; nas outras redes em texto puro)."""
+    esc = html.escape if html_ok else (lambda t: t)
+    fonte = esc(str(cupom.get("fonte") or "loja").upper())
+    codigo = str(cupom.get("codigo") or "").strip()
+    titulo = str(cupom.get("titulo") or "").strip()[:120]
+    linhas = [f"🎟 <b>CUPOM DISPONÍVEL · {fonte}</b>" if html_ok else f"🎟 CUPOM DISPONÍVEL · {fonte}", ""]
     if codigo:
-        linhas.append(f"🎟 <code>{codigo}</code>")
-    else:
-        linhas.append(f"🎟 <b>{titulo}</b>")
-    if condicao:
-        linhas.append("ℹ️ " + condicao)
-    linhas.extend(["📱 Resgate agora no aplicativo antes de finalizar.", "",
-                   "⏳ Cupom sujeito a disponibilidade e regras da plataforma."])
-    # Com código: "Copiar código" (copia com um toque) e "Ativar na loja" lado a lado.
-    botoes = ([[{"text": "📋 Copiar código", "copy_text": {"text": str(cupom.get("codigo")).strip()}}],
+        linhas.append(f"🔑 Código: <code>{esc(codigo)}</code>" if html_ok else f"🔑 Código: {codigo}")
+        if titulo and titulo != codigo:
+            linhas.append(f"🏷 {esc(titulo)}")
+    elif titulo:
+        linhas.append(f"🏷 <b>{esc(titulo)}</b>" if html_ok else f"🏷 {titulo}")
+    linhas += [esc(l) for l in linhas_do_cupom(cupom)]
+    linhas.append("")
+    linhas.append("👉 Copie o código e use no carrinho." if codigo
+                  else "👉 Ative o cupom na página da loja e compre logado.")
+    return "\n".join(linhas)
+
+
+def postar_cupom(cupom: dict, link_afiliado: str) -> None:
+    """Cupom no canal de cupons: código para copiar e botão para ativar na loja."""
+    link_afiliado = seguranca.validar_url_https_publica(link_afiliado, "Link do cupom")
+    codigo = str(cupom.get("codigo") or "").strip()
+    texto = texto_cupom(cupom) + "\n⏳ Pode acabar a qualquer momento."
+    # Com código: "Copiar código" (copia com um toque) e "Ativar na loja".
+    botoes = ([[{"text": "📋 Copiar código", "copy_text": {"text": codigo}}],
                [{"text": "🛒 Ativar na loja", "url": link_afiliado}]] if codigo
-              else [[{"text": "🎟 Ativar voucher", "url": link_afiliado}]])
+              else [[{"text": "🎟 Ativar cupom", "url": link_afiliado}]])
     dados = {
-        "chat_id": canal_cupons(), "text": "\n".join(linhas),
+        "chat_id": canal_cupons(), "text": texto, "disable_web_page_preview": True,
         "parse_mode": "HTML", "reply_markup": {"inline_keyboard": botoes},
     }
     resposta = requests.post(API.format(token=config.TELEGRAM_BOT_TOKEN,
