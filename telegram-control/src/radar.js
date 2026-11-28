@@ -197,7 +197,7 @@ async function encerrar(env, linha, agora, fetchImpl) {
 // perfil). Corrige o texto, o botão (página de cupons) e o site.
 async function consertarRegras(env, fetchImpl) {
   const { results = [] } = await env.MONITOR_DB.prepare(`SELECT chave,loja,codigo,regra,mensagem_canal,cupom_id FROM radar_cupons
-    WHERE status='publicado' AND (link_slug IS NULL OR COALESCE(regra_v,0)<2) LIMIT 30`).all();
+    WHERE status='publicado' AND (link_slug IS NULL OR link_slug NOT LIKE 'cupons-%' OR COALESCE(regra_v,0)<2) LIMIT 30`).all();
   const canal = env.TELEGRAM_CANAL_CUPONS || CANAL_CUPONS_PADRAO;
   for (const linha of results) {
     const regra = formatarRegra(linha.regra || "");

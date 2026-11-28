@@ -43,7 +43,7 @@ function fakeDb() {
     },
     async all() {
       if (sql.includes("WHERE chave IN")) return { results: this.args.filter((c) => radar.has(c)).map((chave) => ({ chave })) };
-      if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && !r.link_slug && !r.regra_v) };
+      if (sql.includes("link_slug IS NULL")) return { results: [...radar.values()].filter((r) => r.status === "publicado" && (!String(r.link_slug || "").startsWith("cupons-") || !r.regra_v)) };
       if (sql.includes("status='publicado'")) return { results: [...radar.values()].filter((r) => r.status === "publicado") };
       return { results: [] };
     },
@@ -119,4 +119,22 @@ test("radar: desconto, compra mínima e máximo em formato fixo", () => {
   assert.equal(formatarRegra("15% OFF máx R$1.000"), "15% OFF · máximo R$ 1.000");
   assert.equal(formatarRegra("150 OFF em 1 unidade"), "R$ 150 OFF");
   assert.equal(formatarRegra("CORRE logo"), "");
+});
+
+test("radar: post publicado com o atalho da loja (perfil) é refeito quando a página de cupons aparece", async () => {
+  const db = fakeDb();
+  db.radar.set("mercadolivre:VALEHOJE", { chave: "mercadolivre:VALEHOJE", loja: "Mercado Livre", codigo: "VALEHOJE", status: "publicado",
+    mensagem_canal: 11, regra: "R$ 300 OFF", link_slug: "mercadolivre", regra_v: 2 });
+  const base = db.prepare;
+  db.prepare = (sql) => {
+    const st = base(sql);
+    if (sql.includes("FROM store_links")) st.first = async function () { return this.args[0] === "cupons-mercadolivre" ? { destination: "https://www.mercadolivre.com.br/cupons?matt_tool=1" } : null; };
+    if (sql.startsWith("UPDATE radar_cupons SET regra=")) st.run = async function () { Object.assign(db.radar.get(this.args[2]), { link_slug: this.args[1], regra_v: 2 }); return {}; };
+    return st;
+  };
+  const { impl, telegram } = fakeFetch([""]);
+  await runRadarCupons({ scheduledTime: Date.parse("2026-11-28T03:00:00Z") }, { MONITOR_DB: db, TELEGRAM_BOT_TOKEN: "t", TELEGRAM_ADMIN_ID: "1" }, impl);
+  const edicao = telegram.find(([m]) => m === "editMessageText");
+  assert.equal(edicao[1].reply_markup.inline_keyboard[1][0].url, "https://canaltabarato.com.br/loja/cupons-mercadolivre");
+  assert.equal(db.radar.get("mercadolivre:VALEHOJE").link_slug, "cupons-mercadolivre");
 });
